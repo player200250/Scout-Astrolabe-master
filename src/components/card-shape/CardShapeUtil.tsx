@@ -21,7 +21,6 @@ import { ImageContent } from './sub-components/ImageContent'
 import { TodoContent } from './sub-components/TodoContent'
 import { LinkContent } from './sub-components/LinkContent'
 import { BoardContent } from './sub-components/Boardcontent'
-import { ColumnContent } from './sub-components/Columncontent'
 
 // Board 資料 context
 interface BoardInfo { id: string; name: string; thumbnail: string | null }
@@ -120,7 +119,7 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
 
     override hideSelectionBoundsBg() { return true }
     override hideRotateHandle() { return true }
-    override hideResizeHandles(shape: TLCardShape) { return shape.props.type === 'column' }
+    override hideResizeHandles() { return false }
 
     override onResize(shape: TLCardShape, info: TLResizeInfo<TLCardShape>) {
         return resizeBox(shape, info)
@@ -142,7 +141,7 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
             }
             return { id: shape.id, type: shape.type }
         } else if (shape.props.state === 'idle') {
-            if (type === 'todo' || type === 'link' || type === 'column') {
+            if (type === 'todo' || type === 'link') {
                 this.editor.updateShape({
                     id: shape.id, type: 'card',
                     props: { state: 'editing' },
@@ -154,7 +153,6 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
                 }))
                 return { id: shape.id, type: shape.type }
             } else if (type === 'text') {
-                // 透過 CustomEvent 橋接到 React state 開 modal
                 window.dispatchEvent(new CustomEvent('text-card-edit', {
                     detail: { shapeId: shape.id }
                 }))
@@ -171,7 +169,6 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
         const p = shape.props
 
         const [isHovered, setIsHovered] = useState(false)
-        // ① 文字編輯 modal 開關
         const [showTextModal, setShowTextModal] = useState(false)
 
         const isEditing = editor.getEditingShapeId() === shape.id || p.state === 'editing'
@@ -194,7 +191,6 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
             }
         }, [editor, shape.id, p.preview])
 
-        // 監聽 text-card-edit 事件，只有自己的 shapeId 才開 modal
         useEffect(() => {
             const handler = (e: Event) => {
                 const detail = (e as CustomEvent).detail
@@ -210,7 +206,6 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
         const handleEscape = useCallback((e: KeyboardEvent) => {
             if (e.key === 'Escape') {
                 closePreview()
-                // ② ESC 關閉文字 modal
                 setShowTextModal(false)
             }
         }, [closePreview])
@@ -247,7 +242,7 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
                             borderRadius: 8,
                             border: isEditing ? '1px solid #333' : '1px solid #ebebeb',
                             padding: 0, boxSizing: 'border-box',
-                            pointerEvents: shouldInnerDivCaptureEvents ? 'auto' : 'none',
+                            pointerEvents: shouldInnerDivCaptureEvents || p.type === 'image' ? 'auto' : 'none',
                             cursor: shouldInnerDivCaptureEvents ? 'default' : 'grab',
                             boxShadow: isHovered && !isEditing
                                 ? '0 8px 20px rgba(0,0,0,0.1), 0 0 0 1px rgba(0,0,0,0.08)'
@@ -255,12 +250,9 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
                                     ? '0 0 0 2px #333'
                                     : '0 2px 4px rgba(0,0,0,0.05), 0 0 0 1px rgba(0,0,0,0.05)',
                             transition: 'box-shadow 0.15s ease-in-out, border-color 0.15s ease-in-out',
-                            backgroundColor: p.type === 'column'
-                                ? 'rgba(240, 244, 255, 0.85)'
-                                : p.color === 'dark' ? '#1a1a2e' : colorStyle.bg,
+                            backgroundColor: p.color === 'dark' ? '#1a1a2e' : colorStyle.bg,
                         }}
                     >
-                        {/* 頂部色條（非 none 顏色才顯示）*/}
                         {p.color && p.color !== 'none' && (
                             <div style={{
                                 height: 4, width: '100%', flexShrink: 0,
@@ -432,7 +424,5 @@ function CardContent({ editor, shape, isEditing, exitEdit }: CardContentProps) {
                 />
             )
         }
-        case 'column':
-            return <ColumnContent shape={shape} isEditing={isEditing} exitEdit={exitEdit} />
     }
 }

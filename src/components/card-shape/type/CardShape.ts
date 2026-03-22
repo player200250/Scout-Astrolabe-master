@@ -1,7 +1,7 @@
 // src/CardShape.ts
 import type { TLBaseShape } from '@tldraw/editor'
 
-export type CardType = 'text' | 'image' | 'todo' | 'link' | 'board' | 'column'
+export type CardType = 'text' | 'image' | 'todo' | 'link' | 'board'
 export type CardState = 'idle' | 'editing'
 
 // 卡片顏色
@@ -59,12 +59,6 @@ export interface TLCardProps {
 
     // ---- Board ----
     linkedBoardId?: string | null   // 關聯的子白板 ID
-
-    // ---- Column ----
-    linkedColumnId?: string | null   // 關聯的列 ID
-
-    // ---- Document ----
-    documentTitle?: string
 
     // ---- 共用狀態 ----
     state: CardState

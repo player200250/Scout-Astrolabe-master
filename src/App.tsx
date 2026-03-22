@@ -1,5 +1,5 @@
 // src/App.tsx
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import {
     Tldraw,
     useEditor,
@@ -40,6 +40,7 @@ interface BoardRecord {
     snapshot: TLEditorSnapshot | null
     thumbnail: string | null
     updatedAt: number
+    parentId?: string | null   // 父白板 ID，主板為 null
 }
 
 const generateId = () => `board_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
@@ -105,29 +106,91 @@ interface BoardTabBarProps {
     onDelete: (id: string) => void
     onSearch: () => void
     onHotkey: () => void
+    navigationStack: string[]   // 導航歷史 [rootId, ..., currentId]
+    onBack: () => void          // 返回上一層
+    onSetParent: (boardId: string, parentId: string | null) => void  // 設定父板
+    onSwitchToChild: (id: string) => void  // 進入子板（帶麵包屑）
 }
 
-function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelete, onSearch, onHotkey }: BoardTabBarProps) {
+function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelete, onSearch, onHotkey, navigationStack, onBack, onSetParent, onSwitchToChild }: BoardTabBarProps) {
     const [hoveredId, setHoveredId] = useState<string | null>(null)
     const [renamingId, setRenamingId] = useState<string | null>(null)
     const [renameValue, setRenameValue] = useState('')
+    const [contextMenu, setContextMenu] = useState<{ boardId: string; x: number; y: number } | null>(null)
+    const [selectingParentFor, setSelectingParentFor] = useState<string | null>(null)
 
     const startRename = (board: BoardRecord) => { setRenamingId(board.id); setRenameValue(board.name) }
     const commitRename = (id: string) => { if (renameValue.trim()) onRename(id, renameValue.trim()); setRenamingId(null) }
+
+    // 麵包屑：navigationStack 有超過1層時才顯示
+    const showBreadcrumb = navigationStack.length > 1
 
     return (
         <div style={{
             position: 'fixed', top: 0, left: 0, right: 0, height: 48,
             background: 'rgba(255,255,255,0.96)', backdropFilter: 'blur(8px)',
             borderBottom: '1px solid #eee', display: 'flex', alignItems: 'center',
-            gap: 4, paddingLeft: 12, paddingRight: 12, zIndex: 10000, overflowX: 'auto',
+            zIndex: 10000,
         }}>
-            {boards.map(board => (
+            {/* 可捲動的 Tab 區域 */}
+            <div style={{
+                flex: 1, display: 'flex', alignItems: 'center', gap: 4,
+                paddingLeft: 12, overflowX: 'auto', overflowY: 'hidden',
+                scrollbarWidth: 'none', // Firefox 隱藏捲軸
+            }}>
+            {/* 麵包屑導航 */}
+            {showBreadcrumb && (
+                <div style={{
+                    display: 'flex', alignItems: 'center', gap: 4,
+                    marginRight: 8, flexShrink: 0,
+                }}>
+                    {navigationStack.map((boardId, idx) => {
+                        const b = boards.find(b => b.id === boardId)
+                        if (!b) return null
+                        const isLast = idx === navigationStack.length - 1
+                        return (
+                            <div key={boardId} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                {idx > 0 && <span style={{ color: '#bbb', fontSize: 12 }}>›</span>}
+                                <span
+                                    onClick={() => !isLast && onSwitch(boardId)}
+                                    style={{
+                                        fontSize: 13, cursor: isLast ? 'default' : 'pointer',
+                                        color: isLast ? '#1a1a1a' : '#888',
+                                        fontWeight: isLast ? 600 : 400,
+                                        textDecoration: isLast ? 'none' : 'underline',
+                                    }}
+                                    onMouseEnter={e => { if (!isLast) (e.target as HTMLElement).style.color = '#1971c2' }}
+                                    onMouseLeave={e => { if (!isLast) (e.target as HTMLElement).style.color = '#888' }}
+                                >
+                                    {b.name}
+                                </span>
+                            </div>
+                        )
+                    })}
+                    {/* 返回按鈕 */}
+                    <button
+                        onClick={onBack}
+                        title="返回上一層"
+                        style={{
+                            marginLeft: 4, padding: '2px 8px', borderRadius: 6,
+                            border: '1px solid #eee', background: 'transparent',
+                            cursor: 'pointer', fontSize: 12, color: '#888',
+                        }}
+                        onMouseEnter={e => (e.currentTarget.style.background = '#f5f5f5')}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                    >
+                        ← 返回
+                    </button>
+                    <div style={{ width: 1, height: 20, background: '#eee', marginLeft: 4 }} />
+                </div>
+            )}
+            {boards.filter(b => !b.parentId).map(board => (
                 <div
                     key={board.id}
                     onMouseEnter={() => setHoveredId(board.id)}
                     onMouseLeave={() => setHoveredId(null)}
                     onClick={() => onSwitch(board.id)}
+                    onContextMenu={(e) => { e.preventDefault(); setContextMenu({ boardId: board.id, x: e.clientX, y: e.clientY }) }}
                     style={{
                         position: 'relative', display: 'flex', alignItems: 'center', gap: 6,
                         padding: '4px 10px', borderRadius: 8, cursor: 'pointer',
@@ -180,6 +243,14 @@ function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelet
                 </div>
             ))}
 
+            </div>{/* 可捲動 Tab 區域結束 */}
+
+            {/* 固定右側按鈕區 */}
+            <div style={{
+                display: 'flex', alignItems: 'center', gap: 4,
+                paddingLeft: 8, paddingRight: 12, flexShrink: 0,
+                borderLeft: '1px solid #eee',
+            }}>
             <button onClick={onNew} style={{
                 width: 28, height: 28, borderRadius: 8, border: '1px dashed #ccc',
                 background: 'transparent', cursor: 'pointer', fontSize: 18, color: '#aaa',
@@ -197,6 +268,174 @@ function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelet
                 background: 'transparent', cursor: 'pointer', fontSize: 14, color: '#888',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, padding: 0,
             }} title="快捷鍵 (?)">⌨️</button>
+            </div>
+
+            {/* 右鍵選單 */}
+            {contextMenu && (() => {
+                const targetBoard = boards.find(b => b.id === contextMenu.boardId)
+                if (!targetBoard) return null
+                return (
+                    <>
+                        <div style={{ position: 'fixed', inset: 0, zIndex: 99998 }} onClick={() => setContextMenu(null)} />
+                        <div style={{
+                            position: 'fixed', left: contextMenu.x, top: contextMenu.y,
+                            background: 'white', borderRadius: 10, padding: '4px 0',
+                            boxShadow: '0 4px 20px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.06)',
+                            zIndex: 99999, minWidth: 160,
+                        }}>
+                            <div style={{ padding: '4px 12px 6px', fontSize: 11, color: '#aaa', borderBottom: '1px solid #f0f0f0', marginBottom: 4 }}>
+                                {targetBoard.name}
+                            </div>
+                            <div
+                                onClick={() => { setSelectingParentFor(contextMenu.boardId); setContextMenu(null) }}
+                                style={{ padding: '7px 14px', cursor: 'pointer', fontSize: 13 }}
+                                onMouseEnter={e => (e.currentTarget.style.background = '#f5f5f5')}
+                                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                            >
+                                📂 設為子板...
+                            </div>
+                            <div style={{ height: 1, background: '#f0f0f0', margin: '4px 0' }} />
+                            <div
+                                onClick={() => {
+                                    if (confirm(`確定刪除「${targetBoard.name}」嗎？`)) {
+                                        onDelete(contextMenu.boardId)
+                                        setContextMenu(null)
+                                    }
+                                }}
+                                style={{ padding: '7px 14px', cursor: 'pointer', fontSize: 13, color: '#e03131' }}
+                                onMouseEnter={e => (e.currentTarget.style.background = '#fff5f5')}
+                                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                            >
+                                🗑️ 刪除白板
+                            </div>
+                            {/* 查看子板（遞迴顯示所有後代） */}
+                            {boards.filter(b => b.parentId === contextMenu.boardId).length > 0 && (() => {
+                                const renderChildren = (parentId: string, depth: number): React.ReactNode => {
+                                    return boards.filter(b => b.parentId === parentId).map(child => (
+                                        <React.Fragment key={child.id}>
+                                            <div
+                                                style={{
+                                                    display: 'flex', alignItems: 'center',
+                                                    paddingLeft: 14 + depth * 12,
+                                                    paddingRight: 8,
+                                                }}
+                                                onMouseEnter={e => (e.currentTarget.style.background = '#f5f5f5')}
+                                                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                                            >
+                                                <div
+                                                    onClick={() => { onSwitchToChild(child.id); setContextMenu(null) }}
+                                                    style={{ flex: 1, padding: '7px 6px 7px 0', cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}
+                                                >
+                                                    <span style={{ color: '#aaa', fontSize: 11 }}>{depth > 0 ? '└' : '📋'}</span>
+                                                    {child.name}
+                                                </div>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation()
+                                                        onSetParent(child.id, null)
+                                                        setContextMenu(null)
+                                                    }}
+                                                    style={{
+                                                        background: 'none', border: 'none', cursor: 'pointer',
+                                                        color: '#aaa', fontSize: 11, padding: '2px 4px', borderRadius: 4,
+                                                        flexShrink: 0, whiteSpace: 'nowrap',
+                                                    }}
+                                                    onMouseEnter={e => (e.currentTarget.style.color = '#1971c2')}
+                                                    onMouseLeave={e => (e.currentTarget.style.color = '#aaa')}
+                                                    title="升為主板"
+                                                >↑主板</button>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation()
+                                                        if (confirm(`確定刪除「${child.name}」嗎？`)) {
+                                                            onDelete(child.id)
+                                                            setContextMenu(null)
+                                                        }
+                                                    }}
+                                                    style={{
+                                                        background: 'none', border: 'none', cursor: 'pointer',
+                                                        color: '#ccc', fontSize: 14, padding: '2px 4px', borderRadius: 4,
+                                                        flexShrink: 0,
+                                                    }}
+                                                    onMouseEnter={e => (e.currentTarget.style.color = '#e03131')}
+                                                    onMouseLeave={e => (e.currentTarget.style.color = '#ccc')}
+                                                    title="刪除子板"
+                                                >×</button>
+                                            </div>
+                                            {renderChildren(child.id, depth + 1)}
+                                        </React.Fragment>
+                                    ))
+                                }
+                                return (
+                                    <>
+                                        <div style={{ height: 1, background: '#f0f0f0', margin: '4px 0' }} />
+                                        <div style={{ padding: '4px 14px 2px', fontSize: 11, color: '#aaa' }}>子板</div>
+                                        {renderChildren(contextMenu.boardId, 0)}
+                                    </>
+                                )
+                            })()}
+                        </div>
+                    </>
+                )
+            })()}
+
+            {/* 選擇父板 dialog */}
+            {selectingParentFor && (() => {
+                const target = boards.find(b => b.id === selectingParentFor)
+                // 排除自己和自己的所有後代（避免循環）
+                const getDescendants = (id: string): string[] => {
+                    const children = boards.filter(b => b.parentId === id).map(b => b.id)
+                    return [...children, ...children.flatMap(getDescendants)]
+                }
+                const excluded = new Set([selectingParentFor, ...getDescendants(selectingParentFor)])
+
+                // 建立有層級的清單
+                const buildTree = (parentId: string | null | undefined, depth: number): { board: BoardRecord; depth: number }[] => {
+                    return boards
+                        .filter(b => (b.parentId ?? null) === (parentId ?? null) && !excluded.has(b.id))
+                        .flatMap(b => [{ board: b, depth }, ...buildTree(b.id, depth + 1)])
+                }
+                const tree = buildTree(null, 0)
+                return (
+                    <>
+                        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.3)', zIndex: 99998 }} onClick={() => setSelectingParentFor(null)} />
+                        <div style={{
+                            position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
+                            background: 'white', borderRadius: 14, padding: 20,
+                            boxShadow: '0 8px 40px rgba(0,0,0,0.2)',
+                            zIndex: 99999, minWidth: 280,
+                        }}>
+                            <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 4 }}>設為子板</div>
+                            <div style={{ fontSize: 13, color: '#888', marginBottom: 16 }}>
+                                將「{target?.name}」設為哪個白板的子板？
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                {tree.map(({ board: b, depth }) => (
+                                    <div
+                                        key={b.id}
+                                        onClick={() => { onSetParent(selectingParentFor, b.id); setSelectingParentFor(null) }}
+                                        style={{
+                                            padding: '8px 12px', borderRadius: 8, cursor: 'pointer',
+                                            border: '1px solid #eee', fontSize: 13,
+                                            marginLeft: depth * 16,
+                                            display: 'flex', alignItems: 'center', gap: 6,
+                                        }}
+                                        onMouseEnter={e => (e.currentTarget.style.background = '#f5f5f5')}
+                                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                                    >
+                                        {depth > 0 && <span style={{ color: '#ccc', fontSize: 11 }}>{'└'}</span>}
+                                        {b.name}
+                                    </div>
+                                ))}
+                            </div>
+                            <button
+                                onClick={() => setSelectingParentFor(null)}
+                                style={{ marginTop: 12, width: '100%', padding: '8px', borderRadius: 8, border: '1px solid #eee', cursor: 'pointer', fontSize: 13 }}
+                            >取消</button>
+                        </div>
+                    </>
+                )
+            })()}
         </div>
     )
 }
@@ -284,20 +523,17 @@ function WhiteboardTools({ board, onSaveBoard, jumpRef, onOpenSearch, onOpenHotk
     }, [editor, onCreateBoard, boards.length])
 
     const createColumnCard = useCallback((x?: number, y?: number) => {
+        const center = editor.getViewportScreenCenter()
+        const pageCenter = editor.screenToPage(center)
         editor.createShape({
-            type: 'card', x, y,
+            type: 'frame',
+            x: x ?? pageCenter.x - 160,
+            y: y ?? pageCenter.y - 240,
             props: {
-                type: 'column', text: '',
-                image: null, blobUrl: null, todos: [],
-                url: '', linkEmbedUrl: null,
-                state: 'idle', color: 'none', w: 260, h: 480,
+                w: 320,
+                h: 480,
+                name: '欄位',
             }
-        })
-        // Column 永遠在最底層，讓其他卡片可以放在上面
-        requestAnimationFrame(() => {
-            const shapes = editor.getCurrentPageShapes()
-            const col = shapes[shapes.length - 1]
-            if (col) editor.sendToBack([col.id])
         })
     }, [editor])
 
@@ -322,6 +558,31 @@ function WhiteboardTools({ board, onSaveBoard, jumpRef, onOpenSearch, onOpenHotk
         window.addEventListener('board-card-enter' as any, handleBoardEnter)
         return () => window.removeEventListener('board-card-enter' as any, handleBoardEnter)
     }, [onSwitchBoard])
+
+    // 設為子板時，自動在父板建立 Board 卡片
+    useEffect(() => {
+        const handler = (e: CustomEvent) => {
+            const { targetBoardId, linkedBoardId, boardName } = e.detail
+            // 只有目前是父板才處理
+            if (targetBoardId !== board.id) return
+            const center = editor.getViewportScreenCenter()
+            const pageCenter = editor.screenToPage(center)
+            editor.createShape({
+                type: 'card',
+                x: pageCenter.x - 140,
+                y: pageCenter.y - 100,
+                props: {
+                    type: 'board', text: boardName,
+                    image: null, blobUrl: null, todos: [],
+                    url: '', linkEmbedUrl: null,
+                    linkedBoardId,
+                    state: 'idle', color: 'none', w: 280, h: 200,
+                }
+            })
+        }
+        window.addEventListener('create-board-card-on' as any, handler)
+        return () => window.removeEventListener('create-board-card-on' as any, handler)
+    }, [board.id, editor])
 
     // 右鍵選單
     const { menuElement } = useContextMenu({
@@ -525,6 +786,42 @@ function WhiteboardTools({ board, onSaveBoard, jumpRef, onOpenSearch, onOpenHotk
         if (!editor || initialized.current) return
         initialized.current = true
         if (board.snapshot) loadSnapshot(editor.store, board.snapshot)
+
+        // 載入後自動檢查子板，補建缺少的 Board 卡片
+        setTimeout(() => {
+        // 每一層都自動補建直接子板的 Board 卡片
+        const childBoards = boards.filter(b => b.parentId === board.id)
+            if (childBoards.length === 0) return
+
+            // 找出畫布上已有的 Board 卡片連結的 linkedBoardId
+            const existingLinkedIds = new Set(
+                editor.getCurrentPageShapes()
+                    .filter(s => (s.props as any).type === 'board')
+                    .map(s => (s.props as any).linkedBoardId)
+                    .filter(Boolean)
+            )
+
+            // 補建缺少的
+            const missing = childBoards.filter(b => !existingLinkedIds.has(b.id))
+            if (missing.length === 0) return
+
+            const center = editor.getViewportScreenCenter()
+            const pageCenter = editor.screenToPage(center)
+            missing.forEach((child, idx) => {
+                editor.createShape({
+                    type: 'card',
+                    x: pageCenter.x - 140 + idx * 300,
+                    y: pageCenter.y + 200,
+                    props: {
+                        type: 'board', text: child.name,
+                        image: null, blobUrl: null, todos: [],
+                        url: '', linkEmbedUrl: null,
+                        linkedBoardId: child.id,
+                        state: 'idle', color: 'none', w: 280, h: 200,
+                    }
+                })
+            })
+        }, 300)
     }, [editor, board])
 
     useEffect(() => {
@@ -654,12 +951,15 @@ export default function App() {
     const [loading, setLoading] = useState(true)
     const [searchOpen, setSearchOpen] = useState(false)
     const [hotkeyOpen, setHotkeyOpen] = useState(false)
+    const [navigationStack, setNavigationStack] = useState<string[]>([])  // 導航歷史
     const jumpRef = useRef<((shapeId: string, x: number, y: number) => void) | null>(null)
 
     useEffect(() => {
         loadAllBoards().then(loaded => {
             setBoards(loaded)
-            setActiveBoardId(loaded[0]?.id ?? null)
+            const firstId = loaded[0]?.id ?? null
+            setActiveBoardId(firstId)
+            if (firstId) setNavigationStack([firstId])
             setLoading(false)
         })
     }, [])
@@ -676,14 +976,70 @@ export default function App() {
         }))
     }, [activeBoardId])
 
-    const handleCreateBoard = useCallback((name: string): BoardRecord => {
-        const newBoard: BoardRecord = { id: generateId(), name, snapshot: null, thumbnail: null, updatedAt: Date.now() }
+    const handleCreateBoard = useCallback((name: string, parentId?: string): BoardRecord => {
+        const newBoard: BoardRecord = { id: generateId(), name, snapshot: null, thumbnail: null, updatedAt: Date.now(), parentId: parentId ?? null }
         saveBoard(newBoard)
         setBoards(prev => [...prev, newBoard])
         return newBoard
     }, [])
 
-    const handleSwitch = useCallback((id: string) => { if (id !== activeBoardId) setActiveBoardId(id) }, [activeBoardId])
+    // 一般切換（Tab 點擊）：重置導航堆疊
+    const handleSwitch = useCallback((id: string) => {
+        if (id !== activeBoardId) {
+            setActiveBoardId(id)
+            setNavigationStack([id])
+        }
+    }, [activeBoardId])
+
+    // 進入子板（Board 卡片雙擊）：疊加導航堆疊
+    const handleSwitchToChild = useCallback((childId: string) => {
+        setActiveBoardId(childId)
+        setNavigationStack(prev => {
+            // 如果已經在堆疊裡，截斷到那個位置
+            const idx = prev.indexOf(childId)
+            if (idx >= 0) return prev.slice(0, idx + 1)
+            return [...prev, childId]
+        })
+    }, [])
+
+    // 返回上一層
+    // 設定白板的父板
+    const handleSetParent = useCallback((boardId: string, parentId: string | null) => {
+        const childBoard = boards.find(b => b.id === boardId)
+        setBoards(prev => prev.map(b => {
+            if (b.id !== boardId) return b
+            const updated = { ...b, parentId }
+            saveBoard(updated)
+            return updated
+        }))
+        if (parentId && childBoard) {
+            // 切換到父板，再等 tldraw 載入後建立卡片
+            setActiveBoardId(parentId)
+            setNavigationStack([parentId])
+            // 等白板切換完成後再發事件
+            setTimeout(() => {
+                window.dispatchEvent(new CustomEvent('create-board-card-on', {
+                    detail: {
+                        targetBoardId: parentId,
+                        linkedBoardId: boardId,
+                        boardName: childBoard.name,
+                    }
+                }))
+            }, 400)
+        }
+        if (activeBoardId === boardId && parentId === null) {
+            setNavigationStack([boardId])
+        }
+    }, [activeBoardId, boards])
+
+    const handleBack = useCallback(() => {
+        setNavigationStack(prev => {
+            if (prev.length <= 1) return prev
+            const newStack = prev.slice(0, -1)
+            setActiveBoardId(newStack[newStack.length - 1])
+            return newStack
+        })
+    }, [])
 
     const handleNew = useCallback(() => {
         const newBoard: BoardRecord = { id: generateId(), name: `白板 ${boards.length + 1}`, snapshot: null, thumbnail: null, updatedAt: Date.now() }
@@ -728,6 +1084,10 @@ export default function App() {
                 onDelete={handleDelete}
                 onSearch={() => setSearchOpen(true)}
                 onHotkey={() => setHotkeyOpen(true)}
+                navigationStack={navigationStack}
+                onBack={handleBack}
+                onSetParent={handleSetParent}
+                onSwitchToChild={handleSwitchToChild}
             />
 
             {activeBoard && (
@@ -739,8 +1099,8 @@ export default function App() {
                     jumpRef={jumpRef}
                     onOpenSearch={() => setSearchOpen(true)}
                     onOpenHotkey={() => setHotkeyOpen(true)}
-                    onCreateBoard={handleCreateBoard}
-                    onSwitchBoard={handleSwitch}
+                    onCreateBoard={(name) => handleCreateBoard(name, activeBoardId ?? undefined)}
+                    onSwitchBoard={handleSwitchToChild}
                 />
             )}
 

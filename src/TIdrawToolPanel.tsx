@@ -274,7 +274,14 @@ export default function TldrawToolPanel({
         }
 
         if (cardType === 'column') {
-            createColumnCard()
+            // 直接在放手位置建立 frame
+            const pagePoint = editor.screenToPage({ x: clientX, y: clientY })
+            editor.createShape({
+                type: 'frame',
+                x: pagePoint.x - 160,
+                y: pagePoint.y - 240,
+                props: { w: 320, h: 480, name: '欄位' }
+            })
             return
         }
 
