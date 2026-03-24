@@ -21,6 +21,7 @@ import { ImageContent } from './sub-components/ImageContent'
 import { TodoContent } from './sub-components/TodoContent'
 import { LinkContent } from './sub-components/LinkContent'
 import { BoardContent } from './sub-components/Boardcontent'
+// import { CodeContent } from './sub-components/CodeContent'
 
 // Board 資料 context
 interface BoardInfo { id: string; name: string; thumbnail: string | null }
@@ -141,7 +142,7 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
             }
             return { id: shape.id, type: shape.type }
         } else if (shape.props.state === 'idle') {
-            if (type === 'todo' || type === 'link') {
+            if (type === 'todo' || type === 'link' ) {
                 this.editor.updateShape({
                     id: shape.id, type: 'card',
                     props: { state: 'editing' },
@@ -375,6 +376,7 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
                                 shape={shape}
                                 isEditing={true}
                                 exitEdit={() => setShowTextModal(false)}
+                                preventResize={true}
                             />
                         </div>
                     </div>,
@@ -424,5 +426,7 @@ function CardContent({ editor, shape, isEditing, exitEdit }: CardContentProps) {
                 />
             )
         }
+        // case 'code':
+        //     return <CodeContent shape={shape} isEditing={isEditing} exitEdit={exitEdit} />
     }
 }

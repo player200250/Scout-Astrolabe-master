@@ -6,13 +6,18 @@ import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
 import TextStyle from '@tiptap/extension-text-style'
 import { Color } from '@tiptap/extension-color'
-import CodeBlock from '@tiptap/extension-code-block'
+import { CodeBlockLowlight } from '@tiptap/extension-code-block-lowlight'
+import { createLowlight, common } from 'lowlight'
+
+// 建立 lowlight 實例（包含常用語言）
+const lowlight = createLowlight(common)
 
 interface TextContentProps {
     editor: TldrawEditor
     shape: TLCardShape
     isEditing: boolean
     exitEdit: () => void
+    preventResize?: boolean  // Modal 模式下不改高度
 }
 
 /* ================================================
@@ -34,7 +39,7 @@ function ToolbarButton({
     return (
         <button
             onMouseDown={(e) => {
-                e.preventDefault() // 防止 Tiptap 失去焦點
+                e.preventDefault()
                 onClick()
             }}
             title={title}
@@ -138,7 +143,7 @@ function Toolbar({ tiptap }: { tiptap: ReturnType<typeof useTiptap> }) {
             <ToolbarButton
                 onClick={() => tiptap.chain().focus().toggleCodeBlock().run()}
                 active={tiptap.isActive('codeBlock')}
-                title="程式碼區塊"
+                title="程式碼區塊（語法高亮）"
             >
                 {'</>'}
             </ToolbarButton>
@@ -172,34 +177,44 @@ function Toolbar({ tiptap }: { tiptap: ReturnType<typeof useTiptap> }) {
 /* ================================================
    TextContent 主組件
 ================================================ */
-export function TextContent({ editor: tldrawEditor, shape, isEditing, exitEdit }: TextContentProps) {
+export function TextContent({ editor: tldrawEditor, shape, isEditing, exitEdit, preventResize = false }: TextContentProps) {
     const p = shape.props
 
     const tiptap = useTiptap({
         extensions: [
-            StarterKit,
+            StarterKit.configure({ codeBlock: false }), // 停用預設 CodeBlock
             Underline,
             TextStyle,
             Color,
-            CodeBlock,
+            CodeBlockLowlight.configure({ lowlight }), // 取代為有語法高亮的版本
         ],
         content: p.text || '<p></p>',
         editable: isEditing,
         onBlur: ({ editor }) => {
             const html = editor.getHTML()
-            const lineCount = (html.match(/<\/p>|<\/h[123]>|<\/li>/g) || []).length || 1
-            const newH = Math.max(80, lineCount * 28 + 80)
-
-            tldrawEditor.updateShape({
-                id: shape.id,
-                type: 'card',
-                props: { text: html, h: newH },
-            })
+            if (preventResize) {
+                // Modal 模式：只存內容，不改高度
+                tldrawEditor.updateShape({
+                    id: shape.id,
+                    type: 'card',
+                    props: { text: html },
+                })
+            } else {
+                // 一般模式：保留現有高度，只在需要時擴大
+                const currentH = shape.props.h
+                const lineCount = (html.match(/<\/p>|<\/h[123]>|<\/li>|<\/pre>/g) || []).length || 1
+                const estimatedH = Math.max(80, lineCount * 28 + 80)
+                const newH = Math.max(currentH, estimatedH)
+                tldrawEditor.updateShape({
+                    id: shape.id,
+                    type: 'card',
+                    props: { text: html, h: newH },
+                })
+            }
             exitEdit()
         },
     })
 
-    // isEditing 改變時同步 Tiptap editable 狀態
     useEffect(() => {
         if (!tiptap) return
         tiptap.setEditable(isEditing)
@@ -222,7 +237,6 @@ export function TextContent({ editor: tldrawEditor, shape, isEditing, exitEdit }
         if (!isEditing) handleSave()
     }, [isEditing, handleSave])
 
-    // ── idle 狀態：純閱讀渲染，有排版層次 ──
     if (!isEditing) {
         const isEmpty = !p.text || p.text === '<p></p>'
 
@@ -246,7 +260,6 @@ export function TextContent({ editor: tldrawEditor, shape, isEditing, exitEdit }
                     position: 'relative',
                 }}
             >
-                {/* 內容區：長文字固定高度＋裁切，短文字正常顯示 */}
                 <div
                     style={{
                         flex: 1,
@@ -265,13 +278,10 @@ export function TextContent({ editor: tldrawEditor, shape, isEditing, exitEdit }
                                 className="tiptap-readonly"
                                 dangerouslySetInnerHTML={{ __html: p.text || '' }}
                             />
-                            {/* 長文字才顯示漸層遮罩 */}
                             {isLong && (
                                 <div style={{
                                     position: 'absolute',
-                                    bottom: 0,
-                                    left: 0,
-                                    right: 0,
+                                    bottom: 0, left: 0, right: 0,
                                     height: 48,
                                     background: 'linear-gradient(to bottom, transparent, white)',
                                     pointerEvents: 'none',
@@ -281,7 +291,6 @@ export function TextContent({ editor: tldrawEditor, shape, isEditing, exitEdit }
                     )}
                 </div>
 
-                {/* 長文字才顯示底部字數提示列 */}
                 {isLong && !isEmpty && (
                     <div style={{
                         flexShrink: 0,
@@ -301,7 +310,6 @@ export function TextContent({ editor: tldrawEditor, shape, isEditing, exitEdit }
         )
     }
 
-    // ── editing 狀態：完整 Tiptap 編輯器 ──
     return (
         <div
             style={{
@@ -318,13 +326,7 @@ export function TextContent({ editor: tldrawEditor, shape, isEditing, exitEdit }
         >
             <Toolbar tiptap={tiptap} />
 
-            <div
-                style={{
-                    flex: 1,
-                    overflow: 'auto',
-                    padding: '14px 18px',
-                }}
-            >
+            <div style={{ flex: 1, overflow: 'auto', padding: '14px 18px' }}>
                 <EditorContent
                     editor={tiptap}
                     style={{ height: '100%', outline: 'none' }}

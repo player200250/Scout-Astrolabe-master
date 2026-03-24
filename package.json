@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@tiptap/extension-code-block": "^2.27.2",
+    "@tiptap/extension-code-block-lowlight": "^3.20.4",
     "@tiptap/extension-color": "^2.27.2",
     "@tiptap/extension-text-style": "^2.27.2",
     "@tiptap/extension-underline": "^2.27.2",
@@ -22,6 +23,7 @@
     "@tiptap/starter-kit": "^2.27.2",
     "dexie": "^4.2.1",
     "electron-store": "^10.1.0",
+    "lowlight": "^3.3.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-textarea-autosize": "^8.5.9",
@@ -47,7 +49,7 @@
     "typescript-eslint": "^8.39.1",
     "vite": "^7.1.2"
   },
-"build": {
+  "build": {
     "appId": "com.scout.astrolabe",
     "productName": "Scout Astrolabe",
     "files": [
@@ -61,7 +63,9 @@
     },
     "forceCodeSigning": false,
     "win": {
-      "target": ["nsis"],
+      "target": [
+        "nsis"
+      ],
       "icon": "build/icon.ico"
     }
   }

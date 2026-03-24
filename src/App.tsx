@@ -40,14 +40,33 @@ interface BoardRecord {
     snapshot: TLEditorSnapshot | null
     thumbnail: string | null
     updatedAt: number
-    parentId?: string | null   // 父白板 ID，主板為 null
+    parentId?: string | null
+    isHome?: boolean   // 主頁白板，固定在第一個
 }
+
+const HOME_BOARD_ID = 'home_board'
 
 const generateId = () => `board_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
 
 const loadAllBoards = async (): Promise<BoardRecord[]> => {
     const boards = await db.table('boards').toArray()
-    if (boards.length === 0) {
+
+    // 確保主頁存在
+    let homeBoard = boards.find(b => b.isHome)
+    if (!homeBoard) {
+        homeBoard = {
+            id: HOME_BOARD_ID,
+            name: '🏠 主頁',
+            snapshot: null,
+            thumbnail: null,
+            updatedAt: 0,
+            isHome: true,
+        }
+        await db.table('boards').put(homeBoard)
+        boards.unshift(homeBoard)
+    }
+
+    if (boards.filter(b => !b.isHome).length === 0) {
         const oldSnapshot = await db.table('snapshots').get('latest')
         const firstBoard: BoardRecord = {
             id: generateId(),
@@ -57,9 +76,13 @@ const loadAllBoards = async (): Promise<BoardRecord[]> => {
             updatedAt: Date.now(),
         }
         await db.table('boards').put(firstBoard)
-        return [firstBoard]
+        boards.push(firstBoard)
     }
-    return boards.sort((a, b) => a.updatedAt - b.updatedAt)
+
+    // 主頁永遠在第一個，其他按 updatedAt 排序
+    const home = boards.filter(b => b.isHome)
+    const rest = boards.filter(b => !b.isHome).sort((a, b) => a.updatedAt - b.updatedAt)
+    return [...home, ...rest]
 }
 
 const saveBoard = async (board: BoardRecord) => { await db.table('boards').put(board) }
@@ -190,7 +213,7 @@ function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelet
                     onMouseEnter={() => setHoveredId(board.id)}
                     onMouseLeave={() => setHoveredId(null)}
                     onClick={() => onSwitch(board.id)}
-                    onContextMenu={(e) => { e.preventDefault(); setContextMenu({ boardId: board.id, x: e.clientX, y: e.clientY }) }}
+                    onContextMenu={(e) => { e.preventDefault(); if (!board.isHome) setContextMenu({ boardId: board.id, x: e.clientX, y: e.clientY }) }}
                     style={{
                         position: 'relative', display: 'flex', alignItems: 'center', gap: 6,
                         padding: '4px 10px', borderRadius: 8, cursor: 'pointer',
@@ -230,7 +253,7 @@ function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelet
                         >{board.name}</span>
                     )}
 
-                    {hoveredId === board.id && boards.length > 1 && (
+                    {hoveredId === board.id && boards.length > 1 && !board.isHome && (
                         <button
                             onClick={(e) => { e.stopPropagation(); if (confirm(`確定刪除「${board.name}」嗎？`)) onDelete(board.id) }}
                             style={{
@@ -322,13 +345,57 @@ function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelet
                                                 onMouseEnter={e => (e.currentTarget.style.background = '#f5f5f5')}
                                                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                                             >
-                                                <div
-                                                    onClick={() => { onSwitchToChild(child.id); setContextMenu(null) }}
-                                                    style={{ flex: 1, padding: '7px 6px 7px 0', cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}
-                                                >
-                                                    <span style={{ color: '#aaa', fontSize: 11 }}>{depth > 0 ? '└' : '📋'}</span>
-                                                    {child.name}
-                                                </div>
+                                                {renamingId === child.id ? (
+                                                    <input
+                                                        autoFocus
+                                                        defaultValue={child.name}
+                                                        onBlur={() => { commitRename(child.id); }}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter') commitRename(child.id)
+                                                            if (e.key === 'Escape') setRenamingId(null)
+                                                            e.stopPropagation()
+                                                        }}
+                                                        onChange={e => setRenameValue(e.target.value)}
+                                                        onClick={e => e.stopPropagation()}
+                                                        style={{
+                                                            flex: 1, border: 'none', borderBottom: '1px solid #333',
+                                                            outline: 'none', fontSize: 13, background: 'transparent',
+                                                            padding: '4px 0',
+                                                        }}
+                                                    />
+                                                ) : (
+                                                    <div
+                                                        onClick={(e) => {
+                                                            // 用 timer 延遲，雙擊時取消單擊
+                                                            const timer = setTimeout(() => {
+                                                                onSwitchToChild(child.id)
+                                                                setContextMenu(null)
+                                                            }, 200)
+                                                            ;(e.currentTarget as any)._clickTimer = timer
+                                                        }}
+                                                        onDoubleClick={(e) => {
+                                                            e.stopPropagation()
+                                                            clearTimeout((e.currentTarget as any)._clickTimer)
+                                                            startRename(child)
+                                                        }}
+                                                        style={{ flex: 1, padding: '7px 6px 7px 0', cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}
+                                                        title="單擊進入・雙擊重新命名"
+                                                    >
+                                                        <span style={{ color: '#aaa', fontSize: 11 }}>{depth > 0 ? '└' : '📋'}</span>
+                                                        {child.name}
+                                                    </div>
+                                                )}
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); startRename(child) }}
+                                                    style={{
+                                                        background: 'none', border: 'none', cursor: 'pointer',
+                                                        color: '#aaa', fontSize: 11, padding: '2px 4px', borderRadius: 4,
+                                                        flexShrink: 0,
+                                                    }}
+                                                    onMouseEnter={e => (e.currentTarget.style.color = '#333')}
+                                                    onMouseLeave={e => (e.currentTarget.style.color = '#aaa')}
+                                                    title="重新命名"
+                                                >✏️</button>
                                                 <button
                                                     onClick={(e) => {
                                                         e.stopPropagation()
@@ -787,13 +854,16 @@ function WhiteboardTools({ board, onSaveBoard, jumpRef, onOpenSearch, onOpenHotk
         initialized.current = true
         if (board.snapshot) loadSnapshot(editor.store, board.snapshot)
 
-        // 載入後自動檢查子板，補建缺少的 Board 卡片
+        // 載入後自動補建 Board 卡片
         setTimeout(() => {
-        // 每一層都自動補建直接子板的 Board 卡片
-        const childBoards = boards.filter(b => b.parentId === board.id)
-            if (childBoards.length === 0) return
+            // 主頁：顯示所有主板的 Board 卡片
+            // 一般白板：顯示直接子板的 Board 卡片
+            const targetBoards = board.isHome
+                ? boards.filter(b => !b.parentId && !b.isHome)
+                : boards.filter(b => b.parentId === board.id)
 
-            // 找出畫布上已有的 Board 卡片連結的 linkedBoardId
+            if (targetBoards.length === 0) return
+
             const existingLinkedIds = new Set(
                 editor.getCurrentPageShapes()
                     .filter(s => (s.props as any).type === 'board')
@@ -801,8 +871,7 @@ function WhiteboardTools({ board, onSaveBoard, jumpRef, onOpenSearch, onOpenHotk
                     .filter(Boolean)
             )
 
-            // 補建缺少的
-            const missing = childBoards.filter(b => !existingLinkedIds.has(b.id))
+            const missing = targetBoards.filter(b => !existingLinkedIds.has(b.id))
             if (missing.length === 0) return
 
             const center = editor.getViewportScreenCenter()
@@ -810,8 +879,8 @@ function WhiteboardTools({ board, onSaveBoard, jumpRef, onOpenSearch, onOpenHotk
             missing.forEach((child, idx) => {
                 editor.createShape({
                     type: 'card',
-                    x: pageCenter.x - 140 + idx * 300,
-                    y: pageCenter.y + 200,
+                    x: pageCenter.x - 140 + (idx % 4) * 300,
+                    y: pageCenter.y - 100 + Math.floor(idx / 4) * 240,
                     props: {
                         type: 'board', text: child.name,
                         image: null, blobUrl: null, todos: [],
@@ -1046,6 +1115,17 @@ export default function App() {
         saveBoard(newBoard)
         setBoards(prev => [...prev, newBoard])
         setActiveBoardId(newBoard.id)
+        setNavigationStack([newBoard.id])
+        // 在主頁自動建立這個新主板的 Board 卡片
+        setTimeout(() => {
+            window.dispatchEvent(new CustomEvent('create-board-card-on', {
+                detail: {
+                    targetBoardId: HOME_BOARD_ID,
+                    linkedBoardId: newBoard.id,
+                    boardName: newBoard.name,
+                }
+            }))
+        }, 400)
     }, [boards.length])
 
     const handleRename = useCallback((id: string, name: string) => {
