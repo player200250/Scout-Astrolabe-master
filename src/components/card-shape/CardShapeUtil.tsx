@@ -142,7 +142,7 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
             }
             return { id: shape.id, type: shape.type }
         } else if (shape.props.state === 'idle') {
-            if (type === 'todo' || type === 'link' ) {
+            if (type === 'todo' || type === 'link') {
                 this.editor.updateShape({
                     id: shape.id, type: 'card',
                     props: { state: 'editing' },
@@ -153,7 +153,7 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
                     detail: { linkedBoardId: shape.props.linkedBoardId }
                 }))
                 return { id: shape.id, type: shape.type }
-            } else if (type === 'text') {
+            } else if (type === 'text' || type === 'journal') {
                 window.dispatchEvent(new CustomEvent('text-card-edit', {
                     detail: { shapeId: shape.id }
                 }))
@@ -211,9 +211,12 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
             }
         }, [closePreview])
 
+        // 用 capture: true 確保比 tiptap 更早拿到 ESC 事件
         useEffect(() => {
-            if (p.preview || showTextModal) document.addEventListener('keydown', handleEscape)
-            return () => document.removeEventListener('keydown', handleEscape)
+            if (p.preview || showTextModal) {
+                document.addEventListener('keydown', handleEscape, true)
+            }
+            return () => document.removeEventListener('keydown', handleEscape, true)
         }, [p.preview, showTextModal, handleEscape])
 
         return (
@@ -243,7 +246,7 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
                             borderRadius: 8,
                             border: isEditing ? '1px solid #333' : '1px solid #ebebeb',
                             padding: 0, boxSizing: 'border-box',
-                            pointerEvents: shouldInnerDivCaptureEvents || p.type === 'image' ? 'auto' : 'none',
+                            pointerEvents: shouldInnerDivCaptureEvents || p.type === 'image' || p.type === 'todo' ? 'auto' : 'none',
                             cursor: shouldInnerDivCaptureEvents ? 'default' : 'grab',
                             boxShadow: isHovered && !isEditing
                                 ? '0 8px 20px rgba(0,0,0,0.1), 0 0 0 1px rgba(0,0,0,0.08)'
@@ -347,8 +350,8 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
                     document.body
                 )}
 
-                {/* 文字卡片全螢幕編輯 Modal */}
-                {showTextModal && p.type === 'text' && createPortal(
+                {/* 文字卡片 / Journal 卡片全螢幕編輯 Modal */}
+                {showTextModal && (p.type === 'text' || p.type === 'journal') && createPortal(
                     <div
                         style={{
                             position: 'fixed', top: 0, left: 0,
@@ -357,8 +360,13 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
                             display: 'flex', justifyContent: 'center', alignItems: 'center',
                             zIndex: 99999, pointerEvents: 'auto',
                         }}
-                        onClick={(e) => { e.stopPropagation(); setShowTextModal(false) }}
-                        onPointerDown={(e) => e.stopPropagation()}
+                        onPointerDown={(e) => {
+                            // 只有點到背景本身（不是 modal 內容）才關閉
+                            if (e.target === e.currentTarget) {
+                                e.stopPropagation()
+                                setShowTextModal(false)
+                            }
+                        }}
                     >
                         <div
                             style={{
@@ -426,6 +434,26 @@ function CardContent({ editor, shape, isEditing, exitEdit }: CardContentProps) {
                 />
             )
         }
+        case 'journal':
+            return (
+                <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+                    <div style={{
+                        padding: '8px 14px',
+                        background: '#dbeafe',
+                        borderBottom: '2px solid #3b82f6',
+                        fontSize: 12,
+                        fontWeight: 600,
+                        color: '#1d4ed8',
+                        flexShrink: 0,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                    }}>
+                        📔 {(p as any).journalDate ?? '今日'}
+                    </div>
+                    <TextContent editor={editor} shape={shape} isEditing={isEditing} exitEdit={exitEdit} />
+                </div>
+            )
         // case 'code':
         //     return <CodeContent shape={shape} isEditing={isEditing} exitEdit={exitEdit} />
     }

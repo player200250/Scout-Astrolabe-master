@@ -30,39 +30,74 @@ interface SearchPanelProps {
 }
 
 /* ---------------------------------------------------------------
+   工具函式：剝掉 HTML 標籤，取得純文字
+--------------------------------------------------------------- */
+function stripHtml(html: string): string {
+    return html
+        .replace(/<[^>]*>/g, ' ')   // 標籤換成空格
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/\s+/g, ' ')       // 多個空格合併
+        .trim()
+}
+
+/* ---------------------------------------------------------------
    搜尋邏輯
 --------------------------------------------------------------- */
 function searchBoards(boards: BoardRecord[], keyword: string): SearchResult[] {
     if (!keyword.trim()) return []
     const kw = keyword.toLowerCase()
     const results: SearchResult[] = []
+    const seenIds = new Set<string>()  // 用來去重
 
     for (const board of boards) {
         if (!board.snapshot) continue
-        const shapes = Object.values((board.snapshot as any).document?.store ?? {})
+        const store = (board.snapshot as any).document?.store ?? {}
+        const shapes = Object.values(store)
+
         for (const shape of shapes as any[]) {
+            // 只處理 card shape，且不重複
             if (shape.typeName !== 'shape' || shape.type !== 'card') continue
+            const dedupKey = `${board.id}_${shape.id}`
+            if (seenIds.has(dedupKey)) continue
+            seenIds.add(dedupKey)
+
             const props = shape.props
             let matched = false
             let preview = ''
 
             if (props.type === 'text' && props.text) {
-                if (props.text.toLowerCase().includes(kw)) {
+                const plain = stripHtml(props.text)
+                if (plain.toLowerCase().includes(kw)) {
                     matched = true
-                    preview = props.text.slice(0, 80)
+                    preview = plain.slice(0, 80)
                 }
-            } else if (props.type === 'todo' && Array.isArray(props.todos)) {
-                const hit = props.todos.find((t: any) => t.text?.toLowerCase().includes(kw))
-                if (hit) {
+            } else if (props.type === 'todo') {
+                // 比對標題
+                const titlePlain = stripHtml(props.text || '')
+                const titleHit = titlePlain.toLowerCase().includes(kw)
+                // 比對每一條 todo
+                const todoHit = Array.isArray(props.todos)
+                    ? props.todos.find((t: any) => t.text?.toLowerCase().includes(kw))
+                    : null
+                if (titleHit || todoHit) {
                     matched = true
-                    preview = props.todos.map((t: any) => `${t.checked ? '✅' : '☐'} ${t.text}`).join('  ').slice(0, 80)
+                    const titlePart = titlePlain ? `${titlePlain}：` : ''
+                    const todosPart = Array.isArray(props.todos)
+                        ? props.todos.map((t: any) => `${t.checked ? '✅' : '☐'} ${t.text}`).join('  ')
+                        : ''
+                    preview = (titlePart + todosPart).slice(0, 80)
                 }
             } else if (props.type === 'link') {
                 const inUrl = props.url?.toLowerCase().includes(kw)
-                const inText = props.text?.toLowerCase().includes(kw)
-                if (inUrl || inText) {
+                const inText = stripHtml(props.text || '').toLowerCase().includes(kw)
+                const inTitle = stripHtml(props.title || '').toLowerCase().includes(kw)
+                if (inUrl || inText || inTitle) {
                     matched = true
-                    preview = props.text || props.url || ''
+                    preview = stripHtml(props.title || props.text || props.url || '').slice(0, 80)
                 }
             } else if (props.type === 'image') {
                 if (props.text?.toLowerCase().includes(kw)) {

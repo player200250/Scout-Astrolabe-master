@@ -1,7 +1,7 @@
 // src/CardShape.ts
 import type { TLBaseShape } from '@tldraw/editor'
 
-export type CardType = 'text' | 'image' | 'todo' | 'link' | 'board'
+export type CardType = 'text' | 'image' | 'todo' | 'link' | 'board' | 'journal'
 export type CardState = 'idle' | 'editing'
 
 // 卡片顏色
@@ -38,7 +38,7 @@ export interface TLCardProps {
     w: number
     h: number
     type: CardType
-    color: CardColor   // ✅ 新增顏色
+    color: CardColor
 
     // ---- Text ----
     text: string
@@ -58,7 +58,12 @@ export interface TLCardProps {
     linkEmbedUrl: string | null
 
     // ---- Board ----
-    linkedBoardId?: string | null   // 關聯的子白板 ID
+    linkedBoardId?: string | null
+
+    // ---- Journal ----
+    // 格式 'YYYY-MM-DD'，系統用來判斷當天是否已建立
+    // 建立後不可修改，作為唯一識別鍵
+    journalDate?: string | null
 
     // ---- 共用狀態 ----
     state: CardState
