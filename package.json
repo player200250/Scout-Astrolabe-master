@@ -10,7 +10,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "electron-dev": "concurrently \"npm run dev\" \"electron .\"",
-    "build:win": "vite build && electron-builder --windows"
+    "build:win": "node scripts/prepare-cache.mjs && vite build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --windows"
   },
   "dependencies": {
     "@tiptap/extension-code-block": "^2.27.2",
@@ -39,6 +39,7 @@
     "@types/react-dom": "^19.2.2",
     "@vitejs/plugin-react-swc": "^4.0.0",
     "concurrently": "^9.2.0",
+    "cross-env": "^10.1.0",
     "electron": "^37.3.1",
     "electron-builder": "^26.8.1",
     "eslint": "^9.33.0",
@@ -54,8 +55,8 @@
     "productName": "Scout Astrolabe",
     "files": [
       "dist/**/*",
-      "dist-electron/**/*",
       "main.js",
+      "preload.js",
       "package.json"
     ],
     "directories": {
@@ -65,8 +66,7 @@
     "win": {
       "target": [
         "nsis"
-      ],
-      "icon": "build/icon.ico"
+      ]
     }
   }
 }
