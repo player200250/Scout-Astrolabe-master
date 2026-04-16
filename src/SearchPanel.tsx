@@ -17,7 +17,7 @@ interface SearchResult {
     boardId: string
     boardName: string
     shapeId: string
-    type: 'text' | 'todo' | 'link' | 'image'
+    type: 'text' | 'todo' | 'link' | 'image' | 'journal'
     preview: string  // 顯示的摘要文字
     x: number
     y: number
@@ -104,6 +104,12 @@ function searchBoards(boards: BoardRecord[], keyword: string): SearchResult[] {
                     matched = true
                     preview = props.text.slice(0, 80)
                 }
+            } else if (props.type === 'journal') {
+                const plain = stripHtml(props.text || '')
+                if (plain.toLowerCase().includes(kw)) {
+                    matched = true
+                    preview = plain.slice(0, 80)
+                }
             }
 
             if (matched) {
@@ -131,6 +137,7 @@ const typeIcon: Record<string, string> = {
     todo: '✅',
     link: '🔗',
     image: '🖼️',
+    journal: '📔',
 }
 
 /* ---------------------------------------------------------------

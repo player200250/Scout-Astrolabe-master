@@ -912,6 +912,19 @@ function WhiteboardTools({ board, onSaveBoard, jumpRef, onOpenSearch, onOpenHotk
         return () => window.removeEventListener('board-card-enter' as any, handleBoardEnter)
     }, [onSwitchBoard])
 
+    // 白板刪除時，清理活動白板中指向已刪除白板的孤立 Board 卡片
+    useEffect(() => {
+        const handler = (e: CustomEvent) => {
+            const { deletedBoardId } = e.detail
+            const orphans = editor.getCurrentPageShapes()
+                .filter(s => (s.props as any).type === 'board' && (s.props as any).linkedBoardId === deletedBoardId)
+                .map(s => s.id)
+            if (orphans.length > 0) editor.deleteShapes(orphans as any)
+        }
+        window.addEventListener('cleanup-orphan-board-cards' as any, handler)
+        return () => window.removeEventListener('cleanup-orphan-board-cards' as any, handler)
+    }, [editor])
+
     // 設為子板時，自動在父板建立 Board 卡片
     useEffect(() => {
         const handler = (e: CustomEvent) => {
@@ -1374,6 +1387,9 @@ export default function App() {
     const jumpRef = useRef<((shapeId: string, x: number, y: number) => void) | null>(null)
 
     useEffect(() => {
+        // 申請 IndexedDB 持久化權限，防止瀏覽器在儲存空間不足時自動清除資料
+        navigator.storage?.persist?.()
+
         loadAllBoards().then(loaded => {
             setBoards(loaded)
             const firstId = loaded[0]?.id ?? null
@@ -1499,7 +1515,35 @@ export default function App() {
         setBoards(prev => {
             const next = prev.filter(b => b.id !== id)
             if (activeBoardId === id) setActiveBoardId(next[0]?.id ?? null)
-            return next
+
+            // 清理其他白板快照中 linkedBoardId 指向已刪除白板的孤立 Board 卡片
+            const cleaned = next.map(b => {
+                if (!b.snapshot) return b
+                const store = (b.snapshot as any).document?.store
+                if (!store) return b
+                const orphanIds = Object.keys(store).filter(shapeId => {
+                    const s = store[shapeId]
+                    return s.typeName === 'shape' && s.type === 'card' &&
+                        s.props?.type === 'board' && s.props?.linkedBoardId === id
+                })
+                if (orphanIds.length === 0) return b
+                const newStore = { ...store }
+                orphanIds.forEach(shapeId => { delete newStore[shapeId] })
+                const updated = {
+                    ...b,
+                    snapshot: {
+                        ...(b.snapshot as any),
+                        document: { ...(b.snapshot as any).document, store: newStore },
+                    } as TLEditorSnapshot,
+                }
+                saveBoard(updated)
+                return updated
+            })
+
+            // 通知目前活動白板的 tldraw editor 即時刪除孤立卡片
+            window.dispatchEvent(new CustomEvent('cleanup-orphan-board-cards', { detail: { deletedBoardId: id } }))
+
+            return cleaned
         })
     }, [activeBoardId])
 
