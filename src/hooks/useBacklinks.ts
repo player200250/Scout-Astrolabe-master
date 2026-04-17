@@ -27,6 +27,8 @@ export interface BacklinksContextValue {
     backlinks: Map<string, BacklinkEntry[]>
     /** 所有白板名稱，供補全選單使用 */
     boardNames: string[]
+    /** 當前白板名稱，供 BacklinksPanel 查詢白板級引用 */
+    currentBoardName?: string
 }
 
 export const BacklinksContext = createContext<BacklinksContextValue>({

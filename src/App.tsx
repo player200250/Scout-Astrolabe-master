@@ -16,6 +16,7 @@ import { useBacklinks } from './hooks/useBacklinks'
 import TldrawToolPanel, { type CardCreators } from './TIdrawToolPanel'
 import { SearchPanel } from './SearchPanel'
 import { TaskCenter } from './TaskCenter'
+import { FilterPanel } from './FilterPanel'
 import { useHotkeys } from './Usehotkeys'
 import { HotkeyPanel } from './HotkeyPanel'
 import { useContextMenu } from './ContextMenu'
@@ -404,9 +405,10 @@ interface BoardTabBarProps {
     onToggleCollapse: () => void
     onSetStatus: (boardId: string, status: 'active' | 'archived' | 'pinned') => void
     onOpenTaskCenter: () => void
+    onOpenFilter: () => void
 }
 
-function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelete, onSearch, onHotkey, onOpenOverview, onSetJournal, navigationStack, onBack, onSetParent, onSwitchToChild, collapsed, onToggleCollapse, onSetStatus, onOpenTaskCenter }: BoardTabBarProps) {
+function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelete, onSearch, onHotkey, onOpenOverview, onSetJournal, navigationStack, onBack, onSetParent, onSwitchToChild, collapsed, onToggleCollapse, onSetStatus, onOpenTaskCenter, onOpenFilter }: BoardTabBarProps) {
     const [hoveredId, setHoveredId] = useState<string | null>(null)
     const [renamingId, setRenamingId] = useState<string | null>(null)
     const [renameValue, setRenameValue] = useState('')
@@ -551,7 +553,7 @@ function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelet
                                 onClick={() => onSwitch(board.id)}
                                 onContextMenu={e => { e.preventDefault(); if (!board.isHome) setContextMenu({ boardId: board.id, x: e.clientX, y: e.clientY }) }}
                                 style={{
-                                    position: 'relative', borderRadius: 8,
+                                    position: 'relative', borderRadius: 10,
                                     border: isActive ? '1.5px solid #c7d7fd' : `1.5px solid ${isHovered ? '#e0e0e0' : 'transparent'}`,
                                     background: isActive ? '#f0f4ff' : (isHovered ? '#fafafa' : 'transparent'),
                                     cursor: 'pointer', padding: '7px 8px',
@@ -563,8 +565,8 @@ function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelet
                             >
                                 {/* 縮圖 */}
                                 <div style={{
-                                    width: '100%', aspectRatio: '16/10', borderRadius: 5,
-                                    overflow: 'hidden', background: '#f0f0f0', border: '1px solid #ebebeb',
+                                    width: '100%', aspectRatio: '16/9', borderRadius: 6,
+                                    overflow: 'hidden', background: '#f0f0f0', border: '1px solid #e8e8e8',
                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                                 }}>
                                     {isRasterThumbnail(board.thumbnail)
@@ -723,7 +725,22 @@ function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelet
                             onMouseEnter={e => (e.currentTarget.style.background = '#f5f5f5')}
                             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                         >
-                            <span style={{ fontSize: 13 }}>✅</span> 任務中心
+                            <span style={{ fontSize: 13 }}>✅</span> 任務
+                        </button>
+                        <button
+                            onClick={onOpenFilter}
+                            title="篩選卡片"
+                            style={{
+                                flex: 1, height: 28, borderRadius: 7,
+                                border: '1px solid #eee', background: 'transparent',
+                                cursor: 'pointer', fontSize: 12, color: '#666',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+                                transition: 'background 0.12s',
+                            }}
+                            onMouseEnter={e => (e.currentTarget.style.background = '#f5f5f5')}
+                            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                        >
+                            <span style={{ fontSize: 13 }}>🔍</span> 篩選
                         </button>
                         <button
                             onClick={onHotkey}
@@ -914,7 +931,8 @@ function Whiteboard({ board, boards, onSaveBoard, jumpRef, onOpenSearch, onOpenH
         forwardLinks,
         backlinks,
         boardNames: boards.filter(b => !b.isHome).map(b => b.name),
-    }), [forwardLinks, backlinks, boards])
+        currentBoardName: board.name,
+    }), [forwardLinks, backlinks, boards, board.name])
 
     return (
         <div
@@ -1384,6 +1402,7 @@ export default function App() {
     const [hotkeyOpen, setHotkeyOpen] = useState(false)
     const [overviewOpen, setOverviewOpen] = useState(false)
     const [taskCenterOpen, setTaskCenterOpen] = useState(false)
+    const [filterOpen, setFilterOpen] = useState(false)
     const [navigationStack, setNavigationStack] = useState<string[]>([])
     const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
         try { return localStorage.getItem('sidebar-collapsed') === 'true' } catch { return false }
@@ -1623,11 +1642,13 @@ export default function App() {
                 onToggleCollapse={handleToggleCollapse}
                 onSetStatus={handleSetStatus}
                 onOpenTaskCenter={() => setTaskCenterOpen(true)}
+                onOpenFilter={() => setFilterOpen(true)}
             />
 
             {searchOpen && <SearchPanel boards={boards} onJump={handleJump} onClose={() => setSearchOpen(false)} />}
             {hotkeyOpen && <HotkeyPanel onClose={() => setHotkeyOpen(false)} />}
             {taskCenterOpen && <TaskCenter boards={boards} onJump={(boardId, shapeId, x, y) => { setTaskCenterOpen(false); handleJump(boardId, shapeId, x, y) }} onClose={() => setTaskCenterOpen(false)} />}
+            {filterOpen && <FilterPanel boards={boards} onJump={(boardId, shapeId, x, y) => { setFilterOpen(false); handleJump(boardId, shapeId, x, y) }} onClose={() => setFilterOpen(false)} />}
             {overviewOpen && (
                 <BoardOverview
                     boards={boards}

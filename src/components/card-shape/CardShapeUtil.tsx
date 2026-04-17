@@ -16,6 +16,7 @@ import { useEditor } from 'tldraw'
 import type { TLCardShape } from './type/CardShape'
 export type { TLCardShape } from './type/CardShape'
 import { CARD_COLORS } from './type/CardShape'
+import type { CardStatusType, PriorityType } from './type/CardShape'
 import { resizeBox, type TLResizeInfo } from 'tldraw'
 
 import { TextContent } from './sub-components/TextContent'
@@ -28,6 +29,19 @@ import { BoardContent } from './sub-components/Boardcontent'
 // Board 資料 context
 interface BoardInfo { id: string; name: string; thumbnail: string | null }
 export const BoardsContext = React.createContext<BoardInfo[]>([])
+
+/* ----------------------------------------------------------------- 卡片屬性常數 */
+const STATUS_BADGE: Record<string, { label: string; color: string; bg: string }> = {
+    'todo':        { label: '📋 待辦',  color: '#555',    bg: '#f0f0f0' },
+    'in-progress': { label: '🔵 進行中', color: '#2563eb', bg: '#dbeafe' },
+    'done':        { label: '✅ 完成',   color: '#16a34a', bg: '#dcfce7' },
+}
+
+const PRIORITY_DOT: Record<string, string> = {
+    low:    '#facc15',
+    medium: '#fb923c',
+    high:   '#ef4444',
+}
 
 interface EmbedData {
     embedUrl: string | null;
@@ -108,6 +122,9 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
             color: 'none',
             w: 240,
             h: 120,
+            tags: [],
+            cardStatus: 'none',
+            priority: 'none',
         }
     }
 
@@ -244,17 +261,18 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
                         }}
                         style={{
                             width: '100%', height: '100%',
+                            position: 'relative',
                             overflow: 'hidden', display: 'flex', flexDirection: 'column',
-                            borderRadius: 8,
-                            border: isEditing ? '1px solid #333' : '1px solid #ebebeb',
+                            borderRadius: 12,
+                            border: isEditing ? '1.5px solid #2563eb' : '1px solid #e8e8e8',
                             padding: 0, boxSizing: 'border-box',
                             pointerEvents: shouldInnerDivCaptureEvents || p.type === 'image' || p.type === 'todo' || (p.type === 'text' && p.text?.includes('[[')) ? 'auto' : 'none',
-                            cursor: shouldInnerDivCaptureEvents || (p.type === 'text' && p.text?.includes('[[')) ? 'default' : 'grab',
+                            cursor: shouldInnerDivCaptureEvents || p.type === 'image' || (p.type === 'text' && p.text?.includes('[[')) ? 'default' : 'grab',
                             boxShadow: isHovered && !isEditing
-                                ? '0 8px 20px rgba(0,0,0,0.1), 0 0 0 1px rgba(0,0,0,0.08)'
+                                ? '0 4px 16px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.06)'
                                 : isEditing
-                                    ? '0 0 0 2px #333'
-                                    : '0 2px 4px rgba(0,0,0,0.05), 0 0 0 1px rgba(0,0,0,0.05)',
+                                    ? '0 0 0 3px rgba(37,99,235,0.18), 0 4px 20px rgba(37,99,235,0.10)'
+                                    : '0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04)',
                             transition: 'box-shadow 0.15s ease-in-out, border-color 0.15s ease-in-out',
                             backgroundColor: p.color === 'dark' ? '#1a1a2e' : colorStyle.bg,
                         }}
@@ -263,8 +281,37 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
                             <div style={{
                                 height: 4, width: '100%', flexShrink: 0,
                                 backgroundColor: colorStyle.accent,
-                                borderRadius: '8px 8px 0 0',
+                                borderRadius: '12px 12px 0 0',
                             }} />
+                        )}
+                        {/* 非編輯：status badge 左上角 */}
+                        {!isEditing && p.cardStatus && p.cardStatus !== 'none' && STATUS_BADGE[p.cardStatus] && (
+                            <div style={{
+                                position: 'absolute',
+                                top: p.color && p.color !== 'none' ? 9 : 5,
+                                left: 8, zIndex: 5, pointerEvents: 'none',
+                                fontSize: 10, fontWeight: 600,
+                                color: STATUS_BADGE[p.cardStatus].color,
+                                background: STATUS_BADGE[p.cardStatus].bg,
+                                borderRadius: 5, padding: '1px 6px',
+                            }}>
+                                {STATUS_BADGE[p.cardStatus].label}
+                            </div>
+                        )}
+                        {/* 非編輯：priority 圓點右上角 */}
+                        {!isEditing && p.priority && p.priority !== 'none' && PRIORITY_DOT[p.priority] && (
+                            <div style={{
+                                position: 'absolute',
+                                top: p.color && p.color !== 'none' ? 11 : 7,
+                                right: 8, zIndex: 5, pointerEvents: 'none',
+                                width: 9, height: 9, borderRadius: '50%',
+                                background: PRIORITY_DOT[p.priority],
+                                boxShadow: `0 0 0 2px ${PRIORITY_DOT[p.priority]}44`,
+                            }} />
+                        )}
+                        {/* 編輯模式：屬性列 */}
+                        {isEditing && (p.type === 'text' || p.type === 'todo' || p.type === 'journal') && (
+                            <CardPropsBar editor={editor} shape={shape} />
                         )}
                         <CardContent
                             editor={editor}
@@ -381,6 +428,7 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
                             onClick={(e) => e.stopPropagation()}
                             onPointerDown={(e) => e.stopPropagation()}
                         >
+                            <CardPropsBar editor={editor} shape={shape} />
                             <TextContent
                                 editor={editor}
                                 shape={shape}
@@ -404,14 +452,36 @@ interface BacklinksPanelProps {
 }
 
 function BacklinksPanel({ shapeId, htmlContent }: BacklinksPanelProps) {
-    const { forwardLinks, backlinks } = useContext(BacklinksContext)
+    const { forwardLinks, backlinks, currentBoardName } = useContext(BacklinksContext)
     const [expanded, setExpanded] = useState(false)
 
     const cardName = extractCardName(htmlContent)
     const fwdLinks: string[] = forwardLinks.get(shapeId) ?? []
-    const bkLinks: BacklinkEntry[] = cardName
+
+    // 查卡片名稱對應的引用
+    const cardBkLinks: BacklinkEntry[] = cardName
         ? (backlinks.get(cardName.toLowerCase()) ?? [])
         : []
+    // 查白板名稱對應的引用（[[BoardName]] 語法指向整個白板）
+    const boardBkLinks: BacklinkEntry[] = currentBoardName
+        ? (backlinks.get(currentBoardName.toLowerCase()) ?? [])
+        : []
+
+    // 合併去重（避免同一個 shape 出現兩次）
+    const seen = new Set<string>()
+    const bkLinks: BacklinkEntry[] = []
+    for (const entry of [...cardBkLinks, ...boardBkLinks]) {
+        const key = `${entry.boardId}_${entry.shapeId}`
+        if (!seen.has(key)) { seen.add(key); bkLinks.push(entry) }
+    }
+
+    console.log('[BacklinksPanel]', {
+        cardName,
+        currentBoardName,
+        cardBkLinks: backlinks.get(cardName?.toLowerCase() ?? ''),
+        boardBkLinks: backlinks.get(currentBoardName?.toLowerCase() ?? ''),
+        total: fwdLinks.length + bkLinks.length,
+    })
 
     const total = fwdLinks.length + bkLinks.length
     if (total === 0) return null
@@ -425,7 +495,7 @@ function BacklinksPanel({ shapeId, htmlContent }: BacklinksPanelProps) {
                     padding: '3px 12px 4px',
                     background: 'rgba(255,255,255,0.94)',
                     backdropFilter: 'blur(4px)',
-                    borderTop: '1px solid #ebebeb',
+                    borderTop: '1px solid #e8e8e8',
                     display: 'flex', alignItems: 'center', gap: 10,
                     cursor: 'pointer',
                     userSelect: 'none',
@@ -451,7 +521,7 @@ function BacklinksPanel({ shapeId, htmlContent }: BacklinksPanelProps) {
                         bottom: '100%', left: 0, right: 0,
                         background: 'white',
                         border: '1px solid #e8e8e8',
-                        borderRadius: '8px 8px 0 0',
+                        borderRadius: '12px 12px 0 0',
                         boxShadow: '0 -4px 20px rgba(0,0,0,0.1)',
                         maxHeight: 220,
                         overflowY: 'auto',
@@ -539,6 +609,110 @@ function BacklinksPanel({ shapeId, htmlContent }: BacklinksPanelProps) {
     )
 }
 
+/* --------------------------------------------------------------- CardPropsBar */
+interface CardPropsBarProps { editor: Editor; shape: TLCardShape }
+
+function CardPropsBar({ editor, shape }: CardPropsBarProps) {
+    const p = shape.props
+    const [tagInput, setTagInput] = useState('')
+    const currentStatus = (p.cardStatus ?? 'none') as CardStatusType
+    const currentPriority = (p.priority ?? 'none') as PriorityType
+    const tags: string[] = p.tags ?? []
+
+    const setStatus  = (cardStatus: CardStatusType) =>
+        editor.updateShape({ id: shape.id, type: 'card', props: { cardStatus } })
+    const setPriority = (priority: PriorityType) =>
+        editor.updateShape({ id: shape.id, type: 'card', props: { priority } })
+    const addTag = () => {
+        const t = tagInput.trim()
+        if (!t || tags.includes(t)) { setTagInput(''); return }
+        editor.updateShape({ id: shape.id, type: 'card', props: { tags: [...tags, t] } })
+        setTagInput('')
+    }
+    const removeTag = (tag: string) =>
+        editor.updateShape({ id: shape.id, type: 'card', props: { tags: tags.filter(t => t !== tag) } })
+
+    const selectStyle: React.CSSProperties = {
+        fontSize: 11, border: '1px solid #e0e0e0', borderRadius: 4,
+        padding: '2px 4px', background: 'white', cursor: 'pointer',
+    }
+
+    return (
+        <div
+            onPointerDown={e => e.stopPropagation()}
+            style={{
+                display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 4,
+                padding: '4px 8px', borderBottom: '1px solid #f0f0f0',
+                background: '#fafafa', flexShrink: 0, minHeight: 30,
+            }}
+        >
+            <select value={currentStatus} onChange={e => setStatus(e.target.value as CardStatusType)}
+                onPointerDown={e => e.stopPropagation()} style={selectStyle}
+            >
+                <option value="none">⬜ 無</option>
+                <option value="todo">📋 待辦</option>
+                <option value="in-progress">🔵 進行中</option>
+                <option value="done">✅ 完成</option>
+            </select>
+
+            <select value={currentPriority} onChange={e => setPriority(e.target.value as PriorityType)}
+                onPointerDown={e => e.stopPropagation()} style={selectStyle}
+            >
+                <option value="none">— 無</option>
+                <option value="low">🟡 低</option>
+                <option value="medium">🟠 中</option>
+                <option value="high">🔴 高</option>
+            </select>
+
+            <div style={{ width: 1, height: 14, background: '#e0e0e0', flexShrink: 0 }} />
+
+            {tags.map(tag => (
+                <span key={tag} style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 1,
+                    background: '#eff6ff', color: '#2563eb',
+                    borderRadius: 10, padding: '1px 6px 1px 7px', fontSize: 10, fontWeight: 500,
+                }}>
+                    #{tag}
+                    <button
+                        onPointerDown={e => { e.stopPropagation(); removeTag(tag) }}
+                        style={{ border: 'none', background: 'none', cursor: 'pointer', padding: '0 0 0 2px', fontSize: 12, color: '#93c5fd', lineHeight: 1 }}
+                    >×</button>
+                </span>
+            ))}
+
+            <input
+                value={tagInput}
+                onChange={e => setTagInput(e.target.value)}
+                onKeyDown={e => {
+                    e.stopPropagation()
+                    if (e.key === 'Enter') { e.preventDefault(); addTag() }
+                    if (e.key === 'Escape') setTagInput('')
+                }}
+                onPointerDown={e => e.stopPropagation()}
+                placeholder="+ 標籤"
+                style={{ border: 'none', outline: 'none', fontSize: 10, background: 'transparent', minWidth: 44, color: '#aaa' }}
+            />
+        </div>
+    )
+}
+
+/* --------------------------------------------------------------- TagsDisplay */
+function TagsDisplay({ tags }: { tags: string[] }) {
+    if (!tags.length) return null
+    return (
+        <div style={{ padding: '3px 12px 5px', display: 'flex', flexWrap: 'wrap', gap: 3, flexShrink: 0 }}>
+            {tags.map(tag => (
+                <span key={tag} style={{
+                    background: '#eff6ff', color: '#2563eb',
+                    borderRadius: 8, padding: '1px 7px', fontSize: 10, fontWeight: 500,
+                }}>
+                    #{tag}
+                </span>
+            ))}
+        </div>
+    )
+}
+
 /* --------------------------------------------------------------- CardContent */
 interface CardContentProps {
     editor: Editor
@@ -556,6 +730,7 @@ function CardContent({ editor, shape, isEditing, exitEdit }: CardContentProps) {
             return (
                 <div style={{ position: 'relative', width: '100%', height: '100%' }}>
                     <TextContent editor={editor} shape={shape} isEditing={isEditing} exitEdit={exitEdit} />
+                    {!isEditing && <TagsDisplay tags={p.tags ?? []} />}
                     {!isEditing && (
                         <BacklinksPanel shapeId={shape.id} htmlContent={p.text || ''} />
                     )}
@@ -563,8 +738,20 @@ function CardContent({ editor, shape, isEditing, exitEdit }: CardContentProps) {
             )
         case 'image':
             return <ImageContent editor={editor} shape={shape} />
-        case 'todo':
+        case 'todo': {
+            const todoTags = p.tags ?? []
+            if (!isEditing && todoTags.length > 0) {
+                return (
+                    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                        <div style={{ flex: '1 1 auto', minHeight: 0, overflow: 'hidden' }}>
+                            <TodoContent shape={shape} isEditing={isEditing} exitEdit={exitEdit} />
+                        </div>
+                        <TagsDisplay tags={todoTags} />
+                    </div>
+                )
+            }
             return <TodoContent shape={shape} isEditing={isEditing} exitEdit={exitEdit} />
+        }
         case 'link':
             return (
                 <LinkContent
@@ -605,6 +792,7 @@ function CardContent({ editor, shape, isEditing, exitEdit }: CardContentProps) {
                     </div>
                     <div style={{ position: 'relative', flex: 1, overflow: 'hidden' }}>
                         <TextContent editor={editor} shape={shape} isEditing={isEditing} exitEdit={exitEdit} />
+                        {!isEditing && <TagsDisplay tags={p.tags ?? []} />}
                         {!isEditing && (
                             <BacklinksPanel shapeId={shape.id} htmlContent={p.text || ''} />
                         )}

@@ -28,11 +28,14 @@ export const CARD_COLORS: Record<CardColor, { bg: string; accent: string; label:
     dark:   { bg: '#1a1a2e', accent: '#6366f1', label: '深' },
 }
 
+export type CardStatusType = 'none' | 'todo' | 'in-progress' | 'done'
+export type PriorityType   = 'none' | 'low'  | 'medium'      | 'high'
+
 export interface TodoItem {
     id: string
     text: string
     checked: boolean
-    dueDate?: string  // YYYY-MM-DD
+    dueDate?: string | null  // YYYY-MM-DD
 }
 
 export interface TLCardProps {
@@ -69,6 +72,11 @@ export interface TLCardProps {
     // ---- 共用狀態 ----
     state: CardState
     preview?: boolean
+
+    // ---- 卡片屬性 ----
+    tags?: string[] | null
+    cardStatus?: CardStatusType | null
+    priority?: PriorityType | null
 }
 
 export type TLCardShape = TLBaseShape<'card', TLCardProps>

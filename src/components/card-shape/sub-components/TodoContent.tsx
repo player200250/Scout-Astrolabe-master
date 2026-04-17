@@ -78,7 +78,7 @@ export const TodoContent = ({ shape, isEditing, exitEdit }: TodoContentProps) =>
     }, [editor, id, todos])
 
     const updateTodoDueDate = useCallback((todoId: string, dueDate: string | undefined) => {
-        const updated = todos.map(t => t.id === todoId ? { ...t, dueDate: dueDate || undefined } : t)
+        const updated = todos.map(t => t.id === todoId ? { ...t, dueDate: dueDate || null } : t)
         editor.updateShape({ id, type: 'card', props: { todos: updated } })
     }, [editor, id, todos])
 

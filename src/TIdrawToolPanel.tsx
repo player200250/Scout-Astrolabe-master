@@ -331,7 +331,8 @@ export default function TldrawToolPanel({
                     display: 'flex', flexDirection: 'column', gap: 4,
                     background: 'rgba(255,255,255,0.96)', backdropFilter: 'blur(8px)',
                     borderRadius: 14, padding: '8px 6px',
-                    boxShadow: '0 2px 12px rgba(0,0,0,0.1), 0 0 0 1px rgba(0,0,0,0.05)',
+                    boxShadow: '0 4px 24px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.06)',
+                    border: '1px solid rgba(0,0,0,0.06)',
                     pointerEvents: 'auto', zIndex: 9999,
                 }}
                 // 讓側邊欄本身也能接收 drop（放到側邊欄外面的畫布才觸發）
