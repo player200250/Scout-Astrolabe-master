@@ -1,20 +1,31 @@
 // src/components/card-shape/sub-components/TodoContent.tsx
-import React, { useState, useRef, useCallback } from 'react' // 🌟 修正：引入 React 以支援 React.FocusEvent
+import React, { useState, useRef, useCallback } from 'react'
 import { useEditor } from 'tldraw'
-import type { TLCardShape, TodoItem } from '../type/CardShape'// 🌟 修正：修正路徑分隔符號
+import type { TLCardShape, TodoItem } from '../type/CardShape'
 
 // 常數定義
 const ITEM_HEIGHT = 28
-const CARD_MIN_HEIGHT = 120 // 🌟 統一最小高度
+const CARD_MIN_HEIGHT = 120
 
-/**
- * 外部化高度計算邏輯，避免每次渲染重複宣告
- */
 const calculateNewHeight = (todosCount: number, editing: boolean) => {
     const BASE_PADDING = 80
     const listHeight = todosCount * ITEM_HEIGHT
     const addAreaHeight = editing ? 48 : 0
     return Math.max(CARD_MIN_HEIGHT, BASE_PADDING + listHeight + addAreaHeight)
+}
+
+// 到期日狀態計算
+const getDueDateStatus = (dueDate: string | undefined): { label: string; color: string; bg: string } | null => {
+    if (!dueDate) return null
+    const today = new Date()
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+    if (dueDate < todayStr) return { label: '逾期', color: '#ff4d4f', bg: '#fff5f5' }
+    if (dueDate === todayStr) return { label: '今天', color: '#e67e00', bg: '#fff7f0' }
+    const diffMs = new Date(dueDate).getTime() - today.getTime()
+    const diffDays = Math.ceil(diffMs / 86400000)
+    if (diffDays <= 7) return { label: `${diffDays}天後`, color: '#3b82f6', bg: '#eff6ff' }
+    const [, m, d] = dueDate.split('-')
+    return { label: `${parseInt(m)}/${parseInt(d)}`, color: '#888', bg: '#f5f5f5' }
 }
 
 interface TodoContentProps {
@@ -27,17 +38,15 @@ export const TodoContent = ({ shape, isEditing, exitEdit }: TodoContentProps) =>
     const editor = useEditor()
     const { id, props } = shape
     const todos = props.todos || []
-    
+
     const containerRef = useRef<HTMLDivElement>(null)
     const [newText, setNewText] = useState('')
-
-    // --- 核心邏輯區 (使用 useCallback 優化記憶體與效能) ---
 
     const updateTodos = useCallback((newTodos: TodoItem[]) => {
         editor.updateShape({
             id,
             type: 'card',
-            props: { 
+            props: {
                 todos: newTodos,
                 h: calculateNewHeight(newTodos.length, isEditing)
             }
@@ -60,7 +69,6 @@ export const TodoContent = ({ shape, isEditing, exitEdit }: TodoContentProps) =>
     const deleteTodo = useCallback((todoId: string) => {
         const updated = todos.filter(t => t.id !== todoId)
         updateTodos(updated)
-        // 保持容器焦點，防止非預期退出
         requestAnimationFrame(() => containerRef.current?.focus())
     }, [todos, updateTodos])
 
@@ -69,11 +77,15 @@ export const TodoContent = ({ shape, isEditing, exitEdit }: TodoContentProps) =>
         editor.updateShape({ id, type: 'card', props: { todos: updated } })
     }, [editor, id, todos])
 
+    const updateTodoDueDate = useCallback((todoId: string, dueDate: string | undefined) => {
+        const updated = todos.map(t => t.id === todoId ? { ...t, dueDate: dueDate || undefined } : t)
+        editor.updateShape({ id, type: 'card', props: { todos: updated } })
+    }, [editor, id, todos])
+
     const updateTitle = useCallback((text: string) => {
         editor.updateShape({ id, type: 'card', props: { text } })
     }, [editor, id])
 
-    // 智慧退場邏輯
     const handleBlur = (e: React.FocusEvent) => {
         const nextFocus = e.relatedTarget as Node | null
         if (!containerRef.current?.contains(nextFocus)) {
@@ -84,20 +96,19 @@ export const TodoContent = ({ shape, isEditing, exitEdit }: TodoContentProps) =>
         }
     }
 
-    // --- 渲染 UI 區 ---
     return (
         <div
             ref={containerRef}
             className="todo-container"
             tabIndex={-1}
             onBlur={handleBlur}
-            style={{ 
-                display: 'flex', 
-                flexDirection: 'column', 
-                gap: 12, 
-                height: '100%', 
+            style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 12,
+                height: '100%',
                 outline: 'none',
-                padding: '16px' 
+                padding: '16px'
             }}
             onPointerDown={(e) => { if (isEditing) e.stopPropagation() }}
         >
@@ -132,60 +143,102 @@ export const TodoContent = ({ shape, isEditing, exitEdit }: TodoContentProps) =>
 
             {/* 列表區域 */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4, overflowY: 'auto', flexGrow: 1 }}>
-                {todos.map(t => (
-                    <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 8, minHeight: ITEM_HEIGHT }}>
-                        <input
-                            type="checkbox"
-                            checked={t.checked}
-                            onChange={() => toggle(t.id)}
-                            onBlur={handleBlur}
-                            onPointerDown={(e) => e.stopPropagation()}
-                            style={{ cursor: isEditing ? 'pointer' : 'default', transform: 'scale(1.1)' }}
-                        />
-                        
-                        {isEditing ? (
+                {todos.map(t => {
+                    const dueDateStatus = getDueDateStatus(t.dueDate)
+                    return (
+                        <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 6, minHeight: ITEM_HEIGHT }}>
                             <input
-                                type="text"
-                                defaultValue={t.text}
-                                onBlur={(e) => {
-                                    updateTodoText(t.id, e.target.value)
-                                    handleBlur(e)
-                                }}
-                                onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
+                                type="checkbox"
+                                checked={t.checked}
+                                onChange={() => toggle(t.id)}
+                                onBlur={handleBlur}
                                 onPointerDown={(e) => e.stopPropagation()}
-                                style={{ 
-                                    flexGrow: 1, border: 'none', outline: 'none', fontSize: 15, background: 'transparent',
-                                    textDecoration: t.checked ? 'line-through' : 'none',
-                                    color: t.checked ? '#aaa' : '#333'
-                                }}
+                                style={{ cursor: isEditing ? 'pointer' : 'default', transform: 'scale(1.1)', flexShrink: 0 }}
                             />
-                        ) : (
-                            <span style={{ 
-                                flexGrow: 1, fontSize: 15,
-                                textDecoration: t.checked ? 'line-through' : 'none',
-                                color: t.checked ? '#aaa' : '#333'
-                            }}>
-                                {t.text}
-                            </span>
-                        )}
 
-                        {isEditing && (
-                            <button
-                                onClick={() => deleteTodo(t.id)}
-                                onPointerDown={(e) => e.stopPropagation()}
-                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ccc', fontSize: 18 }}
-                            >
-                                &times;
-                            </button>
-                        )}
-                    </div>
-                ))}
+                            {isEditing ? (
+                                <>
+                                    <input
+                                        type="text"
+                                        defaultValue={t.text}
+                                        onBlur={(e) => {
+                                            updateTodoText(t.id, e.target.value)
+                                            handleBlur(e)
+                                        }}
+                                        onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
+                                        onPointerDown={(e) => e.stopPropagation()}
+                                        style={{
+                                            flex: 1, border: 'none', outline: 'none', fontSize: 15, background: 'transparent',
+                                            textDecoration: t.checked ? 'line-through' : 'none',
+                                            color: t.checked ? '#aaa' : '#333',
+                                            minWidth: 40,
+                                        }}
+                                    />
+                                    {/* 日期選擇器 */}
+                                    <input
+                                        type="date"
+                                        value={t.dueDate ?? ''}
+                                        onChange={(e) => updateTodoDueDate(t.id, e.target.value || undefined)}
+                                        onPointerDown={(e) => e.stopPropagation()}
+                                        onBlur={handleBlur}
+                                        title="設定截止日"
+                                        style={{
+                                            border: dueDateStatus ? `1px solid ${dueDateStatus.color}44` : '1px solid #e8e8e8',
+                                            outline: 'none',
+                                            fontSize: 11,
+                                            color: dueDateStatus ? dueDateStatus.color : '#bbb',
+                                            background: dueDateStatus ? dueDateStatus.bg : '#fafafa',
+                                            borderRadius: 4,
+                                            padding: '1px 3px',
+                                            cursor: 'pointer',
+                                            flexShrink: 0,
+                                            width: 108,
+                                        }}
+                                    />
+                                    <button
+                                        onClick={() => deleteTodo(t.id)}
+                                        onPointerDown={(e) => e.stopPropagation()}
+                                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ccc', fontSize: 18, flexShrink: 0 }}
+                                    >
+                                        &times;
+                                    </button>
+                                </>
+                            ) : (
+                                <>
+                                    <span style={{
+                                        flex: 1, fontSize: 15,
+                                        textDecoration: t.checked ? 'line-through' : 'none',
+                                        color: t.checked ? '#aaa' : '#333',
+                                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                    }}>
+                                        {t.text}
+                                    </span>
+                                    {/* 到期日 badge（未完成才顯示） */}
+                                    {dueDateStatus && !t.checked && (
+                                        <span style={{
+                                            fontSize: 10, fontWeight: 500,
+                                            color: dueDateStatus.color,
+                                            background: dueDateStatus.bg,
+                                            borderRadius: 4,
+                                            padding: '1px 5px',
+                                            flexShrink: 0,
+                                            border: `1px solid ${dueDateStatus.color}33`,
+                                            whiteSpace: 'nowrap',
+                                        }}>
+                                            {dueDateStatus.label}
+                                        </span>
+                                    )}
+                                </>
+                            )}
+                        </div>
+                    )
+                })}
 
                 {/* 新增項目區域 */}
                 {isEditing && (
                     <div style={{ display: 'flex', gap: 8, marginTop: 12, paddingTop: 8, borderTop: '1px solid #eee' }}>
-                        <button 
-                            onClick={addTodo} 
+                        <button
+                            onClick={addTodo}
                             onPointerDown={(e) => e.stopPropagation()}
                             style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18 }}
                         >

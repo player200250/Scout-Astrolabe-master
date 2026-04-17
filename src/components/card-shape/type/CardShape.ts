@@ -32,6 +32,7 @@ export interface TodoItem {
     id: string
     text: string
     checked: boolean
+    dueDate?: string  // YYYY-MM-DD
 }
 
 export interface TLCardProps {

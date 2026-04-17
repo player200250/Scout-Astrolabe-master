@@ -3,7 +3,8 @@
     "allow": [
       "Bash(npm run:*)",
       "Bash(node -e \" const asar = require\\('asar'\\); const list = asar.listPackage\\('release/win-unpacked/resources/app.asar'\\); const relevant = list.filter\\(f => f.match\\(/preload|index\\\\.\\(html|css|js\\)/\\)\\); console.log\\(relevant.join\\('\\\\n'\\)\\); \")",
-      "Bash(npx asar:*)"
+      "Bash(npx asar:*)",
+      "Bash(npx tsc:*)"
     ]
   }
 }

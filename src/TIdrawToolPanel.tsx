@@ -327,7 +327,7 @@ export default function TldrawToolPanel({
             {/* 側邊工具列 */}
             <div
                 style={{
-                    position: 'absolute', top: 58, left: 12,
+                    position: 'absolute', top: 12, left: 12,
                     display: 'flex', flexDirection: 'column', gap: 4,
                     background: 'rgba(255,255,255,0.96)', backdropFilter: 'blur(8px)',
                     borderRadius: 14, padding: '8px 6px',

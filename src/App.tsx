@@ -11,9 +11,11 @@ import {
 } from 'tldraw'
 import type { TLEditorSnapshot } from 'tldraw'
 import Dexie from 'dexie'
-import { CardShapeUtil, BoardsContext } from './components/card-shape/CardShapeUtil'
+import { CardShapeUtil, BoardsContext, BacklinksContext } from './components/card-shape/CardShapeUtil'
+import { useBacklinks } from './hooks/useBacklinks'
 import TldrawToolPanel, { type CardCreators } from './TIdrawToolPanel'
 import { SearchPanel } from './SearchPanel'
+import { TaskCenter } from './TaskCenter'
 import { useHotkeys } from './Usehotkeys'
 import { HotkeyPanel } from './HotkeyPanel'
 import { useContextMenu } from './ContextMenu'
@@ -41,18 +43,34 @@ interface BoardRecord {
     thumbnail: string | null
     updatedAt: number
     parentId?: string | null
-    isHome?: boolean   // 主頁白板，固定在第一個
-    isJournal?: boolean  // ← 新增：Journal 白板，自動建立今日卡片
+    isHome?: boolean
+    isJournal?: boolean
+    status?: 'active' | 'archived' | 'pinned'
+    lastVisitedAt?: number
 }
 
 const HOME_BOARD_ID = 'home_board'
+const SIDEBAR_WIDTH = 200
+const SIDEBAR_COLLAPSED_WIDTH = 36
 
 const generateId = () => `board_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
+
+const isRasterThumbnail = (t: string | null | undefined): t is string =>
+    typeof t === 'string' && (
+        t.startsWith('data:image/png;base64,') ||
+        t.startsWith('data:image/jpeg;base64,') ||
+        t.startsWith('data:image/webp;base64,')
+    )
 
 const loadAllBoards = async (): Promise<BoardRecord[]> => {
     const boards = await db.table('boards').toArray()
 
-    // 確保主頁存在
+    const svgBoards = boards.filter(b => !isRasterThumbnail(b.thumbnail) && b.thumbnail != null)
+    if (svgBoards.length > 0) {
+        await Promise.all(svgBoards.map(b => db.table('boards').put({ ...b, thumbnail: null })))
+        svgBoards.forEach(b => { b.thumbnail = null })
+    }
+
     let homeBoard = boards.find(b => b.isHome)
     if (!homeBoard) {
         homeBoard = {
@@ -80,7 +98,6 @@ const loadAllBoards = async (): Promise<BoardRecord[]> => {
         boards.push(firstBoard)
     }
 
-    // 主頁永遠在第一個，其他按 updatedAt 排序
     const home = boards.filter(b => b.isHome)
     const rest = boards.filter(b => !b.isHome).sort((a, b) => a.updatedAt - b.updatedAt)
     return [...home, ...rest]
@@ -136,9 +153,15 @@ function BoardOverview({ boards, activeBoardId, onSelect, onNew, onRename, onDel
     const [hoveredId, setHoveredId] = useState<string | null>(null)
     const [renamingId, setRenamingId] = useState<string | null>(null)
     const [renameValue, setRenameValue] = useState('')
+    const [archiveFilter, setArchiveFilter] = useState<'all' | 'archived'>('all')
 
     const filtered = boards
-        .filter(b => !b.isHome && b.name.toLowerCase().includes(searchQuery.toLowerCase()))
+        .filter(b => {
+            if (b.isHome) return false
+            if (!b.name.toLowerCase().includes(searchQuery.toLowerCase())) return false
+            if (archiveFilter === 'archived') return b.status === 'archived'
+            return b.status !== 'archived'
+        })
         .sort((a, b) => b.updatedAt - a.updatedAt)
 
     const formatDate = (ts: number) => {
@@ -180,41 +203,81 @@ function BoardOverview({ boards, activeBoardId, onSelect, onNew, onRename, onDel
             backdropFilter: 'blur(12px)',
             display: 'flex', flexDirection: 'column',
         }}>
-            {/* Header */}
             <div style={{
                 display: 'flex', alignItems: 'center', gap: 12,
                 padding: '14px 24px', borderBottom: '1px solid #e8e8e6',
                 background: 'rgba(255,255,255,0.8)', flexShrink: 0,
             }}>
-                <span style={{ fontSize: 16, fontWeight: 600, color: '#1a1a1a', letterSpacing: '-0.3px' }}>
-                    所有白板
-                </span>
-                <span style={{
-                    fontSize: 11, color: '#999', background: '#f0f0ee',
-                    borderRadius: 6, padding: '2px 8px',
-                }}>
-                    {filtered.length}
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ fontSize: 16, fontWeight: 600, color: '#1a1a1a', letterSpacing: '-0.3px' }}>
+                        所有白板
+                    </span>
+                    <span style={{ fontSize: 11, color: '#999', background: '#f0f0ee', borderRadius: 6, padding: '2px 8px' }}>
+                        {filtered.length}
+                    </span>
+                </div>
+                <div style={{ display: 'flex', gap: 2, background: '#f5f5f3', borderRadius: 8, padding: 3 }}>
+                    {(['all', 'archived'] as const).map(v => (
+                        <button key={v} onClick={() => setArchiveFilter(v)} style={{
+                            padding: '3px 10px', borderRadius: 6, border: 'none',
+                            background: archiveFilter === v ? 'white' : 'transparent',
+                            color: archiveFilter === v ? '#1a1a1a' : '#888',
+                            fontSize: 12, fontWeight: archiveFilter === v ? 600 : 400,
+                            cursor: 'pointer',
+                            boxShadow: archiveFilter === v ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                        }}>
+                            {v === 'all' ? '一般' : '🗄️ 封存'}
+                        </button>
+                    ))}
+                </div>
                 <div style={{ flex: 1, maxWidth: 300, marginLeft: 4, position: 'relative' }}>
-                    <span style={{
-                        position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)',
-                        color: '#ccc', fontSize: 13, pointerEvents: 'none',
-                    }}>🔍</span>
+                    <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#ccc', fontSize: 13, pointerEvents: 'none' }}>🔍</span>
                     <input
                         autoFocus
                         value={searchQuery}
                         onChange={e => setSearchQuery(e.target.value)}
                         placeholder="搜尋白板名稱..."
                         style={{
-                            width: '100%', paddingLeft: 30, paddingRight: 12,
-                            paddingTop: 6, paddingBottom: 6,
-                            borderRadius: 8, border: '1px solid #e0e0de',
-                            background: '#fafaf8', fontSize: 13, color: '#1a1a1a',
-                            outline: 'none', boxSizing: 'border-box',
+                            width: '100%', paddingLeft: 30, paddingRight: 12, paddingTop: 6, paddingBottom: 6,
+                            borderRadius: 8, border: '1px solid #e0e0de', background: '#fafaf8',
+                            fontSize: 13, color: '#1a1a1a', outline: 'none', boxSizing: 'border-box',
                         }}
                     />
                 </div>
                 <div style={{ flex: 1 }} />
+                <button
+                    onClick={() => {
+                        // 找出同名且 snapshot 為 null 的重複白板（空殘留）
+                        const nameCounts: Record<string, BoardRecord[]> = {}
+                        boards.filter(b => !b.isHome).forEach(b => {
+                            if (!nameCounts[b.name]) nameCounts[b.name] = []
+                            nameCounts[b.name].push(b)
+                        })
+                        const toDelete = Object.values(nameCounts)
+                            .flatMap(group => {
+                                if (group.length <= 1) return []
+                                // 保留有 snapshot 的，或最新的；刪除 snapshot=null 的
+                                const empties = group.filter(b => !b.snapshot)
+                                return empties.length > 0 ? empties : []
+                            })
+                        if (toDelete.length === 0) {
+                            alert('沒有發現重複的空白板。')
+                            return
+                        }
+                        const names = toDelete.map(b => `・${b.name}`).join('\n')
+                        if (confirm(`以下 ${toDelete.length} 個空白板將被刪除：\n\n${names}\n\n確定繼續？`)) {
+                            toDelete.forEach(b => onDelete(b.id))
+                        }
+                    }}
+                    title="清理同名且空的重複白板"
+                    style={{
+                        display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px',
+                        borderRadius: 8, border: '1px solid #e0e0de', background: 'transparent', color: '#888',
+                        fontSize: 13, cursor: 'pointer', flexShrink: 0,
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.background = '#fff5f5'; e.currentTarget.style.color = '#e03131'; e.currentTarget.style.borderColor = '#ffccc7' }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#888'; e.currentTarget.style.borderColor = '#e0e0de' }}
+                >🧹 清理重複</button>
                 <button
                     onClick={() => { onNew(); onClose() }}
                     style={{
@@ -229,13 +292,11 @@ function BoardOverview({ boards, activeBoardId, onSelect, onNew, onRename, onDel
                     style={{
                         width: 30, height: 30, borderRadius: 8, border: '1px solid #e0e0de',
                         background: 'transparent', cursor: 'pointer', fontSize: 15, color: '#888',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        padding: 0, flexShrink: 0,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, flexShrink: 0,
                     }}
                 >✕</button>
             </div>
 
-            {/* Grid */}
             <div style={{
                 flex: 1, overflowY: 'auto', padding: '20px 24px',
                 display: 'grid',
@@ -251,119 +312,58 @@ function BoardOverview({ boards, activeBoardId, onSelect, onNew, onRename, onDel
                         onClick={() => { onSelect(board.id); onClose() }}
                         style={{
                             borderRadius: 12,
-                            border: activeBoardId === board.id
-                                ? '2px solid #1a1a1a'
-                                : `2px solid ${hoveredId === board.id ? '#d0d0ce' : '#e8e8e6'}`,
-                            background: 'white',
-                            cursor: 'pointer',
-                            overflow: 'hidden',
+                            border: activeBoardId === board.id ? '2px solid #1a1a1a' : `2px solid ${hoveredId === board.id ? '#d0d0ce' : '#e8e8e6'}`,
+                            background: 'white', cursor: 'pointer', overflow: 'hidden',
                             transition: 'border-color 0.15s, box-shadow 0.15s',
-                            boxShadow: hoveredId === board.id
-                                ? '0 4px 16px rgba(0,0,0,0.08)'
-                                : '0 1px 4px rgba(0,0,0,0.04)',
+                            boxShadow: hoveredId === board.id ? '0 4px 16px rgba(0,0,0,0.08)' : '0 1px 4px rgba(0,0,0,0.04)',
                             display: 'flex', flexDirection: 'column',
                         }}
                     >
-                        {/* 縮圖 */}
                         <div style={{
-                            width: '100%', aspectRatio: '16/10',
-                            background: '#f7f7f5',
+                            width: '100%', aspectRatio: '16/10', background: '#f7f7f5',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            overflow: 'hidden', borderBottom: '1px solid #f0f0ee',
-                            position: 'relative',
+                            overflow: 'hidden', borderBottom: '1px solid #f0f0ee', position: 'relative',
                         }}>
-                            {board.thumbnail ? (
-                                <img
-                                    src={`data:image/svg+xml;utf8,${encodeURIComponent(board.thumbnail)}`}
-                                    style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 8, boxSizing: 'border-box' }}
-                                    alt=""
-                                />
+                            {isRasterThumbnail(board.thumbnail) ? (
+                                <img src={board.thumbnail} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 8, boxSizing: 'border-box' }} alt="" />
                             ) : (
                                 <span style={{ fontSize: 24, opacity: 0.15 }}>□</span>
                             )}
                             {activeBoardId === board.id && (
-                                <div style={{
-                                    position: 'absolute', top: 7, right: 7,
-                                    background: '#1a1a1a', color: 'white',
-                                    fontSize: 10, fontWeight: 600,
-                                    padding: '2px 6px', borderRadius: 4,
-                                }}>使用中</div>
+                                <div style={{ position: 'absolute', top: 7, right: 7, background: '#1a1a1a', color: 'white', fontSize: 10, fontWeight: 600, padding: '2px 6px', borderRadius: 4 }}>使用中</div>
                             )}
                             {childCount(board.id) > 0 && (
-                                <div style={{
-                                    position: 'absolute', bottom: 7, left: 7,
-                                    background: 'rgba(0,0,0,0.45)', color: 'white',
-                                    fontSize: 10, padding: '2px 6px', borderRadius: 4,
-                                }}>📋 {childCount(board.id)} 個子板</div>
+                                <div style={{ position: 'absolute', bottom: 7, left: 7, background: 'rgba(0,0,0,0.45)', color: 'white', fontSize: 10, padding: '2px 6px', borderRadius: 4 }}>📋 {childCount(board.id)} 個子板</div>
                             )}
-                            {/* Journal badge */}
                             {board.isJournal && (
-                                <div style={{
-                                    position: 'absolute', bottom: 7, right: 7,
-                                    background: 'rgba(99,56,6,0.8)', color: 'white',
-                                    fontSize: 10, padding: '2px 6px', borderRadius: 4,
-                                }}>📔 Journal</div>
+                                <div style={{ position: 'absolute', bottom: 7, right: 7, background: 'rgba(99,56,6,0.8)', color: 'white', fontSize: 10, padding: '2px 6px', borderRadius: 4 }}>📔 Journal</div>
                             )}
                         </div>
 
-                        {/* 資訊列 */}
                         <div style={{ padding: '9px 11px', display: 'flex', alignItems: 'center', gap: 6, minHeight: 42 }}>
                             {renamingId === board.id ? (
                                 <input
-                                    autoFocus
-                                    value={renameValue}
+                                    autoFocus value={renameValue}
                                     onChange={e => setRenameValue(e.target.value)}
                                     onBlur={() => commitRename(board.id)}
-                                    onKeyDown={e => {
-                                        if (e.key === 'Enter') commitRename(board.id)
-                                        if (e.key === 'Escape') setRenamingId(null)
-                                        e.stopPropagation()
-                                    }}
+                                    onKeyDown={e => { if (e.key === 'Enter') commitRename(board.id); if (e.key === 'Escape') setRenamingId(null); e.stopPropagation() }}
                                     onClick={e => e.stopPropagation()}
-                                    style={{
-                                        flex: 1, border: 'none', borderBottom: '1.5px solid #1a1a1a',
-                                        outline: 'none', fontSize: 13, fontWeight: 500,
-                                        background: 'transparent', padding: '2px 0',
-                                    }}
+                                    style={{ flex: 1, border: 'none', borderBottom: '1.5px solid #1a1a1a', outline: 'none', fontSize: 13, fontWeight: 500, background: 'transparent', padding: '2px 0' }}
                                 />
                             ) : (
                                 <>
                                     <div style={{ flex: 1, minWidth: 0 }}>
-                                        <div style={{
-                                            fontSize: 13, fontWeight: 500, color: '#1a1a1a',
-                                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                                        }}>{board.name}</div>
-                                        <div style={{ fontSize: 11, color: '#bbb', marginTop: 1 }}>
-                                            {formatDate(board.updatedAt)}
-                                        </div>
+                                        <div style={{ fontSize: 13, fontWeight: 500, color: '#1a1a1a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{board.name}</div>
+                                        <div style={{ fontSize: 11, color: '#bbb', marginTop: 1 }}>{formatDate(board.updatedAt)}</div>
                                     </div>
                                     {hoveredId === board.id && (
                                         <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
-                                            <button
-                                                onClick={e => startRename(board, e)}
-                                                title="重新命名"
-                                                style={{
-                                                    width: 24, height: 24, borderRadius: 6,
-                                                    border: '1px solid #e0e0de', background: 'white',
-                                                    cursor: 'pointer', fontSize: 11,
-                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                    padding: 0, color: '#555',
-                                                }}
-                                            >✎</button>
+                                            <button onClick={e => startRename(board, e)} title="重新命名" style={{ width: 24, height: 24, borderRadius: 6, border: '1px solid #e0e0de', background: 'white', cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, color: '#555' }}>✎</button>
                                             {boards.filter(b => !b.isHome).length > 1 && (
                                                 <button
-                                                    onClick={e => {
-                                                        e.stopPropagation()
-                                                        if (confirm(`確定刪除「${board.name}」嗎？`)) onDelete(board.id)
-                                                    }}
+                                                    onClick={e => { e.stopPropagation(); if (confirm(`確定刪除「${board.name}」嗎？`)) onDelete(board.id) }}
                                                     title="刪除"
-                                                    style={{
-                                                        width: 24, height: 24, borderRadius: 6,
-                                                        border: '1px solid #e0e0de', background: 'white',
-                                                        cursor: 'pointer', fontSize: 11,
-                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                        padding: 0, color: '#e84040',
-                                                    }}
+                                                    style={{ width: 24, height: 24, borderRadius: 6, border: '1px solid #e0e0de', background: 'white', cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, color: '#e84040' }}
                                                 >✕</button>
                                             )}
                                         </div>
@@ -384,7 +384,7 @@ function BoardOverview({ boards, activeBoardId, onSelect, onNew, onRename, onDel
     )
 }
 
-/* --------------------------------------------------------------- BoardTabBar */
+/* --------------------------------------------------------------- BoardTabBar (右側垂直側邊欄) */
 interface BoardTabBarProps {
     boards: BoardRecord[]
     activeBoardId: string
@@ -395,175 +395,351 @@ interface BoardTabBarProps {
     onSearch: () => void
     onHotkey: () => void
     onOpenOverview: () => void
-    onSetJournal: (boardId: string, isJournal: boolean) => void  // ← 新增
-    navigationStack: string[]   // 導航歷史 [rootId, ..., currentId]
-    onBack: () => void          // 返回上一層
-    onSetParent: (boardId: string, parentId: string | null) => void  // 設定父板
-    onSwitchToChild: (id: string) => void  // 進入子板（帶麵包屑）
+    onSetJournal: (boardId: string, isJournal: boolean) => void
+    navigationStack: string[]
+    onBack: () => void
+    onSetParent: (boardId: string, parentId: string | null) => void
+    onSwitchToChild: (id: string) => void
+    collapsed: boolean
+    onToggleCollapse: () => void
+    onSetStatus: (boardId: string, status: 'active' | 'archived' | 'pinned') => void
+    onOpenTaskCenter: () => void
 }
 
-function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelete, onSearch, onHotkey, onOpenOverview, onSetJournal, navigationStack, onBack, onSetParent, onSwitchToChild }: BoardTabBarProps) {
+function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelete, onSearch, onHotkey, onOpenOverview, onSetJournal, navigationStack, onBack, onSetParent, onSwitchToChild, collapsed, onToggleCollapse, onSetStatus, onOpenTaskCenter }: BoardTabBarProps) {
     const [hoveredId, setHoveredId] = useState<string | null>(null)
     const [renamingId, setRenamingId] = useState<string | null>(null)
     const [renameValue, setRenameValue] = useState('')
     const [contextMenu, setContextMenu] = useState<{ boardId: string; x: number; y: number } | null>(null)
     const [selectingParentFor, setSelectingParentFor] = useState<string | null>(null)
+    const [archivedOpen, setArchivedOpen] = useState(false)
 
     const startRename = (board: BoardRecord) => { setRenamingId(board.id); setRenameValue(board.name) }
     const commitRename = (id: string) => { if (renameValue.trim()) onRename(id, renameValue.trim()); setRenamingId(null) }
 
-    // 麵包屑：navigationStack 有超過1層時才顯示
-    const showBreadcrumb = navigationStack.length > 1
+    const sidebarWidth = collapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_WIDTH
 
     return (
-        <div style={{
-            position: 'fixed', top: 0, left: 0, right: 0, height: 48,
-            background: 'rgba(255,255,255,0.96)', backdropFilter: 'blur(8px)',
-            borderBottom: '1px solid #eee', display: 'flex', alignItems: 'center',
-            zIndex: 10000,
-        }}>
-            {/* 可捲動的 Tab 區域 */}
+        <>
+            {/* 右側側邊欄主體 */}
             <div style={{
-                flex: 1, display: 'flex', alignItems: 'center', gap: 4,
-                paddingLeft: 12, overflowX: 'auto', overflowY: 'hidden',
-                scrollbarWidth: 'none', // Firefox 隱藏捲軸
+                position: 'fixed',
+                top: 0,
+                right: 0,
+                width: sidebarWidth,
+                bottom: 0,
+                background: 'rgba(255,255,255,0.97)',
+                backdropFilter: 'blur(8px)',
+                borderLeft: '1px solid #eee',
+                display: 'flex',
+                flexDirection: 'column',
+                zIndex: 10000,
+                transition: 'width 0.2s cubic-bezier(0.4,0,0.2,1)',
+                overflow: 'hidden',
             }}>
-                {/* 麵包屑導航 */}
-                {showBreadcrumb && (
-                    <div style={{
-                        display: 'flex', alignItems: 'center', gap: 4,
-                        marginRight: 8, flexShrink: 0,
-                    }}>
-                        {navigationStack.map((boardId, idx) => {
-                            const b = boards.find(b => b.id === boardId)
-                            if (!b) return null
-                            const isLast = idx === navigationStack.length - 1
-                            return (
-                                <div key={boardId} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                    {idx > 0 && <span style={{ color: '#bbb', fontSize: 12 }}>›</span>}
-                                    <span
-                                        onClick={() => !isLast && onSwitch(boardId)}
-                                        style={{
-                                            fontSize: 13, cursor: isLast ? 'default' : 'pointer',
-                                            color: isLast ? '#1a1a1a' : '#888',
-                                            fontWeight: isLast ? 600 : 400,
-                                            textDecoration: isLast ? 'none' : 'underline',
-                                        }}
-                                        onMouseEnter={e => { if (!isLast) (e.target as HTMLElement).style.color = '#1971c2' }}
-                                        onMouseLeave={e => { if (!isLast) (e.target as HTMLElement).style.color = '#888' }}
-                                    >
-                                        {b.name}
-                                    </span>
-                                </div>
-                            )
-                        })}
-                        {/* 返回按鈕 */}
+                {/* 頂部工具列 */}
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: collapsed ? 'center' : 'space-between',
+                    padding: collapsed ? '9px 0' : '8px 10px',
+                    borderBottom: '1px solid #f0f0f0',
+                    flexShrink: 0,
+                    gap: 4,
+                }}>
+                    {/* 收合按鈕 */}
+                    <button
+                        onClick={onToggleCollapse}
+                        title={collapsed ? '展開側邊欄' : '收合側邊欄'}
+                        style={{
+                            width: 26, height: 26, borderRadius: 7,
+                            border: '1px solid #e8e8e8',
+                            background: 'transparent', cursor: 'pointer',
+                            fontSize: 13, color: '#888',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            padding: 0, flexShrink: 0,
+                            transition: 'background 0.15s',
+                        }}
+                        onMouseEnter={e => (e.currentTarget.style.background = '#f5f5f5')}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                    >
+                        {collapsed ? '‹' : '›'}
+                    </button>
+
+                    {/* 展開時：新增 / 總覽 / 搜尋 */}
+                    {!collapsed && (
+                        <div style={{ display: 'flex', gap: 4 }}>
+                            <button onClick={onNew} title="新增白板" style={{ width: 28, height: 28, borderRadius: 7, border: '1px dashed #ccc', background: 'transparent', cursor: 'pointer', fontSize: 18, color: '#aaa', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+                                onMouseEnter={e => (e.currentTarget.style.background = '#f5f5f5')}
+                                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                            >+</button>
+                            <button onClick={onOpenOverview} title="所有白板 (Ctrl+Shift+O)" style={{ width: 28, height: 28, borderRadius: 7, border: '1px solid #eee', background: 'transparent', cursor: 'pointer', fontSize: 14, color: '#888', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+                                onMouseEnter={e => (e.currentTarget.style.background = '#f5f5f5')}
+                                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                            >⊞</button>
+                            <button onClick={onSearch} title="搜尋卡片 (Ctrl+F)" style={{ width: 28, height: 28, borderRadius: 7, border: '1px solid #eee', background: 'transparent', cursor: 'pointer', fontSize: 14, color: '#888', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+                                onMouseEnter={e => (e.currentTarget.style.background = '#f5f5f5')}
+                                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                            >🔍</button>
+                        </div>
+                    )}
+                </div>
+
+                {/* 收合時的圖示按鈕群 */}
+                {collapsed && (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '8px 0', borderBottom: '1px solid #f0f0f0', flexShrink: 0 }}>
+                        <button onClick={onNew} title="新增白板" style={{ width: 26, height: 26, borderRadius: 7, border: '1px dashed #ccc', background: 'transparent', cursor: 'pointer', fontSize: 16, color: '#aaa', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>+</button>
+                        <button onClick={onOpenOverview} title="所有白板" style={{ width: 26, height: 26, borderRadius: 7, border: '1px solid #eee', background: 'transparent', cursor: 'pointer', fontSize: 13, color: '#888', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>⊞</button>
+                        <button onClick={onSearch} title="搜尋" style={{ width: 26, height: 26, borderRadius: 7, border: '1px solid #eee', background: 'transparent', cursor: 'pointer', fontSize: 13, color: '#888', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>🔍</button>
+                        <button onClick={onOpenTaskCenter} title="任務中心" style={{ width: 26, height: 26, borderRadius: 7, border: '1px solid #eee', background: 'transparent', cursor: 'pointer', fontSize: 13, color: '#888', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>✅</button>
+                    </div>
+                )}
+
+                {/* 麵包屑（展開時才顯示） */}
+                {!collapsed && navigationStack.length > 1 && (
+                    <div style={{ padding: '6px 8px', borderBottom: '1px solid #f0f0f0', flexShrink: 0 }}>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 2, marginBottom: 4 }}>
+                            {navigationStack.map((boardId, idx) => {
+                                const b = boards.find(b => b.id === boardId)
+                                if (!b) return null
+                                const isLast = idx === navigationStack.length - 1
+                                return (
+                                    <React.Fragment key={boardId}>
+                                        {idx > 0 && <span style={{ color: '#bbb', fontSize: 10 }}>›</span>}
+                                        <span
+                                            onClick={() => !isLast && onSwitch(boardId)}
+                                            style={{ fontSize: 11, cursor: isLast ? 'default' : 'pointer', color: isLast ? '#1a1a1a' : '#888', fontWeight: isLast ? 600 : 400 }}
+                                        >{b.name}</span>
+                                    </React.Fragment>
+                                )
+                            })}
+                        </div>
                         <button
                             onClick={onBack}
-                            title="返回上一層"
+                            style={{ fontSize: 11, color: '#888', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 0' }}
+                        >← 返回</button>
+                    </div>
+                )}
+
+                {/* 白板 Tab 捲動列表 */}
+                {(() => {
+                    const now = Date.now()
+                    const STALE_MS = 14 * 86400000
+
+                    // 分組
+                    const topLevel = boards.filter(b => !b.parentId)
+                    const pinnedBoards  = topLevel.filter(b => b.status === 'pinned' && !b.isHome)
+                    const activeBoards  = topLevel.filter(b => b.status !== 'pinned' && b.status !== 'archived')
+                    const archivedBoards = topLevel.filter(b => b.status === 'archived')
+
+                    // 最近使用：非當前、非封存、非釘選、非主頁、有 lastVisitedAt，取前 5
+                    const recentBoards = topLevel
+                        .filter(b => b.id !== activeBoardId && !b.isHome && b.status !== 'archived' && b.status !== 'pinned' && b.lastVisitedAt)
+                        .sort((a, b) => (b.lastVisitedAt ?? 0) - (a.lastVisitedAt ?? 0))
+                        .slice(0, 5)
+
+                    // 渲染單一 board 卡片（展開模式）
+                    const renderBoardCard = (board: BoardRecord, opts?: { dimmed?: boolean }) => {
+                        const isActive  = activeBoardId === board.id
+                        const isHovered = hoveredId === board.id
+                        const isStale   = !!(board.lastVisitedAt && (now - board.lastVisitedAt > STALE_MS))
+                        return (
+                            <div
+                                key={`card_${board.id}`}
+                                onMouseEnter={() => setHoveredId(board.id)}
+                                onMouseLeave={() => setHoveredId(null)}
+                                onClick={() => onSwitch(board.id)}
+                                onContextMenu={e => { e.preventDefault(); if (!board.isHome) setContextMenu({ boardId: board.id, x: e.clientX, y: e.clientY }) }}
+                                style={{
+                                    position: 'relative', borderRadius: 8,
+                                    border: isActive ? '1.5px solid #c7d7fd' : `1.5px solid ${isHovered ? '#e0e0e0' : 'transparent'}`,
+                                    background: isActive ? '#f0f4ff' : (isHovered ? '#fafafa' : 'transparent'),
+                                    cursor: 'pointer', padding: '7px 8px',
+                                    display: 'flex', flexDirection: 'column', gap: 5,
+                                    transition: 'background 0.12s, border-color 0.12s',
+                                    flexShrink: 0,
+                                    opacity: opts?.dimmed ? 0.6 : 1,
+                                }}
+                            >
+                                {/* 縮圖 */}
+                                <div style={{
+                                    width: '100%', aspectRatio: '16/10', borderRadius: 5,
+                                    overflow: 'hidden', background: '#f0f0f0', border: '1px solid #ebebeb',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                }}>
+                                    {isRasterThumbnail(board.thumbnail)
+                                        ? <img src={board.thumbnail} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+                                        : <span style={{ fontSize: 18, opacity: 0.15 }}>□</span>
+                                    }
+                                </div>
+                                {/* 名稱列 */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 4, minWidth: 0 }}>
+                                    {renamingId === board.id ? (
+                                        <input
+                                            autoFocus value={renameValue}
+                                            onChange={e => setRenameValue(e.target.value)}
+                                            onBlur={() => commitRename(board.id)}
+                                            onKeyDown={e => { if (e.key === 'Enter') commitRename(board.id); if (e.key === 'Escape') setRenamingId(null); e.stopPropagation() }}
+                                            onClick={e => e.stopPropagation()}
+                                            style={{ flex: 1, border: 'none', borderBottom: '1px solid #333', outline: 'none', fontSize: 12, background: 'transparent', padding: '1px 0', minWidth: 0 }}
+                                        />
+                                    ) : (
+                                        <span
+                                            onDoubleClick={e => { e.stopPropagation(); startRename(board) }}
+                                            style={{
+                                                flex: 1, fontSize: 12,
+                                                color: isActive ? '#1a1a1a' : '#555',
+                                                fontWeight: isActive ? 600 : 400,
+                                                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                                userSelect: 'none',
+                                            }}
+                                        >
+                                            {board.status === 'pinned' ? '📌 ' : ''}{board.name}{board.isJournal ? ' 📔' : ''}
+                                            {isStale && <span title="超過 14 天未開啟" style={{ marginLeft: 3, fontSize: 10, opacity: 0.5 }}>🕐</span>}
+                                        </span>
+                                    )}
+                                </div>
+                                {/* 刪除按鈕 */}
+                                {isHovered && !board.isHome && boards.length > 1 && (
+                                    <button
+                                        onClick={e => { e.stopPropagation(); if (confirm(`確定刪除「${board.name}」嗎？`)) onDelete(board.id) }}
+                                        style={{
+                                            position: 'absolute', top: 4, right: 4,
+                                            width: 16, height: 16, borderRadius: '50%',
+                                            background: '#ff4d4f', color: 'white', border: 'none',
+                                            cursor: 'pointer', fontSize: 10,
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            padding: 0, lineHeight: 1,
+                                        }}
+                                    >×</button>
+                                )}
+                            </div>
+                        )
+                    }
+
+                    // 段落標題
+                    const SectionHeader = ({ label }: { label: string }) => (
+                        <div style={{ padding: '6px 7px 2px', fontSize: 10, fontWeight: 600, color: '#bbb', letterSpacing: '0.5px', userSelect: 'none' }}>
+                            {label}
+                        </div>
+                    )
+
+                    if (collapsed) {
+                        // 收合模式：只顯示縮圖
+                        return (
+                            <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '6px 0', scrollbarWidth: 'none', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                {topLevel.map(board => {
+                                    const isActive = activeBoardId === board.id
+                                    return (
+                                        <div
+                                            key={board.id}
+                                            onClick={() => onSwitch(board.id)}
+                                            title={board.name}
+                                            style={{
+                                                width: 26, height: 20, margin: '0 auto',
+                                                borderRadius: 4, overflow: 'hidden',
+                                                border: isActive ? '2px solid #4a6cf7' : '1.5px solid #e0e0e0',
+                                                background: '#f5f5f5', cursor: 'pointer', flexShrink: 0,
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                opacity: board.status === 'archived' ? 0.5 : 1,
+                                            }}
+                                        >
+                                            {isRasterThumbnail(board.thumbnail)
+                                                ? <img src={board.thumbnail} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+                                                : <span style={{ fontSize: 8, color: '#ccc' }}>□</span>
+                                            }
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        )
+                    }
+
+                    // 展開模式：分段列表
+                    return (
+                        <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '6px 8px', scrollbarWidth: 'none', display: 'flex', flexDirection: 'column', gap: 3 }}>
+                            {/* 最近使用 */}
+                            {recentBoards.length > 0 && (
+                                <>
+                                    <SectionHeader label="最近使用" />
+                                    {recentBoards.map(b => renderBoardCard(b))}
+                                    <div style={{ height: 1, background: '#f0f0f0', margin: '4px 2px' }} />
+                                </>
+                            )}
+
+                            {/* 釘選 */}
+                            {pinnedBoards.length > 0 && (
+                                <>
+                                    <SectionHeader label="📌 釘選" />
+                                    {pinnedBoards.map(b => renderBoardCard(b))}
+                                    <div style={{ height: 1, background: '#f0f0f0', margin: '4px 2px' }} />
+                                </>
+                            )}
+
+                            {/* 一般白板 */}
+                            {activeBoards.map(b => renderBoardCard(b))}
+
+                            {/* 封存 */}
+                            {archivedBoards.length > 0 && (
+                                <>
+                                    <div style={{ height: 1, background: '#f0f0f0', margin: '4px 2px' }} />
+                                    <button
+                                        onClick={() => setArchivedOpen(v => !v)}
+                                        style={{
+                                            display: 'flex', alignItems: 'center', gap: 4,
+                                            padding: '4px 7px', background: 'none', border: 'none',
+                                            cursor: 'pointer', fontSize: 10, fontWeight: 600,
+                                            color: '#bbb', letterSpacing: '0.5px',
+                                        }}
+                                    >
+                                        <span style={{ fontSize: 9 }}>{archivedOpen ? '▼' : '▶'}</span>
+                                        🗄️ 封存 ({archivedBoards.length})
+                                    </button>
+                                    {archivedOpen && archivedBoards.map(b => renderBoardCard(b, { dimmed: true }))}
+                                </>
+                            )}
+                        </div>
+                    )
+                })()}
+
+                {/* 底部工具列 */}
+                {!collapsed && (
+                    <div style={{
+                        display: 'flex', alignItems: 'center',
+                        borderTop: '1px solid #f0f0f0',
+                        padding: '6px 10px',
+                        gap: 4, flexShrink: 0,
+                    }}>
+                        <button
+                            onClick={onOpenTaskCenter}
+                            title="任務中心"
                             style={{
-                                marginLeft: 4, padding: '2px 8px', borderRadius: 6,
+                                flex: 1, height: 28, borderRadius: 7,
                                 border: '1px solid #eee', background: 'transparent',
-                                cursor: 'pointer', fontSize: 12, color: '#888',
+                                cursor: 'pointer', fontSize: 12, color: '#666',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+                                transition: 'background 0.12s',
                             }}
                             onMouseEnter={e => (e.currentTarget.style.background = '#f5f5f5')}
                             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                         >
-                            ← 返回
+                            <span style={{ fontSize: 13 }}>✅</span> 任務中心
                         </button>
-                        <div style={{ width: 1, height: 20, background: '#eee', marginLeft: 4 }} />
+                        <button
+                            onClick={onHotkey}
+                            title="快捷鍵 (?)"
+                            style={{
+                                width: 28, height: 28, borderRadius: 7,
+                                border: '1px solid #eee', background: 'transparent',
+                                cursor: 'pointer', fontSize: 14, color: '#888',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
+                                transition: 'background 0.12s',
+                            }}
+                            onMouseEnter={e => (e.currentTarget.style.background = '#f5f5f5')}
+                            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                        >⌨️</button>
                     </div>
                 )}
-                {boards.filter(b => !b.parentId).map(board => (
-                    <div
-                        key={board.id}
-                        onMouseEnter={() => setHoveredId(board.id)}
-                        onMouseLeave={() => setHoveredId(null)}
-                        onClick={() => onSwitch(board.id)}
-                        onContextMenu={(e) => { e.preventDefault(); if (!board.isHome) setContextMenu({ boardId: board.id, x: e.clientX, y: e.clientY }) }}
-                        style={{
-                            position: 'relative', display: 'flex', alignItems: 'center', gap: 6,
-                            padding: '4px 10px', borderRadius: 8, cursor: 'pointer',
-                            background: activeBoardId === board.id ? '#f0f4ff' : 'transparent',
-                            border: activeBoardId === board.id ? '1px solid #c7d7fd' : '1px solid transparent',
-                            minWidth: 0, flexShrink: 0, transition: 'background 0.15s',
-                        }}
-                    >
-                        <div style={{
-                            width: 32, height: 22, borderRadius: 4, overflow: 'hidden',
-                            background: '#f5f5f5', border: '1px solid #e0e0e0', flexShrink: 0,
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        }}>
-                            {board.thumbnail
-                                ? <img src={`data:image/svg+xml;utf8,${encodeURIComponent(board.thumbnail)}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
-                                : <span style={{ fontSize: 10, color: '#ccc' }}>空</span>
-                            }
-                        </div>
-
-                        {renamingId === board.id ? (
-                            <input
-                                autoFocus value={renameValue}
-                                onChange={e => setRenameValue(e.target.value)}
-                                onBlur={() => commitRename(board.id)}
-                                onKeyDown={e => { if (e.key === 'Enter') commitRename(board.id); if (e.key === 'Escape') setRenamingId(null); e.stopPropagation() }}
-                                onClick={e => e.stopPropagation()}
-                                style={{ width: 80, border: 'none', borderBottom: '1px solid #333', outline: 'none', fontSize: 13, background: 'transparent' }}
-                            />
-                        ) : (
-                            <span
-                                onDoubleClick={(e) => { e.stopPropagation(); startRename(board) }}
-                                style={{
-                                    fontSize: 13, color: activeBoardId === board.id ? '#1a1a1a' : '#555',
-                                    fontWeight: activeBoardId === board.id ? 600 : 400,
-                                    maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', userSelect: 'none',
-                                }}
-                            >{board.name}{board.isJournal ? ' 📔' : ''}</span>
-                        )}
-
-                        {hoveredId === board.id && boards.length > 1 && !board.isHome && (
-                            <button
-                                onClick={(e) => { e.stopPropagation(); if (confirm(`確定刪除「${board.name}」嗎？`)) onDelete(board.id) }}
-                                style={{
-                                    position: 'absolute', top: -6, right: -6, width: 16, height: 16,
-                                    borderRadius: '50%', background: '#ff4d4f', color: 'white', border: 'none',
-                                    cursor: 'pointer', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, lineHeight: 1,
-                                }}
-                            >×</button>
-                        )}
-                    </div>
-                ))}
-
-            </div>{/* 可捲動 Tab 區域結束 */}
-
-            {/* 固定右側按鈕區 */}
-            <div style={{
-                display: 'flex', alignItems: 'center', gap: 4,
-                paddingLeft: 8, paddingRight: 12, flexShrink: 0,
-                borderLeft: '1px solid #eee',
-            }}>
-                <button onClick={onNew} style={{
-                    width: 28, height: 28, borderRadius: 8, border: '1px dashed #ccc',
-                    background: 'transparent', cursor: 'pointer', fontSize: 18, color: '#aaa',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, padding: 0,
-                }} title="新增白板">+</button>
-
-                <button onClick={onOpenOverview} style={{
-                    width: 28, height: 28, borderRadius: 8, border: '1px solid #eee',
-                    background: 'transparent', cursor: 'pointer', fontSize: 14, color: '#888',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, padding: 0,
-                }} title="所有白板 (Cmd+Shift+O)">⊞</button>
-
-                <button onClick={onSearch} style={{
-                    width: 28, height: 28, borderRadius: 8, border: '1px solid #eee',
-                    background: 'transparent', cursor: 'pointer', fontSize: 14, color: '#888',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, padding: 0,
-                }} title="搜尋卡片 (Ctrl+F)">🔍</button>
-
-                <button onClick={onHotkey} style={{
-                    width: 28, height: 28, borderRadius: 8, border: '1px solid #eee',
-                    background: 'transparent', cursor: 'pointer', fontSize: 14, color: '#888',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, padding: 0,
-                }} title="快捷鍵 (?)">⌨️</button>
             </div>
 
             {/* 右鍵選單 */}
@@ -574,7 +750,9 @@ function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelet
                     <>
                         <div style={{ position: 'fixed', inset: 0, zIndex: 99998 }} onClick={() => setContextMenu(null)} />
                         <div style={{
-                            position: 'fixed', left: contextMenu.x, top: contextMenu.y,
+                            position: 'fixed',
+                            left: contextMenu.x + 180 > window.innerWidth ? contextMenu.x - 180 : contextMenu.x,
+                            top: contextMenu.y,
                             background: 'white', borderRadius: 10, padding: '4px 0',
                             boxShadow: '0 4px 20px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.06)',
                             zIndex: 99999, minWidth: 180,
@@ -582,17 +760,36 @@ function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelet
                             <div style={{ padding: '4px 12px 6px', fontSize: 11, color: '#aaa', borderBottom: '1px solid #f0f0f0', marginBottom: 4 }}>
                                 {targetBoard.name}
                             </div>
-                            {/* ← 新增：Journal 設定選項 */}
+                            <div
+                                onClick={() => { onSetJournal(contextMenu.boardId, !targetBoard.isJournal); setContextMenu(null) }}
+                                style={{ padding: '7px 14px', cursor: 'pointer', fontSize: 13 }}
+                                onMouseEnter={e => (e.currentTarget.style.background = '#fffbe6')}
+                                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                            >
+                                {targetBoard.isJournal ? '📔 取消 Journal 白板' : '📔 設為 Journal 白板'}
+                            </div>
+                            <div style={{ height: 1, background: '#f0f0f0', margin: '4px 0' }} />
                             <div
                                 onClick={() => {
-                                    onSetJournal(contextMenu.boardId, !targetBoard.isJournal)
+                                    onSetStatus(contextMenu.boardId, targetBoard.status === 'pinned' ? 'active' : 'pinned')
                                     setContextMenu(null)
                                 }}
                                 style={{ padding: '7px 14px', cursor: 'pointer', fontSize: 13 }}
                                 onMouseEnter={e => (e.currentTarget.style.background = '#fffbe6')}
                                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                             >
-                                {targetBoard.isJournal ? '📔 取消 Journal 白板' : '📔 設為 Journal 白板'}
+                                {targetBoard.status === 'pinned' ? '📌 取消釘選' : '📌 釘選白板'}
+                            </div>
+                            <div
+                                onClick={() => {
+                                    onSetStatus(contextMenu.boardId, targetBoard.status === 'archived' ? 'active' : 'archived')
+                                    setContextMenu(null)
+                                }}
+                                style={{ padding: '7px 14px', cursor: 'pointer', fontSize: 13 }}
+                                onMouseEnter={e => (e.currentTarget.style.background = '#f5f5f5')}
+                                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                            >
+                                {targetBoard.status === 'archived' ? '↩ 取消封存' : '🗄️ 封存白板'}
                             </div>
                             <div style={{ height: 1, background: '#f0f0f0', margin: '4px 0' }} />
                             <div
@@ -605,115 +802,43 @@ function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelet
                             </div>
                             <div style={{ height: 1, background: '#f0f0f0', margin: '4px 0' }} />
                             <div
-                                onClick={() => {
-                                    if (confirm(`確定刪除「${targetBoard.name}」嗎？`)) {
-                                        onDelete(contextMenu.boardId)
-                                        setContextMenu(null)
-                                    }
-                                }}
+                                onClick={() => { if (confirm(`確定刪除「${targetBoard.name}」嗎？`)) { onDelete(contextMenu.boardId); setContextMenu(null) } }}
                                 style={{ padding: '7px 14px', cursor: 'pointer', fontSize: 13, color: '#e03131' }}
                                 onMouseEnter={e => (e.currentTarget.style.background = '#fff5f5')}
                                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                             >
                                 🗑️ 刪除白板
                             </div>
-                            {/* 查看子板（遞迴顯示所有後代） */}
                             {boards.filter(b => b.parentId === contextMenu.boardId).length > 0 && (() => {
                                 const renderChildren = (parentId: string, depth: number): React.ReactNode => {
                                     return boards.filter(b => b.parentId === parentId).map(child => (
                                         <React.Fragment key={child.id}>
                                             <div
-                                                style={{
-                                                    display: 'flex', alignItems: 'center',
-                                                    paddingLeft: 14 + depth * 12,
-                                                    paddingRight: 8,
-                                                }}
+                                                style={{ display: 'flex', alignItems: 'center', paddingLeft: 14 + depth * 12, paddingRight: 8 }}
                                                 onMouseEnter={e => (e.currentTarget.style.background = '#f5f5f5')}
                                                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                                             >
                                                 {renamingId === child.id ? (
                                                     <input
-                                                        autoFocus
-                                                        defaultValue={child.name}
-                                                        onBlur={() => { commitRename(child.id); }}
-                                                        onKeyDown={(e) => {
-                                                            if (e.key === 'Enter') commitRename(child.id)
-                                                            if (e.key === 'Escape') setRenamingId(null)
-                                                            e.stopPropagation()
-                                                        }}
+                                                        autoFocus defaultValue={child.name}
+                                                        onBlur={() => commitRename(child.id)}
+                                                        onKeyDown={e => { if (e.key === 'Enter') commitRename(child.id); if (e.key === 'Escape') setRenamingId(null); e.stopPropagation() }}
                                                         onChange={e => setRenameValue(e.target.value)}
                                                         onClick={e => e.stopPropagation()}
-                                                        style={{
-                                                            flex: 1, border: 'none', borderBottom: '1px solid #333',
-                                                            outline: 'none', fontSize: 13, background: 'transparent',
-                                                            padding: '4px 0',
-                                                        }}
+                                                        style={{ flex: 1, border: 'none', borderBottom: '1px solid #333', outline: 'none', fontSize: 13, background: 'transparent', padding: '4px 0' }}
                                                     />
                                                 ) : (
                                                     <div
-                                                        onClick={(e) => {
-                                                            // 用 timer 延遲，雙擊時取消單擊
-                                                            const timer = setTimeout(() => {
-                                                                onSwitchToChild(child.id)
-                                                                setContextMenu(null)
-                                                            }, 200)
-                                                                ; (e.currentTarget as any)._clickTimer = timer
-                                                        }}
-                                                        onDoubleClick={(e) => {
-                                                            e.stopPropagation()
-                                                            clearTimeout((e.currentTarget as any)._clickTimer)
-                                                            startRename(child)
-                                                        }}
+                                                        onClick={() => { onSwitchToChild(child.id); setContextMenu(null) }}
                                                         style={{ flex: 1, padding: '7px 6px 7px 0', cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}
-                                                        title="單擊進入・雙擊重新命名"
                                                     >
                                                         <span style={{ color: '#aaa', fontSize: 11 }}>{depth > 0 ? '└' : '📋'}</span>
                                                         {child.name}
                                                     </div>
                                                 )}
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); startRename(child) }}
-                                                    style={{
-                                                        background: 'none', border: 'none', cursor: 'pointer',
-                                                        color: '#aaa', fontSize: 11, padding: '2px 4px', borderRadius: 4,
-                                                        flexShrink: 0,
-                                                    }}
-                                                    onMouseEnter={e => (e.currentTarget.style.color = '#333')}
-                                                    onMouseLeave={e => (e.currentTarget.style.color = '#aaa')}
-                                                    title="重新命名"
-                                                >✏️</button>
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation()
-                                                        onSetParent(child.id, null)
-                                                        setContextMenu(null)
-                                                    }}
-                                                    style={{
-                                                        background: 'none', border: 'none', cursor: 'pointer',
-                                                        color: '#aaa', fontSize: 11, padding: '2px 4px', borderRadius: 4,
-                                                        flexShrink: 0, whiteSpace: 'nowrap',
-                                                    }}
-                                                    onMouseEnter={e => (e.currentTarget.style.color = '#1971c2')}
-                                                    onMouseLeave={e => (e.currentTarget.style.color = '#aaa')}
-                                                    title="升為主板"
-                                                >↑主板</button>
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation()
-                                                        if (confirm(`確定刪除「${child.name}」嗎？`)) {
-                                                            onDelete(child.id)
-                                                            setContextMenu(null)
-                                                        }
-                                                    }}
-                                                    style={{
-                                                        background: 'none', border: 'none', cursor: 'pointer',
-                                                        color: '#ccc', fontSize: 14, padding: '2px 4px', borderRadius: 4,
-                                                        flexShrink: 0,
-                                                    }}
-                                                    onMouseEnter={e => (e.currentTarget.style.color = '#e03131')}
-                                                    onMouseLeave={e => (e.currentTarget.style.color = '#ccc')}
-                                                    title="刪除子板"
-                                                >×</button>
+                                                <button onClick={e => { e.stopPropagation(); startRename(child) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#aaa', fontSize: 11, padding: '2px 4px', borderRadius: 4, flexShrink: 0 }}>✏️</button>
+                                                <button onClick={e => { e.stopPropagation(); onSetParent(child.id, null); setContextMenu(null) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#aaa', fontSize: 11, padding: '2px 4px', borderRadius: 4, flexShrink: 0, whiteSpace: 'nowrap' }}>↑主板</button>
+                                                <button onClick={e => { e.stopPropagation(); if (confirm(`確定刪除「${child.name}」嗎？`)) { onDelete(child.id); setContextMenu(null) } }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ccc', fontSize: 14, padding: '2px 4px', borderRadius: 4, flexShrink: 0 }}>×</button>
                                             </div>
                                             {renderChildren(child.id, depth + 1)}
                                         </React.Fragment>
@@ -735,14 +860,11 @@ function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelet
             {/* 選擇父板 dialog */}
             {selectingParentFor && (() => {
                 const target = boards.find(b => b.id === selectingParentFor)
-                // 排除自己和自己的所有後代（避免循環）
                 const getDescendants = (id: string): string[] => {
                     const children = boards.filter(b => b.parentId === id).map(b => b.id)
                     return [...children, ...children.flatMap(getDescendants)]
                 }
                 const excluded = new Set([selectingParentFor, ...getDescendants(selectingParentFor)])
-
-                // 建立有層級的清單
                 const buildTree = (parentId: string | null | undefined, depth: number): { board: BoardRecord; depth: number }[] => {
                     return boards
                         .filter(b => (b.parentId ?? null) === (parentId ?? null) && !excluded.has(b.id))
@@ -752,44 +874,23 @@ function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelet
                 return (
                     <>
                         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.3)', zIndex: 99998 }} onClick={() => setSelectingParentFor(null)} />
-                        <div style={{
-                            position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
-                            background: 'white', borderRadius: 14, padding: 20,
-                            boxShadow: '0 8px 40px rgba(0,0,0,0.2)',
-                            zIndex: 99999, minWidth: 280,
-                        }}>
+                        <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', background: 'white', borderRadius: 14, padding: 20, boxShadow: '0 8px 40px rgba(0,0,0,0.2)', zIndex: 99999, minWidth: 280 }}>
                             <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 4 }}>設為子板</div>
-                            <div style={{ fontSize: 13, color: '#888', marginBottom: 16 }}>
-                                將「{target?.name}」設為哪個白板的子板？
-                            </div>
+                            <div style={{ fontSize: 13, color: '#888', marginBottom: 16 }}>將「{target?.name}」設為哪個白板的子板？</div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                                 {tree.map(({ board: b, depth }) => (
-                                    <div
-                                        key={b.id}
-                                        onClick={() => { onSetParent(selectingParentFor, b.id); setSelectingParentFor(null) }}
-                                        style={{
-                                            padding: '8px 12px', borderRadius: 8, cursor: 'pointer',
-                                            border: '1px solid #eee', fontSize: 13,
-                                            marginLeft: depth * 16,
-                                            display: 'flex', alignItems: 'center', gap: 6,
-                                        }}
-                                        onMouseEnter={e => (e.currentTarget.style.background = '#f5f5f5')}
-                                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                                    >
-                                        {depth > 0 && <span style={{ color: '#ccc', fontSize: 11 }}>{'└'}</span>}
+                                    <div key={b.id} onClick={() => { onSetParent(selectingParentFor, b.id); setSelectingParentFor(null) }} style={{ padding: '8px 12px', borderRadius: 8, cursor: 'pointer', border: '1px solid #eee', fontSize: 13, marginLeft: depth * 16, display: 'flex', alignItems: 'center', gap: 6 }} onMouseEnter={e => (e.currentTarget.style.background = '#f5f5f5')} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                                        {depth > 0 && <span style={{ color: '#ccc', fontSize: 11 }}>└</span>}
                                         {b.name}
                                     </div>
                                 ))}
                             </div>
-                            <button
-                                onClick={() => setSelectingParentFor(null)}
-                                style={{ marginTop: 12, width: '100%', padding: '8px', borderRadius: 8, border: '1px solid #eee', cursor: 'pointer', fontSize: 13 }}
-                            >取消</button>
+                            <button onClick={() => setSelectingParentFor(null)} style={{ marginTop: 12, width: '100%', padding: '8px', borderRadius: 8, border: '1px solid #eee', cursor: 'pointer', fontSize: 13 }}>取消</button>
                         </div>
                     </>
                 )
             })()}
-        </div>
+        </>
     )
 }
 
@@ -803,26 +904,46 @@ interface WhiteboardProps {
     onOpenHotkey: () => void
     onCreateBoard: (name: string) => BoardRecord
     onSwitchBoard: (id: string) => void
+    sidebarWidth: number
 }
 
-function Whiteboard({ board, boards, onSaveBoard, jumpRef, onOpenSearch, onOpenHotkey, onCreateBoard, onSwitchBoard }: WhiteboardProps) {
+function Whiteboard({ board, boards, onSaveBoard, jumpRef, onOpenSearch, onOpenHotkey, onCreateBoard, onSwitchBoard, sidebarWidth }: WhiteboardProps) {
     const boardInfos = boards.map(b => ({ id: b.id, name: b.name, thumbnail: b.thumbnail }))
+    const { forwardLinks, backlinks } = useBacklinks(boards)
+    const backlinksValue = useMemo(() => ({
+        forwardLinks,
+        backlinks,
+        boardNames: boards.filter(b => !b.isHome).map(b => b.name),
+    }), [forwardLinks, backlinks, boards])
+
     return (
-        <div onDoubleClickCapture={(e) => { e.stopPropagation(); e.preventDefault() }} style={{ position: 'fixed', inset: 0, top: 48 }}>
-            <BoardsContext.Provider value={boardInfos}>
-                <Tldraw hideUi={true} tools={customTools} shapeUtils={[CardShapeUtil]}>
-                    <WhiteboardTools
-                        board={board}
-                        boards={boards}
-                        onSaveBoard={onSaveBoard}
-                        jumpRef={jumpRef}
-                        onOpenSearch={onOpenSearch}
-                        onOpenHotkey={onOpenHotkey}
-                        onCreateBoard={onCreateBoard}
-                        onSwitchBoard={onSwitchBoard}
-                    />
-                </Tldraw>
-            </BoardsContext.Provider>
+        <div
+            onDoubleClickCapture={e => { e.stopPropagation(); e.preventDefault() }}
+            style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: sidebarWidth,
+                bottom: 0,
+                transition: 'right 0.2s cubic-bezier(0.4,0,0.2,1)',
+            }}
+        >
+            <BacklinksContext.Provider value={backlinksValue}>
+                <BoardsContext.Provider value={boardInfos}>
+                    <Tldraw hideUi={true} tools={customTools} shapeUtils={[CardShapeUtil]}>
+                        <WhiteboardTools
+                            board={board}
+                            boards={boards}
+                            onSaveBoard={onSaveBoard}
+                            jumpRef={jumpRef}
+                            onOpenSearch={onOpenSearch}
+                            onOpenHotkey={onOpenHotkey}
+                            onCreateBoard={onCreateBoard}
+                            onSwitchBoard={onSwitchBoard}
+                        />
+                    </Tldraw>
+                </BoardsContext.Provider>
+            </BacklinksContext.Provider>
         </div>
     )
 }
@@ -839,12 +960,27 @@ interface WhiteboardToolsProps {
     onSwitchBoard: (id: string) => void
 }
 
+const exportBtnStyle: React.CSSProperties = {
+    padding: '5px 11px',
+    fontSize: 12,
+    fontWeight: 500,
+    color: '#333',
+    background: 'rgba(255,255,255,0.92)',
+    border: '1px solid #e0e0e0',
+    borderRadius: 8,
+    cursor: 'pointer',
+    backdropFilter: 'blur(4px)',
+    boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+    transition: 'background 0.15s',
+    whiteSpace: 'nowrap' as const,
+}
+
 function WhiteboardTools({ board, onSaveBoard, jumpRef, onOpenSearch, onOpenHotkey, boards, onCreateBoard, onSwitchBoard }: WhiteboardToolsProps) {
     const editor = useEditor()
     const initialized = useRef(false)
     const imageInputRef = useRef<HTMLInputElement>(null)
+    const jsonInputRef = useRef<HTMLInputElement>(null)
 
-    // 支援在指定座標建立卡片
     const createTextCard = useCallback((x?: number, y?: number) => {
         editor.createShape({ type: 'card', x, y, props: { type: 'text', text: '', image: null, blobUrl: null, todos: [], url: '', state: 'idle', w: 240, h: 160 } })
     }, [editor])
@@ -865,29 +1001,14 @@ function WhiteboardTools({ board, onSaveBoard, jumpRef, onOpenSearch, onOpenHotk
         const newBoard = onCreateBoard(`子白板 ${boards.length + 1}`)
         editor.createShape({
             type: 'card', x, y,
-            props: {
-                type: 'board', text: newBoard.name,
-                image: null, blobUrl: null, todos: [],
-                url: '', linkEmbedUrl: null,
-                linkedBoardId: newBoard.id,
-                state: 'idle', color: 'none', w: 280, h: 200,
-            }
+            props: { type: 'board', text: newBoard.name, image: null, blobUrl: null, todos: [], url: '', linkEmbedUrl: null, linkedBoardId: newBoard.id, state: 'idle', color: 'none', w: 280, h: 200 }
         })
     }, [editor, onCreateBoard, boards.length])
 
     const createColumnCard = useCallback((x?: number, y?: number) => {
         const center = editor.getViewportScreenCenter()
         const pageCenter = editor.screenToPage(center)
-        editor.createShape({
-            type: 'frame',
-            x: x ?? pageCenter.x - 160,
-            y: y ?? pageCenter.y - 240,
-            props: {
-                w: 320,
-                h: 480,
-                name: '欄位',
-            }
-        })
+        editor.createShape({ type: 'frame', x: x ?? pageCenter.x - 160, y: y ?? pageCenter.y - 240, props: { w: 320, h: 480, name: '欄位' } })
     }, [editor])
 
     const openImageInput = useCallback(() => imageInputRef.current?.click(), [])
@@ -902,7 +1023,6 @@ function WhiteboardTools({ board, onSaveBoard, jumpRef, onOpenSearch, onOpenHotk
         openImageInput,
     }), [createTextCard, createImageCard, createTodoCard, createLinkCard, createBoardCard, createColumnCard, openImageInput])
 
-    // 雙擊 board 卡片跳轉
     useEffect(() => {
         const handleBoardEnter = (e: CustomEvent) => {
             const { linkedBoardId } = e.detail
@@ -912,7 +1032,6 @@ function WhiteboardTools({ board, onSaveBoard, jumpRef, onOpenSearch, onOpenHotk
         return () => window.removeEventListener('board-card-enter' as any, handleBoardEnter)
     }, [onSwitchBoard])
 
-    // 白板刪除時，清理活動白板中指向已刪除白板的孤立 Board 卡片
     useEffect(() => {
         const handler = (e: CustomEvent) => {
             const { deletedBoardId } = e.detail
@@ -925,41 +1044,50 @@ function WhiteboardTools({ board, onSaveBoard, jumpRef, onOpenSearch, onOpenHotk
         return () => window.removeEventListener('cleanup-orphan-board-cards' as any, handler)
     }, [editor])
 
-    // 設為子板時，自動在父板建立 Board 卡片
+    // jump-to-card：從 BacklinksPanel 觸發的跳轉
+    useEffect(() => {
+        const handler = (e: CustomEvent) => {
+            const { boardId, shapeId, x, y, targetName } = e.detail ?? {}
+
+            if (targetName) {
+                // [[BoardName]] → 按白板名稱導航
+                const target = boards.find(b => b.name.toLowerCase() === (targetName as string).toLowerCase())
+                if (target) onSwitchBoard(target.id)
+                return
+            }
+
+            if (!shapeId) return
+
+            if (!boardId || boardId === board.id) {
+                // 同一張白板直接跳
+                jumpRef.current?.(shapeId, x ?? 0, y ?? 0)
+            } else {
+                // 跨板：先切換，350ms 後跳轉
+                onSwitchBoard(boardId)
+                setTimeout(() => jumpRef.current?.(shapeId, x ?? 0, y ?? 0), 350)
+            }
+        }
+        window.addEventListener('jump-to-card' as any, handler)
+        return () => window.removeEventListener('jump-to-card' as any, handler)
+    }, [boards, board.id, onSwitchBoard, jumpRef])
+
     useEffect(() => {
         const handler = (e: CustomEvent) => {
             const { targetBoardId, linkedBoardId, boardName } = e.detail
-            // 只有目前是父板才處理
             if (targetBoardId !== board.id) return
             const center = editor.getViewportScreenCenter()
             const pageCenter = editor.screenToPage(center)
             editor.createShape({
-                type: 'card',
-                x: pageCenter.x - 140,
-                y: pageCenter.y - 100,
-                props: {
-                    type: 'board', text: boardName,
-                    image: null, blobUrl: null, todos: [],
-                    url: '', linkEmbedUrl: null,
-                    linkedBoardId,
-                    state: 'idle', color: 'none', w: 280, h: 200,
-                }
+                type: 'card', x: pageCenter.x - 140, y: pageCenter.y - 100,
+                props: { type: 'board', text: boardName, image: null, blobUrl: null, todos: [], url: '', linkEmbedUrl: null, linkedBoardId, state: 'idle', color: 'none', w: 280, h: 200 }
             })
         }
         window.addEventListener('create-board-card-on' as any, handler)
         return () => window.removeEventListener('create-board-card-on' as any, handler)
     }, [board.id, editor])
 
-    // 右鍵選單
-    const { menuElement } = useContextMenu({
-        editor,
-        createTextCard,
-        createTodoCard,
-        createLinkCard,
-        openImageInput,
-    })
+    const { menuElement } = useContextMenu({ editor, createTextCard, createTodoCard, createLinkCard, openImageInput })
 
-    // 快捷鍵
     useHotkeys(editor, {
         createTextCard: () => createTextCard(),
         createTodoCard: () => createTodoCard(),
@@ -969,17 +1097,13 @@ function WhiteboardTools({ board, onSaveBoard, jumpRef, onOpenSearch, onOpenHotk
         openHotkeyPanel: onOpenHotkey,
     })
 
-    // Ctrl+V 貼上圖片
     useEffect(() => {
         const handlePaste = async (e: ClipboardEvent) => {
-            // 如果焦點在輸入框，讓瀏覽器原生處理
             const target = e.target as HTMLElement
             if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return
-
             const items = e.clipboardData?.items
             if (!items) return
 
-            // 方法 1：直接是圖片檔案（截圖、從本機複製）
             for (const item of Array.from(items)) {
                 if (item.type.startsWith('image/')) {
                     e.preventDefault()
@@ -990,32 +1114,20 @@ function WhiteboardTools({ board, onSaveBoard, jumpRef, onOpenSearch, onOpenHotk
                         const base64 = reader.result as string
                         const center = editor.getViewportScreenCenter()
                         const pagePoint = editor.screenToPage(center)
-                        editor.createShape({
-                            type: 'card',
-                            x: pagePoint.x - 150, y: pagePoint.y - 100,
-                            props: {
-                                type: 'image', text: '', image: base64,
-                                blobUrl: null, todos: [], url: '',
-                                state: 'idle', w: 300, h: 200
-                            }
-                        })
+                        editor.createShape({ type: 'card', x: pagePoint.x - 150, y: pagePoint.y - 100, props: { type: 'image', text: '', image: base64, blobUrl: null, todos: [], url: '', state: 'idle', w: 300, h: 200 } })
                     }
                     reader.readAsDataURL(file)
                     return
                 }
             }
 
-            // 方法 2：HTML 裡面有 <img src="...">（從網頁右鍵複製圖片）
             const htmlItem = Array.from(items).find(i => i.type === 'text/html')
             if (htmlItem) {
                 htmlItem.getAsString(async (html) => {
                     const match = html.match(/<img[^>]+src=["']([^"']+)["']/)
                     if (!match) return
                     const imgUrl = match[1]
-                    console.log('[Paste] found img url from html:', imgUrl)
-
                     try {
-                        // 用 fetch 把圖片抓下來轉 base64
                         const res = await fetch(imgUrl)
                         const blob = await res.blob()
                         const reader = new FileReader()
@@ -1023,93 +1135,53 @@ function WhiteboardTools({ board, onSaveBoard, jumpRef, onOpenSearch, onOpenHotk
                             const base64 = reader.result as string
                             const center = editor.getViewportScreenCenter()
                             const pagePoint = editor.screenToPage(center)
-                            editor.createShape({
-                                type: 'card',
-                                x: pagePoint.x - 150, y: pagePoint.y - 100,
-                                props: {
-                                    type: 'image', text: '', image: base64,
-                                    blobUrl: null, todos: [], url: '',
-                                    state: 'idle', w: 300, h: 200
-                                }
-                            })
+                            editor.createShape({ type: 'card', x: pagePoint.x - 150, y: pagePoint.y - 100, props: { type: 'image', text: '', image: base64, blobUrl: null, todos: [], url: '', state: 'idle', w: 300, h: 200 } })
                         }
                         reader.readAsDataURL(blob)
-                    } catch (err) {
-                        console.warn('[Paste] fetch image failed:', err)
-                        // fetch 失敗的話直接用 url 當 src
+                    } catch {
                         const center = editor.getViewportScreenCenter()
                         const pagePoint = editor.screenToPage(center)
-                        editor.createShape({
-                            type: 'card',
-                            x: pagePoint.x - 150, y: pagePoint.y - 100,
-                            props: {
-                                type: 'image', text: '', image: imgUrl,
-                                blobUrl: null, todos: [], url: '',
-                                state: 'idle', w: 300, h: 200
-                            }
-                        })
+                        editor.createShape({ type: 'card', x: pagePoint.x - 150, y: pagePoint.y - 100, props: { type: 'image', text: '', image: imgUrl, blobUrl: null, todos: [], url: '', state: 'idle', w: 300, h: 200 } })
                     }
                 })
                 return
             }
 
-            // 方法 3：純文字是網址 → 建立連結卡片
             const textItem = Array.from(items).find(i => i.type === 'text/plain')
             if (textItem) {
-                textItem.getAsString((text) => {
+                textItem.getAsString(text => {
                     const trimmed = text.trim()
                     try {
                         new URL(trimmed.startsWith('http') ? trimmed : `https://${trimmed}`)
                         const center = editor.getViewportScreenCenter()
                         const pagePoint = editor.screenToPage(center)
-                        editor.createShape({
-                            type: 'card',
-                            x: pagePoint.x - 130, y: pagePoint.y - 60,
-                            props: {
-                                type: 'link', text: '', image: null,
-                                blobUrl: null, todos: [], url: trimmed,
-                                state: 'idle', w: 260, h: 120
-                            }
-                        })
-                    } catch {
-                        // 不是網址，忽略
-                    }
+                        editor.createShape({ type: 'card', x: pagePoint.x - 130, y: pagePoint.y - 60, props: { type: 'link', text: '', image: null, blobUrl: null, todos: [], url: trimmed, state: 'idle', w: 260, h: 120 } })
+                    } catch { }
                 })
             }
         }
-
         window.addEventListener('paste', handlePaste)
         return () => window.removeEventListener('paste', handlePaste)
     }, [editor, createImageCard])
 
-    // 匯出 PNG
     const exportPNG = useCallback(async (selectedOnly: boolean) => {
         const allIds = Array.from(editor.getCurrentPageShapeIds())
         const selectedIds = editor.getSelectedShapeIds()
         const ids = selectedOnly ? Array.from(selectedIds) : allIds
         if (ids.length === 0) { alert(selectedOnly ? '請先選取卡片' : '白板沒有卡片'); return }
-        const blob = await exportToBlob({
-            editor, ids: ids as any,
-            format: 'png',
-            opts: { background: true, scale: 2 },
-        })
+        const blob = await exportToBlob({ editor, ids: ids as any, format: 'png', opts: { background: true, scale: 2 } })
         const url = URL.createObjectURL(blob)
         const a = document.createElement('a')
         a.href = url; a.download = `${board.name}.png`; a.click()
         URL.revokeObjectURL(url)
     }, [editor, board.name])
 
-    // 匯出 PDF
     const exportPDF = useCallback(async (selectedOnly: boolean) => {
         const allIds = Array.from(editor.getCurrentPageShapeIds())
         const selectedIds = editor.getSelectedShapeIds()
         const ids = selectedOnly ? Array.from(selectedIds) : allIds
         if (ids.length === 0) { alert(selectedOnly ? '請先選取卡片' : '白板沒有卡片'); return }
-        const blob = await exportToBlob({
-            editor, ids: ids as any,
-            format: 'png',
-            opts: { background: true, scale: 2 },
-        })
+        const blob = await exportToBlob({ editor, ids: ids as any, format: 'png', opts: { background: true, scale: 2 } })
         const imgUrl = URL.createObjectURL(blob)
         const img = new Image()
         img.onload = () => {
@@ -1118,27 +1190,18 @@ function WhiteboardTools({ board, onSaveBoard, jumpRef, onOpenSearch, onOpenHotk
             const ctx = canvas.getContext('2d')!
             ctx.drawImage(img, 0, 0)
             const imgData = canvas.toDataURL('image/png')
-            // 動態載入 jsPDF
-            if ((window as any).jspdf) {
+            const doExport = () => {
                 const { jsPDF } = (window as any).jspdf
-                const pdf = new jsPDF({
-                    orientation: img.width > img.height ? 'landscape' : 'portrait',
-                    unit: 'px', format: [img.width / 2, img.height / 2],
-                })
+                const pdf = new jsPDF({ orientation: img.width > img.height ? 'landscape' : 'portrait', unit: 'px', format: [img.width / 2, img.height / 2] })
                 pdf.addImage(imgData, 'PNG', 0, 0, img.width / 2, img.height / 2)
                 pdf.save(`${board.name}.pdf`)
+            }
+            if ((window as any).jspdf) {
+                doExport()
             } else {
                 const script = document.createElement('script')
                 script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
-                script.onload = () => {
-                    const { jsPDF } = (window as any).jspdf
-                    const pdf = new jsPDF({
-                        orientation: img.width > img.height ? 'landscape' : 'portrait',
-                        unit: 'px', format: [img.width / 2, img.height / 2],
-                    })
-                    pdf.addImage(imgData, 'PNG', 0, 0, img.width / 2, img.height / 2)
-                    pdf.save(`${board.name}.pdf`)
-                }
+                script.onload = doExport
                 document.head.appendChild(script)
             }
             URL.revokeObjectURL(imgUrl)
@@ -1153,10 +1216,7 @@ function WhiteboardTools({ board, onSaveBoard, jumpRef, onOpenSearch, onOpenHotk
         initialized.current = true
         if (board.snapshot) loadSnapshot(editor.store, board.snapshot)
 
-        // 載入後自動補建 Board 卡片
         setTimeout(() => {
-            // 主頁：顯示所有主板的 Board 卡片
-            // 一般白板：顯示直接子板的 Board 卡片
             const targetBoards = board.isHome
                 ? boards.filter(b => !b.parentId && !b.isHome)
                 : boards.filter(b => b.parentId === board.id)
@@ -1168,7 +1228,6 @@ function WhiteboardTools({ board, onSaveBoard, jumpRef, onOpenSearch, onOpenHotk
                         .map(s => (s.props as any).linkedBoardId)
                         .filter(Boolean)
                 )
-
                 const missing = targetBoards.filter(b => !existingLinkedIds.has(b.id))
                 if (missing.length > 0) {
                     const center = editor.getViewportScreenCenter()
@@ -1178,78 +1237,24 @@ function WhiteboardTools({ board, onSaveBoard, jumpRef, onOpenSearch, onOpenHotk
                             type: 'card',
                             x: pageCenter.x - 140 + (idx % 4) * 300,
                             y: pageCenter.y - 100 + Math.floor(idx / 4) * 240,
-                            props: {
-                                type: 'board', text: child.name,
-                                image: null, blobUrl: null, todos: [],
-                                url: '', linkEmbedUrl: null,
-                                linkedBoardId: child.id,
-                                state: 'idle', color: 'none', w: 280, h: 200,
-                            }
+                            props: { type: 'board', text: child.name, image: null, blobUrl: null, todos: [], url: '', linkEmbedUrl: null, linkedBoardId: child.id, state: 'idle', color: 'none', w: 280, h: 200 }
                         })
                     })
                 }
             }
 
-            // ← 新增：Journal 白板自動建立今日卡片
             if (board.isJournal) {
                 const today = new Date()
                 const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
                 const weekDay = ['日', '一', '二', '三', '四', '五', '六'][today.getDay()]
                 const todayLabel = `${today.getMonth() + 1}/${today.getDate()}（${weekDay}）`
-
-                // 檢查今日卡片是否已存在（用 journalDate 比對）
-                const alreadyExists = editor.getCurrentPageShapes().some(
-                    s => (s.props as any).journalDate === todayStr
-                )
+                const alreadyExists = editor.getCurrentPageShapes().some(s => (s.props as any).journalDate === todayStr)
                 if (!alreadyExists) {
-                    // 排在所有現有卡片最右側
                     const allShapes = editor.getCurrentPageShapes()
-                    const maxX = allShapes.length > 0
-                        ? Math.max(...allShapes.map(s => s.x + ((s.props as any).w ?? 240))) + 40
-                        : 100
-
+                    const maxX = allShapes.length > 0 ? Math.max(...allShapes.map(s => s.x + ((s.props as any).w ?? 240))) + 40 : 100
                     const journalText = `<h2>${todayLabel}</h2><p><strong>今天做了什麼</strong></p><p></p><p><strong>學到什麼（在哪個白板）</strong></p><p></p><p><strong>計畫/待辦</strong></p><p></p><p><strong>卡住的地方</strong></p><p></p><p><strong>明天先做</strong></p><p></p>`
-                    editor.createShape({
-                        type: 'card',
-                        x: maxX,
-                        y: 100,
-                        props: {
-                            type: 'journal',
-                            text: journalText,
-                            image: null,
-                            blobUrl: null,
-                            todos: [],
-                            url: '',
-                            linkEmbedUrl: null,
-                            journalDate: todayStr,
-                            state: 'idle',
-                            color: 'yellow',
-                            w: 280,
-                            h: 380,
-                        }
-                    })
-                    // ← 在這裡加：今日 Todo 卡片，放在 journal 右邊
-                    editor.createShape({
-                        type: 'card',
-                        x: maxX + 320,
-                        y: 100,
-                        props: {
-                            type: 'todo',
-                            text: `${todayLabel} 計畫`,
-                            image: null,
-                            blobUrl: null,
-                            todos: [
-                                { id: `todo_${Date.now()}`, text: '今日任務', checked: false },
-                            ],
-                            url: null,
-                            linkEmbedUrl: null,
-                            journalDate: todayStr,
-                            state: 'idle',
-                            color: 'blue',
-                            w: 260,
-                            h: 200,
-                        }
-                    })
+                    editor.createShape({ type: 'card', x: maxX, y: 100, props: { type: 'journal', text: journalText, image: null, blobUrl: null, todos: [], url: '', linkEmbedUrl: null, journalDate: todayStr, state: 'idle', color: 'yellow', w: 280, h: 380 } })
+                    editor.createShape({ type: 'card', x: maxX + 320, y: 100, props: { type: 'todo', text: `${todayLabel} 計畫`, image: null, blobUrl: null, todos: [{ id: `todo_${Date.now()}`, text: '今日任務', checked: false }], url: null, linkEmbedUrl: null, journalDate: todayStr, state: 'idle', color: 'blue', w: 260, h: 200 } })
                 }
             }
         }, 300)
@@ -1259,103 +1264,101 @@ function WhiteboardTools({ board, onSaveBoard, jumpRef, onOpenSearch, onOpenHotk
         jumpRef.current = (shapeId: string, x: number, y: number) => {
             try {
                 const shape = editor.getShape(shapeId as any)
-                if (shape) {
-                    editor.select(shapeId as any)
-                    editor.zoomToSelection({ animation: { duration: 300 } })
-                } else {
-                    editor.setCamera(
-                        { x: -x + window.innerWidth / 2, y: -y + window.innerHeight / 2, z: 1 },
-                        { animation: { duration: 300 } }
-                    )
-                }
+                if (shape) { editor.select(shapeId as any); editor.zoomToSelection({ animation: { duration: 300 } }) }
+                else { editor.setCamera({ x: -x + window.innerWidth / 2, y: -y + window.innerHeight / 2, z: 1 }, { animation: { duration: 300 } }) }
             } catch {
-                editor.setCamera(
-                    { x: -x + window.innerWidth / 2, y: -y + window.innerHeight / 2, z: 1 },
-                    { animation: { duration: 300 } }
-                )
+                editor.setCamera({ x: -x + window.innerWidth / 2, y: -y + window.innerHeight / 2, z: 1 }, { animation: { duration: 300 } })
             }
         }
         return () => { jumpRef.current = null }
     }, [editor, jumpRef])
 
+    // 🔧 修 #5：timer 用 useRef 存放，避免 unmount 後 closure 裡的舊 timer 繼續觸發
+    const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
     const generateThumbnail = useCallback(async (): Promise<string | null> => {
         try {
-            const shapeIds = editor.getCurrentPageShapeIds()
-            if (shapeIds.size === 0) return null
-            const result = await editor.getSvgString([...shapeIds], { padding: 10, scale: 0.2 })
-            return result?.svg ?? null
+            const shapeIds = [...editor.getCurrentPageShapeIds()]
+            if (shapeIds.length === 0) return null
+            const blob = await exportToBlob({ editor, ids: shapeIds as any, format: 'png', opts: { background: true, scale: 0.15 } })
+            return await new Promise<string | null>(resolve => {
+                const reader = new FileReader()
+                reader.onload = () => resolve(reader.result as string)
+                reader.onerror = () => resolve(null)
+                reader.readAsDataURL(blob)
+            })
         } catch { return null }
     }, [editor])
 
-    const saveDebounce = useMemo(() => {
-        let timer: any
-        return (snap: TLEditorSnapshot) => {
-            clearTimeout(timer)
-            timer = setTimeout(async () => { onSaveBoard(snap, await generateThumbnail()) }, 500)
-        }
+    const saveDebounce = useCallback((snap: TLEditorSnapshot) => {
+        if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+        saveTimerRef.current = setTimeout(async () => {
+            const thumbnail = await generateThumbnail()
+            onSaveBoard(snap, thumbnail)
+            saveTimerRef.current = null
+        }, 500)
     }, [generateThumbnail, onSaveBoard])
 
     useEffect(() => {
         if (!editor) return
-        return editor.store.listen(() => {
+        const cleanup = editor.store.listen(() => {
             saveDebounce(getSnapshot(editor.store) as TLEditorSnapshot)
         }, { scope: 'document' })
+        // 🔧 修 #5：unmount 時清除還在排隊的 timer
+        return () => {
+            cleanup()
+            if (saveTimerRef.current) { clearTimeout(saveTimerRef.current); saveTimerRef.current = null }
+        }
     }, [editor, saveDebounce])
 
     return (
         <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
             <TldrawToolPanel {...cardCreators} />
-            <div style={{ position: 'absolute', top: 10, right: 10, display: 'flex', gap: 8, pointerEvents: 'auto', zIndex: 100 }}>
+            <div style={{ position: 'absolute', top: 10, right: 10, display: 'flex', gap: 6, pointerEvents: 'auto', zIndex: 100 }}>
                 {/* @ts-ignore */}
                 {window.electronAPI && (
-                    <button onClick={() => window.electronAPI.saveDocument(JSON.stringify({ snapshot: getSnapshot(editor.store) }))}>儲存</button>
+                    <button
+                        onClick={() => window.electronAPI.saveDocument(JSON.stringify({ snapshot: getSnapshot(editor.store) }))}
+                        style={exportBtnStyle}
+                        onMouseEnter={e => (e.currentTarget.style.background = '#f0f0f0')}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.92)')}
+                    >儲存</button>
                 )}
-                <button onClick={() => exportJSON(getSnapshot(editor.store) as TLEditorSnapshot, board.name)}>匯出 JSON</button>
-
-                {/* 匯出圖片/PDF 下拉選單 */}
+                <button
+                    onClick={() => exportJSON(getSnapshot(editor.store) as TLEditorSnapshot, board.name)}
+                    style={exportBtnStyle}
+                    onMouseEnter={e => (e.currentTarget.style.background = '#f0f0f0')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.92)')}
+                >匯出 JSON</button>
+                <button
+                    onClick={() => jsonInputRef.current?.click()}
+                    style={exportBtnStyle}
+                    onMouseEnter={e => (e.currentTarget.style.background = '#f0f0f0')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.92)')}
+                >匯入 JSON</button>
                 <div style={{ position: 'relative' }}>
                     <button
                         onClick={() => setShowExportMenu(v => !v)}
-                        style={{ display: 'flex', alignItems: 'center', gap: 4 }}
-                    >
-                        匯出圖片 ▾
-                    </button>
+                        style={{ ...exportBtnStyle, display: 'flex', alignItems: 'center', gap: 4 }}
+                        onMouseEnter={e => (e.currentTarget.style.background = '#f0f0f0')}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.92)')}
+                    >匯出圖片 ▾</button>
                     {showExportMenu && (
-                        <div
-                            style={{
-                                position: 'absolute', top: '110%', right: 0,
-                                background: 'white', borderRadius: 10, padding: '4px 0',
-                                boxShadow: '0 4px 20px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.06)',
-                                minWidth: 180, zIndex: 9999, whiteSpace: 'nowrap',
-                            }}
-                            onMouseLeave={() => setShowExportMenu(false)}
-                        >
+                        <div style={{ position: 'absolute', top: '110%', right: 0, background: 'white', borderRadius: 10, padding: '4px 0', boxShadow: '0 4px 20px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.06)', minWidth: 180, zIndex: 9999, whiteSpace: 'nowrap' }} onMouseLeave={() => setShowExportMenu(false)}>
                             {[
                                 { label: '🖼️ 整個白板 → PNG', fn: () => exportPNG(false) },
                                 { label: '🖼️ 選取卡片 → PNG', fn: () => exportPNG(true) },
                                 { label: '📄 整個白板 → PDF', fn: () => exportPDF(false) },
                                 { label: '📄 選取卡片 → PDF', fn: () => exportPDF(true) },
                             ].map(({ label, fn }) => (
-                                <div
-                                    key={label}
-                                    onClick={() => { fn(); setShowExportMenu(false) }}
-                                    style={{
-                                        padding: '8px 16px', cursor: 'pointer', fontSize: 13,
-                                        transition: 'background 0.1s',
-                                    }}
-                                    onMouseEnter={e => (e.currentTarget.style.background = '#f5f5f5')}
-                                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                                >
-                                    {label}
-                                </div>
+                                <div key={label} onClick={() => { fn(); setShowExportMenu(false) }} style={{ padding: '8px 16px', cursor: 'pointer', fontSize: 13 }} onMouseEnter={e => (e.currentTarget.style.background = '#f5f5f5')} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>{label}</div>
                             ))}
                         </div>
                     )}
                 </div>
-
-                <input type="file" accept="application/json"
-                    onChange={e => { const f = e.target.files?.[0]; if (f) importJSON(f, d => loadSnapshot(editor.store, d.snapshot!)) }}
-                    style={{ pointerEvents: 'auto' }}
+                {/* 隱藏的 JSON import input，由「匯入 JSON」按鈕觸發 */}
+                <input ref={jsonInputRef} type="file" accept="application/json" style={{ display: 'none' }}
+                    onChange={e => { const f = e.target.files?.[0]; if (f) importJSON(f, d => loadSnapshot(editor.store, d.snapshot!)); e.target.value = '' }}
                 />
             </div>
             <input ref={imageInputRef} type="file" accept="image/*" style={{ display: 'none' }}
@@ -1367,10 +1370,7 @@ function WhiteboardTools({ board, onSaveBoard, jumpRef, onOpenSearch, onOpenHotk
                     e.target.value = ''
                 }}
             />
-            {/* 右鍵選單 — 獨立於 pointerEvents:none 容器之外 */}
-            <div style={{ pointerEvents: 'auto' }}>
-                {menuElement}
-            </div>
+            <div style={{ pointerEvents: 'auto' }}>{menuElement}</div>
         </div>
     )
 }
@@ -1383,13 +1383,27 @@ export default function App() {
     const [searchOpen, setSearchOpen] = useState(false)
     const [hotkeyOpen, setHotkeyOpen] = useState(false)
     const [overviewOpen, setOverviewOpen] = useState(false)
-    const [navigationStack, setNavigationStack] = useState<string[]>([])  // 導航歷史
+    const [taskCenterOpen, setTaskCenterOpen] = useState(false)
+    const [navigationStack, setNavigationStack] = useState<string[]>([])
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+        try { return localStorage.getItem('sidebar-collapsed') === 'true' } catch { return false }
+    })
     const jumpRef = useRef<((shapeId: string, x: number, y: number) => void) | null>(null)
 
-    useEffect(() => {
-        // 申請 IndexedDB 持久化權限，防止瀏覽器在儲存空間不足時自動清除資料
-        navigator.storage?.persist?.()
+    const sidebarWidth = sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_WIDTH
 
+    const handleToggleCollapse = useCallback(() => {
+        setSidebarCollapsed(prev => {
+            const next = !prev
+            try { localStorage.setItem('sidebar-collapsed', String(next)) } catch { }
+            return next
+        })
+    }, [])
+
+    useEffect(() => {
+        navigator.storage?.persist?.().then(granted => {
+            if (!granted) console.warn('[Storage] 持久化未授權，資料可能被清除')
+        })
         loadAllBoards().then(loaded => {
             setBoards(loaded)
             const firstId = loaded[0]?.id ?? null
@@ -1399,7 +1413,6 @@ export default function App() {
         })
     }, [])
 
-    // Cmd+Shift+O 開啟/關閉總覽
     useEffect(() => {
         const handler = (e: KeyboardEvent) => {
             if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'o') {
@@ -1423,34 +1436,50 @@ export default function App() {
         }))
     }, [activeBoardId])
 
+    const uniqueName = useCallback((base: string): string => {
+        const existing = new Set(boards.map(b => b.name))
+        if (!existing.has(base)) return base
+        let n = 2
+        while (existing.has(`${base} (${n})`)) n++
+        return `${base} (${n})`
+    }, [boards])
+
     const handleCreateBoard = useCallback((name: string, parentId?: string): BoardRecord => {
-        const newBoard: BoardRecord = { id: generateId(), name, snapshot: null, thumbnail: null, updatedAt: Date.now(), parentId: parentId ?? null }
+        const safeName = uniqueName(name)
+        const newBoard: BoardRecord = { id: generateId(), name: safeName, snapshot: null, thumbnail: null, updatedAt: Date.now(), parentId: parentId ?? null }
         saveBoard(newBoard)
         setBoards(prev => [...prev, newBoard])
         return newBoard
-    }, [])
+    }, [uniqueName])
 
-    // 一般切換（Tab 點擊）：重置導航堆疊
     const handleSwitch = useCallback((id: string) => {
         if (id !== activeBoardId) {
             setActiveBoardId(id)
             setNavigationStack([id])
+            setBoards(prev => prev.map(b => {
+                if (b.id !== id) return b
+                const updated = { ...b, lastVisitedAt: Date.now() }
+                saveBoard(updated)
+                return updated
+            }))
         }
     }, [activeBoardId])
 
-    // 進入子板（Board 卡片雙擊）：疊加導航堆疊
     const handleSwitchToChild = useCallback((childId: string) => {
         setActiveBoardId(childId)
         setNavigationStack(prev => {
-            // 如果已經在堆疊裡，截斷到那個位置
             const idx = prev.indexOf(childId)
             if (idx >= 0) return prev.slice(0, idx + 1)
             return [...prev, childId]
         })
+        setBoards(prev => prev.map(b => {
+            if (b.id !== childId) return b
+            const updated = { ...b, lastVisitedAt: Date.now() }
+            saveBoard(updated)
+            return updated
+        }))
     }, [])
 
-    // 返回上一層
-    // 設定白板的父板
     const handleSetParent = useCallback((boardId: string, parentId: string | null) => {
         const childBoard = boards.find(b => b.id === boardId)
         setBoards(prev => prev.map(b => {
@@ -1460,23 +1489,13 @@ export default function App() {
             return updated
         }))
         if (parentId && childBoard) {
-            // 切換到父板，再等 tldraw 載入後建立卡片
             setActiveBoardId(parentId)
             setNavigationStack([parentId])
-            // 等白板切換完成後再發事件
             setTimeout(() => {
-                window.dispatchEvent(new CustomEvent('create-board-card-on', {
-                    detail: {
-                        targetBoardId: parentId,
-                        linkedBoardId: boardId,
-                        boardName: childBoard.name,
-                    }
-                }))
+                window.dispatchEvent(new CustomEvent('create-board-card-on', { detail: { targetBoardId: parentId, linkedBoardId: boardId, boardName: childBoard.name } }))
             }, 400)
         }
-        if (activeBoardId === boardId && parentId === null) {
-            setNavigationStack([boardId])
-        }
+        if (activeBoardId === boardId && parentId === null) setNavigationStack([boardId])
     }, [activeBoardId, boards])
 
     const handleBack = useCallback(() => {
@@ -1489,22 +1508,16 @@ export default function App() {
     }, [])
 
     const handleNew = useCallback(() => {
-        const newBoard: BoardRecord = { id: generateId(), name: `白板 ${boards.length + 1}`, snapshot: null, thumbnail: null, updatedAt: Date.now() }
+        const name = uniqueName(`白板 ${boards.length + 1}`)
+        const newBoard: BoardRecord = { id: generateId(), name, snapshot: null, thumbnail: null, updatedAt: Date.now() }
         saveBoard(newBoard)
         setBoards(prev => [...prev, newBoard])
         setActiveBoardId(newBoard.id)
         setNavigationStack([newBoard.id])
-        // 在主頁自動建立這個新主板的 Board 卡片
         setTimeout(() => {
-            window.dispatchEvent(new CustomEvent('create-board-card-on', {
-                detail: {
-                    targetBoardId: HOME_BOARD_ID,
-                    linkedBoardId: newBoard.id,
-                    boardName: newBoard.name,
-                }
-            }))
+            window.dispatchEvent(new CustomEvent('create-board-card-on', { detail: { targetBoardId: HOME_BOARD_ID, linkedBoardId: newBoard.id, boardName: newBoard.name } }))
         }, 400)
-    }, [boards.length])
+    }, [boards.length, uniqueName])
 
     const handleRename = useCallback((id: string, name: string) => {
         setBoards(prev => prev.map(b => { if (b.id !== id) return b; const u = { ...b, name }; saveBoard(u); return u }))
@@ -1512,37 +1525,34 @@ export default function App() {
 
     const handleDelete = useCallback((id: string) => {
         deleteBoard(id)
+        // 🔧 修 #1：同時將孤兒子板升為主板，避免資料遺失
         setBoards(prev => {
-            const next = prev.filter(b => b.id !== id)
+            const orphanChildren = prev.filter(b => b.parentId === id)
+            orphanChildren.forEach(b => saveBoard({ ...b, parentId: null }))
+
+            const next = prev
+                .filter(b => b.id !== id)
+                .map(b => b.parentId === id ? { ...b, parentId: null } : b)
+
             if (activeBoardId === id) setActiveBoardId(next[0]?.id ?? null)
 
-            // 清理其他白板快照中 linkedBoardId 指向已刪除白板的孤立 Board 卡片
             const cleaned = next.map(b => {
                 if (!b.snapshot) return b
                 const store = (b.snapshot as any).document?.store
                 if (!store) return b
                 const orphanIds = Object.keys(store).filter(shapeId => {
                     const s = store[shapeId]
-                    return s.typeName === 'shape' && s.type === 'card' &&
-                        s.props?.type === 'board' && s.props?.linkedBoardId === id
+                    return s.typeName === 'shape' && s.type === 'card' && s.props?.type === 'board' && s.props?.linkedBoardId === id
                 })
                 if (orphanIds.length === 0) return b
                 const newStore = { ...store }
                 orphanIds.forEach(shapeId => { delete newStore[shapeId] })
-                const updated = {
-                    ...b,
-                    snapshot: {
-                        ...(b.snapshot as any),
-                        document: { ...(b.snapshot as any).document, store: newStore },
-                    } as TLEditorSnapshot,
-                }
+                const updated = { ...b, snapshot: { ...(b.snapshot as any), document: { ...(b.snapshot as any).document, store: newStore } } as TLEditorSnapshot }
                 saveBoard(updated)
                 return updated
             })
 
-            // 通知目前活動白板的 tldraw editor 即時刪除孤立卡片
             window.dispatchEvent(new CustomEvent('cleanup-orphan-board-cards', { detail: { deletedBoardId: id } }))
-
             return cleaned
         })
     }, [activeBoardId])
@@ -1557,7 +1567,6 @@ export default function App() {
         }
     }, [activeBoardId])
 
-    // ← 新增：設定 / 取消 Journal 白板
     const handleSetJournal = useCallback((boardId: string, isJournal: boolean) => {
         setBoards(prev => prev.map(b => {
             if (b.id !== boardId) return b
@@ -1567,10 +1576,34 @@ export default function App() {
         }))
     }, [])
 
+    const handleSetStatus = useCallback((boardId: string, status: 'active' | 'archived' | 'pinned') => {
+        setBoards(prev => prev.map(b => {
+            if (b.id !== boardId) return b
+            const updated = { ...b, status }
+            saveBoard(updated)
+            return updated
+        }))
+    }, [])
+
     if (loading) return <div style={{ height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>Loading...</div>
 
     return (
         <>
+            {activeBoard && (
+                <Whiteboard
+                    key={activeBoard.id}
+                    board={activeBoard}
+                    boards={boards}
+                    onSaveBoard={handleSaveBoard}
+                    jumpRef={jumpRef}
+                    onOpenSearch={() => setSearchOpen(true)}
+                    onOpenHotkey={() => setHotkeyOpen(true)}
+                    onCreateBoard={(name) => handleCreateBoard(name, activeBoardId ?? undefined)}
+                    onSwitchBoard={handleSwitchToChild}
+                    sidebarWidth={sidebarWidth}
+                />
+            )}
+
             <BoardTabBar
                 boards={boards}
                 activeBoardId={activeBoardId ?? ''}
@@ -1586,34 +1619,15 @@ export default function App() {
                 onBack={handleBack}
                 onSetParent={handleSetParent}
                 onSwitchToChild={handleSwitchToChild}
+                collapsed={sidebarCollapsed}
+                onToggleCollapse={handleToggleCollapse}
+                onSetStatus={handleSetStatus}
+                onOpenTaskCenter={() => setTaskCenterOpen(true)}
             />
 
-            {activeBoard && (
-                <Whiteboard
-                    key={activeBoard.id}
-                    board={activeBoard}
-                    boards={boards}
-                    onSaveBoard={handleSaveBoard}
-                    jumpRef={jumpRef}
-                    onOpenSearch={() => setSearchOpen(true)}
-                    onOpenHotkey={() => setHotkeyOpen(true)}
-                    onCreateBoard={(name) => handleCreateBoard(name, activeBoardId ?? undefined)}
-                    onSwitchBoard={handleSwitchToChild}
-                />
-            )}
-
-            {searchOpen && (
-                <SearchPanel
-                    boards={boards}
-                    onJump={handleJump}
-                    onClose={() => setSearchOpen(false)}
-                />
-            )}
-
-            {hotkeyOpen && (
-                <HotkeyPanel onClose={() => setHotkeyOpen(false)} />
-            )}
-
+            {searchOpen && <SearchPanel boards={boards} onJump={handleJump} onClose={() => setSearchOpen(false)} />}
+            {hotkeyOpen && <HotkeyPanel onClose={() => setHotkeyOpen(false)} />}
+            {taskCenterOpen && <TaskCenter boards={boards} onJump={(boardId, shapeId, x, y) => { setTaskCenterOpen(false); handleJump(boardId, shapeId, x, y) }} onClose={() => setTaskCenterOpen(false)} />}
             {overviewOpen && (
                 <BoardOverview
                     boards={boards}

@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback, useContext } from 'react'
 import { createPortal } from 'react-dom'
 import React from 'react'
+import { BacklinksContext, extractCardName, type BacklinkEntry } from '../../hooks/useBacklinks'
+export { BacklinksContext } from '../../hooks/useBacklinks'
 import {
     HTMLContainer,
     Rectangle2d,
@@ -246,8 +248,8 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
                             borderRadius: 8,
                             border: isEditing ? '1px solid #333' : '1px solid #ebebeb',
                             padding: 0, boxSizing: 'border-box',
-                            pointerEvents: shouldInnerDivCaptureEvents || p.type === 'image' || p.type === 'todo' ? 'auto' : 'none',
-                            cursor: shouldInnerDivCaptureEvents ? 'default' : 'grab',
+                            pointerEvents: shouldInnerDivCaptureEvents || p.type === 'image' || p.type === 'todo' || (p.type === 'text' && p.text?.includes('[[')) ? 'auto' : 'none',
+                            cursor: shouldInnerDivCaptureEvents || (p.type === 'text' && p.text?.includes('[[')) ? 'default' : 'grab',
                             boxShadow: isHovered && !isEditing
                                 ? '0 8px 20px rgba(0,0,0,0.1), 0 0 0 1px rgba(0,0,0,0.08)'
                                 : isEditing
@@ -395,6 +397,149 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
     }
 }
 
+/* --------------------------------------------------------------- BacklinksPanel */
+interface BacklinksPanelProps {
+    shapeId: string
+    htmlContent: string
+}
+
+function BacklinksPanel({ shapeId, htmlContent }: BacklinksPanelProps) {
+    const { forwardLinks, backlinks } = useContext(BacklinksContext)
+    const [expanded, setExpanded] = useState(false)
+
+    const cardName = extractCardName(htmlContent)
+    const fwdLinks: string[] = forwardLinks.get(shapeId) ?? []
+    const bkLinks: BacklinkEntry[] = cardName
+        ? (backlinks.get(cardName.toLowerCase()) ?? [])
+        : []
+
+    const total = fwdLinks.length + bkLinks.length
+    if (total === 0) return null
+
+    return (
+        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 10 }}>
+            {/* 收合列 */}
+            <div
+                onPointerDown={e => { e.stopPropagation(); e.preventDefault(); setExpanded(v => !v) }}
+                style={{
+                    padding: '3px 12px 4px',
+                    background: 'rgba(255,255,255,0.94)',
+                    backdropFilter: 'blur(4px)',
+                    borderTop: '1px solid #ebebeb',
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    cursor: 'pointer',
+                    userSelect: 'none',
+                }}
+            >
+                {fwdLinks.length > 0 && (
+                    <span style={{ fontSize: 10, color: '#3b82f6' }}>→ {fwdLinks.length} 個連結</span>
+                )}
+                {bkLinks.length > 0 && (
+                    <span style={{ fontSize: 10, color: '#888' }}>← {bkLinks.length} 個引用</span>
+                )}
+                <span style={{ marginLeft: 'auto', fontSize: 9, color: '#ccc' }}>
+                    {expanded ? '▲' : '▼'}
+                </span>
+            </div>
+
+            {/* 展開面板（向上彈出） */}
+            {expanded && (
+                <div
+                    onPointerDown={e => e.stopPropagation()}
+                    style={{
+                        position: 'absolute',
+                        bottom: '100%', left: 0, right: 0,
+                        background: 'white',
+                        border: '1px solid #e8e8e8',
+                        borderRadius: '8px 8px 0 0',
+                        boxShadow: '0 -4px 20px rgba(0,0,0,0.1)',
+                        maxHeight: 220,
+                        overflowY: 'auto',
+                        zIndex: 20,
+                    }}
+                >
+                    {/* 連結到（forward） */}
+                    {fwdLinks.length > 0 && (
+                        <>
+                            <div style={{
+                                padding: '5px 12px 3px',
+                                fontSize: 10, fontWeight: 600, color: '#3b82f6',
+                                letterSpacing: '0.3px',
+                            }}>
+                                → 連結到
+                            </div>
+                            {fwdLinks.map(name => (
+                                <div
+                                    key={name}
+                                    onPointerDown={e => {
+                                        e.stopPropagation()
+                                        e.preventDefault()
+                                        window.dispatchEvent(new CustomEvent('jump-to-card', {
+                                            detail: { targetName: name }
+                                        }))
+                                        setExpanded(false)
+                                    }}
+                                    style={{ padding: '6px 12px', cursor: 'pointer', fontSize: 12, color: '#3b82f6', display: 'flex', alignItems: 'center', gap: 6 }}
+                                    onMouseEnter={e => (e.currentTarget.style.background = '#eff6ff')}
+                                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                                >
+                                    <span style={{ fontSize: 13 }}>📋</span> {name}
+                                </div>
+                            ))}
+                        </>
+                    )}
+
+                    {/* 被引用（backlinks） */}
+                    {bkLinks.length > 0 && (
+                        <>
+                            <div style={{
+                                padding: '5px 12px 3px',
+                                fontSize: 10, fontWeight: 600, color: '#888',
+                                letterSpacing: '0.3px',
+                                borderTop: fwdLinks.length > 0 ? '1px solid #f5f5f5' : 'none',
+                            }}>
+                                ← 被引用
+                            </div>
+                            {bkLinks.map(entry => (
+                                <div
+                                    key={`${entry.boardId}_${entry.shapeId}`}
+                                    onPointerDown={e => {
+                                        e.stopPropagation()
+                                        e.preventDefault()
+                                        window.dispatchEvent(new CustomEvent('jump-to-card', {
+                                            detail: {
+                                                boardId: entry.boardId,
+                                                shapeId: entry.shapeId,
+                                                x: entry.x,
+                                                y: entry.y,
+                                            }
+                                        }))
+                                        setExpanded(false)
+                                    }}
+                                    style={{ padding: '6px 12px', cursor: 'pointer', fontSize: 12 }}
+                                    onMouseEnter={e => (e.currentTarget.style.background = '#f7f7f7')}
+                                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                                >
+                                    <div style={{
+                                        color: '#1a1a1a', overflow: 'hidden',
+                                        textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                    }}>
+                                        {entry.preview || '(無預覽)'}
+                                    </div>
+                                    <div style={{ fontSize: 10, color: '#bbb', marginTop: 2 }}>
+                                        {entry.boardName}
+                                    </div>
+                                </div>
+                            ))}
+                        </>
+                    )}
+                </div>
+            )}
+        </div>
+    )
+}
+
+/* --------------------------------------------------------------- CardContent */
 interface CardContentProps {
     editor: Editor
     shape: TLCardShape
@@ -408,7 +553,14 @@ function CardContent({ editor, shape, isEditing, exitEdit }: CardContentProps) {
 
     switch (p.type) {
         case 'text':
-            return <TextContent editor={editor} shape={shape} isEditing={isEditing} exitEdit={exitEdit} />
+            return (
+                <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+                    <TextContent editor={editor} shape={shape} isEditing={isEditing} exitEdit={exitEdit} />
+                    {!isEditing && (
+                        <BacklinksPanel shapeId={shape.id} htmlContent={p.text || ''} />
+                    )}
+                </div>
+            )
         case 'image':
             return <ImageContent editor={editor} shape={shape} />
         case 'todo':
@@ -451,7 +603,12 @@ function CardContent({ editor, shape, isEditing, exitEdit }: CardContentProps) {
                     }}>
                         📔 {(p as any).journalDate ?? '今日'}
                     </div>
-                    <TextContent editor={editor} shape={shape} isEditing={isEditing} exitEdit={exitEdit} />
+                    <div style={{ position: 'relative', flex: 1, overflow: 'hidden' }}>
+                        <TextContent editor={editor} shape={shape} isEditing={isEditing} exitEdit={exitEdit} />
+                        {!isEditing && (
+                            <BacklinksPanel shapeId={shape.id} htmlContent={p.text || ''} />
+                        )}
+                    </div>
                 </div>
             )
         // case 'code':
