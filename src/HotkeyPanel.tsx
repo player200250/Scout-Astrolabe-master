@@ -118,7 +118,7 @@ export function HotkeyPanel({ onClose }: HotkeyPanelProps) {
                 maxWidth: '92vw',
                 maxHeight: '80vh',
                 background: '#fff',
-                borderRadius: 16,
+                borderRadius: 14,
                 boxShadow: '0 12px 48px rgba(0,0,0,0.2)',
                 zIndex: 99999,
                 display: 'flex',
@@ -154,7 +154,7 @@ export function HotkeyPanel({ onClose }: HotkeyPanelProps) {
                                 fontWeight: 600,
                                 color: '#9ca3af',
                                 textTransform: 'uppercase',
-                                letterSpacing: '0.08em',
+                                letterSpacing: '0.5px',
                                 marginBottom: 8,
                             }}>
                                 {section.title}

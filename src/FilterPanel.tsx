@@ -177,7 +177,7 @@ function FilterResultRow({ result, onJump }: FilterResultRowProps) {
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
                     {result.tags.map(tag => (
                         <span key={tag} style={{
-                            fontSize: 9, background: '#eff6ff', color: '#2563eb',
+                            fontSize: 10, background: '#eff6ff', color: '#2563eb',
                             borderRadius: 6, padding: '1px 5px',
                         }}>
                             #{tag}
@@ -232,7 +232,7 @@ export function FilterPanel({ boards, onJump, onClose }: FilterPanelProps) {
 
     return (
         <div style={{
-            position: 'fixed', top: 0, right: 0, width: 300, height: '100vh',
+            position: 'fixed', top: 0, right: 0, width: 320, height: '100vh',
             background: 'rgba(255,255,255,0.98)', backdropFilter: 'blur(12px)',
             boxShadow: '-4px 0 24px rgba(0,0,0,0.12)', zIndex: 19999,
             display: 'flex', flexDirection: 'column', borderLeft: '1px solid #eee',
@@ -249,7 +249,7 @@ export function FilterPanel({ boards, onJump, onClose }: FilterPanelProps) {
                     )}
                     <button
                         onClick={onClose}
-                        style={{ width: 26, height: 26, borderRadius: 7, border: '1px solid #e8e8e8', background: 'transparent', cursor: 'pointer', fontSize: 14, color: '#888', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+                        style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid #e8e8e8', background: 'transparent', cursor: 'pointer', fontSize: 14, color: '#888', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
                         onMouseEnter={e => (e.currentTarget.style.background = '#f5f5f5')}
                         onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                     >✕</button>

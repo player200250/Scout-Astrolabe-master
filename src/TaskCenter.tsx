@@ -267,7 +267,7 @@ export function TaskCenter({ boards, onJump, onClose }: TaskCenterProps) {
                     <button
                         onClick={onClose}
                         style={{
-                            width: 26, height: 26, borderRadius: 7, border: '1px solid #e8e8e8',
+                            width: 28, height: 28, borderRadius: 8, border: '1px solid #e8e8e8',
                             background: 'transparent', cursor: 'pointer', fontSize: 14, color: '#888',
                             display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
                         }}
@@ -284,7 +284,7 @@ export function TaskCenter({ boards, onJump, onClose }: TaskCenterProps) {
                             onClick={() => setTab(t.key)}
                             style={{
                                 padding: '4px 9px',
-                                borderRadius: 6, border: 'none',
+                                borderRadius: 8, border: 'none',
                                 background: tab === t.key ? '#1a1a1a' : 'transparent',
                                 color: tab === t.key ? 'white' : '#666',
                                 fontSize: 12,

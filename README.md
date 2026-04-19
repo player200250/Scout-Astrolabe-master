@@ -2,7 +2,7 @@
 
 一個受 Milanote 啟發的 Windows 桌面白板應用程式，使用 React + Electron + tldraw 建構。
 
-![Version](https://img.shields.io/badge/version-0.2.0-blue)
+![Version](https://img.shields.io/badge/version-1.0.0-blue)
 ![Platform](https://img.shields.io/badge/platform-Windows%2010%2B-0078D6?logo=windows)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Build](https://img.shields.io/badge/build-passing-brightgreen)
@@ -35,89 +35,65 @@
 #### 1. 文字卡片
 - ✍️ 富文本編輯器（TipTap）
 - **粗體**、*斜體*、<u>底線</u>
-- 標題（H1-H2）
-- 項目符號清單
-- 編號清單
-- 程式碼區塊
+- 標題（H1-H2）、項目符號清單、編號清單
+- 程式碼區塊（語法高亮）
 - 6 種文字顏色
-- 自動調整高度
-- 全螢幕編輯模式
+- 全螢幕編輯 Modal
+- `[[卡片名稱]]` 雙向連結語法
 
 #### 2. 圖片卡片
 - 🖼️ 支援格式：JPG、PNG、GIF、WebP、SVG
-- 拖拽上傳
-- 雙擊全螢幕預覽
-- 內建下載功能
-- 在新分頁開啟
-- 自動調整大小
-- 保持圖片比例
+- 雙擊全螢幕預覽 / 下載 / 新分頁開啟
+- Ctrl+V 貼上圖片自動建立
 
 #### 3. 待辦卡片
-- ✅ 勾選式清單
-- 動態新增/刪除項目
-- 完成項目自動標記
-- 即時統計進度
-- 自動高度調整
-- 智慧焦點管理
+- ✅ 勾選式清單，動態新增/刪除項目
+- 即時進度統計
+- 到期日設定
 
 #### 4. 連結卡片
 - 🔗 支援一般網址
-- 🎬 YouTube 影片嵌入（含 Shorts）
-- 📺 Vimeo 影片嵌入
-- 📹 Bilibili 影片嵌入（BV/AV 格式）
-- 自動辨識影片連結
-- 雙擊播放模式
-- 單擊開啟網頁
+- 🎬 YouTube（含 Shorts）、Vimeo、Bilibili 嵌入播放
 
 #### 5. Board 卡片（子白板）
 - 📋 雙擊進入子白板
-- 顯示子白板縮圖預覽
-- 麵包屑導航（主板 › 子板 › 孫板）
+- 縮圖預覽、麵包屑導航
 - 支援無限層級巢狀
-- 自動在父板建立 Board 卡片
-- 右鍵管理子板（設為子板、升為主板、刪除）
-- 進入白板時自動建立下一層子板卡片
 
-#### 6. 欄位卡片（Frame 容器）
-- 📊 使用 tldraw 內建 Frame
-- 卡片可自由拖入拖出
-- 有標題，雙擊可編輯
-- 顯示容納卡片數量
-- 可自由調整大小
+#### 6. Journal 卡片（每日筆記）
+- 📔 每日自動在 Journal 白板建立日記卡片
+- 週回顧卡片（每週自動建立 `week-YYYY-WW`）
+- 紫色週回顧範本：完成、學習、卡住、目標、待跟進
 
-### 🎨 精美的視覺設計
+#### 7. 欄位（Frame 容器）
+- 📊 tldraw 內建 Frame，卡片可自由拖入拖出
 
-- **Milanote 風格點狀網格背景** - 經典的設計靈感
-- **9 種卡片顏色主題**：
-  - 🤍 白色（預設）
-  - ❤️ 紅色
-  - 🧡 橙色
-  - 💛 黃色
-  - 💚 綠色
-  - 💙 藍色
-  - 💜 紫色
-  - 🩷 粉紅色
-  - 🖤 深色
-- **頂部色條設計** - Milanote 經典元素
-- **雙層陰影系統** - 提供立體深度感
-- **編輯狀態視覺回饋** - 清楚的狀態指示
-- **流暢的懸浮動畫** - 微妙的互動效果
+---
 
-### 🛠️ 強大的核心功能
+### 🎨 視覺設計
 
-- ⚡ **自動儲存** - 500ms 防抖機制，不會丟失任何內容
-- 📏 **自由調整大小** - 所有卡片都可以拖拽調整
-- 🎯 **精確拖曳定位** - 像素級精準控制
-- 🖱️ **從工具列拖曳建立卡片** - 拖到指定位置放手即建立
-- 📋 **Ctrl+V 貼上** - 支援貼上圖片和網址自動建立卡片
-- 🔍 **全域搜尋** - 跨白板搜尋所有卡片內容（Ctrl+F）
-- 📤 **匯出功能** - 匯出整個白板或選取卡片為 PNG/PDF
-- ⌨️ **鍵盤快捷鍵** - 提升工作效率
-- 🖱️ **右鍵選單** - 快速操作
-- 💾 **本機儲存** - 資料完全保存在您的電腦上
-- 🔒 **隱私保護** - 不需要帳號，不上傳雲端
-- 🌐 **完全離線** - 無需網路連線即可使用
-- 📐 **對齊工具** - 多卡片對齊排列功能
+- **9 種卡片顏色主題**（無、紅、橙、黃、綠、藍、紫、粉、深色）
+- **卡片屬性列**：狀態（待辦 / 進行中 / 完成）、優先度（低 / 中 / 高）、標籤
+- **卡片徽章** - 非編輯模式顯示狀態 Badge 與優先度圓點
+
+---
+
+### 🛠️ 核心功能
+
+| 功能 | 說明 |
+|------|------|
+| ⚡ 自動儲存 | 500ms 防抖，IndexedDB 持久化 |
+| 🔍 全域搜尋 | 跨白板搜尋所有卡片（Ctrl+F） |
+| 🔗 雙向連結 | `[[名稱]]` 語法 + BacklinksPanel 顯示引用 |
+| ✅ 任務中心 | 彙整所有白板的待辦任務，依急迫度分組 |
+| 🔍 篩選面板 | 按 status / priority / tag 篩選卡片 |
+| 📅 週回顧面板 | 本週統計（卡片數、完成待辦、知識連結） |
+| 🔒 自動備份 | 切換白板 / 關閉 App 時自動備份，最多保留 30 份，可還原 |
+| 📤 匯出 | PNG / PDF（整個白板或選取卡片），完全離線 |
+| 📋 Ctrl+V 貼上 | 支援圖片與網址自動建立卡片 |
+| ⌨️ 快捷鍵 | 建立卡片、搜尋、導航 |
+| 🖱️ 右鍵選單 | 快速操作 |
+| 💾 本機儲存 | 完全離線，不需帳號，資料不上傳 |
 
 ---
 
@@ -131,8 +107,8 @@
 
 ### 方法 1：下載安裝檔（一般使用者）
 
-1. 前往 [Releases](https://github.com/你的使用者名稱/Scout-Astrolabe/releases) 頁面
-2. 下載最新版本的 `Scout-Astrolabe-Setup-0.2.0.exe`
+1. 前往 [Releases](https://github.com/player200250/Scout-Astrolabe-master/releases) 頁面
+2. 下載最新版本的 `Scout-Astrolabe-Setup-1.0.0.exe`
 3. 執行安裝程式
 4. 完成安裝後從開始選單啟動
 
@@ -140,8 +116,8 @@
 
 ```bash
 # 1. 複製專案
-git clone https://github.com/你的使用者名稱/Scout-Astrolabe.git
-cd Scout-Astrolabe
+git clone https://github.com/player200250/Scout-Astrolabe-master.git
+cd Scout-Astrolabe-master
 
 # 2. 安裝依賴
 npm install
@@ -181,8 +157,8 @@ npm run dev
 ### 標準安裝
 
 1. **下載安裝檔**
-   - 前往 [Releases](https://github.com/你的使用者名稱/Scout-Astrolabe/releases)
-   - 下載 `Scout-Astrolabe-Setup-0.2.0.exe`
+   - 前往 [Releases](https://github.com/player200250/Scout-Astrolabe-master/releases)
+   - 下載 `Scout-Astrolabe-Setup-1.0.0.exe`
 
 2. **執行安裝程式**
    - 雙擊下載的 `.exe` 檔案
@@ -209,19 +185,29 @@ npm run dev
 
 | 方式 | 說明 |
 |------|------|
-| 點擊側邊欄按鈕 | 在畫面中央建立卡片 |
-| 從側邊欄拖曳 | 拖到指定位置放手建立 |
+| 點擊左側工具列按鈕 | 在畫面中央建立卡片 |
+| 從工具列拖曳 | 拖到指定位置放手建立 |
 | 快捷鍵 | 使用鍵盤快速建立 |
 | Ctrl+V | 貼上圖片或網址自動建立 |
 
-### 子白板管理
+### Journal 白板
 
-1. **建立子白板** - 點擊側邊欄的 📋 按鈕，自動建立新白板並關聯
-2. **進入子白板** - 雙擊 Board 卡片
-3. **返回上層** - 點擊頂部麵包屑或「← 返回」按鈕
-4. **設為子板** - 在 Tab 欄右鍵白板 → 設為子板
-5. **升為主板** - 在子板清單中點擊「↑主板」
-6. **查看子板** - 右鍵主板 Tab，底部顯示子板清單
+1. 在任意白板右鍵 → **設為 Journal 白板**
+2. 每次進入時自動建立當日卡片（黃色）＋待辦卡片（藍色）
+3. 每週第一次進入時自動建立週回顧卡片（紫色）
+4. 點側邊欄「📅」開啟週回顧面板查看本週統計
+
+### 備份與還原
+
+1. 點側邊欄「🔒」開啟備份記錄
+2. 切換白板 / 關閉 App 時自動建立備份（每 5 分鐘最多一次）
+3. 最多保留 30 份備份
+4. 點「還原」並確認即可回復到任意備份時間點
+
+### 雙向連結
+
+在文字或 Journal 卡片中輸入 `[[白板名稱]]`，自動補全並建立連結。
+卡片底部的 BacklinksPanel 顯示所有指向該卡片的引用。
 
 ### 匯出
 
@@ -261,23 +247,9 @@ npm run dev
 | 快捷鍵 | 功能 |
 |--------|------|
 | `Ctrl + F` | 開啟全域搜尋 |
+| `Ctrl + Shift + O` | 開啟白板總覽 |
 | `?` | 顯示快捷鍵說明 |
 | `ESC` | 取消當前操作 / 關閉 Modal |
-
-### 工具切換
-
-| 快捷鍵 | 功能 |
-|--------|------|
-| `V` | 選取工具 |
-| `H` | 手掌工具（平移畫布） |
-
-### 視圖控制
-
-| 快捷鍵 | 功能 |
-|--------|------|
-| `Ctrl + 滑鼠滾輪` | 縮放畫布 |
-| `Ctrl + 0` | 重設縮放（100%） |
-| `空白鍵 + 拖曳` | 平移畫布 |
 
 ---
 
@@ -287,7 +259,7 @@ npm run dev
 
 ```
 桌面層
-├── Electron                 # 桌面應用框架
+└── Electron                 # 桌面應用框架
 
 前端層
 ├── React 19                 # UI 框架
@@ -298,34 +270,31 @@ npm run dev
 編輯器層
 └── TipTap                   # 富文本編輯器
     ├── StarterKit
-    ├── Underline
-    ├── TextStyle
-    ├── Color
-    └── CodeBlock
+    ├── Underline / TextStyle / Color
+    └── CodeBlockLowlight（語法高亮）
 
 資料層
-└── Dexie.js                 # IndexedDB 包裝器
+├── Dexie.js (IndexedDB)     # 白板 + 備份持久化
+└── jsPDF                    # 離線 PDF 匯出
 ```
 
 ### 專案架構
 
 ```
-Scout-Astrolabe/
+Scout-Astrolabe-master/
 ├── src/
 │   ├── components/
 │   │   └── card-shape/
 │   │       ├── CardShapeUtil.tsx     # 卡片核心邏輯
-│   │       ├── type/
-│   │       │   └── CardShape.ts      # 型別定義、顏色常數
-│   │       └── sub-components/
-│   │           ├── TextContent.tsx   # 文字卡片
-│   │           ├── ImageContent.tsx  # 圖片卡片
-│   │           ├── TodoContent.tsx   # 待辦卡片
-│   │           ├── LinkContent.tsx   # 連結卡片
-│   │           └── BoardContent.tsx  # Board 卡片
+│   │       ├── type/CardShape.ts    # 型別 + 顏色常數
+│   │       └── sub-components/      # TextContent, ImageContent...
+│   ├── db.ts                         # Dexie 實例 + 備份 helpers
 │   ├── App.tsx                       # 主應用程式
-│   ├── TIdrawToolPanel.tsx           # 側邊工具列
 │   ├── SearchPanel.tsx               # 全域搜尋
+│   ├── TaskCenter.tsx                # 任務中心
+│   ├── FilterPanel.tsx               # 篩選面板
+│   ├── WeeklyReview.tsx              # 週回顧面板
+│   ├── BackupPanel.tsx               # 備份 / 還原面板
 │   ├── HotkeyPanel.tsx               # 快捷鍵說明
 │   └── ContextMenu.tsx               # 右鍵選單
 ├── main.js                           # Electron 主程序
@@ -345,11 +314,11 @@ Scout-Astrolabe/
 # 安裝依賴
 npm install
 
-# 啟動開發模式
+# 啟動開發模式（Web）
 npm run dev
 
-# 程式碼檢查
-npm run lint
+# 啟動 Electron 開發模式
+npm run electron-dev
 
 # 建置 Windows 安裝檔
 npm run build:win
@@ -360,13 +329,13 @@ npm run build:win
 ## ❓ 常見問題
 
 **Q: 我的資料儲存在哪裡？**
-A: `%APPDATA%\Scout-Astrolabe\`
+A: 使用 IndexedDB（瀏覽器 / Electron 內建），無需外部資料庫。
 
 **Q: 資料會自動儲存嗎？**
-A: 會！每次編輯後 500ms 自動儲存。
+A: 會！每次編輯後 500ms 自動儲存，且切換白板 / 關閉 App 時自動備份。
 
 **Q: 如何備份資料？**
-A: 複製 `%APPDATA%\Scout-Astrolabe\` 資料夾到安全位置。
+A: 點側邊欄「🔒」查看備份記錄，或使用「匯出 JSON」手動備份。
 
 **Q: 影片無法播放？**
 A: 確認網路連線正常，某些影片可能被創作者限制嵌入。
@@ -374,44 +343,42 @@ A: 確認網路連線正常，某些影片可能被創作者限制嵌入。
 **Q: 安裝時顯示 Windows 警告？**
 A: 點擊「詳細資訊」→「仍要執行」，這是正常的 SmartScreen 警告。
 
-**Q: 需要網路連線嗎？**
-A: 不需要，完全離線可用。只有嵌入影片時需要網路。
+**Q: PDF 匯出需要網路嗎？**
+A: 不需要！jsPDF 已作為本地套件安裝，完全離線可用。
 
 ---
 
 ## 🎯 開發路線圖
 
-### ✅ v0.2.0（目前版本）
+### ✅ v1.0.0（目前版本）
 
 - [x] 9 種卡片顏色主題（含頂部色條）
-- [x] 從工具列拖曳建立卡片
-- [x] Ctrl+V 貼上圖片與網址
-- [x] 匯出 PNG/PDF（整個白板或選取卡片）
-- [x] Board 卡片（子白板，縮圖預覽）
-- [x] 欄位分組（tldraw Frame，可拖入拖出）
-- [x] 麵包屑導航與多層子板管理
+- [x] 從工具列拖曳建立卡片 / Ctrl+V 貼上
+- [x] 匯出 PNG/PDF（完全離線，本地 jsPDF）
+- [x] Board 卡片（子白板）+ 麵包屑導航
+- [x] 欄位分組（tldraw Frame）
 - [x] 全域搜尋（Ctrl+F）
-- [x] YouTube Shorts 與 Bilibili 嵌入播放
-- [x] 圖片全螢幕預覽（React Portal）
-- [x] 對齊工具（靠左、置中、靠右、靠上、置中、靠下）
-- [x] 6 種文字顏色（TipTap）
-- [x] 文字卡片全螢幕編輯模式
+- [x] YouTube / Bilibili / Vimeo 嵌入播放
+- [x] 圖片全螢幕預覽
+- [x] **Journal 白板** - 每日 + 週回顧卡片自動建立
+- [x] **雙向連結** - `[[名稱]]` 語法 + BacklinksPanel
+- [x] **任務中心** - 跨白板任務彙整，依急迫度分組
+- [x] **卡片屬性** - 狀態、優先度、標籤
+- [x] **篩選面板** - 多條件篩選
+- [x] **週回顧面板** - 本週統計
+- [x] **自動備份** - IndexedDB 備份 + 一鍵還原
 
-### 📋 v0.3.0（計劃中）
+### 📋 v1.1.0（計劃中）
 
 - [ ] 暗色模式
 - [ ] 表格卡片
-- [ ] 卡片標籤系統
 - [ ] 多選群組操作
-- [ ] 範本系統
-- [ ] 匯入 JSON 改進
 - [ ] 連結卡片自動抓取縮圖
 
-### 🚀 v1.0.0（長期目標）
+### 🚀 v2.0.0（長期目標）
 
 - [ ] 雲端儲存（可選）
 - [ ] 多裝置同步
-- [ ] 即時協作
 - [ ] macOS / Linux 版本
 - [ ] AI 輔助功能
 
@@ -422,7 +389,6 @@ A: 不需要，完全離線可用。只有嵌入影片時需要網路。
 歡迎提交 Issue 或 Pull Request！
 
 ```bash
-# Fork 後
 git checkout -b feature/your-feature
 git commit -m "✨ 新增你的功能"
 git push origin feature/your-feature
@@ -444,7 +410,7 @@ git push origin feature/your-feature
 
 ## 📄 授權資訊
 
-MIT License © 2024
+MIT License © 2024 player200250
 
 完整授權內容請見 [LICENSE](LICENSE)。
 
@@ -457,6 +423,7 @@ MIT License © 2024
 | tldraw | Apache 2.0 |
 | TipTap | MIT |
 | Dexie | Apache 2.0 |
+| jsPDF | MIT |
 | Vite | MIT |
 
 ---
@@ -477,10 +444,10 @@ MIT License © 2024
 </p>
 
 <p align="center">
-  <a href="https://github.com/你的使用者名稱/Scout-Astrolabe/issues">Issues</a> •
-  <a href="https://github.com/你的使用者名稱/Scout-Astrolabe/discussions">Discussions</a>
+  <a href="https://github.com/player200250/Scout-Astrolabe-master/issues">Issues</a> •
+  <a href="https://github.com/player200250/Scout-Astrolabe-master/discussions">Discussions</a>
 </p>
 
 ---
 
-**© 2024 [你的名字]. All rights reserved.**
+**© 2024 player200250. All rights reserved.**

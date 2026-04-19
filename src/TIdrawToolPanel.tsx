@@ -68,7 +68,7 @@ function DraggableCardButton({
                     position: 'absolute', left: 48, top: '50%',
                     transform: 'translateY(-50%)',
                     background: '#1a1a1a', color: 'white', fontSize: 12,
-                    padding: '4px 8px', borderRadius: 6, whiteSpace: 'nowrap',
+                    padding: '4px 8px', borderRadius: 8, whiteSpace: 'nowrap',
                     pointerEvents: 'none', zIndex: 99999,
                     boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
                 }}>
@@ -122,7 +122,7 @@ function SidebarButton({
                     position: 'absolute', left: 48, top: '50%',
                     transform: 'translateY(-50%)',
                     background: '#1a1a1a', color: 'white', fontSize: 12,
-                    padding: '4px 8px', borderRadius: 6, whiteSpace: 'nowrap',
+                    padding: '4px 8px', borderRadius: 8, whiteSpace: 'nowrap',
                     pointerEvents: 'none', zIndex: 99999,
                     boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
                 }}>
