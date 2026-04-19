@@ -619,10 +619,14 @@ function CardPropsBar({ editor, shape }: CardPropsBarProps) {
     const currentPriority = (p.priority ?? 'none') as PriorityType
     const tags: string[] = p.tags ?? []
 
-    const setStatus  = (cardStatus: CardStatusType) =>
+    const setStatus  = (cardStatus: CardStatusType) => {
+        console.log('[CardPropsBar] setStatus', { shapeId: shape.id, cardStatus })
         editor.updateShape({ id: shape.id, type: 'card', props: { cardStatus } })
-    const setPriority = (priority: PriorityType) =>
+    }
+    const setPriority = (priority: PriorityType) => {
+        console.log('[CardPropsBar] setPriority', { shapeId: shape.id, priority })
         editor.updateShape({ id: shape.id, type: 'card', props: { priority } })
+    }
     const addTag = () => {
         const t = tagInput.trim()
         if (!t || tags.includes(t)) { setTagInput(''); return }
@@ -674,7 +678,9 @@ function CardPropsBar({ editor, shape }: CardPropsBarProps) {
                 }}>
                     #{tag}
                     <button
-                        onPointerDown={e => { e.stopPropagation(); removeTag(tag) }}
+                        onPointerDown={e => e.stopPropagation()}
+                        onMouseDown={e => e.preventDefault()}
+                        onClick={() => removeTag(tag)}
                         style={{ border: 'none', background: 'none', cursor: 'pointer', padding: '0 0 0 2px', fontSize: 12, color: '#93c5fd', lineHeight: 1 }}
                     >×</button>
                 </span>
@@ -728,8 +734,10 @@ function CardContent({ editor, shape, isEditing, exitEdit }: CardContentProps) {
     switch (p.type) {
         case 'text':
             return (
-                <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-                    <TextContent editor={editor} shape={shape} isEditing={isEditing} exitEdit={exitEdit} />
+                <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', width: '100%', height: '100%' }}>
+                    <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative' }}>
+                        <TextContent editor={editor} shape={shape} isEditing={isEditing} exitEdit={exitEdit} />
+                    </div>
                     {!isEditing && <TagsDisplay tags={p.tags ?? []} />}
                     {!isEditing && (
                         <BacklinksPanel shapeId={shape.id} htmlContent={p.text || ''} />
@@ -790,8 +798,10 @@ function CardContent({ editor, shape, isEditing, exitEdit }: CardContentProps) {
                     }}>
                         📔 {(p as any).journalDate ?? '今日'}
                     </div>
-                    <div style={{ position: 'relative', flex: 1, overflow: 'hidden' }}>
-                        <TextContent editor={editor} shape={shape} isEditing={isEditing} exitEdit={exitEdit} />
+                    <div style={{ position: 'relative', flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                        <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative' }}>
+                            <TextContent editor={editor} shape={shape} isEditing={isEditing} exitEdit={exitEdit} />
+                        </div>
                         {!isEditing && <TagsDisplay tags={p.tags ?? []} />}
                         {!isEditing && (
                             <BacklinksPanel shapeId={shape.id} htmlContent={p.text || ''} />

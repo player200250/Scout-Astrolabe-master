@@ -75,7 +75,7 @@ function Toolbar({ tiptap }: { tiptap: ReturnType<typeof useTiptap> }) {
                 padding: '4px 8px',
                 borderBottom: '1px solid #eee',
                 background: '#fafafa',
-                borderRadius: '8px 8px 0 0',
+                borderRadius: '12px 12px 0 0',
                 flexShrink: 0,
             }}
         >
@@ -228,14 +228,14 @@ export function TextContent({ editor: tldrawEditor, shape, isEditing, exitEdit, 
         onBlur: ({ editor }) => {
             const html = editor.getHTML()
             if (preventResize) {
-                // Modal 模式：只存內容，不改高度
+                // Modal 模式：只存內容，不呼叫 exitEdit（modal 由背景點擊或 ESC 關閉）
                 tldrawEditor.updateShape({
                     id: shape.id,
                     type: 'card',
                     props: { text: html },
                 })
             } else {
-                // 一般模式：保留現有高度，只在需要時擴大
+                // 一般模式：保留現有高度，只在需要時擴大，然後退出編輯
                 const currentH = shape.props.h
                 const lineCount = (html.match(/<\/p>|<\/h[123]>|<\/li>|<\/pre>/g) || []).length || 1
                 const estimatedH = Math.max(80, lineCount * 28 + 80)
@@ -245,8 +245,8 @@ export function TextContent({ editor: tldrawEditor, shape, isEditing, exitEdit, 
                     type: 'card',
                     props: { text: html, h: newH },
                 })
+                exitEdit()
             }
-            exitEdit()
         },
     })
 
