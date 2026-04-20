@@ -19,7 +19,7 @@ interface HotkeySection {
 
 const sections: HotkeySection[] = [
     {
-        title: '通用',
+        title: '編輯',
         items: [
             { keys: [MOD, 'Z'], label: '復原' },
             { keys: [MOD, 'Shift', 'Z'], label: '重做' },
@@ -55,8 +55,8 @@ const sections: HotkeySection[] = [
         items: [
             { keys: [MOD, '+'], label: '放大' },
             { keys: [MOD, '-'], label: '縮小' },
-            { keys: [MOD, '0'], label: '重置縮放 (100%)' },
-            { keys: [MOD, 'Shift', 'F'], label: '縮放至全部內容' },
+            { keys: [MOD, '0'], label: '重置縮放 100%' },
+            { keys: [MOD, 'Shift', 'F'], label: '縮放至全部 / 縮放至選取' },
         ],
     },
     {
@@ -70,8 +70,17 @@ const sections: HotkeySection[] = [
         title: '面板',
         items: [
             { keys: [MOD, 'F'], label: '搜尋卡片' },
-            { keys: ['?'], label: '開啟快捷鍵面板' },
-            { keys: [MOD, '/'], label: '開啟快捷鍵面板' },
+            { keys: [MOD, 'Shift', 'O'], label: '所有白板總覽' },
+            { keys: [MOD, 'Shift', 'C'], label: '復盤中心' },
+            { keys: ['?'], label: '快捷鍵說明' },
+            { keys: [MOD, '/'], label: '快捷鍵說明' },
+        ],
+    },
+    {
+        title: '日記（日記頁面內）',
+        items: [
+            { keys: [MOD, '←'], label: '前一天' },
+            { keys: [MOD, '→'], label: '後一天' },
         ],
     },
 ]

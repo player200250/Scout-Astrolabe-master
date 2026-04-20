@@ -1,12 +1,8 @@
 // src/TaskCenter.tsx
 import { useState, useEffect, useMemo } from 'react'
-import type { TLEditorSnapshot } from 'tldraw'
-
-interface BoardRecord {
-    id: string
-    name: string
-    snapshot: TLEditorSnapshot | null
-}
+import type { BoardRecord } from './db'
+import { getTodayStr, getWeekLaterStr, formatDueDate } from './utils/date'
+import { getCardShapes } from './utils/snapshot'
 
 interface TaskItem {
     boardId: string
@@ -27,17 +23,6 @@ type FilterTab = 'active' | 'overdue' | 'today' | 'week' | 'all'
 /* ---------------------------------------------------------------
    工具函式
 --------------------------------------------------------------- */
-function getTodayStr(): string {
-    const d = new Date()
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
-function getWeekLaterStr(): string {
-    const d = new Date()
-    d.setDate(d.getDate() + 7)
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
 function getGroupKey(dueDate: string | undefined, todayStr: string, weekStr: string): GroupKey {
     if (!dueDate) return 'noduedate'
     if (dueDate < todayStr) return 'overdue'
@@ -46,24 +31,13 @@ function getGroupKey(dueDate: string | undefined, todayStr: string, weekStr: str
     return 'later'
 }
 
-function formatDueDate(dueDate: string, todayStr: string): string {
-    if (dueDate === todayStr) return '今天'
-    const [y, m, d] = dueDate.split('-').map(Number)
-    const currentYear = new Date().getFullYear()
-    if (y === currentYear) return `${m}/${d}`
-    return `${y}/${m}/${d}`
-}
-
 function scanBoards(boards: BoardRecord[]): TaskItem[] {
     const items: TaskItem[] = []
     const seen = new Set<string>()
     for (const board of boards) {
-        if (!board.snapshot) continue
-        const store = (board.snapshot as any).document?.store ?? {}
-        for (const shape of Object.values(store) as any[]) {
-            if (shape.typeName !== 'shape' || shape.type !== 'card' || shape.props?.type !== 'todo') continue
-            const todos: any[] = Array.isArray(shape.props.todos) ? shape.props.todos : []
-            for (const t of todos) {
+        for (const shape of getCardShapes(board.snapshot)) {
+            if (shape.props.type !== 'todo') continue
+            for (const t of shape.props.todos ?? []) {
                 if (!t.text) continue
                 const dedupKey = `${board.id}-${t.id}`
                 if (seen.has(dedupKey)) continue

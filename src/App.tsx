@@ -12,14 +12,16 @@ import {
 import type { TLEditorSnapshot } from 'tldraw'
 import { jsPDF } from 'jspdf'
 import { db, saveAutoBackup, type BoardRecord } from './db'
+import { formatRelativeDate } from './utils/date'
 import { CardShapeUtil, BoardsContext, BacklinksContext } from './components/card-shape/CardShapeUtil'
 import { useBacklinks } from './hooks/useBacklinks'
 import TldrawToolPanel, { type CardCreators } from './TIdrawToolPanel'
 import { SearchPanel } from './SearchPanel'
 import { TaskCenter } from './TaskCenter'
 import { FilterPanel } from './FilterPanel'
-import { WeeklyReview, getISOWeekKey, getWeekRange } from './WeeklyReview'
+import { getISOWeekKey, getWeekRange } from './WeeklyReview'
 import { BackupPanel } from './BackupPanel'
+import { ReviewCenter } from './ReviewCenter'
 import { useHotkeys } from './Usehotkeys'
 import { HotkeyPanel } from './HotkeyPanel'
 import { useContextMenu } from './ContextMenu'
@@ -153,18 +155,7 @@ function BoardOverview({ boards, activeBoardId, onSelect, onNew, onRename, onDel
         })
         .sort((a, b) => b.updatedAt - a.updatedAt)
 
-    const formatDate = (ts: number) => {
-        const diffMs = Date.now() - ts
-        const diffMin = Math.floor(diffMs / 60000)
-        const diffHr = Math.floor(diffMs / 3600000)
-        const diffDay = Math.floor(diffMs / 86400000)
-        if (diffMin < 1) return '剛剛'
-        if (diffMin < 60) return `${diffMin} 分鐘前`
-        if (diffHr < 24) return `${diffHr} 小時前`
-        if (diffDay < 7) return `${diffDay} 天前`
-        const d = new Date(ts)
-        return `${d.getMonth() + 1}/${d.getDate()}`
-    }
+    const formatDate = formatRelativeDate
 
     const childCount = (id: string) => boards.filter(b => b.parentId === id).length
 
@@ -373,6 +364,61 @@ function BoardOverview({ boards, activeBoardId, onSelect, onNew, onRename, onDel
     )
 }
 
+/* --------------------------------------------------------------- SidebarFooter */
+interface SidebarFooterProps {
+    onOpenTaskCenter: () => void
+    onOpenFilter: () => void
+    onOpenReviewCenter: () => void
+    onOpenBackup: () => void
+    onHotkey: () => void
+}
+
+function SidebarFooter({ onOpenTaskCenter, onOpenFilter, onOpenReviewCenter, onOpenBackup, onHotkey }: SidebarFooterProps) {
+    const navRow = (icon: string, label: string, onClick: () => void, title?: string) => (
+        <button
+            onClick={onClick}
+            title={title}
+            style={{
+                width: '100%', height: 34, display: 'flex', alignItems: 'center', gap: 9,
+                padding: '0 12px', border: 'none', background: 'transparent', cursor: 'pointer',
+                borderRadius: 0, textAlign: 'left',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.045)')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+        >
+            <span style={{ fontSize: 14, width: 18, textAlign: 'center', flexShrink: 0 }}>{icon}</span>
+            <span style={{ fontSize: 13, fontWeight: 500, color: '#2a2a2a' }}>{label}</span>
+        </button>
+    )
+
+    return (
+        <div style={{ borderTop: '1px solid #e8e8e5', flexShrink: 0, paddingBottom: 2 }}>
+            {navRow('📔', '復盤中心', onOpenReviewCenter, '復盤中心 (Ctrl+Shift+C)')}
+            {navRow('✅', '任務中心', onOpenTaskCenter)}
+            <div style={{ display: 'flex', justifyContent: 'space-around', padding: '4px 12px 4px', borderTop: '1px solid #f0f0ee', marginTop: 2 }}>
+                {([
+                    { icon: '🔍', title: '篩選卡片', fn: onOpenFilter },
+                    { icon: '🔒', title: '自動備份', fn: onOpenBackup },
+                    { icon: '⌨️', title: '快捷鍵', fn: onHotkey },
+                ] as { icon: string; title: string; fn: () => void }[]).map(({ icon, title, fn }) => (
+                    <button
+                        key={title}
+                        onClick={fn}
+                        title={title}
+                        style={{
+                            width: 28, height: 28, borderRadius: 7, border: 'none',
+                            background: 'transparent', cursor: 'pointer', fontSize: 14,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
+                        }}
+                        onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.06)')}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                    >{icon}</button>
+                ))}
+            </div>
+        </div>
+    )
+}
+
 /* --------------------------------------------------------------- BoardTabBar (右側垂直側邊欄) */
 interface BoardTabBarProps {
     boards: BoardRecord[]
@@ -394,17 +440,20 @@ interface BoardTabBarProps {
     onSetStatus: (boardId: string, status: 'active' | 'archived' | 'pinned') => void
     onOpenTaskCenter: () => void
     onOpenFilter: () => void
-    onOpenWeeklyReview: () => void
+    onOpenReviewCenter: () => void
     onOpenBackup: () => void
 }
 
-function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelete, onSearch, onHotkey, onOpenOverview, onSetJournal, navigationStack, onBack, onSetParent, onSwitchToChild, collapsed, onToggleCollapse, onSetStatus, onOpenTaskCenter, onOpenFilter, onOpenWeeklyReview, onOpenBackup }: BoardTabBarProps) {
+function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelete, onSearch, onHotkey, onOpenOverview, onSetJournal, navigationStack, onBack, onSetParent, onSwitchToChild, collapsed, onToggleCollapse, onSetStatus, onOpenTaskCenter, onOpenFilter, onOpenReviewCenter, onOpenBackup }: BoardTabBarProps) {
     const [hoveredId, setHoveredId] = useState<string | null>(null)
     const [renamingId, setRenamingId] = useState<string | null>(null)
     const [renameValue, setRenameValue] = useState('')
     const [contextMenu, setContextMenu] = useState<{ boardId: string; x: number; y: number } | null>(null)
     const [selectingParentFor, setSelectingParentFor] = useState<string | null>(null)
     const [archivedOpen, setArchivedOpen] = useState(false)
+    const [recentOpen, setRecentOpen] = useState(true)
+    const [pinnedOpen, setPinnedOpen] = useState(true)
+    const [allOpen, setAllOpen] = useState(true)
 
     const startRename = (board: BoardRecord) => { setRenamingId(board.id); setRenameValue(board.name) }
     const commitRename = (id: string) => { if (renameValue.trim()) onRename(id, renameValue.trim()); setRenamingId(null) }
@@ -420,9 +469,9 @@ function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelet
                 right: 0,
                 width: sidebarWidth,
                 bottom: 0,
-                background: 'rgba(255,255,255,0.97)',
+                background: '#f9f9f7',
                 backdropFilter: 'blur(8px)',
-                borderLeft: '1px solid #eee',
+                borderLeft: '1px solid #e8e8e5',
                 display: 'flex',
                 flexDirection: 'column',
                 zIndex: 10000,
@@ -435,7 +484,7 @@ function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelet
                     alignItems: 'center',
                     justifyContent: collapsed ? 'center' : 'space-between',
                     padding: collapsed ? '9px 0' : '8px 10px',
-                    borderBottom: '1px solid #f0f0f0',
+                    borderBottom: '1px solid #e8e8e5',
                     flexShrink: 0,
                     gap: 4,
                 }}>
@@ -477,15 +526,14 @@ function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelet
                     )}
                 </div>
 
-                {/* 收合時的圖示按鈕群 */}
+                {/* 收合時的圖示按鈕群（核心 5 項） */}
                 {collapsed && (
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '8px 0', borderBottom: '1px solid #f0f0f0', flexShrink: 0 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '8px 0', borderBottom: '1px solid #e8e8e5', flexShrink: 0 }}>
                         <button onClick={onNew} title="新增白板" style={{ width: 28, height: 28, borderRadius: 8, border: '1px dashed #ccc', background: 'transparent', cursor: 'pointer', fontSize: 16, color: '#aaa', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>+</button>
                         <button onClick={onOpenOverview} title="所有白板" style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid #eee', background: 'transparent', cursor: 'pointer', fontSize: 13, color: '#888', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>⊞</button>
                         <button onClick={onSearch} title="搜尋" style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid #eee', background: 'transparent', cursor: 'pointer', fontSize: 13, color: '#888', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>🔍</button>
                         <button onClick={onOpenTaskCenter} title="任務中心" style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid #eee', background: 'transparent', cursor: 'pointer', fontSize: 13, color: '#888', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>✅</button>
-                        <button onClick={onOpenWeeklyReview} title="週回顧" style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid #eee', background: 'transparent', cursor: 'pointer', fontSize: 13, color: '#888', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>📅</button>
-                        <button onClick={onOpenBackup} title="備份記錄" style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid #eee', background: 'transparent', cursor: 'pointer', fontSize: 13, color: '#888', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>🔒</button>
+                        <button onClick={onOpenReviewCenter} title="復盤中心 (Ctrl+Shift+C)" style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid #eee', background: 'transparent', cursor: 'pointer', fontSize: 13, color: '#888', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>📔</button>
                     </div>
                 )}
 
@@ -532,7 +580,7 @@ function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelet
                         .sort((a, b) => (b.lastVisitedAt ?? 0) - (a.lastVisitedAt ?? 0))
                         .slice(0, 5)
 
-                    // 渲染單一 board 卡片（展開模式）
+                    // 渲染單一 board 列（展開模式，slim row）
                     const renderBoardCard = (board: BoardRecord, opts?: { dimmed?: boolean }) => {
                         const isActive  = activeBoardId === board.id
                         const isHovered = hoveredId === board.id
@@ -545,67 +593,73 @@ function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelet
                                 onClick={() => onSwitch(board.id)}
                                 onContextMenu={e => { e.preventDefault(); if (!board.isHome) setContextMenu({ boardId: board.id, x: e.clientX, y: e.clientY }) }}
                                 style={{
-                                    position: 'relative', borderRadius: 10,
-                                    border: isActive ? '1.5px solid #c7d7fd' : `1.5px solid ${isHovered ? '#e0e0e0' : 'transparent'}`,
-                                    background: isActive ? '#f0f4ff' : (isHovered ? '#fafafa' : 'transparent'),
-                                    cursor: 'pointer', padding: '7px 8px',
-                                    display: 'flex', flexDirection: 'column', gap: 5,
-                                    transition: 'background 0.12s, border-color 0.12s',
+                                    position: 'relative', borderRadius: 7,
+                                    background: isActive ? 'rgba(37,99,235,0.08)' : isHovered ? 'rgba(0,0,0,0.04)' : 'transparent',
+                                    cursor: 'pointer', height: 32,
+                                    display: 'flex', alignItems: 'center', gap: 7,
+                                    padding: '0 6px 0 8px',
+                                    transition: 'background 0.1s',
                                     flexShrink: 0,
-                                    opacity: opts?.dimmed ? 0.6 : 1,
+                                    opacity: opts?.dimmed ? 0.55 : 1,
+                                    borderLeft: isActive ? '2.5px solid #2563eb' : '2.5px solid transparent',
                                 }}
                             >
                                 {/* 縮圖 */}
                                 <div style={{
-                                    width: '100%', aspectRatio: '16/9', borderRadius: 6,
-                                    overflow: 'hidden', background: '#f0f0f0', border: '1px solid #e8e8e8',
+                                    width: 20, height: 14, borderRadius: 3, overflow: 'hidden',
+                                    background: '#e8e8e8', border: '1px solid #ddd', flexShrink: 0,
                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                                 }}>
                                     {isRasterThumbnail(board.thumbnail)
                                         ? <img src={board.thumbnail} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
-                                        : <span style={{ fontSize: 18, opacity: 0.15 }}>□</span>
+                                        : <span style={{ fontSize: 6, color: '#bbb' }}>□</span>
                                     }
                                 </div>
-                                {/* 名稱列 */}
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 4, minWidth: 0 }}>
-                                    {renamingId === board.id ? (
-                                        <input
-                                            autoFocus value={renameValue}
-                                            onChange={e => setRenameValue(e.target.value)}
-                                            onBlur={() => commitRename(board.id)}
-                                            onKeyDown={e => { if (e.key === 'Enter') commitRename(board.id); if (e.key === 'Escape') setRenamingId(null); e.stopPropagation() }}
-                                            onClick={e => e.stopPropagation()}
-                                            style={{ flex: 1, border: 'none', borderBottom: '1px solid #333', outline: 'none', fontSize: 12, background: 'transparent', padding: '1px 0', minWidth: 0 }}
-                                        />
-                                    ) : (
-                                        <span
-                                            onDoubleClick={e => { e.stopPropagation(); startRename(board) }}
-                                            style={{
-                                                flex: 1, fontSize: 12,
-                                                color: isActive ? '#1a1a1a' : '#555',
-                                                fontWeight: isActive ? 600 : 400,
-                                                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                                                userSelect: 'none',
-                                            }}
-                                        >
-                                            {board.status === 'pinned' ? '📌 ' : ''}{board.name}{board.isJournal ? ' 📔' : ''}
-                                            {isStale && <span title="超過 14 天未開啟" style={{ marginLeft: 3, fontSize: 10, opacity: 0.5 }}>🕐</span>}
-                                        </span>
-                                    )}
-                                </div>
-                                {/* 刪除按鈕 */}
-                                {isHovered && !board.isHome && boards.length > 1 && (
-                                    <button
-                                        onClick={e => { e.stopPropagation(); if (confirm(`確定刪除「${board.name}」嗎？`)) onDelete(board.id) }}
+                                {/* 名稱 */}
+                                {renamingId === board.id ? (
+                                    <input
+                                        autoFocus value={renameValue}
+                                        onChange={e => setRenameValue(e.target.value)}
+                                        onBlur={() => commitRename(board.id)}
+                                        onKeyDown={e => { if (e.key === 'Enter') commitRename(board.id); if (e.key === 'Escape') setRenamingId(null); e.stopPropagation() }}
+                                        onClick={e => e.stopPropagation()}
+                                        style={{ flex: 1, border: 'none', borderBottom: '1px solid #333', outline: 'none', fontSize: 12, background: 'transparent', padding: '1px 0', minWidth: 0 }}
+                                    />
+                                ) : (
+                                    <span
+                                        onDoubleClick={e => { e.stopPropagation(); startRename(board) }}
                                         style={{
-                                            position: 'absolute', top: 4, right: 4,
-                                            width: 16, height: 16, borderRadius: '50%',
-                                            background: '#ff4d4f', color: 'white', border: 'none',
-                                            cursor: 'pointer', fontSize: 10,
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            padding: 0, lineHeight: 1,
+                                            flex: 1, fontSize: 12.5,
+                                            color: isActive ? '#1a1a1a' : '#444',
+                                            fontWeight: isActive ? 600 : 400,
+                                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                            userSelect: 'none',
                                         }}
-                                    >×</button>
+                                    >
+                                        {board.status === 'pinned' ? '📌 ' : ''}{board.name}{board.isJournal ? ' 📔' : ''}
+                                        {isStale && <span title="超過 14 天未開啟" style={{ marginLeft: 3, fontSize: 9, opacity: 0.4 }}>🕐</span>}
+                                    </span>
+                                )}
+                                {/* 操作按鈕（hover 才顯示） */}
+                                {isHovered && !board.isHome && (
+                                    <div style={{ display: 'flex', gap: 2, flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+                                        <button
+                                            onClick={() => startRename(board)}
+                                            title="重新命名"
+                                            style={{ width: 20, height: 20, borderRadius: 4, border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 11, color: '#888', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+                                            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.08)')}
+                                            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                                        >✎</button>
+                                        {boards.length > 1 && (
+                                            <button
+                                                onClick={() => { if (confirm(`確定刪除「${board.name}」嗎？`)) onDelete(board.id) }}
+                                                title="刪除"
+                                                style={{ width: 20, height: 20, borderRadius: 4, border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 13, color: '#bbb', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+                                                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,77,79,0.1)'; e.currentTarget.style.color = '#ff4d4f' }}
+                                                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#bbb' }}
+                                            >×</button>
+                                        )}
+                                    </div>
                                 )}
                             </div>
                         )
@@ -613,7 +667,7 @@ function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelet
 
                     // 段落標題
                     const SectionHeader = ({ label }: { label: string }) => (
-                        <div style={{ padding: '6px 7px 2px', fontSize: 10, fontWeight: 600, color: '#bbb', letterSpacing: '0.5px', userSelect: 'none' }}>
+                        <div style={{ padding: '8px 10px 3px', fontSize: 10, fontWeight: 700, color: '#aaa', letterSpacing: '0.7px', textTransform: 'uppercase', userSelect: 'none' }}>
                             {label}
                         </div>
                     )
@@ -649,46 +703,61 @@ function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelet
                         )
                     }
 
+                    // 可收合段落標題
+                    const CollapsibleHeader = ({ label, open, onToggle }: { label: string; open: boolean; onToggle: () => void }) => (
+                        <button
+                            onClick={onToggle}
+                            style={{
+                                display: 'flex', alignItems: 'center', gap: 5,
+                                width: '100%', padding: '7px 10px 3px', border: 'none',
+                                background: 'transparent', cursor: 'pointer', textAlign: 'left',
+                            }}
+                        >
+                            <span style={{ fontSize: 8, color: '#bbb', transition: 'transform 0.15s', transform: open ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block' }}>▶</span>
+                            <span style={{ fontSize: 10, fontWeight: 700, color: '#aaa', letterSpacing: '0.7px', textTransform: 'uppercase', userSelect: 'none' }}>{label}</span>
+                        </button>
+                    )
+
+                    const homeBoard = topLevel.find(b => b.isHome)
+
                     // 展開模式：分段列表
                     return (
-                        <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '6px 8px', scrollbarWidth: 'none', display: 'flex', flexDirection: 'column', gap: 3 }}>
+                        <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '6px 6px', scrollbarWidth: 'none', display: 'flex', flexDirection: 'column', gap: 1 }}>
+                            {/* 主頁（固定在最上方） */}
+                            {homeBoard && renderBoardCard(homeBoard)}
+
                             {/* 最近使用 */}
                             {recentBoards.length > 0 && (
                                 <>
-                                    <SectionHeader label="最近使用" />
-                                    {recentBoards.map(b => renderBoardCard(b))}
-                                    <div style={{ height: 1, background: '#f0f0f0', margin: '4px 2px' }} />
+                                    <div style={{ height: 1, background: '#e8e8e5', margin: '4px 4px' }} />
+                                    <CollapsibleHeader label="最近使用" open={recentOpen} onToggle={() => setRecentOpen(v => !v)} />
+                                    {recentOpen && recentBoards.map(b => renderBoardCard(b))}
                                 </>
                             )}
 
                             {/* 釘選 */}
                             {pinnedBoards.length > 0 && (
                                 <>
-                                    <SectionHeader label="📌 釘選" />
-                                    {pinnedBoards.map(b => renderBoardCard(b))}
-                                    <div style={{ height: 1, background: '#f0f0f0', margin: '4px 2px' }} />
+                                    <div style={{ height: 1, background: '#e8e8e5', margin: '4px 4px' }} />
+                                    <CollapsibleHeader label="📌 釘選" open={pinnedOpen} onToggle={() => setPinnedOpen(v => !v)} />
+                                    {pinnedOpen && pinnedBoards.map(b => renderBoardCard(b))}
                                 </>
                             )}
 
-                            {/* 一般白板 */}
-                            {activeBoards.map(b => renderBoardCard(b))}
+                            {/* 所有白板 */}
+                            {activeBoards.filter(b => !b.isHome).length > 0 && (
+                                <>
+                                    <div style={{ height: 1, background: '#e8e8e5', margin: '4px 4px' }} />
+                                    <CollapsibleHeader label="所有白板" open={allOpen} onToggle={() => setAllOpen(v => !v)} />
+                                    {allOpen && activeBoards.filter(b => !b.isHome).map(b => renderBoardCard(b))}
+                                </>
+                            )}
 
                             {/* 封存 */}
                             {archivedBoards.length > 0 && (
                                 <>
-                                    <div style={{ height: 1, background: '#f0f0f0', margin: '4px 2px' }} />
-                                    <button
-                                        onClick={() => setArchivedOpen(v => !v)}
-                                        style={{
-                                            display: 'flex', alignItems: 'center', gap: 4,
-                                            padding: '4px 7px', background: 'none', border: 'none',
-                                            cursor: 'pointer', fontSize: 10, fontWeight: 600,
-                                            color: '#bbb', letterSpacing: '0.5px',
-                                        }}
-                                    >
-                                        <span style={{ fontSize: 9 }}>{archivedOpen ? '▼' : '▶'}</span>
-                                        🗄️ 封存 ({archivedBoards.length})
-                                    </button>
+                                    <div style={{ height: 1, background: '#e8e8e5', margin: '4px 4px' }} />
+                                    <CollapsibleHeader label={`🗄️ 封存 (${archivedBoards.length})`} open={archivedOpen} onToggle={() => setArchivedOpen(v => !v)} />
                                     {archivedOpen && archivedBoards.map(b => renderBoardCard(b, { dimmed: true }))}
                                 </>
                             )}
@@ -698,82 +767,13 @@ function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelet
 
                 {/* 底部工具列 */}
                 {!collapsed && (
-                    <div style={{
-                        display: 'flex', alignItems: 'center',
-                        borderTop: '1px solid #f0f0f0',
-                        padding: '6px 10px',
-                        gap: 4, flexShrink: 0,
-                    }}>
-                        <button
-                            onClick={onOpenTaskCenter}
-                            title="任務中心"
-                            style={{
-                                flex: 1, height: 28, borderRadius: 8,
-                                border: '1px solid #eee', background: 'transparent',
-                                cursor: 'pointer', fontSize: 12, color: '#666',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
-                                transition: 'background 0.12s',
-                            }}
-                            onMouseEnter={e => (e.currentTarget.style.background = '#f5f5f5')}
-                            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                        >
-                            <span style={{ fontSize: 13 }}>✅</span> 任務
-                        </button>
-                        <button
-                            onClick={onOpenFilter}
-                            title="篩選卡片"
-                            style={{
-                                flex: 1, height: 28, borderRadius: 8,
-                                border: '1px solid #eee', background: 'transparent',
-                                cursor: 'pointer', fontSize: 12, color: '#666',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
-                                transition: 'background 0.12s',
-                            }}
-                            onMouseEnter={e => (e.currentTarget.style.background = '#f5f5f5')}
-                            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                        >
-                            <span style={{ fontSize: 13 }}>🔍</span> 篩選
-                        </button>
-                        <button
-                            onClick={onOpenWeeklyReview}
-                            title="週回顧"
-                            style={{
-                                width: 28, height: 28, borderRadius: 8,
-                                border: '1px solid #eee', background: 'transparent',
-                                cursor: 'pointer', fontSize: 14, color: '#888',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
-                                transition: 'background 0.12s',
-                            }}
-                            onMouseEnter={e => (e.currentTarget.style.background = '#f5f5f5')}
-                            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                        >📅</button>
-                        <button
-                            onClick={onOpenBackup}
-                            title="備份記錄"
-                            style={{
-                                width: 28, height: 28, borderRadius: 8,
-                                border: '1px solid #eee', background: 'transparent',
-                                cursor: 'pointer', fontSize: 14, color: '#888',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
-                                transition: 'background 0.12s',
-                            }}
-                            onMouseEnter={e => (e.currentTarget.style.background = '#f5f5f5')}
-                            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                        >🔒</button>
-                        <button
-                            onClick={onHotkey}
-                            title="快捷鍵 (?)"
-                            style={{
-                                width: 28, height: 28, borderRadius: 8,
-                                border: '1px solid #eee', background: 'transparent',
-                                cursor: 'pointer', fontSize: 14, color: '#888',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
-                                transition: 'background 0.12s',
-                            }}
-                            onMouseEnter={e => (e.currentTarget.style.background = '#f5f5f5')}
-                            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                        >⌨️</button>
-                    </div>
+                    <SidebarFooter
+                        onOpenTaskCenter={onOpenTaskCenter}
+                        onOpenFilter={onOpenFilter}
+                        onOpenReviewCenter={onOpenReviewCenter}
+                        onOpenBackup={onOpenBackup}
+                        onHotkey={onHotkey}
+                    />
                 )}
             </div>
 
@@ -881,7 +881,7 @@ function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelet
                                 }
                                 return (
                                     <>
-                                        <div style={{ height: 1, background: '#f0f0f0', margin: '4px 0' }} />
+                                        <div style={{ height: 1, background: '#e8e8e5', margin: '4px 4px' }} />
                                         <div style={{ padding: '4px 14px 2px', fontSize: 11, color: '#aaa' }}>子板</div>
                                         {renderChildren(contextMenu.boardId, 0)}
                                     </>
@@ -1442,7 +1442,7 @@ export default function App() {
     const [overviewOpen, setOverviewOpen] = useState(false)
     const [taskCenterOpen, setTaskCenterOpen] = useState(false)
     const [filterOpen, setFilterOpen] = useState(false)
-    const [weeklyReviewOpen, setWeeklyReviewOpen] = useState(false)
+    const [reviewCenterOpen, setReviewCenterOpen] = useState(false)
     const [backupPanelOpen, setBackupPanelOpen] = useState(false)
     const [navigationStack, setNavigationStack] = useState<string[]>([])
     const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
@@ -1498,6 +1498,10 @@ export default function App() {
             if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'o') {
                 e.preventDefault()
                 setOverviewOpen(prev => !prev)
+            }
+            if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'c') {
+                e.preventDefault()
+                setReviewCenterOpen(prev => !prev)
             }
         }
         window.addEventListener('keydown', handler)
@@ -1677,7 +1681,7 @@ export default function App() {
     }, [])
 
     const handleGoToWeeklyCard = useCallback(() => {
-        setWeeklyReviewOpen(false)
+        setReviewCenterOpen(false)
         const journalBoard = boards.find(b => b.isJournal)
         if (!journalBoard) return
         const weekKey = getISOWeekKey(new Date())
@@ -1701,6 +1705,64 @@ export default function App() {
             jumpRef.current?.(cardId, cardX, cardY)
         }
     }, [boards, activeBoardId, jumpRef])
+
+    const handleSaveJournal = useCallback((boardId: string, dateStr: string, html: string, shapeId: string | null) => {
+        if (!boardId) return
+        setBoards(prev => prev.map(b => {
+            if (b.id !== boardId) return b
+
+            // Deep-clone existing snapshot, or bootstrap a minimal valid tldraw snapshot
+            const snapshot: any = b.snapshot
+                ? structuredClone(b.snapshot)
+                : { document: { store: {}, schema: { schemaVersion: 2, sequences: {} } }, session: {} }
+
+            // Ensure document.store exists and is an actual object reference we can mutate
+            if (!snapshot.document) snapshot.document = { store: {}, schema: { schemaVersion: 2, sequences: {} } }
+            if (!snapshot.document.store) snapshot.document.store = {}
+            const store = snapshot.document.store
+
+            if (shapeId && store[shapeId]) {
+                store[shapeId].props.text = html
+            } else {
+                // Bootstrap minimum tldraw records if absent
+                if (!store['document:document']) {
+                    store['document:document'] = { typeName: 'document', id: 'document:document', gridSize: 10, name: '', meta: {} }
+                }
+                const pageRecord = Object.values(store).find((r: any) => r.typeName === 'page') as any
+                const pageId = pageRecord?.id ?? 'page:page'
+                if (!store[pageId]) {
+                    store[pageId] = { typeName: 'page', id: pageId, name: 'Page 1', index: 'a1', meta: {} }
+                }
+
+                const existingIndices = (Object.values(store) as any[])
+                    .filter(r => r.typeName === 'shape')
+                    .map(r => r.index as string)
+                    .filter(Boolean)
+                    .sort()
+                const newIndex = (existingIndices[existingIndices.length - 1] ?? 'a0') + 'V'
+                const newShapeId = `shape:jd_${dateStr.replace(/-/g, '')}_${Math.random().toString(36).slice(2, 7)}`
+                const allShapes = (Object.values(store) as any[]).filter(r => r.typeName === 'shape')
+                const maxX = allShapes.length > 0
+                    ? Math.max(...allShapes.map(s => (s.x ?? 0) + (s.props?.w ?? 240))) + 40
+                    : 100
+                store[newShapeId] = {
+                    typeName: 'shape', id: newShapeId, type: 'card',
+                    x: maxX, y: 100, rotation: 0, index: newIndex,
+                    parentId: pageId, isLocked: false, opacity: 1, meta: {},
+                    props: {
+                        type: 'journal', text: html,
+                        image: null, blobUrl: null, todos: [], url: '',
+                        linkEmbedUrl: null, journalDate: dateStr,
+                        state: 'idle', color: 'yellow', w: 280, h: 380,
+                        cardStatus: 'none', priority: 'none', tags: [],
+                    },
+                }
+            }
+            const updated = { ...b, snapshot, updatedAt: Date.now() }
+            saveBoard(updated)
+            return updated
+        }))
+    }, [])
 
     if (loading) return <div style={{ height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>Loading...</div>
 
@@ -1741,7 +1803,7 @@ export default function App() {
                 onSetStatus={handleSetStatus}
                 onOpenTaskCenter={() => setTaskCenterOpen(true)}
                 onOpenFilter={() => setFilterOpen(true)}
-                onOpenWeeklyReview={() => setWeeklyReviewOpen(true)}
+                onOpenReviewCenter={() => setReviewCenterOpen(true)}
                 onOpenBackup={() => setBackupPanelOpen(true)}
             />
 
@@ -1756,14 +1818,6 @@ export default function App() {
                     onRestore={handleRestore}
                 />
             )}
-            {weeklyReviewOpen && (
-                <WeeklyReview
-                    boards={boards}
-                    sidebarWidth={sidebarWidth}
-                    onClose={() => setWeeklyReviewOpen(false)}
-                    onGoToWeeklyCard={handleGoToWeeklyCard}
-                />
-            )}
             {overviewOpen && (
                 <BoardOverview
                     boards={boards}
@@ -1773,6 +1827,15 @@ export default function App() {
                     onRename={handleRename}
                     onDelete={handleDelete}
                     onClose={() => setOverviewOpen(false)}
+                />
+            )}
+            {reviewCenterOpen && (
+                <ReviewCenter
+                    boards={boards}
+                    onClose={() => setReviewCenterOpen(false)}
+                    onJumpToBoard={handleSwitch}
+                    onSaveJournal={handleSaveJournal}
+                    onGoToWeeklyCard={handleGoToWeeklyCard}
                 />
             )}
         </>

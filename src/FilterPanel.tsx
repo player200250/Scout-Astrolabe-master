@@ -1,6 +1,7 @@
 // src/FilterPanel.tsx
 import { useState, useMemo, useEffect } from 'react'
-import type { TLEditorSnapshot } from 'tldraw'
+import type { BoardRecord } from './db'
+import { getCardShapes } from './utils/snapshot'
 
 type CardStatusType = 'none' | 'todo' | 'in-progress' | 'done'
 type PriorityType   = 'none' | 'low'  | 'medium'      | 'high'
@@ -15,12 +16,6 @@ interface FilterResult {
     tags: string[]
     x: number
     y: number
-}
-
-interface BoardRecord {
-    id: string
-    name: string
-    snapshot: TLEditorSnapshot | null
 }
 
 interface FilterPanelProps {
@@ -52,11 +47,8 @@ function stripHtml(html: string): string {
 function getAllTags(boards: BoardRecord[]): string[] {
     const tags = new Set<string>()
     for (const board of boards) {
-        if (!board.snapshot) continue
-        const store = (board.snapshot as any).document?.store ?? {}
-        for (const shape of Object.values(store) as any[]) {
-            if (shape.typeName !== 'shape' || shape.type !== 'card') continue
-            for (const tag of (shape.props?.tags ?? []) as string[]) tags.add(tag)
+        for (const shape of getCardShapes(board.snapshot)) {
+            for (const tag of shape.props.tags ?? []) tags.add(tag)
         }
     }
     return [...tags].sort()
@@ -74,21 +66,17 @@ function scanCards(
     const seen = new Set<string>()
 
     for (const board of boards) {
-        if (!board.snapshot) continue
-        const store = (board.snapshot as any).document?.store ?? {}
-
-        for (const shape of Object.values(store) as any[]) {
-            if (shape.typeName !== 'shape' || shape.type !== 'card') continue
-            const ptype: string = shape.props?.type
+        for (const shape of getCardShapes(board.snapshot)) {
+            const ptype = shape.props.type
             if (ptype !== 'text' && ptype !== 'todo' && ptype !== 'journal') continue
 
             const key = `${board.id}_${shape.id}`
             if (seen.has(key)) continue
             seen.add(key)
 
-            const status: CardStatusType  = shape.props.cardStatus ?? 'none'
-            const priority: PriorityType  = shape.props.priority   ?? 'none'
-            const tags: string[]          = shape.props.tags        ?? []
+            const status: CardStatusType = (shape.props.cardStatus as CardStatusType) ?? 'none'
+            const priority: PriorityType = (shape.props.priority as PriorityType) ?? 'none'
+            const tags: string[]         = shape.props.tags ?? []
 
             const matchStatus   = filterStatuses.size   === 0 || filterStatuses.has(status)
             const matchPriority = filterPriorities.size === 0 || filterPriorities.has(priority)
