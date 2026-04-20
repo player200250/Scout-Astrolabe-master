@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@tiptap/extension-code-block": "^2.27.2",
-    "@tiptap/extension-code-block-lowlight": "^3.20.4",
+    "@tiptap/extension-code-block-lowlight": "^2.27.2",
     "@tiptap/extension-color": "^2.27.2",
     "@tiptap/extension-text-style": "^2.27.2",
     "@tiptap/extension-underline": "^2.27.2",
@@ -27,6 +27,7 @@
     "lowlight": "^3.3.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "react-force-graph-2d": "^1.29.1",
     "react-textarea-autosize": "^8.5.9",
     "tldraw": "^3.15.5"
   },

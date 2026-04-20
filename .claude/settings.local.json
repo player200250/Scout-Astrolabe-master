@@ -9,7 +9,8 @@
       "Bash(node -e \"require\\('./node_modules/jspdf/dist/jspdf.umd.js'\\); console.log\\('ok'\\)\")",
       "Bash(ls src/Use*.ts*)",
       "Bash(find src *)",
-      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('name:', d.get\\('name',''\\)\\); print\\('version:', d.get\\('version',''\\)\\); print\\('\\\\ndeps:'\\); [print\\(' ', k,':', v\\) for k,v in d.get\\('dependencies',{}\\).items\\(\\)]; print\\('\\\\ndevDeps:'\\); [print\\(' ', k,':', v\\) for k,v in d.get\\('devDependencies',{}\\).items\\(\\)]\")"
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('name:', d.get\\('name',''\\)\\); print\\('version:', d.get\\('version',''\\)\\); print\\('\\\\ndeps:'\\); [print\\(' ', k,':', v\\) for k,v in d.get\\('dependencies',{}\\).items\\(\\)]; print\\('\\\\ndevDeps:'\\); [print\\(' ', k,':', v\\) for k,v in d.get\\('devDependencies',{}\\).items\\(\\)]\")",
+      "Bash(node -e \"require\\('react-force-graph-2d'\\); console.log\\('ok'\\)\")"
     ]
   }
 }

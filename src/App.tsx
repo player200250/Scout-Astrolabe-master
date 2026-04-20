@@ -25,6 +25,7 @@ import { ReviewCenter } from './ReviewCenter'
 import { useHotkeys } from './Usehotkeys'
 import { HotkeyPanel } from './HotkeyPanel'
 import { useContextMenu } from './ContextMenu'
+import { KnowledgeGraph } from './KnowledgeGraph'
 import 'tldraw/tldraw.css'
 
 declare global {
@@ -442,9 +443,10 @@ interface SidebarFooterProps {
     onOpenReviewCenter: () => void
     onOpenBackup: () => void
     onHotkey: () => void
+    onOpenKnowledgeGraph: () => void
 }
 
-function SidebarFooter({ onOpenTaskCenter, onOpenFilter, onOpenReviewCenter, onOpenBackup, onHotkey }: SidebarFooterProps) {
+function SidebarFooter({ onOpenTaskCenter, onOpenFilter, onOpenReviewCenter, onOpenBackup, onHotkey, onOpenKnowledgeGraph }: SidebarFooterProps) {
     const navRow = (icon: string, label: string, onClick: () => void, title?: string) => (
         <button
             onClick={onClick}
@@ -466,6 +468,7 @@ function SidebarFooter({ onOpenTaskCenter, onOpenFilter, onOpenReviewCenter, onO
         <div style={{ borderTop: '1px solid #e8e8e5', flexShrink: 0, paddingBottom: 2 }}>
             {navRow('📔', '復盤中心', onOpenReviewCenter, '復盤中心 (Ctrl+Shift+C)')}
             {navRow('✅', '任務中心', onOpenTaskCenter)}
+            {navRow('🕸️', '知識圖譜', onOpenKnowledgeGraph, '知識圖譜 (Ctrl+Shift+G)')}
             <div style={{ display: 'flex', justifyContent: 'space-around', padding: '4px 12px 4px', borderTop: '1px solid #f0f0ee', marginTop: 2 }}>
                 {([
                     { icon: '🔍', title: '篩選卡片', fn: onOpenFilter },
@@ -514,9 +517,10 @@ interface BoardTabBarProps {
     onOpenReviewCenter: () => void
     onOpenBackup: () => void
     onGoToInbox: () => void
+    onOpenKnowledgeGraph: () => void
 }
 
-function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelete, onSearch, onHotkey, onOpenOverview, onSetJournal, navigationStack, onBack, onSetParent, onSwitchToChild, collapsed, onToggleCollapse, onSetStatus, onOpenTaskCenter, onOpenFilter, onOpenReviewCenter, onOpenBackup, onGoToInbox }: BoardTabBarProps) {
+function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelete, onSearch, onHotkey, onOpenOverview, onSetJournal, navigationStack, onBack, onSetParent, onSwitchToChild, collapsed, onToggleCollapse, onSetStatus, onOpenTaskCenter, onOpenFilter, onOpenReviewCenter, onOpenBackup, onGoToInbox, onOpenKnowledgeGraph }: BoardTabBarProps) {
     const [hoveredId, setHoveredId] = useState<string | null>(null)
     const [renamingId, setRenamingId] = useState<string | null>(null)
     const [renameValue, setRenameValue] = useState('')
@@ -853,6 +857,7 @@ function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelet
                         onOpenReviewCenter={onOpenReviewCenter}
                         onOpenBackup={onOpenBackup}
                         onHotkey={onHotkey}
+                        onOpenKnowledgeGraph={onOpenKnowledgeGraph}
                     />
                 )}
             </div>
@@ -1538,6 +1543,7 @@ export default function App() {
     const [reviewCenterOpen, setReviewCenterOpen] = useState(false)
     const [backupPanelOpen, setBackupPanelOpen] = useState(false)
     const [movingCardShapeId, setMovingCardShapeId] = useState<string | null>(null)
+    const [knowledgeGraphOpen, setKnowledgeGraphOpen] = useState(false)
     const [navigationStack, setNavigationStack] = useState<string[]>([])
     const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
         try { return localStorage.getItem('sidebar-collapsed') === 'true' } catch { return false }
@@ -1601,6 +1607,10 @@ export default function App() {
                 e.preventDefault()
                 setActiveBoardId(INBOX_BOARD_ID)
                 setNavigationStack([INBOX_BOARD_ID])
+            }
+            if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'g') {
+                e.preventDefault()
+                setKnowledgeGraphOpen(prev => !prev)
             }
         }
         window.addEventListener('keydown', handler)
@@ -1947,6 +1957,7 @@ export default function App() {
                 onOpenReviewCenter={() => setReviewCenterOpen(true)}
                 onOpenBackup={() => setBackupPanelOpen(true)}
                 onGoToInbox={() => { setActiveBoardId(INBOX_BOARD_ID); setNavigationStack([INBOX_BOARD_ID]) }}
+                onOpenKnowledgeGraph={() => setKnowledgeGraphOpen(true)}
             />
 
             {movingCardShapeId && (
@@ -1985,6 +1996,21 @@ export default function App() {
                     onJumpToBoard={handleSwitch}
                     onSaveJournal={handleSaveJournal}
                     onGoToWeeklyCard={handleGoToWeeklyCard}
+                />
+            )}
+            {knowledgeGraphOpen && (
+                <KnowledgeGraph
+                    boards={boards}
+                    onClose={() => setKnowledgeGraphOpen(false)}
+                    onJumpToCard={(boardId, shapeId) => {
+                        setKnowledgeGraphOpen(false)
+                        handleSwitch(boardId)
+                        setTimeout(() => jumpRef.current?.(shapeId, 0, 0), 400)
+                    }}
+                    onSwitchBoard={boardId => {
+                        setKnowledgeGraphOpen(false)
+                        handleSwitch(boardId)
+                    }}
                 />
             )}
         </>
