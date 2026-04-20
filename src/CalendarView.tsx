@@ -13,25 +13,32 @@ function sameDay(a: Date, b: Date) {
 const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六']
 const WEEKDAY_FULL = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六']
 
-function buildDotDates(boards: BoardRecord[], year: number, month: number): Set<string> {
+interface DayTodo { text: string; checked: boolean }
+interface DayEvents { hasJournal: boolean; todos: DayTodo[] }
+
+function buildMonthEvents(boards: BoardRecord[], year: number, month: number): Map<string, DayEvents> {
     const prefix = `${year}-${String(month + 1).padStart(2, '0')}`
-    const dots = new Set<string>()
+    const map = new Map<string, DayEvents>()
+    const get = (ds: string): DayEvents => {
+        if (!map.has(ds)) map.set(ds, { hasJournal: false, todos: [] })
+        return map.get(ds)!
+    }
     for (const board of boards) {
         if (board.isHome) continue
-        const ds = dateStr(new Date(board.updatedAt))
-        if (ds.startsWith(prefix)) dots.add(ds)
         for (const shape of getCardShapes(board.snapshot)) {
+            if (board.isJournal && shape.props.type === 'journal' && shape.props.journalDate?.startsWith(prefix)) {
+                get(shape.props.journalDate).hasJournal = true
+            }
             if (shape.props.type === 'todo') {
                 for (const t of shape.props.todos ?? []) {
-                    if (t.dueDate?.startsWith(prefix)) dots.add(t.dueDate)
+                    if (t.dueDate?.startsWith(prefix)) {
+                        get(t.dueDate).todos.push({ text: t.text ?? '', checked: !!t.checked })
+                    }
                 }
-            }
-            if (board.isJournal && shape.props.journalDate?.startsWith(prefix)) {
-                dots.add(shape.props.journalDate)
             }
         }
     }
-    return dots
+    return map
 }
 
 interface AgendaData {
@@ -84,7 +91,7 @@ export function CalendarContent({ boards, onJumpToBoard, onOpenJournalDay }: Cal
     const [viewMonth, setViewMonth] = useState(today.getMonth())
     const [selectedDate, setSelectedDate] = useState<Date>(today)
 
-    const dotDates = useMemo(() => buildDotDates(boards, viewYear, viewMonth), [boards, viewYear, viewMonth])
+    const monthEvents = useMemo(() => buildMonthEvents(boards, viewYear, viewMonth), [boards, viewYear, viewMonth])
     const agenda = useMemo(() => buildAgenda(boards, selectedDate), [boards, selectedDate])
 
     const firstDay = new Date(viewYear, viewMonth, 1).getDay()
@@ -115,35 +122,67 @@ export function CalendarContent({ boards, onJumpToBoard, onOpenJournalDay }: Cal
                 </div>
                 <div style={{ flex: 1, overflowY: 'auto', display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', alignContent: 'start' }}>
                     {cells.map((day, idx) => {
-                        if (!day) return <div key={`e${idx}`} style={{ borderBottom: '1px solid #fafaf8', minHeight: 44 }} />
+                        if (!day) return <div key={`e${idx}`} style={{ borderBottom: '1px solid #fafaf8', minHeight: 80 }} />
                         const cellDate = new Date(viewYear, viewMonth, day)
                         const ds = dateStr(cellDate)
                         const isToday = ds === todayDs
                         const isSel = sameDay(cellDate, selectedDate)
-                        const hasDot = dotDates.has(ds)
                         const isSun = cellDate.getDay() === 0
                         const isSat = cellDate.getDay() === 6
+                        const ev = monthEvents.get(ds)
+                        const todos = ev?.todos ?? []
+                        const visibleTodos = todos.slice(0, 3)
+                        const extraCount = todos.length - visibleTodos.length
                         return (
                             <div
                                 key={ds}
                                 onClick={() => setSelectedDate(cellDate)}
                                 style={{
-                                    minHeight: 44, borderBottom: '1px solid #fafaf8',
-                                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3,
+                                    minHeight: 80, borderBottom: '1px solid #fafaf8',
+                                    display: 'flex', flexDirection: 'column',
+                                    padding: 4, gap: 2,
                                     cursor: 'pointer', background: isSel ? '#f0f4ff' : 'transparent',
-                                    transition: 'background 0.1s',
+                                    transition: 'background 0.1s', boxSizing: 'border-box',
                                 }}
                                 onMouseEnter={e => { if (!isSel) e.currentTarget.style.background = '#f7f7f7' }}
                                 onMouseLeave={e => { if (!isSel) e.currentTarget.style.background = 'transparent' }}
                             >
-                                <div style={{
-                                    width: 26, height: 26, borderRadius: '50%',
-                                    background: isSel ? '#2563eb' : isToday ? '#1a1a1a' : 'transparent',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    fontSize: 13, fontWeight: isSel || isToday ? 700 : 400,
-                                    color: isSel || isToday ? 'white' : isSun ? '#e03131' : isSat ? '#2563eb' : '#1a1a1a',
-                                }}>{day}</div>
-                                {hasDot && <div style={{ width: 4, height: 4, borderRadius: '50%', background: isSel ? '#2563eb' : '#bbb' }} />}
+                                {/* 日期數字 */}
+                                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 2 }}>
+                                    <div style={{
+                                        width: 24, height: 24, borderRadius: '50%',
+                                        background: isSel ? '#2563eb' : isToday ? '#1a1a1a' : 'transparent',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        fontSize: 12, fontWeight: isSel || isToday ? 700 : 400,
+                                        color: isSel || isToday ? 'white' : isSun ? '#e03131' : isSat ? '#2563eb' : '#1a1a1a',
+                                    }}>{day}</div>
+                                </div>
+                                {/* Journal 色條 */}
+                                {ev?.hasJournal && (
+                                    <div style={{
+                                        height: 18, borderRadius: 3, padding: '0 4px',
+                                        background: '#fef3c7', color: '#92400e',
+                                        fontSize: 10, lineHeight: '18px',
+                                        overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
+                                        flexShrink: 0,
+                                    }}>📔 日記</div>
+                                )}
+                                {/* Todo 色條 */}
+                                {visibleTodos.map((t, i) => (
+                                    <div key={i} style={{
+                                        height: 18, borderRadius: 3, padding: '0 4px',
+                                        background: t.checked ? '#f5f5f5' : '#fee2e2',
+                                        color: t.checked ? '#aaa' : '#991b1b',
+                                        fontSize: 10, lineHeight: '18px',
+                                        overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
+                                        textDecoration: t.checked ? 'line-through' : 'none',
+                                        flexShrink: 0,
+                                    }}>{t.text.slice(0, 12) || '（無標題）'}</div>
+                                ))}
+                                {/* +N 更多 */}
+                                {extraCount > 0 && (
+                                    <div style={{ fontSize: 10, color: '#bbb', paddingLeft: 4, lineHeight: '16px' }}>+{extraCount} 更多</div>
+                                )}
                             </div>
                         )
                     })}

@@ -41,6 +41,7 @@ declare global {
 // db, BoardRecord, BackupRecord — imported from ./db
 
 const HOME_BOARD_ID = 'home_board'
+const INBOX_BOARD_ID = 'inbox_board'
 const SIDEBAR_WIDTH = 220
 const SIDEBAR_COLLAPSED_WIDTH = 40
 
@@ -76,7 +77,21 @@ const loadAllBoards = async (): Promise<BoardRecord[]> => {
         boards.unshift(homeBoard)
     }
 
-    if (boards.filter(b => !b.isHome).length === 0) {
+    let inboxBoard = boards.find(b => b.isInbox)
+    if (!inboxBoard) {
+        inboxBoard = {
+            id: INBOX_BOARD_ID,
+            name: '📥 收件匣',
+            snapshot: null,
+            thumbnail: null,
+            updatedAt: 0,
+            isInbox: true,
+        }
+        await db.table('boards').put(inboxBoard)
+        boards.push(inboxBoard)
+    }
+
+    if (boards.filter(b => !b.isHome && !b.isInbox).length === 0) {
         const oldSnapshot = await db.table('snapshots').get('latest')
         const firstBoard: BoardRecord = {
             id: generateId(),
@@ -89,9 +104,10 @@ const loadAllBoards = async (): Promise<BoardRecord[]> => {
         boards.push(firstBoard)
     }
 
-    const home = boards.filter(b => b.isHome)
-    const rest = boards.filter(b => !b.isHome).sort((a, b) => a.updatedAt - b.updatedAt)
-    return [...home, ...rest]
+    const home  = boards.filter(b => b.isHome)
+    const inbox = boards.filter(b => b.isInbox)
+    const rest  = boards.filter(b => !b.isHome && !b.isInbox).sort((a, b) => a.updatedAt - b.updatedAt)
+    return [...home, ...inbox, ...rest]
 }
 
 const saveBoard = async (board: BoardRecord) => { await db.table('boards').put(board) }
@@ -148,7 +164,7 @@ function BoardOverview({ boards, activeBoardId, onSelect, onNew, onRename, onDel
 
     const filtered = boards
         .filter(b => {
-            if (b.isHome) return false
+            if (b.isHome || b.isInbox) return false
             if (!b.name.toLowerCase().includes(searchQuery.toLowerCase())) return false
             if (archiveFilter === 'archived') return b.status === 'archived'
             return b.status !== 'archived'
@@ -364,6 +380,61 @@ function BoardOverview({ boards, activeBoardId, onSelect, onNew, onRename, onDel
     )
 }
 
+/* --------------------------------------------------------------- MoveCardModal */
+interface MoveCardModalProps {
+    boards: BoardRecord[]
+    onSelect: (targetBoardId: string) => void
+    onClose: () => void
+}
+
+function MoveCardModal({ boards, onSelect, onClose }: MoveCardModalProps) {
+    const targets = boards.filter(b => !b.isHome && !b.isInbox && b.status !== 'archived')
+
+    useEffect(() => {
+        const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+        window.addEventListener('keydown', h)
+        return () => window.removeEventListener('keydown', h)
+    }, [onClose])
+
+    return (
+        <>
+            <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.3)', zIndex: 99998 }} />
+            <div style={{
+                position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
+                background: 'white', borderRadius: 12, width: 300, maxHeight: '60vh',
+                boxShadow: '0 12px 40px rgba(0,0,0,0.2)', zIndex: 99999,
+                display: 'flex', flexDirection: 'column', overflow: 'hidden',
+            }}>
+                <div style={{ padding: '13px 16px', borderBottom: '1px solid #f0f0f0', fontSize: 14, fontWeight: 600, color: '#1a1a1a', flexShrink: 0 }}>
+                    📦 移到白板
+                </div>
+                <div style={{ overflowY: 'auto', padding: '4px 0' }}>
+                    {targets.length === 0 ? (
+                        <div style={{ padding: '20px', fontSize: 13, color: '#aaa', textAlign: 'center' }}>尚無可移動的白板</div>
+                    ) : targets.map(b => (
+                        <div
+                            key={b.id}
+                            onClick={() => { onSelect(b.id); onClose() }}
+                            style={{ padding: '9px 16px', fontSize: 13, cursor: 'pointer', color: '#1a1a1a', display: 'flex', alignItems: 'center', gap: 8 }}
+                            onMouseEnter={e => (e.currentTarget.style.background = '#f5f5f5')}
+                            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                        >
+                            {isRasterThumbnail(b.thumbnail)
+                                ? <img src={b.thumbnail} style={{ width: 24, height: 16, objectFit: 'cover', borderRadius: 3, flexShrink: 0, border: '1px solid #eee' }} alt="" />
+                                : <div style={{ width: 24, height: 16, borderRadius: 3, background: '#f0f0f0', border: '1px solid #eee', flexShrink: 0 }} />
+                            }
+                            {b.name}
+                        </div>
+                    ))}
+                </div>
+                <div style={{ padding: '8px 16px', borderTop: '1px solid #f0f0f0', flexShrink: 0 }}>
+                    <button onClick={onClose} style={{ width: '100%', padding: '7px', borderRadius: 8, border: '1px solid #eee', cursor: 'pointer', fontSize: 13, background: 'transparent' }}>取消</button>
+                </div>
+            </div>
+        </>
+    )
+}
+
 /* --------------------------------------------------------------- SidebarFooter */
 interface SidebarFooterProps {
     onOpenTaskCenter: () => void
@@ -442,9 +513,10 @@ interface BoardTabBarProps {
     onOpenFilter: () => void
     onOpenReviewCenter: () => void
     onOpenBackup: () => void
+    onGoToInbox: () => void
 }
 
-function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelete, onSearch, onHotkey, onOpenOverview, onSetJournal, navigationStack, onBack, onSetParent, onSwitchToChild, collapsed, onToggleCollapse, onSetStatus, onOpenTaskCenter, onOpenFilter, onOpenReviewCenter, onOpenBackup }: BoardTabBarProps) {
+function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelete, onSearch, onHotkey, onOpenOverview, onSetJournal, navigationStack, onBack, onSetParent, onSwitchToChild, collapsed, onToggleCollapse, onSetStatus, onOpenTaskCenter, onOpenFilter, onOpenReviewCenter, onOpenBackup, onGoToInbox }: BoardTabBarProps) {
     const [hoveredId, setHoveredId] = useState<string | null>(null)
     const [renamingId, setRenamingId] = useState<string | null>(null)
     const [renameValue, setRenameValue] = useState('')
@@ -522,6 +594,10 @@ function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelet
                                 onMouseEnter={e => (e.currentTarget.style.background = '#f5f5f5')}
                                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                             >🔍</button>
+                            <button onClick={onGoToInbox} title="收件匣 (Ctrl+Shift+I)" style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid #eee', background: activeBoardId === INBOX_BOARD_ID ? '#f0f4ff' : 'transparent', cursor: 'pointer', fontSize: 14, color: activeBoardId === INBOX_BOARD_ID ? '#2563eb' : '#888', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+                                onMouseEnter={e => (e.currentTarget.style.background = '#f5f5f5')}
+                                onMouseLeave={e => (e.currentTarget.style.background = activeBoardId === INBOX_BOARD_ID ? '#f0f4ff' : 'transparent')}
+                            >📥</button>
                         </div>
                     )}
                 </div>
@@ -532,6 +608,7 @@ function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelet
                         <button onClick={onNew} title="新增白板" style={{ width: 28, height: 28, borderRadius: 8, border: '1px dashed #ccc', background: 'transparent', cursor: 'pointer', fontSize: 16, color: '#aaa', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>+</button>
                         <button onClick={onOpenOverview} title="所有白板" style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid #eee', background: 'transparent', cursor: 'pointer', fontSize: 13, color: '#888', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>⊞</button>
                         <button onClick={onSearch} title="搜尋" style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid #eee', background: 'transparent', cursor: 'pointer', fontSize: 13, color: '#888', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>🔍</button>
+                        <button onClick={onGoToInbox} title="收件匣 (Ctrl+Shift+I)" style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid #eee', background: 'transparent', cursor: 'pointer', fontSize: 13, color: '#888', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>📥</button>
                         <button onClick={onOpenTaskCenter} title="任務中心" style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid #eee', background: 'transparent', cursor: 'pointer', fontSize: 13, color: '#888', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>✅</button>
                         <button onClick={onOpenReviewCenter} title="復盤中心 (Ctrl+Shift+C)" style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid #eee', background: 'transparent', cursor: 'pointer', fontSize: 13, color: '#888', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>📔</button>
                     </div>
@@ -570,13 +647,13 @@ function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelet
 
                     // 分組
                     const topLevel = boards.filter(b => !b.parentId)
-                    const pinnedBoards  = topLevel.filter(b => b.status === 'pinned' && !b.isHome)
-                    const activeBoards  = topLevel.filter(b => b.status !== 'pinned' && b.status !== 'archived')
-                    const archivedBoards = topLevel.filter(b => b.status === 'archived')
+                    const pinnedBoards   = topLevel.filter(b => b.status === 'pinned' && !b.isHome && !b.isInbox)
+                    const activeBoards   = topLevel.filter(b => b.status !== 'pinned' && b.status !== 'archived' && !b.isHome && !b.isInbox)
+                    const archivedBoards = topLevel.filter(b => b.status === 'archived' && !b.isInbox)
 
-                    // 最近使用：非當前、非封存、非釘選、非主頁、有 lastVisitedAt，取前 5
+                    // 最近使用：非當前、非封存、非釘選、非主頁、非收件匣、有 lastVisitedAt，取前 5
                     const recentBoards = topLevel
-                        .filter(b => b.id !== activeBoardId && !b.isHome && b.status !== 'archived' && b.status !== 'pinned' && b.lastVisitedAt)
+                        .filter(b => b.id !== activeBoardId && !b.isHome && !b.isInbox && b.status !== 'archived' && b.status !== 'pinned' && b.lastVisitedAt)
                         .sort((a, b) => (b.lastVisitedAt ?? 0) - (a.lastVisitedAt ?? 0))
                         .slice(0, 5)
 
@@ -591,7 +668,7 @@ function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelet
                                 onMouseEnter={() => setHoveredId(board.id)}
                                 onMouseLeave={() => setHoveredId(null)}
                                 onClick={() => onSwitch(board.id)}
-                                onContextMenu={e => { e.preventDefault(); if (!board.isHome) setContextMenu({ boardId: board.id, x: e.clientX, y: e.clientY }) }}
+                                onContextMenu={e => { e.preventDefault(); if (!board.isHome && !board.isInbox) setContextMenu({ boardId: board.id, x: e.clientX, y: e.clientY }) }}
                                 style={{
                                     position: 'relative', borderRadius: 7,
                                     background: isActive ? 'rgba(37,99,235,0.08)' : isHovered ? 'rgba(0,0,0,0.04)' : 'transparent',
@@ -641,7 +718,7 @@ function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelet
                                     </span>
                                 )}
                                 {/* 操作按鈕（hover 才顯示） */}
-                                {isHovered && !board.isHome && (
+                                {isHovered && !board.isHome && !board.isInbox && (
                                     <div style={{ display: 'flex', gap: 2, flexShrink: 0 }} onClick={e => e.stopPropagation()}>
                                         <button
                                             onClick={() => startRename(board)}
@@ -718,13 +795,16 @@ function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelet
                         </button>
                     )
 
-                    const homeBoard = topLevel.find(b => b.isHome)
+                    const homeBoard  = topLevel.find(b => b.isHome)
+                    const inboxBoard = topLevel.find(b => b.isInbox)
 
                     // 展開模式：分段列表
                     return (
                         <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '6px 6px', scrollbarWidth: 'none', display: 'flex', flexDirection: 'column', gap: 1 }}>
                             {/* 主頁（固定在最上方） */}
                             {homeBoard && renderBoardCard(homeBoard)}
+                            {/* 收件匣（固定在第二位） */}
+                            {inboxBoard && renderBoardCard(inboxBoard)}
 
                             {/* 最近使用 */}
                             {recentBoards.length > 0 && (
@@ -940,9 +1020,11 @@ interface WhiteboardProps {
     onCreateBoard: (name: string) => BoardRecord
     onSwitchBoard: (id: string) => void
     sidebarWidth: number
+    isInboxBoard: boolean
+    onMoveCard: (shapeId: string) => void
 }
 
-function Whiteboard({ board, boards, onSaveBoard, jumpRef, onOpenSearch, onOpenHotkey, onCreateBoard, onSwitchBoard, sidebarWidth }: WhiteboardProps) {
+function Whiteboard({ board, boards, onSaveBoard, jumpRef, onOpenSearch, onOpenHotkey, onCreateBoard, onSwitchBoard, sidebarWidth, isInboxBoard, onMoveCard }: WhiteboardProps) {
     const boardInfos = boards.map(b => ({ id: b.id, name: b.name, thumbnail: b.thumbnail }))
     const { forwardLinks, backlinks } = useBacklinks(boards)
     const backlinksValue = useMemo(() => ({
@@ -976,6 +1058,8 @@ function Whiteboard({ board, boards, onSaveBoard, jumpRef, onOpenSearch, onOpenH
                             onOpenHotkey={onOpenHotkey}
                             onCreateBoard={onCreateBoard}
                             onSwitchBoard={onSwitchBoard}
+                            isInboxBoard={isInboxBoard}
+                            onMoveCard={onMoveCard}
                         />
                     </Tldraw>
                 </BoardsContext.Provider>
@@ -994,6 +1078,8 @@ interface WhiteboardToolsProps {
     boards: BoardRecord[]
     onCreateBoard: (name: string) => BoardRecord
     onSwitchBoard: (id: string) => void
+    isInboxBoard: boolean
+    onMoveCard: (shapeId: string) => void
 }
 
 const exportBtnStyle: React.CSSProperties = {
@@ -1011,7 +1097,7 @@ const exportBtnStyle: React.CSSProperties = {
     whiteSpace: 'nowrap' as const,
 }
 
-function WhiteboardTools({ board, onSaveBoard, jumpRef, onOpenSearch, onOpenHotkey, boards, onCreateBoard, onSwitchBoard }: WhiteboardToolsProps) {
+function WhiteboardTools({ board, onSaveBoard, jumpRef, onOpenSearch, onOpenHotkey, boards, onCreateBoard, onSwitchBoard, isInboxBoard, onMoveCard }: WhiteboardToolsProps) {
     const editor = useEditor()
     const initialized = useRef(false)
     const imageInputRef = useRef<HTMLInputElement>(null)
@@ -1122,7 +1208,14 @@ function WhiteboardTools({ board, onSaveBoard, jumpRef, onOpenSearch, onOpenHotk
         return () => window.removeEventListener('create-board-card-on' as any, handler)
     }, [board.id, editor])
 
-    const { menuElement } = useContextMenu({ editor, createTextCard, createTodoCard, createLinkCard, openImageInput })
+    const { menuElement } = useContextMenu({ editor, createTextCard, createTodoCard, createLinkCard, openImageInput, isInboxBoard, onMoveCard })
+
+    // 收件匣移卡：收到 App 層指令後從 editor 刪除 shape
+    useEffect(() => {
+        const h = (e: CustomEvent) => { if (editor) editor.deleteShapes([e.detail.shapeId]) }
+        window.addEventListener('delete-shape-from-editor', h as EventListener)
+        return () => window.removeEventListener('delete-shape-from-editor', h as EventListener)
+    }, [editor])
 
     useHotkeys(editor, {
         createTextCard: () => createTextCard(),
@@ -1444,6 +1537,7 @@ export default function App() {
     const [filterOpen, setFilterOpen] = useState(false)
     const [reviewCenterOpen, setReviewCenterOpen] = useState(false)
     const [backupPanelOpen, setBackupPanelOpen] = useState(false)
+    const [movingCardShapeId, setMovingCardShapeId] = useState<string | null>(null)
     const [navigationStack, setNavigationStack] = useState<string[]>([])
     const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
         try { return localStorage.getItem('sidebar-collapsed') === 'true' } catch { return false }
@@ -1502,6 +1596,11 @@ export default function App() {
             if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'c') {
                 e.preventDefault()
                 setReviewCenterOpen(prev => !prev)
+            }
+            if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'i') {
+                e.preventDefault()
+                setActiveBoardId(INBOX_BOARD_ID)
+                setNavigationStack([INBOX_BOARD_ID])
             }
         }
         window.addEventListener('keydown', handler)
@@ -1764,6 +1863,46 @@ export default function App() {
         }))
     }, [])
 
+    const handleMoveCardToBoard = useCallback((shapeId: string, targetBoardId: string) => {
+        const inboxBoard = boards.find(b => b.isInbox)
+        if (!inboxBoard?.snapshot) return
+        const srcStore = (inboxBoard.snapshot as any).document?.store ?? {}
+        const shape = srcStore[shapeId]
+        if (!shape) return
+
+        setBoards(prev => prev.map(b => {
+            if (b.id === inboxBoard.id) {
+                const newStore = { ...((b.snapshot as any).document?.store ?? {}) }
+                delete newStore[shapeId]
+                const updated = { ...b, snapshot: { ...(b.snapshot as any), document: { ...(b.snapshot as any).document, store: newStore } } as TLEditorSnapshot, updatedAt: Date.now() }
+                saveBoard(updated)
+                return updated
+            }
+            if (b.id === targetBoardId) {
+                const snap: any = b.snapshot
+                    ? structuredClone(b.snapshot)
+                    : { document: { store: {}, schema: { schemaVersion: 2, sequences: {} } }, session: {} }
+                if (!snap.document) snap.document = { store: {}, schema: { schemaVersion: 2, sequences: {} } }
+                if (!snap.document.store) snap.document.store = {}
+                const st = snap.document.store
+                if (!st['document:document']) st['document:document'] = { typeName: 'document', id: 'document:document', gridSize: 10, name: '', meta: {} }
+                const pageRec = (Object.values(st) as any[]).find(r => r.typeName === 'page')
+                const pageId = pageRec?.id ?? 'page:page'
+                if (!st[pageId]) st[pageId] = { typeName: 'page', id: pageId, name: 'Page 1', index: 'a1', meta: {} }
+                const existingShapes = (Object.values(st) as any[]).filter(r => r.typeName === 'shape')
+                const maxX = existingShapes.length > 0 ? Math.max(...existingShapes.map((s: any) => (s.x ?? 0) + (s.props?.w ?? 240))) + 40 : 100
+                st[shapeId] = { ...structuredClone(shape), parentId: pageId, x: maxX, y: 100 }
+                const updated = { ...b, snapshot: snap as TLEditorSnapshot, updatedAt: Date.now() }
+                saveBoard(updated)
+                return updated
+            }
+            return b
+        }))
+
+        // 通知目前開著的 tldraw editor 刪除 shape
+        window.dispatchEvent(new CustomEvent('delete-shape-from-editor', { detail: { shapeId } }))
+    }, [boards])
+
     if (loading) return <div style={{ height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>Loading...</div>
 
     return (
@@ -1780,6 +1919,8 @@ export default function App() {
                     onCreateBoard={(name) => handleCreateBoard(name, activeBoardId ?? undefined)}
                     onSwitchBoard={handleSwitchToChild}
                     sidebarWidth={sidebarWidth}
+                    isInboxBoard={activeBoardId === INBOX_BOARD_ID}
+                    onMoveCard={shapeId => setMovingCardShapeId(shapeId)}
                 />
             )}
 
@@ -1805,8 +1946,16 @@ export default function App() {
                 onOpenFilter={() => setFilterOpen(true)}
                 onOpenReviewCenter={() => setReviewCenterOpen(true)}
                 onOpenBackup={() => setBackupPanelOpen(true)}
+                onGoToInbox={() => { setActiveBoardId(INBOX_BOARD_ID); setNavigationStack([INBOX_BOARD_ID]) }}
             />
 
+            {movingCardShapeId && (
+                <MoveCardModal
+                    boards={boards}
+                    onSelect={targetBoardId => { handleMoveCardToBoard(movingCardShapeId, targetBoardId); setMovingCardShapeId(null) }}
+                    onClose={() => setMovingCardShapeId(null)}
+                />
+            )}
             {searchOpen && <SearchPanel boards={boards} onJump={handleJump} onClose={() => setSearchOpen(false)} />}
             {hotkeyOpen && <HotkeyPanel onClose={() => setHotkeyOpen(false)} />}
             {taskCenterOpen && <TaskCenter boards={boards} onJump={(boardId, shapeId, x, y) => { setTaskCenterOpen(false); handleJump(boardId, shapeId, x, y) }} onClose={() => setTaskCenterOpen(false)} />}

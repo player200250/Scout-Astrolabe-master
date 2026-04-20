@@ -11,6 +11,7 @@ export interface BoardRecord {
     parentId?: string | null
     isHome?: boolean
     isJournal?: boolean
+    isInbox?: boolean
     status?: 'active' | 'archived' | 'pinned'
     lastVisitedAt?: number
 }

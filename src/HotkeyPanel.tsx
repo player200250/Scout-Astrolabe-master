@@ -72,6 +72,7 @@ const sections: HotkeySection[] = [
             { keys: [MOD, 'F'], label: '搜尋卡片' },
             { keys: [MOD, 'Shift', 'O'], label: '所有白板總覽' },
             { keys: [MOD, 'Shift', 'C'], label: '復盤中心' },
+            { keys: [MOD, 'Shift', 'I'], label: '跳到收件匣' },
             { keys: ['?'], label: '快捷鍵說明' },
             { keys: [MOD, '/'], label: '快捷鍵說明' },
         ],

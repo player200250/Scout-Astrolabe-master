@@ -121,6 +121,8 @@ interface UseContextMenuOptions {
     createTodoCard: (x?: number, y?: number) => void
     createLinkCard: (x?: number, y?: number) => void
     openImageInput: () => void
+    isInboxBoard?: boolean
+    onMoveCard?: (shapeId: string) => void
 }
 
 export function useContextMenu({
@@ -129,6 +131,8 @@ export function useContextMenu({
     createTodoCard,
     createLinkCard,
     openImageInput,
+    isInboxBoard,
+    onMoveCard,
 }: UseContextMenuOptions) {
     const [menu, setMenu] = useState<{
         x: number; y: number; items: MenuItem[]
@@ -187,11 +191,20 @@ export function useContextMenu({
                     })
                 }
 
+                if (isInboxBoard && onMoveCard) {
+                    items.push({
+                        icon: '📦',
+                        label: '移到白板...',
+                        divider: true,
+                        action: () => onMoveCard(hitShape.id),
+                    })
+                }
+
                 items.push({
                     icon: '🗑️',
                     label: '刪除卡片',
                     danger: true,
-                    divider: !isLink,
+                    divider: !isInboxBoard && !isLink,
                     action: () => { editor.deleteShapes([hitShape.id]) },
                 })
 
@@ -227,7 +240,7 @@ export function useContextMenu({
         const target = canvas ?? window
         target.addEventListener('contextmenu', handleContextMenu as EventListener)
         return () => target.removeEventListener('contextmenu', handleContextMenu as EventListener)
-    }, [editor, createTextCard, createTodoCard, createLinkCard, openImageInput])
+    }, [editor, createTextCard, createTodoCard, createLinkCard, openImageInput, isInboxBoard, onMoveCard])
 
     const closeMenu = () => setMenu(null)
 
