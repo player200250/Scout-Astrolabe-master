@@ -20,6 +20,8 @@ interface TaskItem {
 type GroupKey = 'overdue' | 'today' | 'week' | 'later' | 'noduedate'
 type FilterTab = 'active' | 'overdue' | 'today' | 'week' | 'all'
 
+const isOpenTask = (item: TaskItem) => !item.checked
+
 /* ---------------------------------------------------------------
    工具函式
 --------------------------------------------------------------- */
@@ -181,6 +183,20 @@ export function TaskCenter({ boards, onJump, onClose }: TaskCenterProps) {
     const weekCount    = grouped.week.filter(t => !t.checked).length
     const activeCount  = overdueCount + todayCount + weekCount
 
+    const visibleItemsByGroup = useMemo(() => {
+        const out: Record<GroupKey, TaskItem[]> = {
+            overdue: [],
+            today: [],
+            week: [],
+            later: [],
+            noduedate: [],
+        }
+        for (const key of Object.keys(grouped) as GroupKey[]) {
+            out[key] = tab === 'all' ? grouped[key] : grouped[key].filter(isOpenTask)
+        }
+        return out
+    }, [grouped, tab])
+
     const getVisibleGroups = (): GroupKey[] => {
         if (tab === 'overdue') return ['overdue']
         if (tab === 'today')   return ['today']
@@ -290,9 +306,7 @@ export function TaskCenter({ boards, onJump, onClose }: TaskCenterProps) {
             <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
                 {visibleGroups.map(groupKey => {
                     const config = GROUP_CONFIG[groupKey]
-                    const items = tab === 'all'
-                        ? grouped[groupKey]
-                        : grouped[groupKey].filter(t => !t.checked)
+                    const items = visibleItemsByGroup[groupKey]
                     if (items.length === 0) return null
 
                     return (
@@ -326,10 +340,7 @@ export function TaskCenter({ boards, onJump, onClose }: TaskCenterProps) {
                 })}
 
                 {/* 空狀態 */}
-                {visibleGroups.every(k => {
-                    const items = tab === 'all' ? grouped[k] : grouped[k].filter(t => !t.checked)
-                    return items.length === 0
-                }) && (
+                {visibleGroups.every(k => visibleItemsByGroup[k].length === 0) && (
                     <div style={{ padding: '40px 16px', textAlign: 'center', color: '#ccc', fontSize: 13 }}>
                         {tab === 'all' ? '所有白板都沒有待辦項目' : '這個分類沒有任務'}
                     </div>
