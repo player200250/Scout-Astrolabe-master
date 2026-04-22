@@ -29,6 +29,36 @@ interface SearchPanelProps {
     onClose: () => void
 }
 
+interface SearchTodo {
+    text?: string
+    checked?: boolean
+}
+
+interface SearchCardProps {
+    type?: 'text' | 'todo' | 'link' | 'image' | 'journal' | string
+    text?: string
+    todos?: SearchTodo[]
+    url?: string
+    title?: string
+}
+
+interface SearchShape {
+    id: string
+    typeName?: string
+    type?: string
+    x?: number
+    y?: number
+    props?: SearchCardProps
+}
+
+function toCardShapes(snapshot: TLEditorSnapshot | null): SearchShape[] {
+    const store = (snapshot as { document?: { store?: Record<string, unknown> } } | null)?.document?.store
+    if (!store) return []
+    return Object.values(store)
+        .filter((record): record is SearchShape => typeof record === 'object' && record !== null)
+        .filter(shape => shape.typeName === 'shape' && shape.type === 'card')
+}
+
 /* ---------------------------------------------------------------
    工具函式：剝掉 HTML 標籤，取得純文字
 --------------------------------------------------------------- */
@@ -54,18 +84,12 @@ function searchBoards(boards: BoardRecord[], keyword: string): SearchResult[] {
     const seenIds = new Set<string>()  // 用來去重
 
     for (const board of boards) {
-        if (!board.snapshot) continue
-        const store = (board.snapshot as any).document?.store ?? {}
-        const shapes = Object.values(store)
-
-        for (const shape of shapes as any[]) {
-            // 只處理 card shape，且不重複
-            if (shape.typeName !== 'shape' || shape.type !== 'card') continue
+        for (const shape of toCardShapes(board.snapshot)) {
             const dedupKey = `${board.id}_${shape.id}`
             if (seenIds.has(dedupKey)) continue
             seenIds.add(dedupKey)
 
-            const props = shape.props
+            const props = shape.props ?? {}
             let matched = false
             let preview = ''
 
@@ -81,13 +105,13 @@ function searchBoards(boards: BoardRecord[], keyword: string): SearchResult[] {
                 const titleHit = titlePlain.toLowerCase().includes(kw)
                 // 比對每一條 todo
                 const todoHit = Array.isArray(props.todos)
-                    ? props.todos.find((t: any) => t.text?.toLowerCase().includes(kw))
+                    ? props.todos.find(t => t.text?.toLowerCase().includes(kw))
                     : null
                 if (titleHit || todoHit) {
                     matched = true
                     const titlePart = titlePlain ? `${titlePlain}：` : ''
                     const todosPart = Array.isArray(props.todos)
-                        ? props.todos.map((t: any) => `${t.checked ? '✅' : '☐'} ${t.text}`).join('  ')
+                        ? props.todos.map(t => `${t.checked ? '✅' : '☐'} ${t.text ?? ''}`).join('  ')
                         : ''
                     preview = (titlePart + todosPart).slice(0, 80)
                 }
@@ -113,11 +137,14 @@ function searchBoards(boards: BoardRecord[], keyword: string): SearchResult[] {
             }
 
             if (matched) {
+                const resultType = props.type
                 results.push({
                     boardId: board.id,
                     boardName: board.name,
                     shapeId: shape.id,
-                    type: props.type,
+                    type: (resultType === 'text' || resultType === 'todo' || resultType === 'link' || resultType === 'image' || resultType === 'journal')
+                        ? resultType
+                        : 'text',
                     preview,
                     x: shape.x ?? 0,
                     y: shape.y ?? 0,
@@ -315,7 +342,7 @@ export function SearchPanel({ boards, onJump, onClose }: SearchPanelProps) {
                                 textAlign: 'right',
                                 borderTop: '1px solid #f0f0f0',
                             }}>
-                                共 {results.length} 筆結果　↑↓ 導航　Enter 跳轉　Esc 關閉
+                                共 {results.length} 筆結果 ↑↓ 導航 Enter 跳轉 Esc 關閉
                             </div>
                         )}
                     </div>

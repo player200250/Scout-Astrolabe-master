@@ -6,6 +6,9 @@ import { getCardShapes } from './utils/snapshot'
 type CardStatusType = 'none' | 'todo' | 'in-progress' | 'done'
 type PriorityType   = 'none' | 'low'  | 'medium'      | 'high'
 
+const CARD_STATUSES: CardStatusType[] = ['none', 'todo', 'in-progress', 'done']
+const PRIORITIES: PriorityType[] = ['none', 'low', 'medium', 'high']
+
 interface FilterResult {
     boardId: string
     boardName: string
@@ -44,6 +47,18 @@ function stripHtml(html: string): string {
     return html.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim()
 }
 
+function parseCardStatus(value: unknown): CardStatusType {
+    return typeof value === 'string' && CARD_STATUSES.includes(value as CardStatusType)
+        ? (value as CardStatusType)
+        : 'none'
+}
+
+function parsePriority(value: unknown): PriorityType {
+    return typeof value === 'string' && PRIORITIES.includes(value as PriorityType)
+        ? (value as PriorityType)
+        : 'none'
+}
+
 function getAllTags(boards: BoardRecord[]): string[] {
     const tags = new Set<string>()
     for (const board of boards) {
@@ -74,8 +89,8 @@ function scanCards(
             if (seen.has(key)) continue
             seen.add(key)
 
-            const status: CardStatusType = (shape.props.cardStatus as CardStatusType) ?? 'none'
-            const priority: PriorityType = (shape.props.priority as PriorityType) ?? 'none'
+            const status = parseCardStatus(shape.props.cardStatus)
+            const priority = parsePriority(shape.props.priority)
             const tags: string[]         = shape.props.tags ?? []
 
             const matchStatus   = filterStatuses.size   === 0 || filterStatuses.has(status)
@@ -192,10 +207,20 @@ export function FilterPanel({ boards, onJump, onClose }: FilterPanelProps) {
     const hasFilter = filterStatuses.size > 0 || filterPriorities.size > 0 || filterTag !== null
 
     const toggleStatus = (s: CardStatusType) =>
-        setFilterStatuses(prev => { const n = new Set(prev); n.has(s) ? n.delete(s) : n.add(s); return n })
+        setFilterStatuses(prev => {
+            const n = new Set(prev)
+            if (n.has(s)) n.delete(s)
+            else n.add(s)
+            return n
+        })
 
     const togglePriority = (p: PriorityType) =>
-        setFilterPriorities(prev => { const n = new Set(prev); n.has(p) ? n.delete(p) : n.add(p); return n })
+        setFilterPriorities(prev => {
+            const n = new Set(prev)
+            if (n.has(p)) n.delete(p)
+            else n.add(p)
+            return n
+        })
 
     const clearAll = () => {
         setFilterStatuses(new Set())
@@ -247,7 +272,7 @@ export function FilterPanel({ boards, onJump, onClose }: FilterPanelProps) {
                 <div style={{ marginBottom: 10 }}>
                     <div style={{ fontSize: 10, fontWeight: 600, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 5 }}>狀態</div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                        {(['none', 'todo', 'in-progress', 'done'] as CardStatusType[]).map(s => {
+                        {CARD_STATUSES.map(s => {
                             const cfg = STATUS_CONFIG[s]
                             const active = filterStatuses.has(s)
                             const label = s === 'none' ? '⬜ 無' : s === 'todo' ? '📋 待辦' : s === 'in-progress' ? '🔵 進行中' : '✅ 完成'
@@ -266,7 +291,7 @@ export function FilterPanel({ boards, onJump, onClose }: FilterPanelProps) {
                 <div style={{ marginBottom: allTags.length > 0 ? 10 : 0 }}>
                     <div style={{ fontSize: 10, fontWeight: 600, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 5 }}>優先度</div>
                     <div style={{ display: 'flex', gap: 4 }}>
-                        {(['none', 'low', 'medium', 'high'] as PriorityType[]).map(p => {
+                        {PRIORITIES.map(p => {
                             const cfg = PRIORITY_CONFIG[p]
                             const active = filterPriorities.has(p)
                             const label = p === 'none' ? '— 無' : p === 'low' ? '🟡 低' : p === 'medium' ? '🟠 中' : '🔴 高'
@@ -314,7 +339,7 @@ export function FilterPanel({ boards, onJump, onClose }: FilterPanelProps) {
                 ) : (
                     <>
                         <div style={{ padding: '7px 16px 2px', fontSize: 11, color: '#bbb' }}>
-                            共 {results.length} 張卡片　點擊跳轉
+                            共 {results.length} 張卡片 點擊跳轉
                         </div>
                         {results.map(r => (
                             <FilterResultRow
