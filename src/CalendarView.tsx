@@ -24,7 +24,7 @@ function buildMonthEvents(boards: BoardRecord[], year: number, month: number): M
         return map.get(ds)!
     }
     for (const board of boards) {
-        if (board.isHome) continue
+        if (board.isHome || board.isInbox) continue
         for (const shape of getCardShapes(board.snapshot)) {
             if (board.isJournal && shape.props.type === 'journal' && shape.props.journalDate?.startsWith(prefix)) {
                 get(shape.props.journalDate).hasJournal = true
@@ -55,7 +55,7 @@ function buildAgenda(boards: BoardRecord[], date: Date): AgendaData {
     const todos: AgendaData['todos'] = []
     const activeBoards: AgendaData['activeBoards'] = []
     for (const board of boards) {
-        if (!board.isHome && board.updatedAt >= dayStart.getTime() && board.updatedAt <= dayEnd.getTime()) {
+        if (!board.isHome && !board.isInbox && board.updatedAt >= dayStart.getTime() && board.updatedAt <= dayEnd.getTime()) {
             activeBoards.push({ boardId: board.id, boardName: board.name })
         }
         for (const shape of getCardShapes(board.snapshot)) {

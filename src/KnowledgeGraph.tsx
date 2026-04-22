@@ -1,5 +1,5 @@
 // src/KnowledgeGraph.tsx
-import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import ForceGraph2D from 'react-force-graph-2d'
 import type { BoardRecord } from './db'
 import { getCardShapes } from './utils/snapshot'
@@ -47,7 +47,7 @@ function buildGraph(boards: BoardRecord[]): { nodes: GraphNode[]; links: GraphLi
 
     const boardByName = new Map<string, string>()
     boards.forEach(b => boardByName.set(b.name.toLowerCase(), b.id))
-    const cardByName = new Map<string, string>()
+    const cardByName = new Map<string, string[]>()
 
     // Pass 1: card nodes
     for (const board of boards) {
@@ -56,7 +56,10 @@ function buildGraph(boards: BoardRecord[]): { nodes: GraphNode[]; links: GraphLi
             if (shape.props.type !== 'text' && shape.props.type !== 'journal') continue
             const name = firstLine(shape.props.text ?? '')
             nodes.push({ id: shape.id, name, type: 'card', boardId: board.id, boardName: board.name, color: hsl(ci, total, 60), val: 1 })
-            cardByName.set(name.toLowerCase(), shape.id)
+            const key = name.toLowerCase()
+            const existing = cardByName.get(key)
+            if (existing) existing.push(shape.id)
+            else cardByName.set(key, [shape.id])
             refCount.set(shape.id, 0)
         }
     }
@@ -76,7 +79,8 @@ function buildGraph(boards: BoardRecord[]): { nodes: GraphNode[]; links: GraphLi
         for (const shape of getCardShapes(board.snapshot)) {
             if (shape.props.type !== 'text' && shape.props.type !== 'journal') continue
             for (const t of extractWikilinks(shape.props.text ?? '')) {
-                const targetId = boardByName.get(t.toLowerCase()) ?? cardByName.get(t.toLowerCase()) ?? null
+                const tl = t.toLowerCase()
+                const targetId = boardByName.get(tl) ?? cardByName.get(tl)?.[0] ?? null
                 if (targetId && targetId !== shape.id) {
                     links.push({ source: shape.id, target: targetId, type: 'wikilink' })
                     refCount.set(targetId, (refCount.get(targetId) ?? 0) + 1)
@@ -103,8 +107,8 @@ interface KnowledgeGraphProps {
 
 export function KnowledgeGraph({ boards, onClose, onJumpToCard, onSwitchBoard }: KnowledgeGraphProps) {
     const [connectedOnly, setConnectedOnly] = useState(false)
-    const [tooltip, setTooltip] = useState<{ x: number; y: number; name: string; sub: string } | null>(null)
     const [dims, setDims] = useState({ w: window.innerWidth, h: window.innerHeight })
+    const tooltipRef = useRef<HTMLDivElement>(null)
 
     useEffect(() => {
         const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -116,6 +120,19 @@ export function KnowledgeGraph({ boards, onClose, onJumpToCard, onSwitchBoard }:
         const h = () => setDims({ w: window.innerWidth, h: window.innerHeight })
         window.addEventListener('resize', h)
         return () => window.removeEventListener('resize', h)
+    }, [])
+
+    // mousemove：直接操作 DOM，不觸發 React re-render
+    useEffect(() => {
+        const h = (e: MouseEvent) => {
+            if (!tooltipRef.current) return
+            const el = tooltipRef.current
+            if (el.style.display === 'none') return
+            el.style.left = `${e.clientX + 15}px`
+            el.style.top  = `${e.clientY - 14}px`
+        }
+        window.addEventListener('mousemove', h)
+        return () => window.removeEventListener('mousemove', h)
     }, [])
 
     const { nodes: allNodes, links: allLinks } = useMemo(() => buildGraph(boards), [boards])
@@ -130,21 +147,34 @@ export function KnowledgeGraph({ boards, onClose, onJumpToCard, onSwitchBoard }:
         return { nodes: allNodes.filter(n => connected.has(n.id)), links: allLinks }
     }, [allNodes, allLinks, connectedOnly])
 
+    // 固定 graphData 參照：只有 nodes/links 真正改變才更新，防止 simulation 被 re-render 重啟
+    const graphData = useMemo(() => ({ nodes: nodes as any[], links: links as any[] }), [nodes, links])
+
     const handleNodeClick = useCallback((node: GraphNode) => {
         onClose()
         if (node.type === 'board') onSwitchBoard(node.id)
         else onJumpToCard(node.boardId, node.id)
     }, [onClose, onJumpToCard, onSwitchBoard])
 
-    const handleNodeHover = useCallback((node: GraphNode | null) => {
-        if (!node) { setTooltip(null); return }
-        setTooltip(t => ({ x: t?.x ?? 0, y: t?.y ?? 0, name: node.name, sub: node.type === 'board' ? 'Board' : node.boardName }))
-    }, [])
-
-    useEffect(() => {
-        const h = (e: MouseEvent) => setTooltip(t => t ? { ...t, x: e.clientX, y: e.clientY } : null)
-        window.addEventListener('mousemove', h)
-        return () => window.removeEventListener('mousemove', h)
+    const handleNodeHover = useCallback((node: GraphNode | null, prevNode: GraphNode | null) => {
+        // 取消前一個節點的固定
+        if (prevNode) { (prevNode as any).fx = undefined; (prevNode as any).fy = undefined }
+        if (!node) {
+            if (tooltipRef.current) tooltipRef.current.style.display = 'none'
+            return
+        }
+        // 固定當前節點位置，防止 simulation 繼續把它推走
+        ;(node as any).fx = (node as any).x
+        ;(node as any).fy = (node as any).y
+        // 直接寫 DOM，不 setState
+        if (tooltipRef.current) {
+            const el = tooltipRef.current
+            const nameEl = el.querySelector('.tt-name')
+            const subEl = el.querySelector('.tt-sub')
+            if (nameEl) nameEl.textContent = node.name
+            if (subEl) subEl.textContent = node.type === 'board' ? '📋 白板' : `📄 ${node.boardName}`
+            el.style.display = 'block'
+        }
     }, [])
 
     const paintNode = useCallback((node: any, ctx: CanvasRenderingContext2D) => {
@@ -197,7 +227,7 @@ export function KnowledgeGraph({ boards, onClose, onJumpToCard, onSwitchBoard }:
 
             {/* Graph */}
             <ForceGraph2D
-                graphData={{ nodes: nodes as any[], links: links as any[] }}
+                graphData={graphData}
                 width={dims.w} height={dims.h}
                 backgroundColor="#0f172a"
                 nodeCanvasObject={paintNode}
@@ -223,13 +253,14 @@ export function KnowledgeGraph({ boards, onClose, onJumpToCard, onSwitchBoard }:
                 <LegendItem shape="dashed" color="rgba(148,163,184,0.6)" label="父子白板" />
             </div>
 
-            {/* Tooltip */}
-            {tooltip && (
-                <div style={{ position: 'fixed', left: tooltip.x + 15, top: tooltip.y - 14, zIndex: 2, background: 'rgba(15,23,42,0.96)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '7px 12px', pointerEvents: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.5)', maxWidth: 260 }}>
-                    <div style={{ fontSize: 13, color: 'white', fontWeight: 500, marginBottom: 2 }}>{tooltip.name}</div>
-                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>{tooltip.sub}</div>
-                </div>
-            )}
+            {/* Tooltip — 用 ref 直接操作 DOM，避免 setState 觸發 re-render 重啟 simulation */}
+            <div
+                ref={tooltipRef}
+                style={{ display: 'none', position: 'fixed', zIndex: 2, background: 'rgba(15,23,42,0.96)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '7px 12px', pointerEvents: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.5)', maxWidth: 260 }}
+            >
+                <div className="tt-name" style={{ fontSize: 13, color: 'white', fontWeight: 500, marginBottom: 2 }} />
+                <div className="tt-sub" style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }} />
+            </div>
         </div>
     )
 }
