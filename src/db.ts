@@ -14,6 +14,7 @@ export interface BoardRecord {
     isInbox?: boolean
     status?: 'active' | 'archived' | 'pinned'
     lastVisitedAt?: number
+    sortOrder?: number
 }
 
 export interface BackupRecord {

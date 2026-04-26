@@ -7,7 +7,6 @@ import TextStyle from '@tiptap/extension-text-style'
 import { Color } from '@tiptap/extension-color'
 import type { BoardRecord } from './db'
 
-/* ------------------------------------------------------------------ utils */
 function toDateStr(d: Date): string {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
@@ -48,9 +47,10 @@ interface JournalDayContentProps {
     onSaveJournal: (boardId: string, dateStr: string, html: string, shapeId: string | null) => void
     onDateChange: (date: Date) => void
     onClose?: () => void
+    isDark: boolean
 }
 
-export function JournalDayContent({ date, boards, onSaveJournal, onDateChange, onClose }: JournalDayContentProps) {
+export function JournalDayContent({ date, boards, onSaveJournal, onDateChange, onClose, isDark }: JournalDayContentProps) {
     const ds = toDateStr(date)
     const card = findCard(boards, ds)
     const journalBoardId = boards.find(b => b.isJournal)?.id ?? null
@@ -109,43 +109,57 @@ export function JournalDayContent({ date, boards, onSaveJournal, onDateChange, o
 
     const isToday = ds === toDateStr(new Date())
     const statusColor = saveStatus === 'pending' ? '#f59e0b' : saveStatus === 'saving' ? '#aaa' : '#22c55e'
-    const statusText = saveStatus === 'pending' ? '未儲存' : saveStatus === 'saving' ? '儲存中…' : '已儲存'
+    const statusText  = saveStatus === 'pending' ? '未儲存' : saveStatus === 'saving' ? '儲存中…' : '已儲存'
+
+    const navBorder  = isDark ? '#334155' : '#f0f0ee'
+    const titleColor = isDark ? '#e2e8f0' : '#1a1a1a'
+    const btnBorder  = isDark ? '#334155' : '#e8e8e8'
+    const btnColor   = isDark ? '#94a3b8' : '#666'
+    const separatorColor = isDark ? '#334155' : '#e8e8e8'
+    const toolbarBg  = isDark ? '#0f172a' : '#fafafa'
+    const toolbarBorder = isDark ? '#334155' : '#f5f5f5'
+    const editorColor = isDark ? '#e2e8f0' : '#1a1a1a'
+
+    const navBtnStyle: React.CSSProperties = {
+        padding: '4px 10px', borderRadius: 8, border: `1px solid ${btnBorder}`,
+        background: 'transparent', cursor: 'pointer', fontSize: 13, color: btnColor, fontWeight: 500,
+    }
 
     return (
         <>
             {/* Date nav header */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 20px', borderBottom: '1px solid #f0f0ee', flexShrink: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 20px', borderBottom: `1px solid ${navBorder}`, flexShrink: 0 }}>
                 <button onClick={() => onDateChange(addDays(date, -1))} title="前一天 (Ctrl+←)" style={navBtnStyle}>←</button>
                 <div style={{ flex: 1, textAlign: 'center' }}>
-                    <span style={{ fontSize: 14, fontWeight: 600, color: '#1a1a1a' }}>{formatDate(date)}</span>
-                    {isToday && <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, background: '#1a1a1a', color: 'white', borderRadius: 4, padding: '1px 5px' }}>今天</span>}
+                    <span style={{ fontSize: 14, fontWeight: 600, color: titleColor }}>{formatDate(date)}</span>
+                    {isToday && <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, background: isDark ? '#2563eb' : '#1a1a1a', color: 'white', borderRadius: 4, padding: '1px 5px' }}>今天</span>}
                 </div>
                 <button onClick={() => onDateChange(addDays(date, 1))} title="後一天 (Ctrl+→)" style={navBtnStyle}>→</button>
                 {onClose && (
                     <>
-                        <div style={{ width: 1, height: 16, background: '#e8e8e8' }} />
-                        <button onClick={onClose} style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid #e0e0de', background: 'transparent', cursor: 'pointer', fontSize: 14, color: '#888', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>✕</button>
+                        <div style={{ width: 1, height: 16, background: separatorColor }} />
+                        <button onClick={onClose} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${btnBorder}`, background: 'transparent', cursor: 'pointer', fontSize: 14, color: '#888', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>✕</button>
                     </>
                 )}
             </div>
 
             {/* Toolbar strip */}
             {tiptap && journalBoardId && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 2, padding: '4px 20px', borderBottom: '1px solid #f5f5f5', flexShrink: 0, background: '#fafafa' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 2, padding: '4px 20px', borderBottom: `1px solid ${toolbarBorder}`, flexShrink: 0, background: toolbarBg }}>
                     {[
-                        { cmd: () => tiptap.chain().focus().toggleBold().run(), active: tiptap.isActive('bold'), label: 'B', style: { fontWeight: 700 } },
-                        { cmd: () => tiptap.chain().focus().toggleItalic().run(), active: tiptap.isActive('italic'), label: 'I', style: { fontStyle: 'italic' } },
-                        { cmd: () => tiptap.chain().focus().toggleUnderline().run(), active: tiptap.isActive('underline'), label: 'U', style: { textDecoration: 'underline' } },
-                        { cmd: () => tiptap.chain().focus().toggleHeading({ level: 2 }).run(), active: tiptap.isActive('heading', { level: 2 }), label: 'H2', style: { fontSize: 11 } },
-                        { cmd: () => tiptap.chain().focus().toggleBulletList().run(), active: tiptap.isActive('bulletList'), label: '•≡', style: {} },
+                        { cmd: () => tiptap.chain().focus().toggleBold().run(),                              active: tiptap.isActive('bold'),                label: 'B',  style: { fontWeight: 700 } },
+                        { cmd: () => tiptap.chain().focus().toggleItalic().run(),                            active: tiptap.isActive('italic'),              label: 'I',  style: { fontStyle: 'italic' } },
+                        { cmd: () => tiptap.chain().focus().toggleUnderline().run(),                         active: tiptap.isActive('underline'),           label: 'U',  style: { textDecoration: 'underline' } },
+                        { cmd: () => tiptap.chain().focus().toggleHeading({ level: 2 }).run(),               active: tiptap.isActive('heading', { level: 2 }), label: 'H2', style: { fontSize: 11 } },
+                        { cmd: () => tiptap.chain().focus().toggleBulletList().run(),                        active: tiptap.isActive('bulletList'),          label: '•≡', style: {} },
                     ].map(btn => (
                         <button
                             key={btn.label}
                             onMouseDown={e => { e.preventDefault(); btn.cmd() }}
                             style={{
                                 padding: '2px 7px', fontSize: 12, border: 'none', borderRadius: 5, cursor: 'pointer',
-                                background: btn.active ? '#e8f0fe' : 'transparent',
-                                color: btn.active ? '#1971c2' : '#888',
+                                background: btn.active ? (isDark ? '#1e3a5f' : '#e8f0fe') : 'transparent',
+                                color: btn.active ? (isDark ? '#60a5fa' : '#1971c2') : (isDark ? '#94a3b8' : '#888'),
                                 ...btn.style,
                             }}
                         >{btn.label}</button>
@@ -165,14 +179,14 @@ export function JournalDayContent({ date, boards, onSaveJournal, onDateChange, o
             ) : (
                 <div style={{ flex: 1, overflowY: 'auto', padding: '32px max(40px, 8%)' }}>
                     <style>{`
-                        .jdv .ProseMirror { outline: none; }
-                        .jdv .ProseMirror h2 { font-size: 18px; font-weight: 700; margin: 14px 0 6px; color: #1a1a1a; }
+                        .jdv .ProseMirror { outline: none; color: ${editorColor}; }
+                        .jdv .ProseMirror h2 { font-size: 18px; font-weight: 700; margin: 14px 0 6px; color: ${editorColor}; }
                         .jdv .ProseMirror p { margin: 4px 0; line-height: 1.8; }
                         .jdv .ProseMirror ul { padding-left: 20px; margin: 4px 0; }
                         .jdv .ProseMirror li { margin: 2px 0; line-height: 1.7; }
                         .jdv .ProseMirror strong { font-weight: 700; }
                     `}</style>
-                    <div className="jdv" style={{ maxWidth: 680, margin: '0 auto', fontSize: 15, color: '#1a1a1a' }}>
+                    <div className="jdv" style={{ maxWidth: 680, margin: '0 auto', fontSize: 15, color: editorColor }}>
                         <EditorContent editor={tiptap} />
                     </div>
                 </div>
@@ -188,23 +202,17 @@ interface JournalDayViewProps {
     onClose: () => void
     onSaveJournal: (boardId: string, dateStr: string, html: string, shapeId: string | null) => void
     onDateChange: (date: Date) => void
+    isDark: boolean
 }
 
-export function JournalDayView({ date, boards, onClose, onSaveJournal, onDateChange }: JournalDayViewProps) {
+export function JournalDayView({ date, boards, onClose, onSaveJournal, onDateChange, isDark }: JournalDayViewProps) {
     return (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 20000, background: 'white', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 20000, background: isDark ? '#1e293b' : 'white', display: 'flex', flexDirection: 'column' }}>
             <JournalDayContent
-                date={date}
-                boards={boards}
-                onSaveJournal={onSaveJournal}
-                onDateChange={onDateChange}
-                onClose={onClose}
+                date={date} boards={boards}
+                onSaveJournal={onSaveJournal} onDateChange={onDateChange}
+                onClose={onClose} isDark={isDark}
             />
         </div>
     )
-}
-
-const navBtnStyle: React.CSSProperties = {
-    padding: '4px 10px', borderRadius: 8, border: '1px solid #e8e8e8',
-    background: 'transparent', cursor: 'pointer', fontSize: 13, color: '#666', fontWeight: 500,
 }

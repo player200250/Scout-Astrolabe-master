@@ -21,8 +21,8 @@ const getDueDateStatus = (dueDate: string | undefined): { label: string; color: 
     const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
     if (dueDate < todayStr) return { label: '逾期', color: '#ff4d4f', bg: '#fff5f5' }
     if (dueDate === todayStr) return { label: '今天', color: '#e67e00', bg: '#fff7f0' }
-    const diffMs = new Date(dueDate).getTime() - today.getTime()
-    const diffDays = Math.ceil(diffMs / 86400000)
+    const diffMs = new Date(dueDate + 'T00:00:00').getTime() - new Date(todayStr + 'T00:00:00').getTime()
+    const diffDays = Math.round(diffMs / 86400000)
     if (diffDays <= 7) return { label: `${diffDays}天後`, color: '#3b82f6', bg: '#eff6ff' }
     const [, m, d] = dueDate.split('-')
     return { label: `${parseInt(m)}/${parseInt(d)}`, color: '#888', bg: '#f5f5f5' }
@@ -38,6 +38,10 @@ export const TodoContent = ({ shape, isEditing, exitEdit }: TodoContentProps) =>
     const editor = useEditor()
     const { id, props } = shape
     const todos = props.todos || []
+    const isDarkCard = props.color === 'dark'
+    const textColor = isDarkCard ? '#e2e8f0' : '#333'
+    const mutedColor = isDarkCard ? '#94a3b8' : '#aaa'
+    const borderColor = isDarkCard ? '#334155' : '#eee'
 
     const containerRef = useRef<HTMLDivElement>(null)
     const [newText, setNewText] = useState('')
@@ -131,12 +135,12 @@ export const TodoContent = ({ shape, isEditing, exitEdit }: TodoContentProps) =>
                     }}
                     placeholder="待辦事項標題..."
                     style={{
-                        border: 'none', borderBottom: '2px solid #333', padding: 4, outline: 'none',
-                        fontWeight: 'bold', fontSize: 16, backgroundColor: 'transparent'
+                        border: 'none', borderBottom: `2px solid ${textColor}`, padding: 4, outline: 'none',
+                        fontWeight: 'bold', fontSize: 16, backgroundColor: 'transparent', color: textColor
                     }}
                 />
             ) : (
-                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 'bold', color: '#333' }}>
+                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 'bold', color: textColor }}>
                     {props.text || '待辦事項'}
                 </h3>
             )}
@@ -144,7 +148,7 @@ export const TodoContent = ({ shape, isEditing, exitEdit }: TodoContentProps) =>
             {/* 列表區域 */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4, overflowY: 'auto', flexGrow: 1 }}>
                 {todos.map(t => {
-                    const dueDateStatus = getDueDateStatus(t.dueDate)
+                    const dueDateStatus = getDueDateStatus(t.dueDate ?? undefined)
                     return (
                         <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 6, minHeight: ITEM_HEIGHT }}>
                             <input
@@ -170,7 +174,7 @@ export const TodoContent = ({ shape, isEditing, exitEdit }: TodoContentProps) =>
                                         style={{
                                             flex: 1, border: 'none', outline: 'none', fontSize: 15, background: 'transparent',
                                             textDecoration: t.checked ? 'line-through' : 'none',
-                                            color: t.checked ? '#aaa' : '#333',
+                                            color: t.checked ? mutedColor : textColor,
                                             minWidth: 40,
                                         }}
                                     />
@@ -198,7 +202,7 @@ export const TodoContent = ({ shape, isEditing, exitEdit }: TodoContentProps) =>
                                     <button
                                         onClick={() => deleteTodo(t.id)}
                                         onPointerDown={(e) => e.stopPropagation()}
-                                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ccc', fontSize: 18, flexShrink: 0 }}
+                                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: mutedColor, fontSize: 18, flexShrink: 0 }}
                                     >
                                         &times;
                                     </button>
@@ -208,7 +212,7 @@ export const TodoContent = ({ shape, isEditing, exitEdit }: TodoContentProps) =>
                                     <span style={{
                                         flex: 1, fontSize: 15,
                                         textDecoration: t.checked ? 'line-through' : 'none',
-                                        color: t.checked ? '#aaa' : '#333',
+                                        color: t.checked ? mutedColor : textColor,
                                         overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                                     }}>
                                         {t.text}
@@ -236,7 +240,7 @@ export const TodoContent = ({ shape, isEditing, exitEdit }: TodoContentProps) =>
 
                 {/* 新增項目區域 */}
                 {isEditing && (
-                    <div style={{ display: 'flex', gap: 8, marginTop: 12, paddingTop: 8, borderTop: '1px solid #eee' }}>
+                    <div style={{ display: 'flex', gap: 8, marginTop: 12, paddingTop: 8, borderTop: `1px solid ${borderColor}` }}>
                         <button
                             onClick={addTodo}
                             onPointerDown={(e) => e.stopPropagation()}
@@ -251,7 +255,7 @@ export const TodoContent = ({ shape, isEditing, exitEdit }: TodoContentProps) =>
                             onKeyDown={(e) => { if (e.key === 'Enter') addTodo() }}
                             onPointerDown={(e) => e.stopPropagation()}
                             placeholder="新增項目..."
-                            style={{ flexGrow: 1, border: 'none', borderBottom: '1px dashed #ccc', background: 'transparent', fontSize: 14 }}
+                            style={{ flexGrow: 1, border: 'none', borderBottom: `1px dashed ${mutedColor}`, background: 'transparent', fontSize: 14, color: textColor }}
                         />
                     </div>
                 )}

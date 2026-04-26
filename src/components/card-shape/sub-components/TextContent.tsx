@@ -1,6 +1,7 @@
 import { useEffect, useCallback, useContext, useState, useMemo, useRef } from 'react'
-import { type Editor as TldrawEditor } from '@tldraw/editor'
+import { type Editor as TldrawEditor, useIsDarkMode } from '@tldraw/editor'
 import type { TLCardShape } from '../type/CardShape'
+import { CARD_COLORS } from '../type/CardShape'
 import { useEditor as useTiptap, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
@@ -31,11 +32,13 @@ function ToolbarButton({
     active,
     title,
     children,
+    isDark,
 }: {
     onClick: () => void
     active?: boolean
     title?: string
     children: React.ReactNode
+    isDark?: boolean
 }) {
     return (
         <button
@@ -48,8 +51,8 @@ function ToolbarButton({
                 padding: '3px 7px',
                 fontSize: 13,
                 fontWeight: active ? 700 : 400,
-                background: active ? '#e8f0fe' : 'transparent',
-                color: active ? '#1971c2' : '#333',
+                background: active ? (isDark ? '#1e3a5f' : '#e8f0fe') : 'transparent',
+                color: active ? '#60a5fa' : (isDark ? '#cbd5e1' : '#333'),
                 border: 'none',
                 borderRadius: 4,
                 cursor: 'pointer',
@@ -61,7 +64,7 @@ function ToolbarButton({
     )
 }
 
-function Toolbar({ tiptap }: { tiptap: ReturnType<typeof useTiptap> }) {
+function Toolbar({ tiptap, isDark }: { tiptap: ReturnType<typeof useTiptap>; isDark: boolean }) {
     if (!tiptap) return null
 
     return (
@@ -73,8 +76,8 @@ function Toolbar({ tiptap }: { tiptap: ReturnType<typeof useTiptap> }) {
                 alignItems: 'center',
                 gap: 2,
                 padding: '4px 8px',
-                borderBottom: '1px solid #eee',
-                background: '#fafafa',
+                borderBottom: `1px solid ${isDark ? '#334155' : '#eee'}`,
+                background: isDark ? '#0f172a' : '#fafafa',
                 borderRadius: '12px 12px 0 0',
                 flexShrink: 0,
             }}
@@ -83,6 +86,7 @@ function Toolbar({ tiptap }: { tiptap: ReturnType<typeof useTiptap> }) {
                 onClick={() => tiptap.chain().focus().toggleBold().run()}
                 active={tiptap.isActive('bold')}
                 title="粗體"
+                isDark={isDark}
             >
                 <b>B</b>
             </ToolbarButton>
@@ -91,6 +95,7 @@ function Toolbar({ tiptap }: { tiptap: ReturnType<typeof useTiptap> }) {
                 onClick={() => tiptap.chain().focus().toggleItalic().run()}
                 active={tiptap.isActive('italic')}
                 title="斜體"
+                isDark={isDark}
             >
                 <i>I</i>
             </ToolbarButton>
@@ -99,16 +104,18 @@ function Toolbar({ tiptap }: { tiptap: ReturnType<typeof useTiptap> }) {
                 onClick={() => tiptap.chain().focus().toggleUnderline().run()}
                 active={tiptap.isActive('underline')}
                 title="底線"
+                isDark={isDark}
             >
                 <u>U</u>
             </ToolbarButton>
 
-            <span style={{ width: 1, height: 16, background: '#ddd', margin: '0 4px' }} />
+            <span style={{ width: 1, height: 16, background: isDark ? '#475569' : '#ddd', margin: '0 4px' }} />
 
             <ToolbarButton
                 onClick={() => tiptap.chain().focus().toggleHeading({ level: 1 }).run()}
                 active={tiptap.isActive('heading', { level: 1 })}
                 title="標題 1"
+                isDark={isDark}
             >
                 H1
             </ToolbarButton>
@@ -117,16 +124,18 @@ function Toolbar({ tiptap }: { tiptap: ReturnType<typeof useTiptap> }) {
                 onClick={() => tiptap.chain().focus().toggleHeading({ level: 2 }).run()}
                 active={tiptap.isActive('heading', { level: 2 })}
                 title="標題 2"
+                isDark={isDark}
             >
                 H2
             </ToolbarButton>
 
-            <span style={{ width: 1, height: 16, background: '#ddd', margin: '0 4px' }} />
+            <span style={{ width: 1, height: 16, background: isDark ? '#475569' : '#ddd', margin: '0 4px' }} />
 
             <ToolbarButton
                 onClick={() => tiptap.chain().focus().toggleBulletList().run()}
                 active={tiptap.isActive('bulletList')}
                 title="條列清單"
+                isDark={isDark}
             >
                 ≡
             </ToolbarButton>
@@ -135,21 +144,23 @@ function Toolbar({ tiptap }: { tiptap: ReturnType<typeof useTiptap> }) {
                 onClick={() => tiptap.chain().focus().toggleOrderedList().run()}
                 active={tiptap.isActive('orderedList')}
                 title="數字清單"
+                isDark={isDark}
             >
                 1≡
             </ToolbarButton>
 
-            <span style={{ width: 1, height: 16, background: '#ddd', margin: '0 4px' }} />
+            <span style={{ width: 1, height: 16, background: isDark ? '#475569' : '#ddd', margin: '0 4px' }} />
 
             <ToolbarButton
                 onClick={() => tiptap.chain().focus().toggleCodeBlock().run()}
                 active={tiptap.isActive('codeBlock')}
                 title="程式碼區塊（語法高亮）"
+                isDark={isDark}
             >
                 {'</>'}
             </ToolbarButton>
 
-            <span style={{ width: 1, height: 16, background: '#ddd', margin: '0 4px' }} />
+            <span style={{ width: 1, height: 16, background: isDark ? '#475569' : '#ddd', margin: '0 4px' }} />
 
             {COLORS.map((color) => (
                 <button
@@ -191,6 +202,8 @@ interface SuggestState {
 ================================================ */
 export function TextContent({ editor: tldrawEditor, shape, isEditing, exitEdit, preventResize = false }: TextContentProps) {
     const p = shape.props
+    const cardBg = CARD_COLORS[p.color ?? 'none']?.bg ?? '#ffffff'
+    const isDark = useIsDarkMode()
     const { boardNames } = useContext(BacklinksContext)
     const [suggest, setSuggest] = useState<SuggestState | null>(null)
     const suggestRef = useRef<SuggestState | null>(null)
@@ -370,7 +383,7 @@ export function TextContent({ editor: tldrawEditor, shape, isEditing, exitEdit, 
                                     position: 'absolute',
                                     bottom: 0, left: 0, right: 0,
                                     height: 48,
-                                    background: 'linear-gradient(to bottom, transparent, white)',
+                                    background: `linear-gradient(to bottom, transparent, ${cardBg})`,
                                     pointerEvents: 'none',
                                 }} />
                             )}
@@ -432,7 +445,7 @@ export function TextContent({ editor: tldrawEditor, shape, isEditing, exitEdit, 
                 }}
                 onKeyDown={handleEditorKeyDown}
             >
-                <Toolbar tiptap={tiptap} />
+                <Toolbar tiptap={tiptap} isDark={isDark} />
 
                 <div style={{ flex: 1, overflow: 'auto', padding: '14px 18px' }}>
                     <EditorContent
@@ -451,10 +464,10 @@ export function TextContent({ editor: tldrawEditor, shape, isEditing, exitEdit, 
                         left: suggest.coords.x,
                         top: suggest.coords.y,
                         zIndex: 99999,
-                        background: 'white',
-                        border: '1px solid #e0e0e0',
+                        background: isDark ? '#1e293b' : 'white',
+                        border: `1px solid ${isDark ? '#334155' : '#e0e0e0'}`,
                         borderRadius: 8,
-                        boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+                        boxShadow: isDark ? '0 4px 16px rgba(0,0,0,0.4)' : '0 4px 16px rgba(0,0,0,0.12)',
                         minWidth: 180,
                         maxWidth: 280,
                         overflow: 'hidden',
@@ -468,8 +481,8 @@ export function TextContent({ editor: tldrawEditor, shape, isEditing, exitEdit, 
                             style={{
                                 padding: '6px 12px',
                                 cursor: 'pointer',
-                                background: i === suggest.index ? '#eff6ff' : 'transparent',
-                                color: i === suggest.index ? '#1971c2' : '#1a1a1a',
+                                background: i === suggest.index ? (isDark ? '#1e3a5f' : '#eff6ff') : 'transparent',
+                                color: i === suggest.index ? '#60a5fa' : (isDark ? '#cbd5e1' : '#1a1a1a'),
                                 borderLeft: i === suggest.index ? '2px solid #3b82f6' : '2px solid transparent',
                                 whiteSpace: 'nowrap',
                                 overflow: 'hidden',
@@ -479,7 +492,7 @@ export function TextContent({ editor: tldrawEditor, shape, isEditing, exitEdit, 
                             {name}
                         </div>
                     ))}
-                    <div style={{ padding: '3px 12px', fontSize: 10, color: '#bbb', borderTop: '1px solid #f0f0f0', background: '#fafafa' }}>
+                    <div style={{ padding: '3px 12px', fontSize: 10, color: isDark ? '#64748b' : '#bbb', borderTop: `1px solid ${isDark ? '#334155' : '#f0f0f0'}`, background: isDark ? '#0f172a' : '#fafafa' }}>
                         ↑↓ 選擇  Tab/Enter 確認  Esc 關閉
                     </div>
                 </div>

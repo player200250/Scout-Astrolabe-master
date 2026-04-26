@@ -10,6 +10,7 @@ import {
     Rectangle2d,
     ShapeUtil,
     type Editor,
+    useIsDarkMode,
 } from '@tldraw/editor'
 import { useEditor } from 'tldraw'
 
@@ -186,6 +187,7 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
 
     override component(shape: TLCardShape) {
         const editor = useEditor()
+        const isDark = useIsDarkMode()
         const p = shape.props
 
         const [isHovered, setIsHovered] = useState(false)
@@ -254,6 +256,7 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
                     }}
                 >
                     <div
+                        className={p.color === 'dark' ? 'card-dark-bg' : undefined}
                         onPointerEnter={() => setIsHovered(true)}
                         onPointerLeave={() => setIsHovered(false)}
                         onPointerDown={(e) => {
@@ -264,7 +267,7 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
                             position: 'relative',
                             overflow: 'hidden', display: 'flex', flexDirection: 'column',
                             borderRadius: 12,
-                            border: isEditing ? '1.5px solid #2563eb' : '1px solid #e8e8e8',
+                            border: isEditing ? '1.5px solid #2563eb' : isDark ? '1px solid #475569' : '1px solid #e8e8e8',
                             padding: 0, boxSizing: 'border-box',
                             pointerEvents: shouldInnerDivCaptureEvents || p.type === 'image' || p.type === 'todo' || (p.type === 'text' && p.text?.includes('[[')) ? 'auto' : 'none',
                             cursor: shouldInnerDivCaptureEvents || p.type === 'image' || (p.type === 'text' && p.text?.includes('[[')) ? 'default' : 'grab',
@@ -311,7 +314,7 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
                         )}
                         {/* 編輯模式：屬性列 */}
                         {isEditing && (p.type === 'text' || p.type === 'todo' || p.type === 'journal') && (
-                            <CardPropsBar editor={editor} shape={shape} />
+                            <CardPropsBar editor={editor} shape={shape} isDark={isDark} />
                         )}
                         <CardContent
                             editor={editor}
@@ -420,15 +423,15 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
                         <div
                             style={{
                                 width: '680px', maxWidth: '90vw', maxHeight: '80vh',
-                                background: 'white', borderRadius: 16,
-                                boxShadow: '0 24px 60px rgba(0,0,0,0.2)',
+                                background: isDark ? '#1e293b' : 'white', borderRadius: 16,
+                                boxShadow: isDark ? '0 24px 60px rgba(0,0,0,0.5)' : '0 24px 60px rgba(0,0,0,0.2)',
                                 display: 'flex', flexDirection: 'column',
                                 overflow: 'hidden',
                             }}
                             onClick={(e) => e.stopPropagation()}
                             onPointerDown={(e) => e.stopPropagation()}
                         >
-                            <CardPropsBar editor={editor} shape={shape} />
+                            <CardPropsBar editor={editor} shape={shape} isDark={isDark} />
                             <TextContent
                                 editor={editor}
                                 shape={shape}
@@ -453,6 +456,7 @@ interface BacklinksPanelProps {
 
 function BacklinksPanel({ shapeId, htmlContent }: BacklinksPanelProps) {
     const { forwardLinks, backlinks, currentBoardName } = useContext(BacklinksContext)
+    const isDark = useIsDarkMode()
     const [expanded, setExpanded] = useState(false)
 
     const cardName = extractCardName(htmlContent)
@@ -475,14 +479,6 @@ function BacklinksPanel({ shapeId, htmlContent }: BacklinksPanelProps) {
         if (!seen.has(key)) { seen.add(key); bkLinks.push(entry) }
     }
 
-    console.log('[BacklinksPanel]', {
-        cardName,
-        currentBoardName,
-        cardBkLinks: backlinks.get(cardName?.toLowerCase() ?? ''),
-        boardBkLinks: backlinks.get(currentBoardName?.toLowerCase() ?? ''),
-        total: fwdLinks.length + bkLinks.length,
-    })
-
     const total = fwdLinks.length + bkLinks.length
     if (total === 0) return null
 
@@ -493,9 +489,9 @@ function BacklinksPanel({ shapeId, htmlContent }: BacklinksPanelProps) {
                 onPointerDown={e => { e.stopPropagation(); e.preventDefault(); setExpanded(v => !v) }}
                 style={{
                     padding: '3px 12px 4px',
-                    background: 'rgba(255,255,255,0.94)',
+                    background: isDark ? 'rgba(15,23,42,0.96)' : 'rgba(255,255,255,0.94)',
                     backdropFilter: 'blur(4px)',
-                    borderTop: '1px solid #e8e8e8',
+                    borderTop: `1px solid ${isDark ? '#334155' : '#e8e8e8'}`,
                     display: 'flex', alignItems: 'center', gap: 10,
                     cursor: 'pointer',
                     userSelect: 'none',
@@ -519,10 +515,10 @@ function BacklinksPanel({ shapeId, htmlContent }: BacklinksPanelProps) {
                     style={{
                         position: 'absolute',
                         bottom: '100%', left: 0, right: 0,
-                        background: 'white',
-                        border: '1px solid #e8e8e8',
+                        background: isDark ? '#1e293b' : 'white',
+                        border: `1px solid ${isDark ? '#334155' : '#e8e8e8'}`,
                         borderRadius: '12px 12px 0 0',
-                        boxShadow: '0 -4px 20px rgba(0,0,0,0.1)',
+                        boxShadow: isDark ? '0 -4px 20px rgba(0,0,0,0.4)' : '0 -4px 20px rgba(0,0,0,0.1)',
                         maxHeight: 220,
                         overflowY: 'auto',
                         zIndex: 20,
@@ -550,7 +546,7 @@ function BacklinksPanel({ shapeId, htmlContent }: BacklinksPanelProps) {
                                         setExpanded(false)
                                     }}
                                     style={{ padding: '6px 12px', cursor: 'pointer', fontSize: 12, color: '#3b82f6', display: 'flex', alignItems: 'center', gap: 6 }}
-                                    onMouseEnter={e => (e.currentTarget.style.background = '#eff6ff')}
+                                    onMouseEnter={e => (e.currentTarget.style.background = isDark ? '#1e3a5f' : '#eff6ff')}
                                     onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                                 >
                                     <span style={{ fontSize: 13 }}>📋</span> {name}
@@ -566,7 +562,7 @@ function BacklinksPanel({ shapeId, htmlContent }: BacklinksPanelProps) {
                                 padding: '5px 12px 3px',
                                 fontSize: 10, fontWeight: 600, color: '#888',
                                 letterSpacing: '0.3px',
-                                borderTop: fwdLinks.length > 0 ? '1px solid #f5f5f5' : 'none',
+                                borderTop: fwdLinks.length > 0 ? `1px solid ${isDark ? '#334155' : '#f5f5f5'}` : 'none',
                             }}>
                                 ← 被引用
                             </div>
@@ -587,16 +583,16 @@ function BacklinksPanel({ shapeId, htmlContent }: BacklinksPanelProps) {
                                         setExpanded(false)
                                     }}
                                     style={{ padding: '6px 12px', cursor: 'pointer', fontSize: 12 }}
-                                    onMouseEnter={e => (e.currentTarget.style.background = '#f7f7f7')}
+                                    onMouseEnter={e => (e.currentTarget.style.background = isDark ? '#243447' : '#f7f7f7')}
                                     onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                                 >
                                     <div style={{
-                                        color: '#1a1a1a', overflow: 'hidden',
+                                        color: isDark ? '#e2e8f0' : '#1a1a1a', overflow: 'hidden',
                                         textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                                     }}>
                                         {entry.preview || '(無預覽)'}
                                     </div>
-                                    <div style={{ fontSize: 10, color: '#bbb', marginTop: 2 }}>
+                                    <div style={{ fontSize: 10, color: isDark ? '#64748b' : '#bbb', marginTop: 2 }}>
                                         {entry.boardName}
                                     </div>
                                 </div>
@@ -610,9 +606,9 @@ function BacklinksPanel({ shapeId, htmlContent }: BacklinksPanelProps) {
 }
 
 /* --------------------------------------------------------------- CardPropsBar */
-interface CardPropsBarProps { editor: Editor; shape: TLCardShape }
+interface CardPropsBarProps { editor: Editor; shape: TLCardShape; isDark?: boolean }
 
-function CardPropsBar({ editor, shape }: CardPropsBarProps) {
+function CardPropsBar({ editor, shape, isDark = false }: CardPropsBarProps) {
     const p = shape.props
     const [tagInput, setTagInput] = useState('')
     const currentStatus = (p.cardStatus ?? 'none') as CardStatusType
@@ -637,8 +633,13 @@ function CardPropsBar({ editor, shape }: CardPropsBarProps) {
         editor.updateShape({ id: shape.id, type: 'card', props: { tags: tags.filter(t => t !== tag) } })
 
     const selectStyle: React.CSSProperties = {
-        fontSize: 11, border: '1px solid #e0e0e0', borderRadius: 4,
-        padding: '2px 4px', background: 'white', cursor: 'pointer',
+        fontSize: 11,
+        border: `1px solid ${isDark ? '#475569' : '#e0e0e0'}`,
+        borderRadius: 4,
+        padding: '2px 4px',
+        background: isDark ? '#2d3748' : 'white',
+        color: isDark ? '#e2e8f0' : 'inherit',
+        cursor: 'pointer',
     }
 
     return (
@@ -646,8 +647,8 @@ function CardPropsBar({ editor, shape }: CardPropsBarProps) {
             onPointerDown={e => e.stopPropagation()}
             style={{
                 display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 4,
-                padding: '4px 8px', borderBottom: '1px solid #f0f0f0',
-                background: '#fafafa', flexShrink: 0, minHeight: 30,
+                padding: '4px 8px', borderBottom: `1px solid ${isDark ? '#334155' : '#f0f0f0'}`,
+                background: isDark ? '#1a2035' : '#fafafa', flexShrink: 0, minHeight: 30,
             }}
         >
             <select value={currentStatus} onChange={e => setStatus(e.target.value as CardStatusType)}
@@ -696,7 +697,7 @@ function CardPropsBar({ editor, shape }: CardPropsBarProps) {
                 }}
                 onPointerDown={e => e.stopPropagation()}
                 placeholder="+ 標籤"
-                style={{ border: 'none', outline: 'none', fontSize: 10, background: 'transparent', minWidth: 44, color: '#aaa' }}
+                style={{ border: 'none', outline: 'none', fontSize: 10, background: 'transparent', minWidth: 44, color: isDark ? '#64748b' : '#aaa' }}
             />
         </div>
     )

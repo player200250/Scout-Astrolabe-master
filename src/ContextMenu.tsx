@@ -20,11 +20,18 @@ interface ContextMenuProps {
     showColorPicker?: boolean
     onColorPick?: (color: CardColor) => void
     currentColor?: CardColor
+    isDark?: boolean
 }
 
-function ContextMenuUI({ x, y, items, onClose, showColorPicker, onColorPick, currentColor }: ContextMenuProps) {
+function ContextMenuUI({ x, y, items, onClose, showColorPicker, onColorPick, currentColor, isDark }: ContextMenuProps) {
     const ref = useRef<HTMLDivElement>(null)
     const [pos, setPos] = useState({ x, y })
+
+    const bg = isDark ? '#1e293b' : '#fff'
+    const textColor = isDark ? '#e2e8f0' : '#1a1a1a'
+    const dividerColor = isDark ? '#334155' : '#f0f0f0'
+    const hoverBg = isDark ? '#2d3748' : '#f5f5f5'
+    const mutedColor = isDark ? '#64748b' : '#999'
 
     useEffect(() => {
         if (!ref.current) return
@@ -52,8 +59,10 @@ function ContextMenuUI({ x, y, items, onClose, showColorPicker, onColorPick, cur
             ref={ref}
             style={{
                 position: 'fixed', top: pos.y, left: pos.x,
-                background: '#fff', borderRadius: 10,
-                boxShadow: '0 4px 24px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.06)',
+                background: bg, borderRadius: 10,
+                boxShadow: isDark
+                    ? '0 4px 24px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.06)'
+                    : '0 4px 24px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.06)',
                 zIndex: 99999, minWidth: 180, padding: '4px 0',
                 userSelect: 'none', pointerEvents: 'auto',
             }}
@@ -61,7 +70,7 @@ function ContextMenuUI({ x, y, items, onClose, showColorPicker, onColorPick, cur
             {/* 顏色選擇器 */}
             {showColorPicker && onColorPick && (
                 <>
-                    <div style={{ padding: '8px 14px 4px', fontSize: 11, color: '#999', fontWeight: 600, letterSpacing: '0.5px' }}>
+                    <div style={{ padding: '8px 14px 4px', fontSize: 11, color: mutedColor, fontWeight: 600, letterSpacing: '0.5px' }}>
                         卡片顏色
                     </div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, padding: '4px 14px 8px' }}>
@@ -72,8 +81,8 @@ function ContextMenuUI({ x, y, items, onClose, showColorPicker, onColorPick, cur
                                 onClick={() => { onColorPick(key); onClose() }}
                                 style={{
                                     width: 22, height: 22, borderRadius: '50%', cursor: 'pointer',
-                                    backgroundColor: key === 'none' ? '#f0f0f0' : val.accent,
-                                    border: currentColor === key ? '2px solid #333' : '2px solid transparent',
+                                    backgroundColor: key === 'none' ? (isDark ? '#334155' : '#f0f0f0') : val.accent,
+                                    border: currentColor === key ? `2px solid ${textColor}` : '2px solid transparent',
                                     boxSizing: 'border-box',
                                     transition: 'transform 0.1s',
                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -81,28 +90,28 @@ function ContextMenuUI({ x, y, items, onClose, showColorPicker, onColorPick, cur
                                 onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.2)')}
                                 onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
                             >
-                                {key === 'none' && <span style={{ fontSize: 10, color: '#999' }}>✕</span>}
+                                {key === 'none' && <span style={{ fontSize: 10, color: mutedColor }}>✕</span>}
                             </div>
                         ))}
                     </div>
-                    <div style={{ height: 1, background: '#f0f0f0', margin: '0 0 4px' }} />
+                    <div style={{ height: 1, background: dividerColor, margin: '0 0 4px' }} />
                 </>
             )}
 
             {items.map((item, idx) => (
                 <div key={idx}>
                     {item.divider && idx > 0 && (
-                        <div style={{ height: 1, background: '#f0f0f0', margin: '4px 0' }} />
+                        <div style={{ height: 1, background: dividerColor, margin: '4px 0' }} />
                     )}
                     <div
                         onClick={() => { item.action(); onClose() }}
                         style={{
                             display: 'flex', alignItems: 'center', gap: 10,
                             padding: '7px 14px', cursor: 'pointer', fontSize: 13,
-                            color: item.danger ? '#ff4d4f' : '#1a1a1a',
+                            color: item.danger ? '#ff4d4f' : textColor,
                             borderRadius: 6, margin: '0 4px', transition: 'background 0.1s',
                         }}
-                        onMouseEnter={e => (e.currentTarget.style.background = item.danger ? '#fff1f0' : '#f5f5f5')}
+                        onMouseEnter={e => (e.currentTarget.style.background = item.danger ? (isDark ? 'rgba(255,77,79,0.15)' : '#fff1f0') : hoverBg)}
                         onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                     >
                         <span style={{ fontSize: 15, width: 20, textAlign: 'center', flexShrink: 0 }}>{item.icon}</span>
@@ -123,6 +132,7 @@ interface UseContextMenuOptions {
     openImageInput: () => void
     isInboxBoard?: boolean
     onMoveCard?: (shapeId: string) => void
+    isDark?: boolean
 }
 
 export function useContextMenu({
@@ -133,6 +143,7 @@ export function useContextMenu({
     openImageInput,
     isInboxBoard,
     onMoveCard,
+    isDark,
 }: UseContextMenuOptions) {
     const [menu, setMenu] = useState<{
         x: number; y: number; items: MenuItem[]
@@ -251,6 +262,7 @@ export function useContextMenu({
             showColorPicker={menu.showColorPicker}
             onColorPick={menu.onColorPick}
             currentColor={menu.currentColor}
+            isDark={isDark}
         />
     ) : null
 

@@ -21,32 +21,32 @@
 }
 
 [data-theme="dark"] {
-    --bg-canvas:      #1a1a2e;
-    --bg-dot:         #2a2a4a;
-    --bg-card:        #242438;
-    --bg-card-hover:  #2a2a42;
-    --bg-sidebar:     rgba(22, 22, 40, 0.97);
-    --border-light:   #2e2e4e;
-    --border-mid:     #3a3a5e;
-    --text-primary:   #e8e8f0;
-    --text-secondary: #aaaacc;
-    --text-muted:     #666688;
+    --bg-canvas:      #0f172a;
+    --bg-dot:         #1e293b;
+    --bg-card:        #1e293b;
+    --bg-card-hover:  #243447;
+    --bg-sidebar:     #1e293b;
+    --border-light:   #334155;
+    --border-mid:     #334155;
+    --text-primary:   #e2e8f0;
+    --text-secondary: #94a3b8;
+    --text-muted:     #64748b;
     --shadow-card:    0 1px 3px rgba(0,0,0,0.3), 0 4px 12px rgba(0,0,0,0.2);
     --shadow-panel:   0 4px 24px rgba(0,0,0,0.4), 0 1px 4px rgba(0,0,0,0.3);
 }
 
 @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]):not([data-theme="dark"]) {
-        --bg-canvas:      #1a1a2e;
-        --bg-dot:         #2a2a4a;
-        --bg-card:        #242438;
-        --bg-card-hover:  #2a2a42;
-        --bg-sidebar:     rgba(22, 22, 40, 0.97);
-        --border-light:   #2e2e4e;
-        --border-mid:     #3a3a5e;
-        --text-primary:   #e8e8f0;
-        --text-secondary: #aaaacc;
-        --text-muted:     #666688;
+        --bg-canvas:      #0f172a;
+        --bg-dot:         #1e293b;
+        --bg-card:        #1e293b;
+        --bg-card-hover:  #243447;
+        --bg-sidebar:     #1e293b;
+        --border-light:   #334155;
+        --border-mid:     #334155;
+        --text-primary:   #e2e8f0;
+        --text-secondary: #94a3b8;
+        --text-muted:     #64748b;
         --shadow-card:    0 1px 3px rgba(0,0,0,0.3), 0 4px 12px rgba(0,0,0,0.2);
         --shadow-panel:   0 4px 24px rgba(0,0,0,0.4), 0 1px 4px rgba(0,0,0,0.3);
     }
@@ -170,7 +170,7 @@
 .tiptap-readonly {
     font-size: 14px;
     line-height: 1.7;
-    color: var(--text-primary);
+    color: #1a1a1a;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
                  "Helvetica Neue", Arial, sans-serif;
     word-break: break-word;
@@ -180,7 +180,7 @@
     font-size: 1.35em;
     font-weight: 700;
     margin: 0 0 8px;
-    color: var(--text-primary);
+    color: #1a1a1a;
     line-height: 1.3;
 }
 
@@ -188,7 +188,7 @@
     font-size: 1.15em;
     font-weight: 600;
     margin: 10px 0 6px;
-    color: var(--text-primary);
+    color: #1a1a1a;
     line-height: 1.3;
 }
 
@@ -196,7 +196,7 @@
     font-size: 1.02em;
     font-weight: 600;
     margin: 8px 0 5px;
-    color: var(--text-primary);
+    color: #1a1a1a;
 }
 
 .tiptap-readonly p {
@@ -224,7 +224,7 @@
 
 .tiptap-readonly em {
     font-style: italic;
-    color: var(--text-secondary);
+    color: #555;
 }
 
 .tiptap-readonly code {
@@ -293,6 +293,23 @@
 .hljs-punctuation                    { color: #cdd6f4; }
 
 /* ================================================
+   深色卡片（color='dark'）文字覆蓋
+   ================================================ */
+.card-dark-bg .tiptap-readonly,
+.card-dark-bg .tiptap-readonly h1,
+.card-dark-bg .tiptap-readonly h2,
+.card-dark-bg .tiptap-readonly h3 {
+    color: #e2e8f0;
+}
+.card-dark-bg .tiptap-readonly em {
+    color: #94a3b8;
+}
+.card-dark-bg .tiptap-readonly blockquote {
+    border-left-color: #475569;
+    color: #94a3b8;
+}
+
+/* ================================================
    暗色模式補充
    ================================================ */
 [data-theme="dark"] .tiptap-readonly code {
@@ -301,10 +318,55 @@
 }
 [data-theme="dark"] .tiptap-readonly blockquote {
     border-left-color: #444466;
-    color: var(--text-muted);
+    color: #888;
 }
 
 /* wiki-link 在暗色模式下的顏色 */
 [data-theme="dark"] span.wiki-link {
     color: #60a5fa !important;
+}
+
+/* ================================================
+   暗色模式 — 全域文字與背景
+   ================================================ */
+[data-theme="dark"] body {
+    background-color: #0f172a;
+    color: #e2e8f0;
+}
+
+/* 暗色模式下的滾動條 */
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+}
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.25);
+}
+
+/* ================================================
+   暗色模式 — Tiptap 編輯器文字（ProseMirror）
+   ================================================ */
+[data-theme="dark"] .ProseMirror {
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] .ProseMirror p,
+[data-theme="dark"] .ProseMirror h1,
+[data-theme="dark"] .ProseMirror h2,
+[data-theme="dark"] .ProseMirror h3,
+[data-theme="dark"] .ProseMirror li {
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] .ProseMirror em {
+    color: var(--text-secondary);
+}
+
+[data-theme="dark"] .ProseMirror code {
+    background: #1e1e36;
+    color: #a8e6cf;
+}
+
+[data-theme="dark"] .ProseMirror blockquote {
+    border-left-color: #475569;
+    color: var(--text-secondary);
 }
