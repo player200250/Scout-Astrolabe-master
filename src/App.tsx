@@ -11,6 +11,7 @@ import { BackupPanel } from './BackupPanel'
 import { ReviewCenter } from './ReviewCenter'
 import { HotkeyPanel } from './HotkeyPanel'
 import { KnowledgeGraph } from './KnowledgeGraph'
+import { QuickCapture } from './components/QuickCapture'
 import { SIDEBAR_WIDTH, SIDEBAR_COLLAPSED_WIDTH, INBOX_BOARD_ID } from './constants'
 import 'tldraw/tldraw.css'
 
@@ -35,6 +36,7 @@ export default function App() {
         handleRestore, handleGoToWeeklyCard, handleSaveJournal,
         handleMoveCardToBoard, handleCreateBoard,
         handleToggleCollapse, handleGoToInbox, handleReorderBoards,
+        handleAddCardToInbox,
     } = useBoardManager()
 
     const [isDark, setIsDark] = useState(() => {
@@ -49,6 +51,7 @@ export default function App() {
     const [backupPanelOpen, setBackupPanelOpen] = useState(false)
     const [movingCardShapeId, setMovingCardShapeId] = useState<string | null>(null)
     const [knowledgeGraphOpen, setKnowledgeGraphOpen] = useState(false)
+    const [quickCaptureOpen, setQuickCaptureOpen] = useState(false)
 
     const toggleTheme = useCallback(() => {
         setIsDark(prev => {
@@ -64,6 +67,13 @@ export default function App() {
 
     const sidebarWidth = sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_WIDTH
     const activeBoard = boards.find(b => b.id === activeBoardId) ?? null
+
+    const inboxCardCount = (() => {
+        const inboxBoard = boards.find(b => b.isInbox)
+        if (!inboxBoard?.snapshot) return 0
+        const store = (inboxBoard.snapshot as any).document?.store ?? {}
+        return (Object.values(store) as any[]).filter(s => s.typeName === 'shape' && s.type === 'card').length
+    })()
 
     useEffect(() => {
         const handler = (e: KeyboardEvent) => {
@@ -82,6 +92,10 @@ export default function App() {
             if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'g') {
                 e.preventDefault()
                 setKnowledgeGraphOpen(prev => !prev)
+            }
+            if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key === ' ') {
+                e.preventDefault()
+                setQuickCaptureOpen(prev => !prev)
             }
         }
         window.addEventListener('keydown', handler)
@@ -137,6 +151,8 @@ export default function App() {
                 isDark={isDark}
                 onToggleTheme={toggleTheme}
                 onReorderBoards={handleReorderBoards}
+                inboxCardCount={inboxCardCount}
+                onQuickCapture={() => setQuickCaptureOpen(true)}
             />
 
             {movingCardShapeId && (
@@ -217,6 +233,13 @@ export default function App() {
                         setKnowledgeGraphOpen(false)
                         handleSwitch(boardId)
                     }}
+                />
+            )}
+            {quickCaptureOpen && (
+                <QuickCapture
+                    onSave={text => { handleAddCardToInbox(text); setQuickCaptureOpen(false) }}
+                    onClose={() => setQuickCaptureOpen(false)}
+                    isDark={isDark}
                 />
             )}
         </>

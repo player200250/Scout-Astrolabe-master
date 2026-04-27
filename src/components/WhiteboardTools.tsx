@@ -156,6 +156,26 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
         return () => window.removeEventListener('delete-shape-from-editor', h as EventListener)
     }, [editor])
 
+    useEffect(() => {
+        const handler = (e: CustomEvent) => {
+            if (!isInboxBoard) return
+            const { text, x, y, shapeId } = e.detail
+            editor.createShape({
+                id: shapeId as any,
+                type: 'card', x, y,
+                props: {
+                    type: 'text', text,
+                    image: null, todos: [], url: null,
+                    linkEmbedUrl: null, journalDate: null,
+                    state: 'idle', color: 'none', w: 240, h: 180,
+                    cardStatus: 'none', priority: 'none', tags: [],
+                },
+            })
+        }
+        window.addEventListener('quick-capture-card' as any, handler)
+        return () => window.removeEventListener('quick-capture-card' as any, handler)
+    }, [editor, isInboxBoard])
+
     useHotkeys(editor, {
         createTextCard: () => createTextCard(),
         createTodoCard: () => createTodoCard(),

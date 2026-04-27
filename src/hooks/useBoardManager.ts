@@ -351,6 +351,57 @@ export function useBoardManager() {
         setNavigationStack([INBOX_BOARD_ID])
     }, [])
 
+    const handleAddCardToInbox = useCallback((text: string) => {
+        const inboxBoard = boards.find(b => b.isInbox)
+        if (!inboxBoard) return
+
+        const snapshot: any = inboxBoard.snapshot
+            ? structuredClone(inboxBoard.snapshot)
+            : { document: { store: {}, schema: { schemaVersion: 2, sequences: {} } }, session: {} }
+
+        if (!snapshot.document) snapshot.document = { store: {}, schema: { schemaVersion: 2, sequences: {} } }
+        if (!snapshot.document.store) snapshot.document.store = {}
+        const store = snapshot.document.store
+
+        if (!store['document:document']) {
+            store['document:document'] = { typeName: 'document', id: 'document:document', gridSize: 10, name: '', meta: {} }
+        }
+        const pageRecord = (Object.values(store) as any[]).find(r => r.typeName === 'page')
+        const pageId = pageRecord?.id ?? 'page:page'
+        if (!store[pageId]) {
+            store[pageId] = { typeName: 'page', id: pageId, name: 'Page 1', index: 'a1', meta: {} }
+        }
+
+        const existingShapes = (Object.values(store) as any[]).filter(r => r.typeName === 'shape')
+        const existingIndices = existingShapes.map(r => r.index as string).filter(Boolean).sort()
+        const newIndex = (existingIndices[existingIndices.length - 1] ?? 'a0') + 'V'
+        const maxX = existingShapes.length > 0
+            ? Math.max(...existingShapes.map((s: any) => (s.x ?? 0) + (s.props?.w ?? 240))) + 40
+            : 100
+
+        const newShapeId = `shape:qc_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
+        store[newShapeId] = {
+            typeName: 'shape', id: newShapeId, type: 'card',
+            x: maxX, y: 100, rotation: 0, index: newIndex,
+            parentId: pageId, isLocked: false, opacity: 1, meta: {},
+            props: {
+                type: 'text', text,
+                image: null, todos: [], url: null,
+                linkEmbedUrl: null, journalDate: null,
+                state: 'idle', color: 'none', w: 240, h: 180,
+                cardStatus: 'none', priority: 'none', tags: [],
+            },
+        }
+
+        const updated = { ...inboxBoard, snapshot, updatedAt: Date.now() }
+        saveBoard(updated)
+        setBoards(prev => prev.map(b => b.id === inboxBoard.id ? updated : b))
+
+        window.dispatchEvent(new CustomEvent('quick-capture-card', {
+            detail: { text, x: maxX, y: 100, shapeId: newShapeId },
+        }))
+    }, [boards])
+
     const handleReorderBoards = useCallback((activeId: string, overId: string) => {
         const sortable = boards.filter(b => !b.isHome && !b.isInbox && !b.parentId && b.status !== 'archived' && b.status !== 'pinned')
         const oldIndex = sortable.findIndex(b => b.id === activeId)
@@ -395,5 +446,6 @@ export function useBoardManager() {
         handleToggleCollapse,
         handleGoToInbox,
         handleReorderBoards,
+        handleAddCardToInbox,
     }
 }

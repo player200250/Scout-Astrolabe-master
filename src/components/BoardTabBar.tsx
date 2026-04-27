@@ -37,6 +37,8 @@ interface BoardTabBarProps {
     isDark: boolean
     onToggleTheme: () => void
     onReorderBoards: (activeId: string, overId: string) => void
+    inboxCardCount: number
+    onQuickCapture: () => void
 }
 
 function SortableBoardItem({ id, children }: { id: string; children: React.ReactNode }) {
@@ -60,7 +62,7 @@ function SortableBoardItem({ id, children }: { id: string; children: React.React
     )
 }
 
-export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelete, onSearch, onHotkey, onOpenOverview, onSetJournal, navigationStack, onBack, onSetParent, onSwitchToChild, collapsed, onToggleCollapse, onSetStatus, onOpenTaskCenter, onOpenFilter, onOpenReviewCenter, onOpenBackup, onGoToInbox, onOpenKnowledgeGraph, isDark, onToggleTheme, onReorderBoards }: BoardTabBarProps) {
+export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelete, onSearch, onHotkey, onOpenOverview, onSetJournal, navigationStack, onBack, onSetParent, onSwitchToChild, collapsed, onToggleCollapse, onSetStatus, onOpenTaskCenter, onOpenFilter, onOpenReviewCenter, onOpenBackup, onGoToInbox, onOpenKnowledgeGraph, isDark, onToggleTheme, onReorderBoards, inboxCardCount, onQuickCapture }: BoardTabBarProps) {
     const [hoveredId, setHoveredId] = useState<string | null>(null)
     const [renamingId, setRenamingId] = useState<string | null>(null)
     const [renameValue, setRenameValue] = useState('')
@@ -148,10 +150,19 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                                 onMouseEnter={e => (e.currentTarget.style.background = hoverBg)}
                                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                             >🔍</button>
-                            <button onClick={onGoToInbox} title="收件匣 (Ctrl+Shift+I)" style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border-light)', background: activeBoardId === INBOX_BOARD_ID ? (isDark ? 'rgba(37,99,235,0.2)' : '#f0f4ff') : 'transparent', cursor: 'pointer', fontSize: 14, color: activeBoardId === INBOX_BOARD_ID ? '#2563eb' : 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+                            <div style={{ position: 'relative' }}>
+                                <button onClick={onGoToInbox} title="收件匣 (Ctrl+Shift+I)" style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border-light)', background: activeBoardId === INBOX_BOARD_ID ? (isDark ? 'rgba(37,99,235,0.2)' : '#f0f4ff') : 'transparent', cursor: 'pointer', fontSize: 14, color: activeBoardId === INBOX_BOARD_ID ? '#2563eb' : 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+                                    onMouseEnter={e => (e.currentTarget.style.background = hoverBg)}
+                                    onMouseLeave={e => (e.currentTarget.style.background = activeBoardId === INBOX_BOARD_ID ? (isDark ? 'rgba(37,99,235,0.2)' : '#f0f4ff') : 'transparent')}
+                                >📥</button>
+                                {inboxCardCount > 0 && (
+                                    <span style={{ position: 'absolute', top: 2, right: 2, width: 7, height: 7, borderRadius: '50%', background: '#ef4444', border: '1.5px solid var(--bg-sidebar)', pointerEvents: 'none' }} />
+                                )}
+                            </div>
+                            <button onClick={onQuickCapture} title="快速新增到收件匣 (Ctrl+Space)" style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border-light)', background: 'transparent', cursor: 'pointer', fontSize: 14, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
                                 onMouseEnter={e => (e.currentTarget.style.background = hoverBg)}
-                                onMouseLeave={e => (e.currentTarget.style.background = activeBoardId === INBOX_BOARD_ID ? (isDark ? 'rgba(37,99,235,0.2)' : '#f0f4ff') : 'transparent')}
-                            >📥</button>
+                                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                            >✏️</button>
                         </div>
                     )}
                 </div>
@@ -162,7 +173,13 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                         <button onClick={onNew} title="新增白板" style={{ width: 28, height: 28, borderRadius: 8, border: '1px dashed var(--border-mid)', background: 'transparent', cursor: 'pointer', fontSize: 16, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>+</button>
                         <button onClick={onOpenOverview} title="所有白板" style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border-light)', background: 'transparent', cursor: 'pointer', fontSize: 13, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>⊞</button>
                         <button onClick={onSearch} title="搜尋" style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border-light)', background: 'transparent', cursor: 'pointer', fontSize: 13, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>🔍</button>
-                        <button onClick={onGoToInbox} title="收件匣 (Ctrl+Shift+I)" style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border-light)', background: 'transparent', cursor: 'pointer', fontSize: 13, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>📥</button>
+                        <div style={{ position: 'relative' }}>
+                            <button onClick={onGoToInbox} title="收件匣 (Ctrl+Shift+I)" style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border-light)', background: 'transparent', cursor: 'pointer', fontSize: 13, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>📥</button>
+                            {inboxCardCount > 0 && (
+                                <span style={{ position: 'absolute', top: 2, right: 2, width: 7, height: 7, borderRadius: '50%', background: '#ef4444', border: '1.5px solid var(--bg-sidebar)', pointerEvents: 'none' }} />
+                            )}
+                        </div>
+                        <button onClick={onQuickCapture} title="快速新增到收件匣 (Ctrl+Space)" style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border-light)', background: 'transparent', cursor: 'pointer', fontSize: 13, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>✏️</button>
                         <button onClick={onOpenTaskCenter} title="任務中心" style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border-light)', background: 'transparent', cursor: 'pointer', fontSize: 13, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>✅</button>
                         <button onClick={onOpenReviewCenter} title="復盤中心 (Ctrl+Shift+C)" style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border-light)', background: 'transparent', cursor: 'pointer', fontSize: 13, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>📔</button>
                     </div>
@@ -262,10 +279,16 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                                             fontWeight: isActive ? 600 : 400,
                                             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                                             userSelect: 'none',
+                                            display: 'flex', alignItems: 'center', gap: 4,
                                         }}
                                     >
-                                        {board.status === 'pinned' ? '📌 ' : ''}{board.name}{board.isJournal ? ' 📔' : ''}
-                                        {isStale && <span title="超過 14 天未開啟" style={{ marginLeft: 3, fontSize: 9, opacity: 0.4 }}>🕐</span>}
+                                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                            {board.status === 'pinned' ? '📌 ' : ''}{board.name}{board.isJournal ? ' 📔' : ''}
+                                            {isStale && <span title="超過 14 天未開啟" style={{ marginLeft: 3, fontSize: 9, opacity: 0.4 }}>🕐</span>}
+                                        </span>
+                                        {board.isInbox && inboxCardCount > 0 && (
+                                            <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#ef4444', flexShrink: 0, display: 'inline-block' }} title={`${inboxCardCount} 張未整理卡片`} />
+                                        )}
                                     </span>
                                 )}
                                 {isHovered && !board.isHome && !board.isInbox && (
