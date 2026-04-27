@@ -49,7 +49,6 @@ export interface TLCardProps {
 
     // ---- Image ----
     image: string | null
-    blobUrl?: string | null
 
     // ---- Todo ----
     todos: TodoItem[]

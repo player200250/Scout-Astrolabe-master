@@ -287,7 +287,7 @@ export function useBoardManager() {
                     parentId: pageId, isLocked: false, opacity: 1, meta: {},
                     props: {
                         type: 'journal', text: html,
-                        image: null, blobUrl: null, todos: [], url: '',
+                        image: null, todos: [], url: '',
                         linkEmbedUrl: null, journalDate: dateStr,
                         state: 'idle', color: 'yellow', w: 280, h: 380,
                         cardStatus: 'none', priority: 'none', tags: [],

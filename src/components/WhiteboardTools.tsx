@@ -48,26 +48,26 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
     const jsonInputRef = useRef<HTMLInputElement>(null)
 
     const createTextCard = useCallback((x?: number, y?: number) => {
-        editor.createShape({ type: 'card', x, y, props: { type: 'text', text: '', image: null, blobUrl: null, todos: [], url: '', state: 'idle', w: 240, h: 160 } })
+        editor.createShape({ type: 'card', x, y, props: { type: 'text', text: '', image: null, todos: [], url: '', state: 'idle', w: 240, h: 160 } })
     }, [editor])
 
     const createTodoCard = useCallback((x?: number, y?: number) => {
-        editor.createShape({ type: 'card', x, y, props: { type: 'todo', text: '', image: null, blobUrl: null, todos: [{ id: `todo_${Date.now()}`, text: '新任務', checked: false }], url: null, state: 'idle', w: 260, h: 200 } })
+        editor.createShape({ type: 'card', x, y, props: { type: 'todo', text: '', image: null, todos: [{ id: `todo_${Date.now()}`, text: '新任務', checked: false }], url: null, state: 'idle', w: 260, h: 200 } })
     }, [editor])
 
     const createLinkCard = useCallback((x?: number, y?: number) => {
-        editor.createShape({ type: 'card', x, y, props: { type: 'link', text: '', image: null, blobUrl: null, todos: [], url: 'https://example.com', state: 'idle', w: 260, h: 120 } })
+        editor.createShape({ type: 'card', x, y, props: { type: 'link', text: '', image: null, todos: [], url: 'https://example.com', state: 'idle', w: 260, h: 120 } })
     }, [editor])
 
     const createImageCard = useCallback((imgBase64: string) => {
-        editor.createShape({ type: 'card', props: { type: 'image', text: '', image: imgBase64, blobUrl: null, todos: [], url: '', state: 'idle', w: 300, h: 200 } })
+        editor.createShape({ type: 'card', props: { type: 'image', text: '', image: imgBase64, todos: [], url: '', state: 'idle', w: 300, h: 200 } })
     }, [editor])
 
     const createBoardCard = useCallback((x?: number, y?: number) => {
         const newBoard = onCreateBoard(`子白板 ${boards.length + 1}`)
         editor.createShape({
             type: 'card', x, y,
-            props: { type: 'board', text: newBoard.name, image: null, blobUrl: null, todos: [], url: '', linkEmbedUrl: null, linkedBoardId: newBoard.id, state: 'idle', color: 'none', w: 280, h: 200 }
+            props: { type: 'board', text: newBoard.name, image: null, todos: [], url: '', linkEmbedUrl: null, linkedBoardId: newBoard.id, state: 'idle', color: 'none', w: 280, h: 200 }
         })
     }, [editor, onCreateBoard, boards.length])
 
@@ -141,7 +141,7 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
             const pageCenter = editor.screenToPage(center)
             editor.createShape({
                 type: 'card', x: pageCenter.x - 140, y: pageCenter.y - 100,
-                props: { type: 'board', text: boardName, image: null, blobUrl: null, todos: [], url: '', linkEmbedUrl: null, linkedBoardId, state: 'idle', color: 'none', w: 280, h: 200 }
+                props: { type: 'board', text: boardName, image: null, todos: [], url: '', linkEmbedUrl: null, linkedBoardId, state: 'idle', color: 'none', w: 280, h: 200 }
             })
         }
         window.addEventListener('create-board-card-on' as any, handler)
@@ -182,7 +182,7 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
                         const base64 = reader.result as string
                         const center = editor.getViewportScreenCenter()
                         const pagePoint = editor.screenToPage(center)
-                        editor.createShape({ type: 'card', x: pagePoint.x - 150, y: pagePoint.y - 100, props: { type: 'image', text: '', image: base64, blobUrl: null, todos: [], url: '', state: 'idle', w: 300, h: 200 } })
+                        editor.createShape({ type: 'card', x: pagePoint.x - 150, y: pagePoint.y - 100, props: { type: 'image', text: '', image: base64, todos: [], url: '', state: 'idle', w: 300, h: 200 } })
                     }
                     reader.readAsDataURL(file)
                     return
@@ -203,13 +203,13 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
                             const base64 = reader.result as string
                             const center = editor.getViewportScreenCenter()
                             const pagePoint = editor.screenToPage(center)
-                            editor.createShape({ type: 'card', x: pagePoint.x - 150, y: pagePoint.y - 100, props: { type: 'image', text: '', image: base64, blobUrl: null, todos: [], url: '', state: 'idle', w: 300, h: 200 } })
+                            editor.createShape({ type: 'card', x: pagePoint.x - 150, y: pagePoint.y - 100, props: { type: 'image', text: '', image: base64, todos: [], url: '', state: 'idle', w: 300, h: 200 } })
                         }
                         reader.readAsDataURL(blob)
                     } catch {
                         const center = editor.getViewportScreenCenter()
                         const pagePoint = editor.screenToPage(center)
-                        editor.createShape({ type: 'card', x: pagePoint.x - 150, y: pagePoint.y - 100, props: { type: 'image', text: '', image: imgUrl, blobUrl: null, todos: [], url: '', state: 'idle', w: 300, h: 200 } })
+                        editor.createShape({ type: 'card', x: pagePoint.x - 150, y: pagePoint.y - 100, props: { type: 'image', text: '', image: imgUrl, todos: [], url: '', state: 'idle', w: 300, h: 200 } })
                     }
                 })
                 return
@@ -223,7 +223,7 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
                         new URL(trimmed.startsWith('http') ? trimmed : `https://${trimmed}`)
                         const center = editor.getViewportScreenCenter()
                         const pagePoint = editor.screenToPage(center)
-                        editor.createShape({ type: 'card', x: pagePoint.x - 130, y: pagePoint.y - 60, props: { type: 'link', text: '', image: null, blobUrl: null, todos: [], url: trimmed, state: 'idle', w: 260, h: 120 } })
+                        editor.createShape({ type: 'card', x: pagePoint.x - 130, y: pagePoint.y - 60, props: { type: 'link', text: '', image: null, todos: [], url: trimmed, state: 'idle', w: 260, h: 120 } })
                     } catch { }
                 })
             }
@@ -298,7 +298,7 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
                             type: 'card',
                             x: pageCenter.x - 140 + (idx % 4) * 300,
                             y: pageCenter.y - 100 + Math.floor(idx / 4) * 240,
-                            props: { type: 'board', text: child.name, image: null, blobUrl: null, todos: [], url: '', linkEmbedUrl: null, linkedBoardId: child.id, state: 'idle', color: 'none', w: 280, h: 200 }
+                            props: { type: 'board', text: child.name, image: null, todos: [], url: '', linkEmbedUrl: null, linkedBoardId: child.id, state: 'idle', color: 'none', w: 280, h: 200 }
                         })
                     })
                 }
@@ -314,8 +314,8 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
                     const allShapes = editor.getCurrentPageShapes()
                     const maxX = allShapes.length > 0 ? Math.max(...allShapes.map(s => s.x + ((s.props as any).w ?? 240))) + 40 : 100
                     const journalText = `<h2>${todayLabel}</h2><p><strong>今天做了什麼</strong></p><p></p><p><strong>學到什麼（在哪個白板）</strong></p><p></p><p><strong>計畫/待辦</strong></p><p></p><p><strong>卡住的地方</strong></p><p></p><p><strong>明天先做</strong></p><p></p>`
-                    editor.createShape({ type: 'card', x: maxX, y: 100, props: { type: 'journal', text: journalText, image: null, blobUrl: null, todos: [], url: '', linkEmbedUrl: null, journalDate: todayStr, state: 'idle', color: 'yellow', w: 280, h: 380 } })
-                    editor.createShape({ type: 'card', x: maxX + 320, y: 100, props: { type: 'todo', text: `${todayLabel} 計畫`, image: null, blobUrl: null, todos: [{ id: `todo_${Date.now()}`, text: '今日任務', checked: false }], url: null, linkEmbedUrl: null, journalDate: todayStr, state: 'idle', color: 'blue', w: 260, h: 200 } })
+                    editor.createShape({ type: 'card', x: maxX, y: 100, props: { type: 'journal', text: journalText, image: null, todos: [], url: '', linkEmbedUrl: null, journalDate: todayStr, state: 'idle', color: 'yellow', w: 280, h: 380 } })
+                    editor.createShape({ type: 'card', x: maxX + 320, y: 100, props: { type: 'todo', text: `${todayLabel} 計畫`, image: null, todos: [{ id: `todo_${Date.now()}`, text: '今日任務', checked: false }], url: null, linkEmbedUrl: null, journalDate: todayStr, state: 'idle', color: 'blue', w: 260, h: 200 } })
                 }
 
                 const weekKey = getISOWeekKey(today)
@@ -336,7 +336,7 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
                         props: {
                             type: 'journal',
                             text: weeklyText,
-                            image: null, blobUrl: null, todos: [], url: '', linkEmbedUrl: null,
+                            image: null, todos: [], url: '', linkEmbedUrl: null,
                             journalDate: weekKey,
                             state: 'idle',
                             color: 'purple',

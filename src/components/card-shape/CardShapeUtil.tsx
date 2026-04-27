@@ -114,7 +114,6 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
             type: 'text',
             text: 'New Note',
             image: null,
-            blobUrl: null,
             todos: [],
             url: '',
             linkEmbedUrl: null,
@@ -154,7 +153,7 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
         const type = shape.props.type
 
         if (type === 'image') {
-            if (shape.props.image || shape.props.blobUrl) {
+            if (shape.props.image) {
                 this.editor.updateShape({
                     id: shape.id, type: 'card',
                     props: { preview: true },
@@ -339,7 +338,7 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
                         onClick={(e) => { e.stopPropagation(); closePreview() }}
                     >
                         <img
-                            src={p.blobUrl || p.image || ''}
+                            src={p.image || ''}
                             alt="Preview"
                             style={{
                                 maxWidth: '95vw', maxHeight: '88vh',
@@ -354,7 +353,7 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
                             onClick={(e) => e.stopPropagation()}
                         >
                             <a
-                                href={p.blobUrl || p.image || ''}
+                                href={p.image || ''}
                                 download="image"
                                 style={{
                                     display: 'flex', alignItems: 'center', gap: 6,
@@ -377,7 +376,7 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
                                     border: '1px solid rgba(255,255,255,0.2)',
                                     backdropFilter: 'blur(8px)',
                                 }}
-                                onClick={(e) => { e.stopPropagation(); window.open(p.blobUrl || p.image || '', '_blank') }}
+                                onClick={(e) => { e.stopPropagation(); window.open(p.image || '', '_blank') }}
                             >
                                 🔗 新分頁
                             </button>

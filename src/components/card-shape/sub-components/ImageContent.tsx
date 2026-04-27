@@ -24,7 +24,7 @@ export function ImageContent({ shape }: ImageContentProps) {
             }}
         >
             <img
-                src={p.blobUrl || p.image || ''}
+                src={p.image || ''}
                 alt="Card Content"
                 draggable={false}
                 style={{

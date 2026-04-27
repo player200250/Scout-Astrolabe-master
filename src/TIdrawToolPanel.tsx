@@ -293,10 +293,10 @@ export default function TldrawToolPanel({
         const pagePoint = editor.screenToPage(screenPoint)
 
         const defaultProps: Record<string, any> = {
-            text: { type: 'text', text: '', image: null, blobUrl: null, todos: [], url: '', linkEmbedUrl: null, state: 'idle', color: 'none', w: 240, h: 160 },
-            todo: { type: 'todo', text: '', image: null, blobUrl: null, todos: [{ id: `todo_${Date.now()}`, text: '新任務', checked: false }], url: null, linkEmbedUrl: null, state: 'idle', color: 'none', w: 260, h: 200 },
-            link: { type: 'link', text: '', image: null, blobUrl: null, todos: [], url: '', linkEmbedUrl: null, state: 'idle', color: 'none', w: 260, h: 120 },
-            image: { type: 'image', text: '', image: null, blobUrl: null, todos: [], url: '', linkEmbedUrl: null, state: 'idle', color: 'none', w: 300, h: 200 },
+            text: { type: 'text', text: '', image: null, todos: [], url: '', linkEmbedUrl: null, state: 'idle', color: 'none', w: 240, h: 160 },
+            todo: { type: 'todo', text: '', image: null, todos: [{ id: `todo_${Date.now()}`, text: '新任務', checked: false }], url: null, linkEmbedUrl: null, state: 'idle', color: 'none', w: 260, h: 200 },
+            link: { type: 'link', text: '', image: null, todos: [], url: '', linkEmbedUrl: null, state: 'idle', color: 'none', w: 260, h: 120 },
+            image: { type: 'image', text: '', image: null, todos: [], url: '', linkEmbedUrl: null, state: 'idle', color: 'none', w: 300, h: 200 },
         }
 
         if (cardType === 'image') {
