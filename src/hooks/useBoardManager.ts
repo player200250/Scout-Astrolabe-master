@@ -82,40 +82,39 @@ export function useBoardManager() {
     const handleSwitch = useCallback((id: string) => {
         if (id !== activeBoardId) {
             triggerAutoBackup(boards)
+            const board = boards.find(b => b.id === id)
+            if (board) {
+                const updated = { ...board, lastVisitedAt: Date.now() }
+                saveBoard(updated)
+                setBoards(prev => prev.map(b => b.id === id ? updated : b))
+            }
             setActiveBoardId(id)
             setNavigationStack([id])
-            setBoards(prev => prev.map(b => {
-                if (b.id !== id) return b
-                const updated = { ...b, lastVisitedAt: Date.now() }
-                saveBoard(updated)
-                return updated
-            }))
         }
     }, [activeBoardId, boards, triggerAutoBackup])
 
     const handleSwitchToChild = useCallback((childId: string) => {
+        const child = boards.find(b => b.id === childId)
+        if (child) {
+            const updated = { ...child, lastVisitedAt: Date.now() }
+            saveBoard(updated)
+            setBoards(prev => prev.map(b => b.id === childId ? updated : b))
+        }
         setActiveBoardId(childId)
         setNavigationStack(prev => {
             const idx = prev.indexOf(childId)
             if (idx >= 0) return prev.slice(0, idx + 1)
             return [...prev, childId]
         })
-        setBoards(prev => prev.map(b => {
-            if (b.id !== childId) return b
-            const updated = { ...b, lastVisitedAt: Date.now() }
-            saveBoard(updated)
-            return updated
-        }))
-    }, [])
+    }, [boards])
 
     const handleSetParent = useCallback((boardId: string, parentId: string | null) => {
         const childBoard = boards.find(b => b.id === boardId)
-        setBoards(prev => prev.map(b => {
-            if (b.id !== boardId) return b
-            const updated = { ...b, parentId }
+        if (childBoard) {
+            const updated = { ...childBoard, parentId }
             saveBoard(updated)
-            return updated
-        }))
+            setBoards(prev => prev.map(b => b.id === boardId ? updated : b))
+        }
         if (parentId && childBoard) {
             setActiveBoardId(parentId)
             setNavigationStack([parentId])
@@ -194,22 +193,20 @@ export function useBoardManager() {
     }, [activeBoardId])
 
     const handleSetJournal = useCallback((boardId: string, isJournal: boolean) => {
-        setBoards(prev => prev.map(b => {
-            if (b.id !== boardId) return b
-            const updated = { ...b, isJournal }
-            saveBoard(updated)
-            return updated
-        }))
-    }, [])
+        const board = boards.find(b => b.id === boardId)
+        if (!board) return
+        const updated = { ...board, isJournal }
+        saveBoard(updated)
+        setBoards(prev => prev.map(b => b.id === boardId ? updated : b))
+    }, [boards])
 
     const handleSetStatus = useCallback((boardId: string, status: 'active' | 'archived' | 'pinned') => {
-        setBoards(prev => prev.map(b => {
-            if (b.id !== boardId) return b
-            const updated = { ...b, status }
-            saveBoard(updated)
-            return updated
-        }))
-    }, [])
+        const board = boards.find(b => b.id === boardId)
+        if (!board) return
+        const updated = { ...board, status }
+        saveBoard(updated)
+        setBoards(prev => prev.map(b => b.id === boardId ? updated : b))
+    }, [boards])
 
     const handleRestore = useCallback(async (restoredBoards: BoardRecord[]) => {
         await db.table('boards').clear()
@@ -247,58 +244,57 @@ export function useBoardManager() {
 
     const handleSaveJournal = useCallback((boardId: string, dateStr: string, html: string, shapeId: string | null) => {
         if (!boardId) return
-        setBoards(prev => prev.map(b => {
-            if (b.id !== boardId) return b
+        const board = boards.find(b => b.id === boardId)
+        if (!board) return
 
-            const snapshot: any = b.snapshot
-                ? structuredClone(b.snapshot)
-                : { document: { store: {}, schema: { schemaVersion: 2, sequences: {} } }, session: {} }
+        const snapshot: any = board.snapshot
+            ? structuredClone(board.snapshot)
+            : { document: { store: {}, schema: { schemaVersion: 2, sequences: {} } }, session: {} }
 
-            if (!snapshot.document) snapshot.document = { store: {}, schema: { schemaVersion: 2, sequences: {} } }
-            if (!snapshot.document.store) snapshot.document.store = {}
-            const store = snapshot.document.store
+        if (!snapshot.document) snapshot.document = { store: {}, schema: { schemaVersion: 2, sequences: {} } }
+        if (!snapshot.document.store) snapshot.document.store = {}
+        const store = snapshot.document.store
 
-            if (shapeId && store[shapeId]) {
-                store[shapeId].props.text = html
-            } else {
-                if (!store['document:document']) {
-                    store['document:document'] = { typeName: 'document', id: 'document:document', gridSize: 10, name: '', meta: {} }
-                }
-                const pageRecord = Object.values(store).find((r: any) => r.typeName === 'page') as any
-                const pageId = pageRecord?.id ?? 'page:page'
-                if (!store[pageId]) {
-                    store[pageId] = { typeName: 'page', id: pageId, name: 'Page 1', index: 'a1', meta: {} }
-                }
-
-                const existingIndices = (Object.values(store) as any[])
-                    .filter(r => r.typeName === 'shape')
-                    .map(r => r.index as string)
-                    .filter(Boolean)
-                    .sort()
-                const newIndex = (existingIndices[existingIndices.length - 1] ?? 'a0') + 'V'
-                const newShapeId = `shape:jd_${dateStr.replace(/-/g, '')}_${Math.random().toString(36).slice(2, 7)}`
-                const allShapes = (Object.values(store) as any[]).filter(r => r.typeName === 'shape')
-                const maxX = allShapes.length > 0
-                    ? Math.max(...allShapes.map(s => (s.x ?? 0) + (s.props?.w ?? 240))) + 40
-                    : 100
-                store[newShapeId] = {
-                    typeName: 'shape', id: newShapeId, type: 'card',
-                    x: maxX, y: 100, rotation: 0, index: newIndex,
-                    parentId: pageId, isLocked: false, opacity: 1, meta: {},
-                    props: {
-                        type: 'journal', text: html,
-                        image: null, todos: [], url: '',
-                        linkEmbedUrl: null, journalDate: dateStr,
-                        state: 'idle', color: 'yellow', w: 280, h: 380,
-                        cardStatus: 'none', priority: 'none', tags: [],
-                    },
-                }
+        if (shapeId && store[shapeId]) {
+            store[shapeId].props.text = html
+        } else {
+            if (!store['document:document']) {
+                store['document:document'] = { typeName: 'document', id: 'document:document', gridSize: 10, name: '', meta: {} }
             }
-            const updated = { ...b, snapshot, updatedAt: Date.now() }
-            saveBoard(updated)
-            return updated
-        }))
-    }, [])
+            const pageRecord = Object.values(store).find((r: any) => r.typeName === 'page') as any
+            const pageId = pageRecord?.id ?? 'page:page'
+            if (!store[pageId]) {
+                store[pageId] = { typeName: 'page', id: pageId, name: 'Page 1', index: 'a1', meta: {} }
+            }
+
+            const existingIndices = (Object.values(store) as any[])
+                .filter(r => r.typeName === 'shape')
+                .map(r => r.index as string)
+                .filter(Boolean)
+                .sort()
+            const newIndex = (existingIndices[existingIndices.length - 1] ?? 'a0') + 'V'
+            const newShapeId = `shape:jd_${dateStr.replace(/-/g, '')}_${Math.random().toString(36).slice(2, 7)}`
+            const allShapes = (Object.values(store) as any[]).filter(r => r.typeName === 'shape')
+            const maxX = allShapes.length > 0
+                ? Math.max(...allShapes.map(s => (s.x ?? 0) + (s.props?.w ?? 240))) + 40
+                : 100
+            store[newShapeId] = {
+                typeName: 'shape', id: newShapeId, type: 'card',
+                x: maxX, y: 100, rotation: 0, index: newIndex,
+                parentId: pageId, isLocked: false, opacity: 1, meta: {},
+                props: {
+                    type: 'journal', text: html,
+                    image: null, todos: [], url: '',
+                    linkEmbedUrl: null, journalDate: dateStr,
+                    state: 'idle', color: 'yellow', w: 280, h: 380,
+                    cardStatus: 'none', priority: 'none', tags: [],
+                },
+            }
+        }
+        const updated = { ...board, snapshot, updatedAt: Date.now() }
+        saveBoard(updated)
+        setBoards(prev => prev.map(b => b.id === boardId ? updated : b))
+    }, [boards])
 
     const handleMoveCardToBoard = useCallback((shapeId: string, targetBoardId: string) => {
         const inboxBoard = boards.find(b => b.isInbox)
@@ -307,32 +303,43 @@ export function useBoardManager() {
         const shape = srcStore[shapeId]
         if (!shape) return
 
+        // Compute updated inbox (shape removed)
+        const newInboxStore = { ...((inboxBoard.snapshot as any).document?.store ?? {}) }
+        delete newInboxStore[shapeId]
+        const updatedInbox: BoardRecord = {
+            ...inboxBoard,
+            snapshot: {
+                ...(inboxBoard.snapshot as any),
+                document: { ...(inboxBoard.snapshot as any).document, store: newInboxStore },
+            } as TLEditorSnapshot,
+            updatedAt: Date.now(),
+        }
+        saveBoard(updatedInbox)
+
+        // Compute updated target (shape inserted)
+        const targetBoard = boards.find(b => b.id === targetBoardId)
+        let updatedTarget: BoardRecord | null = null
+        if (targetBoard) {
+            const snap: any = targetBoard.snapshot
+                ? structuredClone(targetBoard.snapshot)
+                : { document: { store: {}, schema: { schemaVersion: 2, sequences: {} } }, session: {} }
+            if (!snap.document) snap.document = { store: {}, schema: { schemaVersion: 2, sequences: {} } }
+            if (!snap.document.store) snap.document.store = {}
+            const st = snap.document.store
+            if (!st['document:document']) st['document:document'] = { typeName: 'document', id: 'document:document', gridSize: 10, name: '', meta: {} }
+            const pageRec = (Object.values(st) as any[]).find(r => r.typeName === 'page')
+            const pageId = pageRec?.id ?? 'page:page'
+            if (!st[pageId]) st[pageId] = { typeName: 'page', id: pageId, name: 'Page 1', index: 'a1', meta: {} }
+            const existingShapes = (Object.values(st) as any[]).filter(r => r.typeName === 'shape')
+            const maxX = existingShapes.length > 0 ? Math.max(...existingShapes.map((s: any) => (s.x ?? 0) + (s.props?.w ?? 240))) + 40 : 100
+            st[shapeId] = { ...structuredClone(shape), parentId: pageId, x: maxX, y: 100 }
+            updatedTarget = { ...targetBoard, snapshot: snap as TLEditorSnapshot, updatedAt: Date.now() }
+            saveBoard(updatedTarget)
+        }
+
         setBoards(prev => prev.map(b => {
-            if (b.id === inboxBoard.id) {
-                const newStore = { ...((b.snapshot as any).document?.store ?? {}) }
-                delete newStore[shapeId]
-                const updated = { ...b, snapshot: { ...(b.snapshot as any), document: { ...(b.snapshot as any).document, store: newStore } } as TLEditorSnapshot, updatedAt: Date.now() }
-                saveBoard(updated)
-                return updated
-            }
-            if (b.id === targetBoardId) {
-                const snap: any = b.snapshot
-                    ? structuredClone(b.snapshot)
-                    : { document: { store: {}, schema: { schemaVersion: 2, sequences: {} } }, session: {} }
-                if (!snap.document) snap.document = { store: {}, schema: { schemaVersion: 2, sequences: {} } }
-                if (!snap.document.store) snap.document.store = {}
-                const st = snap.document.store
-                if (!st['document:document']) st['document:document'] = { typeName: 'document', id: 'document:document', gridSize: 10, name: '', meta: {} }
-                const pageRec = (Object.values(st) as any[]).find(r => r.typeName === 'page')
-                const pageId = pageRec?.id ?? 'page:page'
-                if (!st[pageId]) st[pageId] = { typeName: 'page', id: pageId, name: 'Page 1', index: 'a1', meta: {} }
-                const existingShapes = (Object.values(st) as any[]).filter(r => r.typeName === 'shape')
-                const maxX = existingShapes.length > 0 ? Math.max(...existingShapes.map((s: any) => (s.x ?? 0) + (s.props?.w ?? 240))) + 40 : 100
-                st[shapeId] = { ...structuredClone(shape), parentId: pageId, x: maxX, y: 100 }
-                const updated = { ...b, snapshot: snap as TLEditorSnapshot, updatedAt: Date.now() }
-                saveBoard(updated)
-                return updated
-            }
+            if (b.id === inboxBoard.id) return updatedInbox
+            if (updatedTarget && b.id === targetBoardId) return updatedTarget
             return b
         }))
 
