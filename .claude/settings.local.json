@@ -15,7 +15,8 @@
       "Bash(node -e \"const p = require\\('./node_modules/@dnd-kit/sortable/package.json'\\); console.log\\('@dnd-kit/sortable:', p.version\\)\")",
       "Bash(node -e \"const t = require\\('./node_modules/tldraw/dist-cjs/tldraw.js'\\); console.log\\('useIsDarkMode' in t\\)\")",
       "Bash(git *)",
-      "Bash(node -e \"require\\('./node_modules/@dnd-kit/core/dist/index.cjs.js'\\); console.log\\('dnd-kit ok'\\)\")"
+      "Bash(node -e \"require\\('./node_modules/@dnd-kit/core/dist/index.cjs.js'\\); console.log\\('dnd-kit ok'\\)\")",
+      "Bash(curl -s http://localhost:5173/)"
     ]
   }
 }

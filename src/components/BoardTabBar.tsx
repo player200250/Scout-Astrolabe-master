@@ -39,6 +39,8 @@ interface BoardTabBarProps {
     onReorderBoards: (activeId: string, overId: string) => void
     inboxCardCount: number
     onQuickCapture: () => void
+    overdueCount: number
+    todayCount: number
 }
 
 function SortableBoardItem({ id, children }: { id: string; children: React.ReactNode }) {
@@ -62,7 +64,7 @@ function SortableBoardItem({ id, children }: { id: string; children: React.React
     )
 }
 
-export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelete, onSearch, onHotkey, onOpenOverview, onSetJournal, navigationStack, onBack, onSetParent, onSwitchToChild, collapsed, onToggleCollapse, onSetStatus, onOpenTaskCenter, onOpenFilter, onOpenReviewCenter, onOpenBackup, onGoToInbox, onOpenKnowledgeGraph, isDark, onToggleTheme, onReorderBoards, inboxCardCount, onQuickCapture }: BoardTabBarProps) {
+export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelete, onSearch, onHotkey, onOpenOverview, onSetJournal, navigationStack, onBack, onSetParent, onSwitchToChild, collapsed, onToggleCollapse, onSetStatus, onOpenTaskCenter, onOpenFilter, onOpenReviewCenter, onOpenBackup, onGoToInbox, onOpenKnowledgeGraph, isDark, onToggleTheme, onReorderBoards, inboxCardCount, onQuickCapture, overdueCount, todayCount }: BoardTabBarProps) {
     const [hoveredId, setHoveredId] = useState<string | null>(null)
     const [renamingId, setRenamingId] = useState<string | null>(null)
     const [renameValue, setRenameValue] = useState('')
@@ -180,7 +182,22 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                             )}
                         </div>
                         <button onClick={onQuickCapture} title="快速新增到收件匣 (Ctrl+Space)" style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border-light)', background: 'transparent', cursor: 'pointer', fontSize: 13, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>✏️</button>
-                        <button onClick={onOpenTaskCenter} title="任務中心" style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border-light)', background: 'transparent', cursor: 'pointer', fontSize: 13, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>✅</button>
+                        <div style={{ position: 'relative' }}>
+                            <button onClick={onOpenTaskCenter} title="任務中心" style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border-light)', background: 'transparent', cursor: 'pointer', fontSize: 13, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>✅</button>
+                            {(overdueCount > 0 || todayCount > 0) && (
+                                <span style={{
+                                    position: 'absolute', top: 0, right: 0,
+                                    background: overdueCount > 0 ? '#ef4444' : '#f97316',
+                                    color: 'white', fontSize: 8, fontWeight: 700,
+                                    borderRadius: 999, minWidth: 12, height: 12,
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    padding: '0 2px', lineHeight: 1,
+                                    border: '1.5px solid var(--bg-sidebar)', pointerEvents: 'none',
+                                }}>
+                                    {(overdueCount > 0 ? overdueCount : todayCount) > 99 ? '99+' : (overdueCount > 0 ? overdueCount : todayCount)}
+                                </span>
+                            )}
+                        </div>
                         <button onClick={onOpenReviewCenter} title="復盤中心 (Ctrl+Shift+C)" style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border-light)', background: 'transparent', cursor: 'pointer', fontSize: 13, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>📔</button>
                     </div>
                 )}
@@ -432,6 +449,8 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                         onOpenKnowledgeGraph={onOpenKnowledgeGraph}
                         isDark={isDark}
                         onToggleTheme={onToggleTheme}
+                        overdueCount={overdueCount}
+                        todayCount={todayCount}
                     />
                 )}
             </div>

@@ -7,9 +7,13 @@ interface SidebarFooterProps {
     onOpenKnowledgeGraph: () => void
     isDark: boolean
     onToggleTheme: () => void
+    overdueCount: number
+    todayCount: number
 }
 
-export function SidebarFooter({ onOpenTaskCenter, onOpenFilter, onOpenReviewCenter, onOpenBackup, onHotkey, onOpenKnowledgeGraph, isDark, onToggleTheme }: SidebarFooterProps) {
+export function SidebarFooter({ onOpenTaskCenter, onOpenFilter, onOpenReviewCenter, onOpenBackup, onHotkey, onOpenKnowledgeGraph, isDark, onToggleTheme, overdueCount, todayCount }: SidebarFooterProps) {
+    const hoverBg = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.045)'
+
     const navRow = (icon: string, label: string, onClick: () => void, title?: string) => (
         <button
             onClick={onClick}
@@ -19,7 +23,7 @@ export function SidebarFooter({ onOpenTaskCenter, onOpenFilter, onOpenReviewCent
                 padding: '0 12px', border: 'none', background: 'transparent', cursor: 'pointer',
                 borderRadius: 0, textAlign: 'left',
             }}
-            onMouseEnter={e => (e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.045)')}
+            onMouseEnter={e => (e.currentTarget.style.background = hoverBg)}
             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
         >
             <span style={{ fontSize: 14, width: 18, textAlign: 'center', flexShrink: 0 }}>{icon}</span>
@@ -27,10 +31,41 @@ export function SidebarFooter({ onOpenTaskCenter, onOpenFilter, onOpenReviewCent
         </button>
     )
 
+    const badgeCount = overdueCount > 0 ? overdueCount : todayCount
+    const badgeColor = overdueCount > 0 ? '#ef4444' : '#f97316'
+    const badgeLabel = badgeCount > 99 ? '99+' : String(badgeCount)
+
     return (
         <div style={{ borderTop: '1px solid var(--border-light)', flexShrink: 0, paddingBottom: 2 }}>
             {navRow('📔', '復盤中心', onOpenReviewCenter, '復盤中心 (Ctrl+Shift+C)')}
-            {navRow('✅', '任務中心', onOpenTaskCenter)}
+            <button
+                onClick={onOpenTaskCenter}
+                style={{
+                    width: '100%', height: 34, display: 'flex', alignItems: 'center', gap: 9,
+                    padding: '0 12px', border: 'none', background: 'transparent', cursor: 'pointer',
+                    borderRadius: 0, textAlign: 'left',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.background = hoverBg)}
+                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+            >
+                <span style={{ fontSize: 14, width: 18, textAlign: 'center', flexShrink: 0 }}>✅</span>
+                <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>任務中心</span>
+                {badgeCount > 0 && (
+                    <span style={{
+                        marginLeft: 'auto',
+                        background: badgeColor,
+                        color: 'white',
+                        fontSize: 10, fontWeight: 700,
+                        borderRadius: 999,
+                        padding: '1px 6px',
+                        minWidth: 18, textAlign: 'center',
+                        lineHeight: '16px',
+                        flexShrink: 0,
+                    }}>
+                        {badgeLabel}
+                    </span>
+                )}
+            </button>
             {navRow('🕸️', '知識圖譜', onOpenKnowledgeGraph, '知識圖譜 (Ctrl+Shift+G)')}
             <div style={{ display: 'flex', justifyContent: 'space-around', padding: '4px 12px 4px', borderTop: '1px solid var(--border-light)', marginTop: 2 }}>
                 {([

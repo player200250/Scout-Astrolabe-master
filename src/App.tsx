@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useBoardManager } from './hooks/useBoardManager'
 import { Whiteboard } from './components/Whiteboard'
 import { BoardTabBar } from './components/BoardTabBar'
@@ -13,6 +13,8 @@ import { HotkeyPanel } from './HotkeyPanel'
 import { KnowledgeGraph } from './KnowledgeGraph'
 import { QuickCapture } from './components/QuickCapture'
 import { SIDEBAR_WIDTH, SIDEBAR_COLLAPSED_WIDTH, INBOX_BOARD_ID } from './constants'
+import { getCardShapes } from './utils/snapshot'
+import { getTodayStr } from './utils/date'
 import 'tldraw/tldraw.css'
 
 declare global {
@@ -52,6 +54,34 @@ export default function App() {
     const [movingCardShapeId, setMovingCardShapeId] = useState<string | null>(null)
     const [knowledgeGraphOpen, setKnowledgeGraphOpen] = useState(false)
     const [quickCaptureOpen, setQuickCaptureOpen] = useState(false)
+    const [overdueBannerVisible, setOverdueBannerVisible] = useState(false)
+    const bannerShownRef = useRef(false)
+
+    const { overdueCount, todayCount } = useMemo(() => {
+        const todayStr = getTodayStr()
+        let overdue = 0
+        let today = 0
+        for (const board of boards) {
+            for (const shape of getCardShapes(board.snapshot)) {
+                if (shape.props.type !== 'todo') continue
+                for (const t of shape.props.todos ?? []) {
+                    if (t.checked || !t.dueDate) continue
+                    if (t.dueDate < todayStr) overdue++
+                    else if (t.dueDate === todayStr) today++
+                }
+            }
+        }
+        return { overdueCount: overdue, todayCount: today }
+    }, [boards])
+
+    useEffect(() => {
+        if (loading || bannerShownRef.current) return
+        bannerShownRef.current = true
+        if (overdueCount === 0) return
+        const t1 = setTimeout(() => setOverdueBannerVisible(true), 300)
+        const t2 = setTimeout(() => setOverdueBannerVisible(false), 5300)
+        return () => { clearTimeout(t1); clearTimeout(t2) }
+    }, [loading, overdueCount])
 
     const toggleTheme = useCallback(() => {
         setIsDark(prev => {
@@ -68,12 +98,12 @@ export default function App() {
     const sidebarWidth = sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_WIDTH
     const activeBoard = boards.find(b => b.id === activeBoardId) ?? null
 
-    const inboxCardCount = (() => {
+    const inboxCardCount = useMemo(() => {
         const inboxBoard = boards.find(b => b.isInbox)
         if (!inboxBoard?.snapshot) return 0
         const store = (inboxBoard.snapshot as any).document?.store ?? {}
         return (Object.values(store) as any[]).filter(s => s.typeName === 'shape' && s.type === 'card').length
-    })()
+    }, [boards])
 
     useEffect(() => {
         const handler = (e: KeyboardEvent) => {
@@ -153,6 +183,8 @@ export default function App() {
                 onReorderBoards={handleReorderBoards}
                 inboxCardCount={inboxCardCount}
                 onQuickCapture={() => setQuickCaptureOpen(true)}
+                overdueCount={overdueCount}
+                todayCount={todayCount}
             />
 
             {movingCardShapeId && (
@@ -241,6 +273,31 @@ export default function App() {
                     onClose={() => setQuickCaptureOpen(false)}
                     isDark={isDark}
                 />
+            )}
+            {overdueBannerVisible && (
+                <div style={{
+                    position: 'fixed', bottom: 24, left: 24, zIndex: 99998,
+                    background: isDark ? '#1e293b' : 'white',
+                    border: `1px solid ${isDark ? '#475569' : '#fecaca'}`,
+                    borderRadius: 14, padding: '14px 18px',
+                    boxShadow: '0 8px 32px rgba(0,0,0,0.25)',
+                    display: 'flex', flexDirection: 'column', gap: 10,
+                    width: 270,
+                }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: isDark ? '#fca5a5' : '#dc2626' }}>
+                        ⚠️ 你有 {overdueCount} 個逾期任務
+                    </div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                        <button
+                            onClick={() => { setOverdueBannerVisible(false); setTaskCenterOpen(true) }}
+                            style={{ flex: 1, padding: '6px 0', borderRadius: 7, border: 'none', background: '#dc2626', color: 'white', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
+                        >查看任務中心</button>
+                        <button
+                            onClick={() => setOverdueBannerVisible(false)}
+                            style={{ flex: 1, padding: '6px 0', borderRadius: 7, border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}`, background: 'transparent', color: isDark ? '#94a3b8' : '#64748b', cursor: 'pointer', fontSize: 12 }}
+                        >稍後再說</button>
+                    </div>
+                </div>
             )}
         </>
     )

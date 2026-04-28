@@ -383,6 +383,12 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
 
     const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+    // Always keep a ref to the latest onSaveBoard so saveDebounce never captures a stale closure.
+    // Without this, every boards-state update recreates onSaveBoard → recreates saveDebounce →
+    // the store-listener effect cleanup cancels the pending 500 ms timer → edits are lost.
+    const onSaveBoardRef = useRef(onSaveBoard)
+    onSaveBoardRef.current = onSaveBoard
+
     const generateThumbnail = useCallback(async (): Promise<string | null> => {
         try {
             const shapeIds = [...editor.getCurrentPageShapeIds()]
@@ -401,10 +407,10 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
         if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
         saveTimerRef.current = setTimeout(async () => {
             const thumbnail = await generateThumbnail()
-            onSaveBoard(snap, thumbnail)
+            onSaveBoardRef.current(snap, thumbnail)
             saveTimerRef.current = null
         }, 500)
-    }, [generateThumbnail, onSaveBoard])
+    }, [generateThumbnail])
 
     useEffect(() => {
         if (!editor) return
