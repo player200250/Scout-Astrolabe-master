@@ -110,7 +110,6 @@ export function CalendarContent({ boards, onJumpToBoard, onOpenJournalDay, isDar
     const selCellBg  = isDark ? '#1e3a5f' : '#f0f4ff'
     const hoverCellBg = isDark ? '#243447' : '#f7f7f7'
     const navBtnBorder = isDark ? '#334155' : '#e8e8e8'
-    const agendaBorder = isDark ? '#334155' : '#f5f5f3'
 
     const navBtnStyle: React.CSSProperties = {
         width: 28, height: 28, borderRadius: 8, border: `1px solid ${navBtnBorder}`,

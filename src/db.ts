@@ -24,11 +24,19 @@ export interface BackupRecord {
     boards: BoardRecord[]
 }
 
+export interface TemplateRecord {
+    id: string
+    name: string
+    content: string
+    createdAt: number
+}
+
 export const db = new Dexie('AstrolabeDB')
 db.version(1).stores({ snapshots: 'id' })
 db.version(2).stores({ snapshots: 'id', boards: 'id' })
 db.version(3).stores({ snapshots: 'id', boards: 'id', backups: 'id' })
 db.version(4).stores({ snapshots: 'id', boards: 'id', backups: 'id, timestamp' })
+db.version(5).stores({ snapshots: 'id', boards: 'id', backups: 'id, timestamp', templates: 'id, createdAt' })
 
 export const MAX_BACKUPS = 30
 

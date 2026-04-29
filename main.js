@@ -36,7 +36,7 @@ function createWindow() {
     win.loadFile(path.join(__dirname, 'dist/index.html'));
   } else {
     win.loadURL('http://localhost:5173');
-    // win.webContents.openDevTools(); // 需要調試時可以打開這行
+    win.webContents.openDevTools(); // 調試中
   }
 }
 

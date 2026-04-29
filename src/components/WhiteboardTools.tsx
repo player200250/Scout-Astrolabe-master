@@ -77,6 +77,11 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
         editor.createShape({ type: 'frame', x: x ?? pageCenter.x - 160, y: y ?? pageCenter.y - 240, props: { w: 320, h: 480, name: '欄位' } })
     }, [editor])
 
+    const createTextCardWithContent = useCallback((x: number, y: number, content: string, w = 280, h = 320) => {
+        console.log('[createTextCardWithContent] called', { x, y, content, w, h })
+        editor.createShape({ type: 'card', x, y, props: { type: 'text', text: content, image: null, todos: [], url: '', state: 'idle', w, h } })
+    }, [editor])
+
     const openImageInput = useCallback(() => imageInputRef.current?.click(), [])
 
     const cardCreators: CardCreators = useMemo(() => ({
@@ -148,7 +153,7 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
         return () => window.removeEventListener('create-board-card-on' as any, handler)
     }, [board.id, editor])
 
-    const { menuElement } = useContextMenu({ editor, createTextCard, createTodoCard, createLinkCard, openImageInput, isInboxBoard, onMoveCard, isDark })
+    const { menuElement } = useContextMenu({ editor, createTextCard, createTodoCard, createLinkCard, openImageInput, createTextCardWithContent, isInboxBoard, onMoveCard, isDark })
 
     useEffect(() => {
         const h = (e: CustomEvent) => { if (editor) editor.deleteShapes([e.detail.shapeId]) }

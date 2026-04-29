@@ -16,7 +16,12 @@
       "Bash(node -e \"const t = require\\('./node_modules/tldraw/dist-cjs/tldraw.js'\\); console.log\\('useIsDarkMode' in t\\)\")",
       "Bash(git *)",
       "Bash(node -e \"require\\('./node_modules/@dnd-kit/core/dist/index.cjs.js'\\); console.log\\('dnd-kit ok'\\)\")",
-      "Bash(curl -s http://localhost:5173/)"
+      "Bash(curl -s http://localhost:5173/)",
+      "Bash(node -e \"const ts = require\\('typescript'\\); console.log\\(ts.version\\)\")",
+      "Bash(xargs grep *)",
+      "Bash(grep -v \"//.*contextmenu\")",
+      "Bash(cat vite.config.ts)",
+      "Bash(cat vite.config.js)"
     ]
   }
 }

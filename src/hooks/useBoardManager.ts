@@ -3,7 +3,7 @@ import type { TLEditorSnapshot } from 'tldraw'
 import { db, saveAutoBackup, type BoardRecord } from '../db'
 import { getISOWeekKey } from '../WeeklyReview'
 import { loadAllBoards, saveBoard, deleteBoard, generateId } from '../utils/boardDb'
-import { HOME_BOARD_ID, INBOX_BOARD_ID, BACKUP_THROTTLE_MS } from '../constants'
+import { INBOX_BOARD_ID, BACKUP_THROTTLE_MS } from '../constants'
 
 export function useBoardManager() {
     const [boards, setBoards] = useState<BoardRecord[]>([])
