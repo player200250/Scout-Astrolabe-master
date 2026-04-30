@@ -8,6 +8,7 @@ import { useContextMenu } from '../ContextMenu'
 import { useHotkeys } from '../Usehotkeys'
 import { getISOWeekKey, getWeekRange } from '../WeeklyReview'
 import { exportJSON, importJSON } from '../utils/boardExport'
+import { exportBoardToMarkdown, exportSelectedToMarkdown } from '../utils/exportMarkdown'
 
 interface WhiteboardToolsProps {
     board: BoardRecord
@@ -295,6 +296,16 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
         img.src = imgUrl
     }, [editor, board.name])
 
+    const exportMarkdown = useCallback((selectedOnly: boolean) => {
+        const allShapes = editor.getCurrentPageShapes()
+        if (selectedOnly) {
+            const selectedIds = new Set(editor.getSelectedShapeIds())
+            exportSelectedToMarkdown(allShapes.filter(s => selectedIds.has(s.id)) as any, board.name)
+        } else {
+            exportBoardToMarkdown(allShapes as any, board.name)
+        }
+    }, [editor, board.name])
+
     const [showExportMenu, setShowExportMenu] = useState(false)
 
     useEffect(() => {
@@ -472,6 +483,8 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
                                 { label: '🖼️ 選取卡片 → PNG', fn: () => exportPNG(true) },
                                 { label: '📄 整個白板 → PDF', fn: () => exportPDF(false) },
                                 { label: '📄 選取卡片 → PDF', fn: () => exportPDF(true) },
+                                { label: '📝 整個白板 → Markdown', fn: () => exportMarkdown(false) },
+                                { label: '📝 選取卡片 → Markdown', fn: () => exportMarkdown(true) },
                             ].map(({ label, fn }) => (
                                 <div key={label} onClick={() => { fn(); setShowExportMenu(false) }}
                                     style={{ padding: '8px 16px', cursor: 'pointer', fontSize: 13, color: isDark ? '#e2e8f0' : '#1a1a1a' }}
