@@ -21,7 +21,8 @@
       "Bash(xargs grep *)",
       "Bash(grep -v \"//.*contextmenu\")",
       "Bash(cat vite.config.ts)",
-      "Bash(cat vite.config.js)"
+      "Bash(cat vite.config.js)",
+      "Bash(npx playwright *)"
     ]
   }
 }
