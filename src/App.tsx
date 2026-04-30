@@ -12,6 +12,7 @@ import { ReviewCenter } from './ReviewCenter'
 import { HotkeyPanel } from './HotkeyPanel'
 import { KnowledgeGraph } from './KnowledgeGraph'
 import { QuickCapture } from './components/QuickCapture'
+import { OnboardingModal } from './components/OnboardingModal'
 import { SIDEBAR_WIDTH, SIDEBAR_COLLAPSED_WIDTH, INBOX_BOARD_ID } from './constants'
 import { getCardShapes } from './utils/snapshot'
 import { getTodayStr } from './utils/date'
@@ -54,6 +55,7 @@ export default function App() {
     const [movingCardShapeId, setMovingCardShapeId] = useState<string | null>(null)
     const [knowledgeGraphOpen, setKnowledgeGraphOpen] = useState(false)
     const [quickCaptureOpen, setQuickCaptureOpen] = useState(false)
+    const [onboardingOpen, setOnboardingOpen] = useState(false)
     const [overdueBannerVisible, setOverdueBannerVisible] = useState(false)
     const bannerShownRef = useRef(false)
 
@@ -73,6 +75,15 @@ export default function App() {
         }
         return { overdueCount: overdue, todayCount: today }
     }, [boards])
+
+    useEffect(() => {
+        if (loading) return
+        try {
+            if (localStorage.getItem('onboarding-completed') !== 'true') {
+                setOnboardingOpen(true)
+            }
+        } catch { }
+    }, [loading])
 
     useEffect(() => {
         if (loading || bannerShownRef.current) return
@@ -185,6 +196,7 @@ export default function App() {
                 onQuickCapture={() => setQuickCaptureOpen(true)}
                 overdueCount={overdueCount}
                 todayCount={todayCount}
+                onOpenOnboarding={() => setOnboardingOpen(true)}
             />
 
             {movingCardShapeId && (
@@ -271,6 +283,12 @@ export default function App() {
                 <QuickCapture
                     onSave={text => { handleAddCardToInbox(text); setQuickCaptureOpen(false) }}
                     onClose={() => setQuickCaptureOpen(false)}
+                    isDark={isDark}
+                />
+            )}
+            {onboardingOpen && (
+                <OnboardingModal
+                    onClose={() => setOnboardingOpen(false)}
                     isDark={isDark}
                 />
             )}

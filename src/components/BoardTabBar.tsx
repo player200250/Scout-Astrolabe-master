@@ -41,6 +41,7 @@ interface BoardTabBarProps {
     onQuickCapture: () => void
     overdueCount: number
     todayCount: number
+    onOpenOnboarding: () => void
 }
 
 function SortableBoardItem({ id, children }: { id: string; children: React.ReactNode }) {
@@ -64,7 +65,7 @@ function SortableBoardItem({ id, children }: { id: string; children: React.React
     )
 }
 
-export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelete, onSearch, onHotkey, onOpenOverview, onSetJournal, navigationStack, onBack, onSetParent, onSwitchToChild, collapsed, onToggleCollapse, onSetStatus, onOpenTaskCenter, onOpenFilter, onOpenReviewCenter, onOpenBackup, onGoToInbox, onOpenKnowledgeGraph, isDark, onToggleTheme, onReorderBoards, inboxCardCount, onQuickCapture, overdueCount, todayCount }: BoardTabBarProps) {
+export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelete, onSearch, onHotkey, onOpenOverview, onSetJournal, navigationStack, onBack, onSetParent, onSwitchToChild, collapsed, onToggleCollapse, onSetStatus, onOpenTaskCenter, onOpenFilter, onOpenReviewCenter, onOpenBackup, onGoToInbox, onOpenKnowledgeGraph, isDark, onToggleTheme, onReorderBoards, inboxCardCount, onQuickCapture, overdueCount, todayCount, onOpenOnboarding }: BoardTabBarProps) {
     const [hoveredId, setHoveredId] = useState<string | null>(null)
     const [renamingId, setRenamingId] = useState<string | null>(null)
     const [renameValue, setRenameValue] = useState('')
@@ -451,6 +452,7 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                         onToggleTheme={onToggleTheme}
                         overdueCount={overdueCount}
                         todayCount={todayCount}
+                        onOpenOnboarding={onOpenOnboarding}
                     />
                 )}
             </div>
