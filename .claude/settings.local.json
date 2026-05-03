@@ -23,7 +23,9 @@
       "Bash(cat vite.config.ts)",
       "Bash(cat vite.config.js)",
       "Bash(npx playwright *)",
-      "Bash(gh --version)"
+      "Bash(gh --version)",
+      "Bash(node -e \"const t = require\\('./node_modules/tldraw/dist-cjs/index.js'\\); console.log\\(Object.keys\\(t\\).filter\\(k => k.includes\\('Geo'\\) || k.includes\\('geo'\\)\\).join\\('\\\\n'\\)\\)\")",
+      "Bash(node --input-type=module -e \"import t from './node_modules/tldraw/dist-esm/index.js'; console.log\\(Object.keys\\(t\\).filter\\(k => k.toLowerCase\\(\\).includes\\('geo'\\)\\).join\\('\\\\n'\\)\\)\")"
     ]
   }
 }
