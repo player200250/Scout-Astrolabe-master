@@ -102,7 +102,7 @@ export function CardContent({ editor, shape, isEditing, exitEdit }: CardContentP
                         alignItems: 'center',
                         gap: 6,
                     }}>
-                        📔 {(p as any).journalDate ?? '今日'}
+                        📔 {p.journalDate ?? '今日'}
                     </div>
                     <div style={{ position: 'relative', flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                         <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative' }}>

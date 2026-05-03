@@ -3,7 +3,7 @@ console.log('[ContextMenu] module loaded')
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Editor } from 'tldraw'
 import { CARD_COLORS } from './components/card-shape/type/CardShape'
-import type { CardColor } from './components/card-shape/type/CardShape'
+import type { CardColor, TLCardShape } from './components/card-shape/type/CardShape'
 import { db } from './db'
 import type { TemplateRecord } from './db'
 
@@ -398,16 +398,16 @@ export function useContextMenu({
             const isCard = hitShape?.type === 'card'
 
             if (isCard && hitShape) {
-                const shape = hitShape as any
-                const cardType: string = shape.props?.type ?? ''
+                const shape = hitShape as unknown as TLCardShape
+                const cardType = shape.props.type
                 const isLink = cardType === 'link'
                 const isText = cardType === 'text'
-                const currentColor: CardColor = shape.props?.color ?? 'none'
+                const currentColor: CardColor = shape.props.color
 
                 console.log('[ContextMenu] buildMenuItems called', {
                     hasCreateTextCardWithContent: !!createTextCardWithContent,
                     isText,
-                    selectedShape: shape.props?.type,
+                    selectedShape: shape.props.type,
                 })
 
                 const items: MenuItem[] = [

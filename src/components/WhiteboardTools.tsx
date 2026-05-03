@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react'
 import { useEditor, getSnapshot, loadSnapshot, exportToBlob } from 'tldraw'
-import type { TLEditorSnapshot } from 'tldraw'
+import type { TLEditorSnapshot, TLShapeId } from 'tldraw'
 import { jsPDF } from 'jspdf'
 import type { BoardRecord } from '../db'
 import TldrawToolPanel, { type CardCreators } from '../TIdrawToolPanel'
@@ -9,6 +9,11 @@ import { useHotkeys } from '../Usehotkeys'
 import { getISOWeekKey, getWeekRange } from '../WeeklyReview'
 import { exportJSON, importJSON } from '../utils/boardExport'
 import { exportBoardToMarkdown, exportSelectedToMarkdown } from '../utils/exportMarkdown'
+import type { TLCardShape } from './card-shape/type/CardShape'
+
+function isCardShape(s: { type: string }): s is TLCardShape {
+    return s.type === 'card'
+}
 
 interface WhiteboardToolsProps {
     board: BoardRecord
@@ -96,32 +101,33 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
     }), [createTextCard, createImageCard, createTodoCard, createLinkCard, createBoardCard, createColumnCard, openImageInput])
 
     useEffect(() => {
-        const handleBoardEnter = (e: CustomEvent) => {
+        const handleBoardEnter = (e: CustomEvent<{ linkedBoardId: string }>) => {
             const { linkedBoardId } = e.detail
             if (linkedBoardId) onSwitchBoard(linkedBoardId)
         }
-        window.addEventListener('board-card-enter' as any, handleBoardEnter)
-        return () => window.removeEventListener('board-card-enter' as any, handleBoardEnter)
+        window.addEventListener('board-card-enter', handleBoardEnter)
+        return () => window.removeEventListener('board-card-enter', handleBoardEnter)
     }, [onSwitchBoard])
 
     useEffect(() => {
-        const handler = (e: CustomEvent) => {
+        const handler = (e: CustomEvent<{ deletedBoardId: string }>) => {
             const { deletedBoardId } = e.detail
             const orphans = editor.getCurrentPageShapes()
-                .filter(s => (s.props as any).type === 'board' && (s.props as any).linkedBoardId === deletedBoardId)
+                .filter(isCardShape)
+                .filter(s => s.props.type === 'board' && s.props.linkedBoardId === deletedBoardId)
                 .map(s => s.id)
-            if (orphans.length > 0) editor.deleteShapes(orphans as any)
+            if (orphans.length > 0) editor.deleteShapes(orphans)
         }
-        window.addEventListener('cleanup-orphan-board-cards' as any, handler)
-        return () => window.removeEventListener('cleanup-orphan-board-cards' as any, handler)
+        window.addEventListener('cleanup-orphan-board-cards', handler)
+        return () => window.removeEventListener('cleanup-orphan-board-cards', handler)
     }, [editor])
 
     useEffect(() => {
-        const handler = (e: CustomEvent) => {
+        const handler = (e: CustomEvent<{ boardId?: string; shapeId?: string; x?: number; y?: number; targetName?: string }>) => {
             const { boardId, shapeId, x, y, targetName } = e.detail ?? {}
 
             if (targetName) {
-                const target = boards.find(b => b.name.toLowerCase() === (targetName as string).toLowerCase())
+                const target = boards.find(b => b.name.toLowerCase() === targetName.toLowerCase())
                 if (target) onSwitchBoard(target.id)
                 return
             }
@@ -135,12 +141,12 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
                 setTimeout(() => jumpRef.current?.(shapeId, x ?? 0, y ?? 0), 350)
             }
         }
-        window.addEventListener('jump-to-card' as any, handler)
-        return () => window.removeEventListener('jump-to-card' as any, handler)
+        window.addEventListener('jump-to-card', handler)
+        return () => window.removeEventListener('jump-to-card', handler)
     }, [boards, board.id, onSwitchBoard, jumpRef])
 
     useEffect(() => {
-        const handler = (e: CustomEvent) => {
+        const handler = (e: CustomEvent<{ targetBoardId: string; linkedBoardId: string; boardName: string }>) => {
             const { targetBoardId, linkedBoardId, boardName } = e.detail
             if (targetBoardId !== board.id) return
             const center = editor.getViewportScreenCenter()
@@ -150,24 +156,24 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
                 props: { type: 'board', text: boardName, image: null, todos: [], url: '', linkEmbedUrl: null, linkedBoardId, state: 'idle', color: 'none', w: 280, h: 200 }
             })
         }
-        window.addEventListener('create-board-card-on' as any, handler)
-        return () => window.removeEventListener('create-board-card-on' as any, handler)
+        window.addEventListener('create-board-card-on', handler)
+        return () => window.removeEventListener('create-board-card-on', handler)
     }, [board.id, editor])
 
     const { menuElement } = useContextMenu({ editor, createTextCard, createTodoCard, createLinkCard, openImageInput, createTextCardWithContent, isInboxBoard, onMoveCard, isDark })
 
     useEffect(() => {
-        const h = (e: CustomEvent) => { if (editor) editor.deleteShapes([e.detail.shapeId]) }
-        window.addEventListener('delete-shape-from-editor', h as EventListener)
-        return () => window.removeEventListener('delete-shape-from-editor', h as EventListener)
+        const h = (e: CustomEvent<{ shapeId: string }>) => { if (editor) editor.deleteShapes([e.detail.shapeId as TLShapeId]) }
+        window.addEventListener('delete-shape-from-editor', h)
+        return () => window.removeEventListener('delete-shape-from-editor', h)
     }, [editor])
 
     useEffect(() => {
-        const handler = (e: CustomEvent) => {
+        const handler = (e: CustomEvent<{ text: string; x: number; y: number; shapeId: string }>) => {
             if (!isInboxBoard) return
             const { text, x, y, shapeId } = e.detail
             editor.createShape({
-                id: shapeId as any,
+                id: shapeId as TLShapeId,
                 type: 'card', x, y,
                 props: {
                     type: 'text', text,
@@ -178,8 +184,8 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
                 },
             })
         }
-        window.addEventListener('quick-capture-card' as any, handler)
-        return () => window.removeEventListener('quick-capture-card' as any, handler)
+        window.addEventListener('quick-capture-card', handler)
+        return () => window.removeEventListener('quick-capture-card', handler)
     }, [editor, isInboxBoard])
 
     useHotkeys(editor, {
@@ -260,10 +266,10 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
 
     const exportPNG = useCallback(async (selectedOnly: boolean) => {
         const allIds = Array.from(editor.getCurrentPageShapeIds())
-        const selectedIds = editor.getSelectedShapeIds()
-        const ids = selectedOnly ? Array.from(selectedIds) : allIds
+        const selectedIds = Array.from(editor.getSelectedShapeIds())
+        const ids = selectedOnly ? selectedIds : allIds
         if (ids.length === 0) { alert(selectedOnly ? '請先選取卡片' : '白板沒有卡片'); return }
-        const blob = await exportToBlob({ editor, ids: ids as any, format: 'png', opts: { background: true, scale: 2 } })
+        const blob = await exportToBlob({ editor, ids, format: 'png', opts: { background: true, scale: 2 } })
         const url = URL.createObjectURL(blob)
         const a = document.createElement('a')
         a.href = url; a.download = `${board.name}.png`; a.click()
@@ -272,10 +278,10 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
 
     const exportPDF = useCallback(async (selectedOnly: boolean) => {
         const allIds = Array.from(editor.getCurrentPageShapeIds())
-        const selectedIds = editor.getSelectedShapeIds()
-        const ids = selectedOnly ? Array.from(selectedIds) : allIds
+        const selectedIds = Array.from(editor.getSelectedShapeIds())
+        const ids = selectedOnly ? selectedIds : allIds
         if (ids.length === 0) { alert(selectedOnly ? '請先選取卡片' : '白板沒有卡片'); return }
-        const blob = await exportToBlob({ editor, ids: ids as any, format: 'png', opts: { background: true, scale: 2 } })
+        const blob = await exportToBlob({ editor, ids, format: 'png', opts: { background: true, scale: 2 } })
         const imgUrl = URL.createObjectURL(blob)
         const img = new Image()
         img.onload = () => {
@@ -300,9 +306,9 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
         const allShapes = editor.getCurrentPageShapes()
         if (selectedOnly) {
             const selectedIds = new Set(editor.getSelectedShapeIds())
-            exportSelectedToMarkdown(allShapes.filter(s => selectedIds.has(s.id)) as any, board.name)
+            exportSelectedToMarkdown(allShapes.filter(s => selectedIds.has(s.id)), board.name)
         } else {
-            exportBoardToMarkdown(allShapes as any, board.name)
+            exportBoardToMarkdown(allShapes, board.name)
         }
     }, [editor, board.name])
 
@@ -321,8 +327,9 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
             if (targetBoards.length > 0) {
                 const existingLinkedIds = new Set(
                     editor.getCurrentPageShapes()
-                        .filter(s => (s.props as any).type === 'board')
-                        .map(s => (s.props as any).linkedBoardId)
+                        .filter(isCardShape)
+                        .filter(s => s.props.type === 'board')
+                        .map(s => s.props.linkedBoardId)
                         .filter(Boolean)
                 )
                 const missing = targetBoards.filter(b => !existingLinkedIds.has(b.id))
@@ -345,17 +352,17 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
                 const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
                 const weekDay = ['日', '一', '二', '三', '四', '五', '六'][today.getDay()]
                 const todayLabel = `${today.getMonth() + 1}/${today.getDate()}（${weekDay}）`
-                const alreadyExists = editor.getCurrentPageShapes().some(s => (s.props as any).journalDate === todayStr)
+                const alreadyExists = editor.getCurrentPageShapes().filter(isCardShape).some(s => s.props.journalDate === todayStr)
                 if (!alreadyExists) {
-                    const allShapes = editor.getCurrentPageShapes()
-                    const maxX = allShapes.length > 0 ? Math.max(...allShapes.map(s => s.x + ((s.props as any).w ?? 240))) + 40 : 100
+                    const allShapes = editor.getCurrentPageShapes().filter(isCardShape)
+                    const maxX = allShapes.length > 0 ? Math.max(...allShapes.map(s => s.x + s.props.w)) + 40 : 100
                     const journalText = `<h2>${todayLabel}</h2><p><strong>今天做了什麼</strong></p><p></p><p><strong>學到什麼（在哪個白板）</strong></p><p></p><p><strong>計畫/待辦</strong></p><p></p><p><strong>卡住的地方</strong></p><p></p><p><strong>明天先做</strong></p><p></p>`
                     editor.createShape({ type: 'card', x: maxX, y: 100, props: { type: 'journal', text: journalText, image: null, todos: [], url: '', linkEmbedUrl: null, journalDate: todayStr, state: 'idle', color: 'yellow', w: 280, h: 380 } })
                     editor.createShape({ type: 'card', x: maxX + 320, y: 100, props: { type: 'todo', text: `${todayLabel} 計畫`, image: null, todos: [{ id: `todo_${Date.now()}`, text: '今日任務', checked: false }], url: null, linkEmbedUrl: null, journalDate: todayStr, state: 'idle', color: 'blue', w: 260, h: 200 } })
                 }
 
                 const weekKey = getISOWeekKey(today)
-                const weeklyExists = editor.getCurrentPageShapes().some(s => (s.props as any).journalDate === weekKey)
+                const weeklyExists = editor.getCurrentPageShapes().filter(isCardShape).some(s => s.props.journalDate === weekKey)
                 if (!weeklyExists) {
                     const { start: weekStart, end: weekEnd, weekNum } = getWeekRange(today)
                     const allShapesNow = editor.getCurrentPageShapes()
@@ -387,8 +394,8 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
     useEffect(() => {
         jumpRef.current = (shapeId: string, x: number, y: number) => {
             try {
-                const shape = editor.getShape(shapeId as any)
-                if (shape) { editor.select(shapeId as any); editor.zoomToSelection({ animation: { duration: 300 } }) }
+                const shape = editor.getShape(shapeId as TLShapeId)
+                if (shape) { editor.select(shapeId as TLShapeId); editor.zoomToSelection({ animation: { duration: 300 } }) }
                 else { editor.setCamera({ x: -x + window.innerWidth / 2, y: -y + window.innerHeight / 2, z: 1 }, { animation: { duration: 300 } }) }
             } catch {
                 editor.setCamera({ x: -x + window.innerWidth / 2, y: -y + window.innerHeight / 2, z: 1 }, { animation: { duration: 300 } })
@@ -409,7 +416,7 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
         try {
             const shapeIds = [...editor.getCurrentPageShapeIds()]
             if (shapeIds.length === 0) return null
-            const blob = await exportToBlob({ editor, ids: shapeIds as any, format: 'png', opts: { background: true, scale: 0.15 } })
+            const blob = await exportToBlob({ editor, ids: shapeIds, format: 'png', opts: { background: true, scale: 0.15 } })
             return await new Promise<string | null>(resolve => {
                 const reader = new FileReader()
                 reader.onload = () => resolve(reader.result as string)
@@ -443,10 +450,9 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
         <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
             <TldrawToolPanel {...cardCreators} isDark={isDark} />
             <div style={{ position: 'absolute', top: 10, right: 10, display: 'flex', gap: 6, pointerEvents: 'auto', zIndex: 100 }}>
-                {/* @ts-ignore */}
                 {window.electronAPI && (
                     <button
-                        onClick={() => window.electronAPI.saveDocument(JSON.stringify({ snapshot: getSnapshot(editor.store) }))}
+                        onClick={() => window.electronAPI?.saveDocument(JSON.stringify({ snapshot: getSnapshot(editor.store) }))}
                         style={getExportBtnStyle(isDark)}
                         onMouseEnter={e => (e.currentTarget.style.background = isDark ? '#2d3748' : '#f0f0f0')}
                         onMouseLeave={e => (e.currentTarget.style.background = isDark ? 'rgba(30,41,59,0.92)' : 'rgba(255,255,255,0.92)')}

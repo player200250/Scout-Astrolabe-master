@@ -22,7 +22,8 @@
       "Bash(grep -v \"//.*contextmenu\")",
       "Bash(cat vite.config.ts)",
       "Bash(cat vite.config.js)",
-      "Bash(npx playwright *)"
+      "Bash(npx playwright *)",
+      "Bash(gh --version)"
     ]
   }
 }

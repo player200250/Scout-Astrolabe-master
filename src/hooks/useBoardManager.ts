@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import type { TLEditorSnapshot } from 'tldraw'
 import { db, saveAutoBackup, type BoardRecord } from '../db'
 import { getISOWeekKey } from '../WeeklyReview'
 import { loadAllBoards, saveBoard, deleteBoard, generateId } from '../utils/boardDb'
 import { INBOX_BOARD_ID, BACKUP_THROTTLE_MS } from '../constants'
+import {
+    getSnapshotStore, withUpdatedStore, toMutableSnapshot, toTLEditorSnapshot,
+} from '../utils/snapshot'
 
 export function useBoardManager() {
     const [boards, setBoards] = useState<BoardRecord[]>([])
@@ -165,8 +167,7 @@ export function useBoardManager() {
 
         const cleaned = next.map(b => {
             if (!b.snapshot) return b
-            const store = (b.snapshot as any).document?.store
-            if (!store) return b
+            const store = getSnapshotStore(b.snapshot)
             const orphanIds = Object.keys(store).filter(shapeId => {
                 const s = store[shapeId]
                 return s.typeName === 'shape' && s.type === 'card' && s.props?.type === 'board' && s.props?.linkedBoardId === id
@@ -174,7 +175,7 @@ export function useBoardManager() {
             if (orphanIds.length === 0) return b
             const newStore = { ...store }
             orphanIds.forEach(shapeId => { delete newStore[shapeId] })
-            const updated = { ...b, snapshot: { ...(b.snapshot as any), document: { ...(b.snapshot as any).document, store: newStore } } as TLEditorSnapshot }
+            const updated = { ...b, snapshot: withUpdatedStore(b.snapshot, newStore) }
             saveBoard(updated)
             return updated
         })
@@ -225,8 +226,8 @@ export function useBoardManager() {
         let cardX = 0
         let cardY = 0
         if (journalBoard.snapshot) {
-            const store = (journalBoard.snapshot as any).document?.store ?? {}
-            for (const shape of Object.values(store) as any[]) {
+            const store = getSnapshotStore(journalBoard.snapshot)
+            for (const shape of Object.values(store)) {
                 if (shape.typeName === 'shape' && shape.type === 'card' && shape.props?.journalDate === weekKey) {
                     cardId = shape.id; cardX = shape.x ?? 0; cardY = shape.y ?? 0
                     break
@@ -247,34 +248,30 @@ export function useBoardManager() {
         const board = boards.find(b => b.id === boardId)
         if (!board) return
 
-        const snapshot: any = board.snapshot
-            ? structuredClone(board.snapshot)
-            : { document: { store: {}, schema: { schemaVersion: 2, sequences: {} } }, session: {} }
-
-        if (!snapshot.document) snapshot.document = { store: {}, schema: { schemaVersion: 2, sequences: {} } }
-        if (!snapshot.document.store) snapshot.document.store = {}
-        const store = snapshot.document.store
+        const snap = toMutableSnapshot(board.snapshot)
+        const store = snap.document.store
 
         if (shapeId && store[shapeId]) {
-            store[shapeId].props.text = html
+            const rec = store[shapeId]
+            if (rec.props) { rec.props['text'] = html } else { rec.props = { text: html } }
         } else {
             if (!store['document:document']) {
-                store['document:document'] = { typeName: 'document', id: 'document:document', gridSize: 10, name: '', meta: {} }
+                store['document:document'] = { typeName: 'document', id: 'document:document', meta: {} }
             }
-            const pageRecord = Object.values(store).find((r: any) => r.typeName === 'page') as any
+            const pageRecord = Object.values(store).find(r => r.typeName === 'page')
             const pageId = pageRecord?.id ?? 'page:page'
             if (!store[pageId]) {
-                store[pageId] = { typeName: 'page', id: pageId, name: 'Page 1', index: 'a1', meta: {} }
+                store[pageId] = { typeName: 'page', id: pageId }
             }
 
-            const existingIndices = (Object.values(store) as any[])
+            const existingIndices = Object.values(store)
                 .filter(r => r.typeName === 'shape')
-                .map(r => r.index as string)
-                .filter(Boolean)
+                .map(r => r.index)
+                .filter((idx): idx is string => idx !== undefined)
                 .sort()
             const newIndex = (existingIndices[existingIndices.length - 1] ?? 'a0') + 'V'
             const newShapeId = `shape:jd_${dateStr.replace(/-/g, '')}_${Math.random().toString(36).slice(2, 7)}`
-            const allShapes = (Object.values(store) as any[]).filter(r => r.typeName === 'shape')
+            const allShapes = Object.values(store).filter(r => r.typeName === 'shape')
             const maxX = allShapes.length > 0
                 ? Math.max(...allShapes.map(s => (s.x ?? 0) + (s.props?.w ?? 240))) + 40
                 : 100
@@ -291,7 +288,7 @@ export function useBoardManager() {
                 },
             }
         }
-        const updated = { ...board, snapshot, updatedAt: Date.now() }
+        const updated = { ...board, snapshot: toTLEditorSnapshot(snap), updatedAt: Date.now() }
         saveBoard(updated)
         setBoards(prev => prev.map(b => b.id === boardId ? updated : b))
     }, [boards])
@@ -299,19 +296,16 @@ export function useBoardManager() {
     const handleMoveCardToBoard = useCallback((shapeId: string, targetBoardId: string) => {
         const inboxBoard = boards.find(b => b.isInbox)
         if (!inboxBoard?.snapshot) return
-        const srcStore = (inboxBoard.snapshot as any).document?.store ?? {}
+        const srcStore = getSnapshotStore(inboxBoard.snapshot)
         const shape = srcStore[shapeId]
         if (!shape) return
 
         // Compute updated inbox (shape removed)
-        const newInboxStore = { ...((inboxBoard.snapshot as any).document?.store ?? {}) }
+        const newInboxStore = { ...srcStore }
         delete newInboxStore[shapeId]
         const updatedInbox: BoardRecord = {
             ...inboxBoard,
-            snapshot: {
-                ...(inboxBoard.snapshot as any),
-                document: { ...(inboxBoard.snapshot as any).document, store: newInboxStore },
-            } as TLEditorSnapshot,
+            snapshot: withUpdatedStore(inboxBoard.snapshot, newInboxStore),
             updatedAt: Date.now(),
         }
         saveBoard(updatedInbox)
@@ -320,20 +314,16 @@ export function useBoardManager() {
         const targetBoard = boards.find(b => b.id === targetBoardId)
         let updatedTarget: BoardRecord | null = null
         if (targetBoard) {
-            const snap: any = targetBoard.snapshot
-                ? structuredClone(targetBoard.snapshot)
-                : { document: { store: {}, schema: { schemaVersion: 2, sequences: {} } }, session: {} }
-            if (!snap.document) snap.document = { store: {}, schema: { schemaVersion: 2, sequences: {} } }
-            if (!snap.document.store) snap.document.store = {}
+            const snap = toMutableSnapshot(targetBoard.snapshot)
             const st = snap.document.store
-            if (!st['document:document']) st['document:document'] = { typeName: 'document', id: 'document:document', gridSize: 10, name: '', meta: {} }
-            const pageRec = (Object.values(st) as any[]).find(r => r.typeName === 'page')
+            if (!st['document:document']) st['document:document'] = { typeName: 'document', id: 'document:document', meta: {} }
+            const pageRec = Object.values(st).find(r => r.typeName === 'page')
             const pageId = pageRec?.id ?? 'page:page'
-            if (!st[pageId]) st[pageId] = { typeName: 'page', id: pageId, name: 'Page 1', index: 'a1', meta: {} }
-            const existingShapes = (Object.values(st) as any[]).filter(r => r.typeName === 'shape')
-            const maxX = existingShapes.length > 0 ? Math.max(...existingShapes.map((s: any) => (s.x ?? 0) + (s.props?.w ?? 240))) + 40 : 100
+            if (!st[pageId]) st[pageId] = { typeName: 'page', id: pageId }
+            const existingShapes = Object.values(st).filter(r => r.typeName === 'shape')
+            const maxX = existingShapes.length > 0 ? Math.max(...existingShapes.map(s => (s.x ?? 0) + (s.props?.w ?? 240))) + 40 : 100
             st[shapeId] = { ...structuredClone(shape), parentId: pageId, x: maxX, y: 100 }
-            updatedTarget = { ...targetBoard, snapshot: snap as TLEditorSnapshot, updatedAt: Date.now() }
+            updatedTarget = { ...targetBoard, snapshot: toTLEditorSnapshot(snap), updatedAt: Date.now() }
             saveBoard(updatedTarget)
         }
 
@@ -355,28 +345,26 @@ export function useBoardManager() {
         const inboxBoard = boards.find(b => b.isInbox)
         if (!inboxBoard) return
 
-        const snapshot: any = inboxBoard.snapshot
-            ? structuredClone(inboxBoard.snapshot)
-            : { document: { store: {}, schema: { schemaVersion: 2, sequences: {} } }, session: {} }
-
-        if (!snapshot.document) snapshot.document = { store: {}, schema: { schemaVersion: 2, sequences: {} } }
-        if (!snapshot.document.store) snapshot.document.store = {}
-        const store = snapshot.document.store
+        const snap = toMutableSnapshot(inboxBoard.snapshot)
+        const store = snap.document.store
 
         if (!store['document:document']) {
-            store['document:document'] = { typeName: 'document', id: 'document:document', gridSize: 10, name: '', meta: {} }
+            store['document:document'] = { typeName: 'document', id: 'document:document', meta: {} }
         }
-        const pageRecord = (Object.values(store) as any[]).find(r => r.typeName === 'page')
+        const pageRecord = Object.values(store).find(r => r.typeName === 'page')
         const pageId = pageRecord?.id ?? 'page:page'
         if (!store[pageId]) {
-            store[pageId] = { typeName: 'page', id: pageId, name: 'Page 1', index: 'a1', meta: {} }
+            store[pageId] = { typeName: 'page', id: pageId }
         }
 
-        const existingShapes = (Object.values(store) as any[]).filter(r => r.typeName === 'shape')
-        const existingIndices = existingShapes.map(r => r.index as string).filter(Boolean).sort()
+        const existingShapes = Object.values(store).filter(r => r.typeName === 'shape')
+        const existingIndices = existingShapes
+            .map(r => r.index)
+            .filter((idx): idx is string => idx !== undefined)
+            .sort()
         const newIndex = (existingIndices[existingIndices.length - 1] ?? 'a0') + 'V'
         const maxX = existingShapes.length > 0
-            ? Math.max(...existingShapes.map((s: any) => (s.x ?? 0) + (s.props?.w ?? 240))) + 40
+            ? Math.max(...existingShapes.map(s => (s.x ?? 0) + (s.props?.w ?? 240))) + 40
             : 100
 
         const newShapeId = `shape:qc_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
@@ -393,7 +381,7 @@ export function useBoardManager() {
             },
         }
 
-        const updated = { ...inboxBoard, snapshot, updatedAt: Date.now() }
+        const updated = { ...inboxBoard, snapshot: toTLEditorSnapshot(snap), updatedAt: Date.now() }
         saveBoard(updated)
         setBoards(prev => prev.map(b => b.id === inboxBoard.id ? updated : b))
 

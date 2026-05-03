@@ -1,20 +1,5 @@
 import type { TLShape } from 'tldraw'
-
-interface TodoItem {
-    id: string
-    text: string
-    checked: boolean
-    dueDate?: string | null
-}
-
-interface CardProps {
-    type: 'text' | 'image' | 'todo' | 'link' | 'board' | 'journal'
-    text: string
-    todos?: TodoItem[]
-    url?: string | null
-    title?: string
-    journalDate?: string | null
-}
+import type { TLCardShape, TLCardProps } from '../components/card-shape/type/CardShape'
 
 function nodeToMarkdown(node: Node): string {
     if (node.nodeType === Node.TEXT_NODE) return node.textContent ?? ''
@@ -62,7 +47,7 @@ function stripHtml(html: string): string {
     return doc.body.textContent ?? ''
 }
 
-function cardToMarkdown(props: CardProps): string | null {
+function cardToMarkdown(props: TLCardProps): string | null {
     switch (props.type) {
         case 'text': {
             const md = htmlToMarkdown(props.text)
@@ -116,7 +101,7 @@ function download(content: string, name: string): void {
 export function exportBoardToMarkdown(shapes: TLShape[], boardName: string): void {
     const sections = shapes
         .filter(s => s.type === 'card')
-        .map(s => cardToMarkdown((s as any).props as CardProps))
+        .map(s => cardToMarkdown((s as unknown as TLCardShape).props))
         .filter((s): s is string => s !== null && s.trim() !== '')
 
     if (sections.length === 0) { alert('白板沒有可匯出的卡片'); return }

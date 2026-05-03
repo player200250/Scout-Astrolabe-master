@@ -1,6 +1,6 @@
 import { useMemo, useCallback, useState } from 'react'
 import { Editor } from 'tldraw'
-import type { TLCardShape } from '../type/CardShape'
+import type { TLCardShape, TLCardProps } from '../type/CardShape'
 
 interface LinkContentProps {
     editor: Editor
@@ -31,22 +31,22 @@ export const LinkContent = ({ editor, shape, isEditing, exitEdit, getEmbedData }
         const targetW = isEmbeddable ? 800 : 450
         const targetH = isEmbeddable ? 520 : 300
 
-        const updatePayload: any = {
+        const updatePayload: Partial<TLCardProps> = {
             url: inputUrl,
             linkEmbedUrl: embedUrl,
             w: targetW,
             h: targetH,
-            state: isFinal ? 'idle' : 'editing'
+            state: isFinal ? 'idle' : 'editing',
         }
 
         if (isFinal && inputUrl) {
-            const api = (window as any).electronAPI
+            const api = window.electronAPI
             if (api?.getLinkPreview) {
                 const metadata = await api.getLinkPreview(inputUrl)
                 if (metadata) {
                     updatePayload.title = metadata.title
-                    updatePayload.description = metadata.description
-                    updatePayload.image = metadata.image
+                    updatePayload.description = metadata.description ?? undefined
+                    updatePayload.thumbnail = metadata.image ?? undefined
                 }
             }
         }
@@ -64,9 +64,8 @@ export const LinkContent = ({ editor, shape, isEditing, exitEdit, getEmbedData }
         const rawUrl = p.url
         if (!rawUrl) return
         const formattedUrl = rawUrl.startsWith('http') ? rawUrl : `https://${rawUrl}`
-        const electron = (window as any).electronAPI
-        if (electron?.openLink) {
-            electron.openLink(formattedUrl)
+        if (window.electronAPI?.openLink) {
+            window.electronAPI.openLink(formattedUrl)
         } else {
             window.open(formattedUrl, '_blank', 'noopener,noreferrer')
         }

@@ -18,17 +18,6 @@ import { getCardShapes } from './utils/snapshot'
 import { getTodayStr } from './utils/date'
 import 'tldraw/tldraw.css'
 
-declare global {
-    interface Window {
-        electronAPI: {
-            saveDocument: (data: string) => void
-            loadDocument: () => Promise<any>
-            openDocument: () => Promise<string | null>
-            openLink: (url: string) => void
-        }
-    }
-}
-
 export default function App() {
     const {
         boards, activeBoardId, loading, navigationStack,
@@ -112,8 +101,7 @@ export default function App() {
     const inboxCardCount = useMemo(() => {
         const inboxBoard = boards.find(b => b.isInbox)
         if (!inboxBoard?.snapshot) return 0
-        const store = (inboxBoard.snapshot as any).document?.store ?? {}
-        return (Object.values(store) as any[]).filter(s => s.typeName === 'shape' && s.type === 'card').length
+        return getCardShapes(inboxBoard.snapshot).length
     }, [boards])
 
     useEffect(() => {

@@ -16,8 +16,8 @@ export interface HotkeyActions {
 // 使用 userAgentData（現代瀏覽器）或 userAgent 作為備援
 // Electron on Windows 一律是 false
 const isMac = typeof navigator !== 'undefined' && (
-    (navigator as any).userAgentData?.platform === 'macOS' ||
-    (!((navigator as any).userAgentData) && /Macintosh|MacIntel|MacPPC|Mac68K/.test(navigator.userAgent))
+    navigator.userAgentData?.platform === 'macOS' ||
+    (!navigator.userAgentData && /Macintosh|MacIntel|MacPPC|Mac68K/.test(navigator.userAgent))
 )
 const mod = (e: KeyboardEvent) => isMac ? e.metaKey : e.ctrlKey
 

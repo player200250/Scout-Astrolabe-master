@@ -1,11 +1,16 @@
 // src/KnowledgeGraph.tsx
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
-import ForceGraph2D from 'react-force-graph-2d'
+import _ForceGraph2D from 'react-force-graph-2d'
+import type { NodeObject, LinkObject } from 'react-force-graph-2d'
+// react-force-graph-2d's FCwithRef wraps NodeType in NodeObject<> at every layer,
+// producing NodeObject<NodeObject<NodeObject<T>>>[] — bypass with a local cast.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const ForceGraph2D = _ForceGraph2D as any
 import type { BoardRecord } from './db'
 import { getCardShapes } from './utils/snapshot'
 
 /* ------------------------------------------------------------------ types */
-interface GraphNode {
+interface GraphNode extends NodeObject {
     id: string
     name: string
     type: 'card' | 'board'
@@ -20,6 +25,10 @@ interface GraphLink {
     target: string
     type: 'wikilink' | 'parent'
 }
+
+// react-force-graph-2d augments nodes/links with simulation data at runtime
+type GraphNodeObject = NodeObject<GraphNode>
+type GraphLinkObject = LinkObject<GraphNode, GraphLink>
 
 /* ------------------------------------------------------------------ helpers */
 function firstLine(html: string): string {
@@ -140,32 +149,34 @@ export function KnowledgeGraph({ boards, onClose, onJumpToCard, onSwitchBoard }:
     const { nodes, links } = useMemo(() => {
         if (!connectedOnly) return { nodes: allNodes, links: allLinks }
         const connected = new Set<string>()
-        allLinks.forEach(l => {
-            connected.add(typeof l.source === 'object' ? (l.source as any).id : l.source as string)
-            connected.add(typeof l.target === 'object' ? (l.target as any).id : l.target as string)
+        allLinks.forEach((l: GraphLinkObject) => {
+            const src = l.source
+            const tgt = l.target
+            connected.add(typeof src === 'object' && src !== null ? (src as GraphNodeObject).id as string : src as string)
+            connected.add(typeof tgt === 'object' && tgt !== null ? (tgt as GraphNodeObject).id as string : tgt as string)
         })
         return { nodes: allNodes.filter(n => connected.has(n.id)), links: allLinks }
     }, [allNodes, allLinks, connectedOnly])
 
     // 固定 graphData 參照：只有 nodes/links 真正改變才更新，防止 simulation 被 re-render 重啟
-    const graphData = useMemo(() => ({ nodes: nodes as any[], links: links as any[] }), [nodes, links])
+    const graphData = useMemo(() => ({ nodes, links }), [nodes, links])
 
-    const handleNodeClick = useCallback((node: GraphNode) => {
+    const handleNodeClick = useCallback((node: GraphNodeObject) => {
         onClose()
         if (node.type === 'board') onSwitchBoard(node.id)
         else onJumpToCard(node.boardId, node.id)
     }, [onClose, onJumpToCard, onSwitchBoard])
 
-    const handleNodeHover = useCallback((node: GraphNode | null, prevNode: GraphNode | null) => {
+    const handleNodeHover = useCallback((node: GraphNodeObject | null, prevNode: GraphNodeObject | null) => {
         // 取消前一個節點的固定
-        if (prevNode) { (prevNode as any).fx = undefined; (prevNode as any).fy = undefined }
+        if (prevNode) { prevNode.fx = undefined; prevNode.fy = undefined }
         if (!node) {
             if (tooltipRef.current) tooltipRef.current.style.display = 'none'
             return
         }
         // 固定當前節點位置，防止 simulation 繼續把它推走
-        ;(node as any).fx = (node as any).x
-        ;(node as any).fy = (node as any).y
+        node.fx = node.x
+        node.fy = node.y
         // 直接寫 DOM，不 setState
         if (tooltipRef.current) {
             const el = tooltipRef.current
@@ -177,14 +188,14 @@ export function KnowledgeGraph({ boards, onClose, onJumpToCard, onSwitchBoard }:
         }
     }, [])
 
-    const paintNode = useCallback((node: any, ctx: CanvasRenderingContext2D) => {
+    const paintNode = useCallback((node: GraphNodeObject, ctx: CanvasRenderingContext2D) => {
         const r = Math.sqrt(Math.max(node.val, 1)) * 3.2
         ctx.beginPath()
         if (node.type === 'board') {
-            ctx.save(); ctx.translate(node.x, node.y); ctx.rotate(Math.PI / 4)
+            ctx.save(); ctx.translate(node.x ?? 0, node.y ?? 0); ctx.rotate(Math.PI / 4)
             const s = r * 0.88; ctx.rect(-s, -s, s * 2, s * 2); ctx.restore()
         } else {
-            ctx.arc(node.x, node.y, r, 0, 2 * Math.PI)
+            ctx.arc(node.x ?? 0, node.y ?? 0, r, 0, 2 * Math.PI)
         }
         ctx.fillStyle = node.color; ctx.fill()
         if (node.type === 'board') { ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 1.5; ctx.stroke() }
@@ -193,7 +204,7 @@ export function KnowledgeGraph({ boards, onClose, onJumpToCard, onSwitchBoard }:
             ctx.font = `${node.type === 'board' ? 10 : 9}px system-ui`
             ctx.fillStyle = node.type === 'board' ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.6)'
             ctx.textAlign = 'center'; ctx.textBaseline = 'top'
-            ctx.fillText(lbl, node.x, node.y + r + 3)
+            ctx.fillText(lbl, node.x ?? 0, (node.y ?? 0) + r + 3)
         }
     }, [])
 
@@ -233,11 +244,11 @@ export function KnowledgeGraph({ boards, onClose, onJumpToCard, onSwitchBoard }:
                 nodeCanvasObject={paintNode}
                 nodeCanvasObjectMode={() => 'replace'}
                 nodeLabel={() => ''}
-                onNodeHover={handleNodeHover as any}
-                onNodeClick={handleNodeClick as any}
-                linkColor={(l: any) => l.type === 'parent' ? 'rgba(148,163,184,0.28)' : 'rgba(96,165,250,0.52)'}
-                linkWidth={(l: any) => l.type === 'parent' ? 1 : 1.5}
-                linkDirectionalArrowLength={(l: any) => l.type === 'wikilink' ? 5 : 0}
+                onNodeHover={handleNodeHover}
+                onNodeClick={handleNodeClick}
+                linkColor={(l: GraphLinkObject) => l.type === 'parent' ? 'rgba(148,163,184,0.28)' : 'rgba(96,165,250,0.52)'}
+                linkWidth={(l: GraphLinkObject) => l.type === 'parent' ? 1 : 1.5}
+                linkDirectionalArrowLength={(l: GraphLinkObject) => l.type === 'wikilink' ? 5 : 0}
                 linkDirectionalArrowRelPos={1}
                 nodeRelSize={1}
                 cooldownTicks={150}

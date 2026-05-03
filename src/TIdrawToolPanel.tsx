@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react"
 import { useEditor } from "tldraw"
+import type { TLCardShape } from "./components/card-shape/type/CardShape"
 
 export interface CardCreators {
     createTextCard: () => void
@@ -292,7 +293,7 @@ export default function TldrawToolPanel({
         const screenPoint = { x: clientX, y: clientY }
         const pagePoint = editor.screenToPage(screenPoint)
 
-        const defaultProps: Record<string, any> = {
+        const defaultProps: Record<string, Record<string, unknown>> = {
             text: { type: 'text', text: '', image: null, todos: [], url: '', linkEmbedUrl: null, state: 'idle', color: 'none', w: 240, h: 160 },
             todo: { type: 'todo', text: '', image: null, todos: [{ id: `todo_${Date.now()}`, text: '新任務', checked: false }], url: null, linkEmbedUrl: null, state: 'idle', color: 'none', w: 260, h: 200 },
             link: { type: 'link', text: '', image: null, todos: [], url: '', linkEmbedUrl: null, state: 'idle', color: 'none', w: 260, h: 120 },
@@ -343,9 +344,9 @@ export default function TldrawToolPanel({
         const avgY = ys.reduce((a, b) => a + b, 0) / ys.length
 
         const updates = shapes.map(s => {
-            const shape = s as any
-            const w = shape.props?.w ?? 0
-            const h = shape.props?.h ?? 0
+            const cardProps = s.type === 'card' ? (s as unknown as TLCardShape).props : null
+            const w = cardProps?.w ?? 0
+            const h = cardProps?.h ?? 0
             let x = s.x, y = s.y
             if (direction === 'left') x = minX
             else if (direction === 'right') x = maxX - w

@@ -6,6 +6,7 @@ import Underline from '@tiptap/extension-underline'
 import TextStyle from '@tiptap/extension-text-style'
 import { Color } from '@tiptap/extension-color'
 import type { BoardRecord } from './db'
+import { getSnapshotStore } from './utils/snapshot'
 
 function toDateStr(d: Date): string {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -23,10 +24,10 @@ function addDays(d: Date, n: number): Date {
 function findCard(boards: BoardRecord[], ds: string) {
     for (const board of boards) {
         if (!board.isJournal || !board.snapshot) continue
-        const store = (board.snapshot as any).document?.store ?? {}
-        for (const shape of Object.values(store) as any[]) {
+        const store = getSnapshotStore(board.snapshot)
+        for (const shape of Object.values(store)) {
             if (shape.typeName === 'shape' && shape.type === 'card' && shape.props?.type === 'journal' && shape.props?.journalDate === ds) {
-                return { boardId: board.id, shapeId: shape.id as string, text: shape.props.text as string ?? '' }
+                return { boardId: board.id, shapeId: shape.id, text: shape.props.text ?? '' }
             }
         }
     }

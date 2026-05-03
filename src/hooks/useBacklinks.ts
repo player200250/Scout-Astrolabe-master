@@ -1,6 +1,7 @@
 // src/hooks/useBacklinks.ts
 import { useMemo, createContext } from 'react'
 import type { TLEditorSnapshot } from 'tldraw'
+import { getSnapshotStore } from '../utils/snapshot'
 
 /* ---------------------------------------------------------------
    型別
@@ -77,13 +78,13 @@ export function useBacklinks(boards: BoardRecord[]): Omit<BacklinksContextValue,
 
         for (const board of boards) {
             if (!board.snapshot) continue
-            const store = (board.snapshot as any).document?.store ?? {}
+            const store = getSnapshotStore(board.snapshot)
 
-            for (const shape of Object.values(store) as any[]) {
+            for (const shape of Object.values(store)) {
                 if (shape.typeName !== 'shape' || shape.type !== 'card') continue
-                const ptype: string = shape.props?.type
+                const ptype = shape.props?.type
                 if (ptype !== 'text' && ptype !== 'journal') continue
-                const html: string = shape.props?.text || ''
+                const html = shape.props?.text ?? ''
                 if (!html) continue
 
                 const links = extractLinks(html)
