@@ -100,6 +100,12 @@ export default function App() {
     const sidebarWidth = sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_WIDTH
     const activeBoard = boards.find(b => b.id === activeBoardId) ?? null
 
+    const activePanel = cardLibraryOpen ? 'cardLibrary'
+        : taskCenterOpen ? 'taskCenter'
+        : reviewCenterOpen ? 'reviewCenter'
+        : knowledgeGraphOpen ? 'knowledgeGraph'
+        : null
+
     const inboxCardCount = useMemo(() => {
         const inboxBoard = boards.find(b => b.isInbox)
         if (!inboxBoard?.snapshot) return 0
@@ -192,6 +198,7 @@ export default function App() {
                 overdueCount={overdueCount}
                 todayCount={todayCount}
                 onOpenOnboarding={() => setOnboardingOpen(true)}
+                activePanel={activePanel}
             />
 
             {movingCardShapeId && (

@@ -10,6 +10,15 @@ import { isRasterThumbnail } from '../utils/boardDb'
 import { SidebarFooter } from './SidebarFooter'
 import { SIDEBAR_WIDTH, SIDEBAR_COLLAPSED_WIDTH, INBOX_BOARD_ID } from '../constants'
 
+interface NavItemDef {
+    icon: string
+    label: string
+    title: string
+    onClick: () => void
+    isActive: boolean
+    badge?: { count: number; color: string }
+}
+
 interface BoardTabBarProps {
     boards: BoardRecord[]
     activeBoardId: string
@@ -43,6 +52,7 @@ interface BoardTabBarProps {
     overdueCount: number
     todayCount: number
     onOpenOnboarding: () => void
+    activePanel?: string | null
 }
 
 function SortableBoardItem({ id, children }: { id: string; children: React.ReactNode }) {
@@ -66,7 +76,7 @@ function SortableBoardItem({ id, children }: { id: string; children: React.React
     )
 }
 
-export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelete, onSearch, onHotkey, onOpenOverview, onSetJournal, navigationStack, onBack, onSetParent, onSwitchToChild, collapsed, onToggleCollapse, onSetStatus, onOpenTaskCenter, onOpenFilter, onOpenReviewCenter, onOpenBackup, onGoToInbox, onOpenKnowledgeGraph, onOpenCardLibrary, isDark, onToggleTheme, onReorderBoards, inboxCardCount, onQuickCapture, overdueCount, todayCount, onOpenOnboarding }: BoardTabBarProps) {
+export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelete, onSearch, onHotkey, onOpenOverview, onSetJournal, navigationStack, onBack, onSetParent, onSwitchToChild, collapsed, onToggleCollapse, onSetStatus, onOpenTaskCenter, onOpenFilter, onOpenReviewCenter, onOpenBackup, onGoToInbox, onOpenKnowledgeGraph, onOpenCardLibrary, isDark, onToggleTheme, onReorderBoards, inboxCardCount, onQuickCapture, overdueCount, todayCount, onOpenOnboarding, activePanel }: BoardTabBarProps) {
     const [hoveredId, setHoveredId] = useState<string | null>(null)
     const [renamingId, setRenamingId] = useState<string | null>(null)
     const [renameValue, setRenameValue] = useState('')
@@ -154,15 +164,6 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                                 onMouseEnter={e => (e.currentTarget.style.background = hoverBg)}
                                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                             >🔍</button>
-                            <div style={{ position: 'relative' }}>
-                                <button onClick={onGoToInbox} title="收件匣 (Ctrl+Shift+I)" style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border-light)', background: activeBoardId === INBOX_BOARD_ID ? (isDark ? 'rgba(37,99,235,0.2)' : '#f0f4ff') : 'transparent', cursor: 'pointer', fontSize: 14, color: activeBoardId === INBOX_BOARD_ID ? '#2563eb' : 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
-                                    onMouseEnter={e => (e.currentTarget.style.background = hoverBg)}
-                                    onMouseLeave={e => (e.currentTarget.style.background = activeBoardId === INBOX_BOARD_ID ? (isDark ? 'rgba(37,99,235,0.2)' : '#f0f4ff') : 'transparent')}
-                                >📥</button>
-                                {inboxCardCount > 0 && (
-                                    <span style={{ position: 'absolute', top: 2, right: 2, width: 7, height: 7, borderRadius: '50%', background: '#ef4444', border: '1.5px solid var(--bg-sidebar)', pointerEvents: 'none' }} />
-                                )}
-                            </div>
                             <button onClick={onQuickCapture} title="快速新增到收件匣 (Ctrl+Space)" style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border-light)', background: 'transparent', cursor: 'pointer', fontSize: 14, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
                                 onMouseEnter={e => (e.currentTarget.style.background = hoverBg)}
                                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
@@ -171,38 +172,79 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                     )}
                 </div>
 
-                {/* 收合時的圖示按鈕群 */}
-                {collapsed && (
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '8px 0', borderBottom: '1px solid var(--border-light)', flexShrink: 0 }}>
-                        <button onClick={onNew} title="新增白板" style={{ width: 28, height: 28, borderRadius: 8, border: '1px dashed var(--border-mid)', background: 'transparent', cursor: 'pointer', fontSize: 16, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>+</button>
-                        <button onClick={onOpenOverview} title="所有白板" style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border-light)', background: 'transparent', cursor: 'pointer', fontSize: 13, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>⊞</button>
-                        <button onClick={onSearch} title="搜尋" style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border-light)', background: 'transparent', cursor: 'pointer', fontSize: 13, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>🔍</button>
-                        <div style={{ position: 'relative' }}>
-                            <button onClick={onGoToInbox} title="收件匣 (Ctrl+Shift+I)" style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border-light)', background: 'transparent', cursor: 'pointer', fontSize: 13, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>📥</button>
-                            {inboxCardCount > 0 && (
-                                <span style={{ position: 'absolute', top: 2, right: 2, width: 7, height: 7, borderRadius: '50%', background: '#ef4444', border: '1.5px solid var(--bg-sidebar)', pointerEvents: 'none' }} />
-                            )}
+                {/* 功能導覽區 */}
+                {(() => {
+                    const hBoard = boards.find(b => b.isHome)
+                    const navItems: NavItemDef[] = [
+                        { icon: '🏠', label: '主頁', title: '主頁', onClick: () => { if (hBoard) onSwitch(hBoard.id) }, isActive: hBoard ? activeBoardId === hBoard.id : false },
+                        { icon: '📥', label: '收件匣', title: '收件匣 (Ctrl+Shift+I)', onClick: onGoToInbox, isActive: activeBoardId === INBOX_BOARD_ID, badge: inboxCardCount > 0 ? { count: inboxCardCount, color: '#ef4444' } : undefined },
+                        { icon: '🗂️', label: '卡片庫', title: '卡片庫 (Ctrl+Shift+L)', onClick: onOpenCardLibrary, isActive: activePanel === 'cardLibrary' },
+                        { icon: '✅', label: '任務中心', title: '任務中心', onClick: onOpenTaskCenter, isActive: activePanel === 'taskCenter', badge: (overdueCount > 0 || todayCount > 0) ? { count: overdueCount > 0 ? overdueCount : todayCount, color: overdueCount > 0 ? '#ef4444' : '#f97316' } : undefined },
+                        { icon: '📔', label: '復盤中心', title: '復盤中心 (Ctrl+Shift+C)', onClick: onOpenReviewCenter, isActive: activePanel === 'reviewCenter' },
+                        { icon: '🕸️', label: '知識圖譜', title: '知識圖譜 (Ctrl+Shift+G)', onClick: onOpenKnowledgeGraph, isActive: activePanel === 'knowledgeGraph' },
+                    ]
+                    if (collapsed) {
+                        return (
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, padding: '6px 0', borderBottom: '1px solid var(--border-light)', flexShrink: 0 }}>
+                                {navItems.map(item => (
+                                    <div key={item.label} style={{ position: 'relative' }}>
+                                        <button
+                                            onClick={item.onClick}
+                                            title={item.title}
+                                            style={{
+                                                width: 28, height: 28, borderRadius: 7,
+                                                border: item.isActive ? '2px solid #2563eb' : '1.5px solid transparent',
+                                                background: item.isActive ? (isDark ? 'rgba(37,99,235,0.2)' : 'rgba(37,99,235,0.08)') : 'transparent',
+                                                cursor: 'pointer', fontSize: 14,
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                padding: 0,
+                                            }}
+                                            onMouseEnter={e => { if (!item.isActive) e.currentTarget.style.background = hoverBg }}
+                                            onMouseLeave={e => { e.currentTarget.style.background = item.isActive ? (isDark ? 'rgba(37,99,235,0.2)' : 'rgba(37,99,235,0.08)') : 'transparent' }}
+                                        >
+                                            {item.icon}
+                                        </button>
+                                        {item.badge && (
+                                            <span style={{ position: 'absolute', top: 0, right: 0, background: item.badge.color, color: 'white', fontSize: 8, fontWeight: 700, borderRadius: 999, minWidth: 12, height: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 2px', lineHeight: 1, border: '1.5px solid var(--bg-sidebar)', pointerEvents: 'none' }}>
+                                                {item.badge.count > 99 ? '99+' : item.badge.count}
+                                            </span>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        )
+                    }
+                    return (
+                        <div style={{ flexShrink: 0, borderBottom: '1px solid var(--border-light)' }}>
+                            {navItems.map(item => (
+                                <button
+                                    key={item.label}
+                                    onClick={item.onClick}
+                                    title={item.title}
+                                    style={{
+                                        width: '100%', height: 32,
+                                        display: 'flex', alignItems: 'center', gap: 0,
+                                        padding: 0,
+                                        border: 'none', borderLeft: `2.5px solid ${item.isActive ? '#2563eb' : 'transparent'}`,
+                                        background: item.isActive ? (isDark ? 'rgba(37,99,235,0.12)' : 'rgba(37,99,235,0.07)') : 'transparent',
+                                        cursor: 'pointer', textAlign: 'left',
+                                        transition: 'background 0.1s', flexShrink: 0,
+                                    }}
+                                    onMouseEnter={e => { if (!item.isActive) e.currentTarget.style.background = hoverBg }}
+                                    onMouseLeave={e => { if (!item.isActive) e.currentTarget.style.background = 'transparent' }}
+                                >
+                                    <span style={{ fontSize: 14, width: 36, textAlign: 'center', flexShrink: 0 }}>{item.icon}</span>
+                                    <span style={{ fontSize: 13, fontWeight: item.isActive ? 600 : 400, color: item.isActive ? '#2563eb' : 'var(--text-secondary)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.label}</span>
+                                    {item.badge && (
+                                        <span style={{ marginRight: 10, background: item.badge.color, color: 'white', fontSize: 10, fontWeight: 700, borderRadius: 999, padding: '1px 5px', minWidth: 16, textAlign: 'center', lineHeight: '16px', flexShrink: 0 }}>
+                                            {item.badge.count > 99 ? '99+' : item.badge.count}
+                                        </span>
+                                    )}
+                                </button>
+                            ))}
                         </div>
-                        <button onClick={onQuickCapture} title="快速新增到收件匣 (Ctrl+Space)" style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border-light)', background: 'transparent', cursor: 'pointer', fontSize: 13, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>✏️</button>
-                        <div style={{ position: 'relative' }}>
-                            <button onClick={onOpenTaskCenter} title="任務中心" style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border-light)', background: 'transparent', cursor: 'pointer', fontSize: 13, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>✅</button>
-                            {(overdueCount > 0 || todayCount > 0) && (
-                                <span style={{
-                                    position: 'absolute', top: 0, right: 0,
-                                    background: overdueCount > 0 ? '#ef4444' : '#f97316',
-                                    color: 'white', fontSize: 8, fontWeight: 700,
-                                    borderRadius: 999, minWidth: 12, height: 12,
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    padding: '0 2px', lineHeight: 1,
-                                    border: '1.5px solid var(--bg-sidebar)', pointerEvents: 'none',
-                                }}>
-                                    {(overdueCount > 0 ? overdueCount : todayCount) > 99 ? '99+' : (overdueCount > 0 ? overdueCount : todayCount)}
-                                </span>
-                            )}
-                        </div>
-                        <button onClick={onOpenReviewCenter} title="復盤中心 (Ctrl+Shift+C)" style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border-light)', background: 'transparent', cursor: 'pointer', fontSize: 13, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>📔</button>
-                    </div>
-                )}
+                    )
+                })()}
 
                 {/* 麵包屑（展開時才顯示） */}
                 {!collapsed && navigationStack.length > 1 && (
@@ -348,13 +390,10 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                         </button>
                     )
 
-                    const homeBoard  = topLevel.find(b => b.isHome)
-                    const inboxBoard = topLevel.find(b => b.isInbox)
-
                     if (collapsed) {
                         return (
                             <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '6px 0', scrollbarWidth: 'none', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                {topLevel.map(board => {
+                                {topLevel.filter(b => !b.isHome && !b.isInbox).map(board => {
                                     const isActive = activeBoardId === board.id
                                     return (
                                         <div
@@ -393,9 +432,6 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
 
                     return (
                         <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '6px 6px', scrollbarWidth: 'none', display: 'flex', flexDirection: 'column', gap: 1 }}>
-                            {homeBoard && renderBoardCard(homeBoard)}
-                            {inboxBoard && renderBoardCard(inboxBoard)}
-
                             {recentBoards.length > 0 && (
                                 <>
                                     <div style={{ height: 1, background: 'var(--border-light)', margin: '4px 4px' }} />
@@ -443,17 +479,11 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
 
                 {!collapsed && (
                     <SidebarFooter
-                        onOpenTaskCenter={onOpenTaskCenter}
                         onOpenFilter={onOpenFilter}
-                        onOpenReviewCenter={onOpenReviewCenter}
                         onOpenBackup={onOpenBackup}
                         onHotkey={onHotkey}
-                        onOpenKnowledgeGraph={onOpenKnowledgeGraph}
-                        onOpenCardLibrary={onOpenCardLibrary}
                         isDark={isDark}
                         onToggleTheme={onToggleTheme}
-                        overdueCount={overdueCount}
-                        todayCount={todayCount}
                         onOpenOnboarding={onOpenOnboarding}
                     />
                 )}
