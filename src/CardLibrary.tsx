@@ -40,18 +40,19 @@ const ALL_TYPES: LibCardType[]    = ['text', 'todo', 'link', 'journal']
 const ALL_STATUSES: StatusType[]  = ['none', 'todo', 'in-progress', 'done']
 const ALL_PRIORITIES: PriorityType[] = ['none', 'low', 'medium', 'high']
 
+/* P6 — 「無」改為「未設定」，避免語義混淆 */
 const STATUS_CONFIG: Record<StatusType, { label: string; color: string; bg: string; darkBg: string }> = {
-    none:          { label: '無',    color: '#6b7280', bg: '#f3f4f6', darkBg: '#374151' },
-    todo:          { label: '待辦',  color: '#374151', bg: '#f0f0f0', darkBg: '#2d3748' },
+    none:          { label: '未設定', color: '#6b7280', bg: '#f3f4f6', darkBg: '#374151' },
+    todo:          { label: '待辦',   color: '#374151', bg: '#f0f0f0', darkBg: '#2d3748' },
     'in-progress': { label: '進行中', color: '#1d4ed8', bg: '#dbeafe', darkBg: '#1e3a5f' },
-    done:          { label: '完成',  color: '#15803d', bg: '#dcfce7', darkBg: '#14532d' },
+    done:          { label: '完成',   color: '#15803d', bg: '#dcfce7', darkBg: '#14532d' },
 }
 
 const PRIORITY_CONFIG: Record<PriorityType, { label: string; color: string }> = {
-    none:   { label: '無', color: '#9ca3af' },
-    low:    { label: '低', color: '#ca8a04' },
-    medium: { label: '中', color: '#ea580c' },
-    high:   { label: '高', color: '#dc2626' },
+    none:   { label: '未設定', color: '#9ca3af' },
+    low:    { label: '低',     color: '#ca8a04' },
+    medium: { label: '中',     color: '#ea580c' },
+    high:   { label: '高',     color: '#dc2626' },
 }
 
 const SORT_OPTIONS: { key: SortKey; label: string }[] = [
@@ -60,6 +61,8 @@ const SORT_OPTIONS: { key: SortKey; label: string }[] = [
     { key: 'boardName',      label: '白板名稱' },
     { key: 'type',           label: '卡片類型' },
 ]
+
+const BOARD_DOT_COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f97316', '#eab308', '#84cc16', '#14b8a6', '#06b6d4', '#3b82f6']
 
 /* ─── Helpers ─── */
 function stripHtml(html: string): string {
@@ -85,6 +88,14 @@ function parsePriority(v: unknown): PriorityType {
     return (ALL_PRIORITIES as string[]).includes(v as string) ? (v as PriorityType) : 'none'
 }
 
+function getBoardColor(id: string): string {
+    let hash = 0
+    for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) & 0xffffffff
+    return BOARD_DOT_COLORS[Math.abs(hash) % BOARD_DOT_COLORS.length]
+}
+
+const COLLAPSE_KEY = 'card-library-section-collapsed'
+
 /* ─── Component ─── */
 export function CardLibrary({ boards, onJump, onClose, isDark }: CardLibraryProps) {
     const [search, setSearch]           = useState('')
@@ -95,6 +106,37 @@ export function CardLibrary({ boards, onJump, onClose, isDark }: CardLibraryProp
     const [filterStatus, setFilterStatus]     = useState<StatusType | 'all'>('all')
     const [filterPriority, setFilterPriority] = useState<PriorityType | 'all'>('all')
     const [filterTag, setFilterTag]     = useState<string | null>(null)
+    const [collapsed, setCollapsed]     = useState<Record<string, boolean>>(() => {
+        try {
+            const saved = localStorage.getItem(COLLAPSE_KEY)
+            if (saved) return JSON.parse(saved) as Record<string, boolean>
+        } catch {}
+        return { board: true }
+    })
+    /* P2 — 追蹤 hover 中的卡片，用於顯示跳轉提示 */
+    const [hoveredShapeId, setHoveredShapeId] = useState<string | null>(null)
+
+    /* P1 — 是否有任何非預設篩選條件 */
+    const hasActiveFilters = search !== '' || filterType !== 'all' || filterBoard !== 'all' ||
+        filterStatus !== 'all' || filterPriority !== 'all' || filterTag !== null
+
+    /* P1/P3 — 一鍵清除所有篩選 */
+    const clearAllFilters = useCallback(() => {
+        setSearch('')
+        setFilterType('all')
+        setFilterBoard('all')
+        setFilterStatus('all')
+        setFilterPriority('all')
+        setFilterTag(null)
+    }, [])
+
+    const toggleSection = useCallback((key: string) => {
+        setCollapsed(prev => {
+            const next = { ...prev, [key]: !prev[key] }
+            try { localStorage.setItem(COLLAPSE_KEY, JSON.stringify(next)) } catch {}
+            return next
+        })
+    }, [])
 
     const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -191,22 +233,40 @@ export function CardLibrary({ boards, onJump, onClose, isDark }: CardLibraryProp
     const cardBg     = isDark ? '#1e293b' : '#ffffff'
     const cardHover  = isDark ? '#263149' : '#f8fafc'
     const inputBg    = isDark ? '#0f172a' : '#f8fafc'
-    const pillActive = isDark ? 'rgba(59,130,246,0.25)' : '#dbeafe'
-    const pillActColor = '#2563eb'
-    const pillInact  = isDark ? 'rgba(255,255,255,0.06)' : '#f1f5f9'
+    const pillActive    = isDark ? 'rgba(59,130,246,0.35)' : '#bfdbfe'
+    const pillActColor  = '#2563eb'
     const pillInactColor = textMuted
 
-    /* ─── Sidebar filter section helper ─── */
-    const sectionTitle = (label: string) => (
-        <div style={{ fontSize: 10, fontWeight: 700, color: isDark ? '#475569' : '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.07em' }}>{label}</div>
-    )
+    /* ─── Sidebar helpers ─── */
     const hoverBg = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)'
+
+    const sectionHeader = (label: string, key: string) => (
+        <button
+            onClick={() => toggleSection(key)}
+            style={{
+                width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                background: 'transparent', border: 'none', cursor: 'pointer',
+                padding: '2px 4px', marginBottom: collapsed[key] ? 0 : 4,
+                borderRadius: 4,
+            }}
+            onMouseEnter={e => (e.currentTarget.style.background = hoverBg)}
+            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+        >
+            <span style={{ fontSize: 10, fontWeight: 700, color: isDark ? '#475569' : '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+                {label}
+            </span>
+            <span style={{ fontSize: 8, color: isDark ? '#475569' : '#94a3b8', lineHeight: 1 }}>
+                {collapsed[key] ? '▶' : '▼'}
+            </span>
+        </button>
+    )
+
     const pill = (label: string, active: boolean, onClick: () => void) => (
         <button
             key={label}
             onClick={onClick}
             style={{
-                height: 32, padding: '0 10px', borderRadius: 7, border: 'none', cursor: 'pointer',
+                height: 28, padding: '0 10px', borderRadius: 6, border: 'none', cursor: 'pointer',
                 background: active ? pillActive : 'transparent',
                 color: active ? pillActColor : pillInactColor,
                 fontSize: 12, fontWeight: active ? 600 : 400,
@@ -226,29 +286,40 @@ export function CardLibrary({ boards, onJump, onClose, isDark }: CardLibraryProp
         onClose()
     }
 
+    /* P2 — hover 跳轉提示 badge */
+    const jumpBadge = (shapeId: string) => hoveredShapeId === shapeId ? (
+        <div style={{
+            position: 'absolute', bottom: 10, right: 14,
+            background: isDark ? 'rgba(37,99,235,0.18)' : '#dbeafe',
+            color: '#2563eb', fontSize: 11, fontWeight: 600,
+            padding: '2px 8px', borderRadius: 5,
+            pointerEvents: 'none', userSelect: 'none',
+            transition: 'opacity 0.1s',
+        }}>
+            ↗ 前往白板
+        </div>
+    ) : null
+
     const renderListCard = (card: LibraryCard) => {
-        const statusCfg  = STATUS_CONFIG[card.status]
+        const statusCfg   = STATUS_CONFIG[card.status]
         const priorityCfg = PRIORITY_CONFIG[card.priority]
+        const isHovered   = hoveredShapeId === card.shapeId
         return (
             <div
                 onClick={() => handleJump(card)}
                 style={{
+                    position: 'relative',
                     display: 'flex', alignItems: 'flex-start', gap: 14,
                     padding: '14px 18px', cursor: 'pointer', borderRadius: 10,
-                    background: cardBg, border: `1px solid ${border}`,
+                    background: isHovered ? cardHover : cardBg,
+                    border: `1px solid ${isHovered ? (isDark ? '#475569' : '#cbd5e1') : border}`,
                     height: '100%', boxSizing: 'border-box',
                     transition: 'background 0.12s, border-color 0.12s',
                 }}
-                onMouseEnter={e => {
-                    e.currentTarget.style.background = cardHover
-                    e.currentTarget.style.borderColor = isDark ? '#475569' : '#cbd5e1'
-                }}
-                onMouseLeave={e => {
-                    e.currentTarget.style.background = cardBg
-                    e.currentTarget.style.borderColor = border
-                }}
+                onMouseEnter={() => setHoveredShapeId(card.shapeId)}
+                onMouseLeave={() => setHoveredShapeId(null)}
             >
-                {/* Type icon pill */}
+                {/* Type icon */}
                 <div style={{
                     width: 36, height: 36, borderRadius: 9, flexShrink: 0,
                     background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
@@ -258,7 +329,6 @@ export function CardLibrary({ boards, onJump, onClose, isDark }: CardLibraryProp
                     {TYPE_ICON[card.type]}
                 </div>
                 <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    {/* Preview text */}
                     <div style={{
                         fontSize: 13, color: textPrim, lineHeight: '1.55',
                         overflow: 'hidden',
@@ -267,7 +337,6 @@ export function CardLibrary({ boards, onJump, onClose, isDark }: CardLibraryProp
                     }}>
                         {card.preview || <span style={{ color: textMuted, fontStyle: 'italic' }}>（空白卡片）</span>}
                     </div>
-                    {/* Meta row */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                         <span style={{
                             fontSize: 11, color: textMuted, flexShrink: 0,
@@ -292,29 +361,28 @@ export function CardLibrary({ boards, onJump, onClose, isDark }: CardLibraryProp
                         <span style={{ fontSize: 11, color: isDark ? '#475569' : '#94a3b8', marginLeft: 'auto', flexShrink: 0 }}>{timeAgo(card.boardUpdatedAt)}</span>
                     </div>
                 </div>
+                {jumpBadge(card.shapeId)}
             </div>
         )
     }
 
     const renderGridCard = (card: LibraryCard) => {
         const statusCfg = STATUS_CONFIG[card.status]
+        const isHovered = hoveredShapeId === card.shapeId
         return (
             <div
                 onClick={() => handleJump(card)}
                 style={{
-                    background: cardBg, borderRadius: 10, border: `1px solid ${border}`,
+                    position: 'relative',
+                    background: isHovered ? cardHover : cardBg,
+                    borderRadius: 10,
+                    border: `1px solid ${isHovered ? (isDark ? '#475569' : '#cbd5e1') : border}`,
                     padding: '14px 16px', cursor: 'pointer', flex: 1, minWidth: 0,
                     display: 'flex', flexDirection: 'column', gap: 8,
                     transition: 'background 0.12s, border-color 0.12s',
                 }}
-                onMouseEnter={e => {
-                    e.currentTarget.style.background = cardHover
-                    e.currentTarget.style.borderColor = isDark ? '#475569' : '#cbd5e1'
-                }}
-                onMouseLeave={e => {
-                    e.currentTarget.style.background = cardBg
-                    e.currentTarget.style.borderColor = border
-                }}
+                onMouseEnter={() => setHoveredShapeId(card.shapeId)}
+                onMouseLeave={() => setHoveredShapeId(null)}
             >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                     <span style={{ fontSize: 16 }}>{TYPE_ICON[card.type]}</span>
@@ -341,6 +409,7 @@ export function CardLibrary({ boards, onJump, onClose, isDark }: CardLibraryProp
                     <span style={{ fontSize: 11, color: textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '65%' }}>{card.boardName}</span>
                     <span style={{ fontSize: 10, color: isDark ? '#475569' : '#94a3b8', flexShrink: 0 }}>{timeAgo(card.boardUpdatedAt)}</span>
                 </div>
+                {jumpBadge(card.shapeId)}
             </div>
         )
     }
@@ -375,22 +444,55 @@ export function CardLibrary({ boards, onJump, onClose, isDark }: CardLibraryProp
                     {filteredCards.length} / {allCards.length}
                 </span>
 
-                {/* Search */}
-                <input
-                    type="text"
-                    value={search}
-                    onChange={e => setSearch(e.target.value)}
-                    placeholder="搜尋卡片內容、白板、標籤…"
-                    autoFocus
-                    style={{
-                        flex: 1, height: 34, borderRadius: 8,
-                        border: `1px solid ${border}`,
-                        background: inputBg, color: textPrim,
-                        padding: '0 12px', fontSize: 13,
-                        outline: 'none',
-                        minWidth: 0,
-                    }}
-                />
+                {/* P4 — 搜尋框 + 清除鈕 */}
+                <div style={{ flex: 1, position: 'relative', minWidth: 0 }}>
+                    <input
+                        type="text"
+                        value={search}
+                        onChange={e => setSearch(e.target.value)}
+                        placeholder="搜尋卡片內容、白板、標籤…"
+                        autoFocus
+                        style={{
+                            width: '100%', height: 34, borderRadius: 8,
+                            border: `1px solid ${border}`,
+                            background: inputBg, color: textPrim,
+                            padding: search ? '0 32px 0 12px' : '0 12px',
+                            fontSize: 13, outline: 'none',
+                            boxSizing: 'border-box',
+                        }}
+                    />
+                    {search && (
+                        <button
+                            onClick={() => setSearch('')}
+                            style={{
+                                position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
+                                background: 'transparent', border: 'none', cursor: 'pointer',
+                                color: textMuted, fontSize: 13, lineHeight: 1,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                padding: 2,
+                            }}
+                            title="清除搜尋"
+                        >✕</button>
+                    )}
+                </div>
+
+                {/* P1 — 清除篩選按鈕，有非預設篩選時才顯示 */}
+                {hasActiveFilters && (
+                    <button
+                        onClick={clearAllFilters}
+                        style={{
+                            height: 34, padding: '0 12px', borderRadius: 8,
+                            border: `1px solid ${pillActColor}`,
+                            background: 'transparent', color: pillActColor,
+                            fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                            flexShrink: 0, whiteSpace: 'nowrap',
+                        }}
+                        onMouseEnter={e => (e.currentTarget.style.background = isDark ? 'rgba(37,99,235,0.12)' : '#eff6ff')}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                    >
+                        清除篩選
+                    </button>
+                )}
 
                 {/* Sort */}
                 <select
@@ -445,99 +547,130 @@ export function CardLibrary({ boards, onJump, onClose, isDark }: CardLibraryProp
                     width: 220, flexShrink: 0, overflowY: 'auto',
                     background: sidebarBg,
                     borderRight: `1px solid ${border}`,
-                    padding: '16px 10px',
+                    padding: '12px 8px',
                 }}>
-                    {/* Type */}
-                    <div style={{ marginBottom: 18 }}>
-                        {sectionTitle('卡片類型')}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                            {pill('全部', filterType === 'all', () => setFilterType('all'))}
-                            {ALL_TYPES.map(t => pill(
-                                `${TYPE_ICON[t]} ${TYPE_LABEL[t]}`,
-                                filterType === t,
-                                () => setFilterType(filterType === t ? 'all' : t)
-                            ))}
-                        </div>
+                    {/* P7 — 篩選欄標題 */}
+                    <div style={{
+                        fontSize: 10, fontWeight: 700, color: isDark ? '#475569' : '#94a3b8',
+                        textTransform: 'uppercase', letterSpacing: '0.07em',
+                        padding: '0 4px 8px',
+                        borderBottom: `1px solid ${border}`,
+                        marginBottom: 10,
+                        userSelect: 'none',
+                    }}>
+                        篩選條件
                     </div>
 
-                    {/* Board */}
-                    <div style={{ marginBottom: 18 }}>
-                        {sectionTitle('白板')}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                            {pill('全部', filterBoard === 'all', () => setFilterBoard('all'))}
-                            {nonSystemBoards.map(b => {
-                                const isActive = filterBoard === b.id
-                                return (
-                                    <button
-                                        key={b.id}
-                                        onClick={() => setFilterBoard(isActive ? 'all' : b.id)}
-                                        style={{
-                                            height: 32, padding: '0 10px', borderRadius: 7, border: 'none', cursor: 'pointer',
-                                            background: isActive ? pillActive : 'transparent',
-                                            color: isActive ? pillActColor : pillInactColor,
-                                            fontSize: 12, fontWeight: isActive ? 600 : 400,
-                                            width: '100%', textAlign: 'left',
-                                            display: 'flex', alignItems: 'center', gap: 8,
-                                            transition: 'background 0.12s',
-                                            flexShrink: 0,
-                                        }}
-                                        onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = hoverBg }}
-                                        onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent' }}
-                                    >
-                                        <span style={{
-                                            width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
-                                            background: isActive ? pillActColor : (isDark ? '#475569' : '#cbd5e1'),
-                                            transition: 'background 0.12s',
-                                        }} />
-                                        <span style={{
-                                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1,
-                                        }}>{b.name}</span>
-                                    </button>
-                                )
-                            })}
-                        </div>
-                    </div>
-
-                    {/* Status */}
-                    <div style={{ marginBottom: 18 }}>
-                        {sectionTitle('狀態')}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                            {pill('全部', filterStatus === 'all', () => setFilterStatus('all'))}
-                            {ALL_STATUSES.map(s => pill(
-                                STATUS_CONFIG[s].label,
-                                filterStatus === s,
-                                () => setFilterStatus(filterStatus === s ? 'all' : s)
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Priority */}
-                    <div style={{ marginBottom: 18 }}>
-                        {sectionTitle('優先度')}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                            {pill('全部', filterPriority === 'all', () => setFilterPriority('all'))}
-                            {ALL_PRIORITIES.map(p => pill(
-                                PRIORITY_CONFIG[p].label,
-                                filterPriority === p,
-                                () => setFilterPriority(filterPriority === p ? 'all' : p)
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Tags */}
-                    {allTags.length > 0 && (
-                        <div>
-                            {sectionTitle('標籤')}
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                {pill('全部', filterTag === null, () => setFilterTag(null))}
-                                {allTags.map(tag => pill(
-                                    `#${tag}`,
-                                    filterTag === tag,
-                                    () => setFilterTag(filterTag === tag ? null : tag)
+                    {/* 卡片類型 */}
+                    <div style={{ marginBottom: 6, paddingBottom: 10, borderBottom: `1px solid ${border}` }}>
+                        {sectionHeader('卡片類型', 'type')}
+                        {!collapsed['type'] && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                {pill('全部', filterType === 'all', () => setFilterType('all'))}
+                                {ALL_TYPES.map(t => pill(
+                                    `${TYPE_ICON[t]} ${TYPE_LABEL[t]}`,
+                                    filterType === t,
+                                    () => setFilterType(filterType === t ? 'all' : t)
                                 ))}
                             </div>
-                        </div>
-                    )}
+                        )}
+                    </div>
+
+                    {/* 白板 */}
+                    <div style={{ marginBottom: 6, paddingBottom: 10, borderBottom: `1px solid ${border}` }}>
+                        {sectionHeader('白板', 'board')}
+                        {!collapsed['board'] && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                {pill('全部', filterBoard === 'all', () => setFilterBoard('all'))}
+                                {nonSystemBoards.map(b => {
+                                    const isActive = filterBoard === b.id
+                                    const dotColor = getBoardColor(b.id)
+                                    return (
+                                        <button
+                                            key={b.id}
+                                            title={b.name}
+                                            onClick={() => setFilterBoard(isActive ? 'all' : b.id)}
+                                            style={{
+                                                height: 28, padding: '0 10px', borderRadius: 6, border: 'none', cursor: 'pointer',
+                                                background: isActive ? pillActive : 'transparent',
+                                                color: isActive ? pillActColor : pillInactColor,
+                                                fontSize: 12, fontWeight: isActive ? 600 : 400,
+                                                width: '100%', textAlign: 'left',
+                                                display: 'flex', alignItems: 'center', gap: 7,
+                                                transition: 'background 0.12s',
+                                                flexShrink: 0,
+                                            }}
+                                            onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = hoverBg }}
+                                            onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent' }}
+                                        >
+                                            <span style={{
+                                                width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
+                                                background: isActive ? pillActColor : dotColor,
+                                                opacity: isActive ? 1 : 0.65,
+                                                transition: 'background 0.12s, opacity 0.12s',
+                                            }} />
+                                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                                                {b.name}
+                                            </span>
+                                        </button>
+                                    )
+                                })}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* 狀態 */}
+                    <div style={{ marginBottom: 6, paddingBottom: 10, borderBottom: `1px solid ${border}` }}>
+                        {sectionHeader('狀態', 'status')}
+                        {!collapsed['status'] && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                {pill('全部', filterStatus === 'all', () => setFilterStatus('all'))}
+                                {ALL_STATUSES.map(s => pill(
+                                    STATUS_CONFIG[s].label,
+                                    filterStatus === s,
+                                    () => setFilterStatus(filterStatus === s ? 'all' : s)
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* 優先度 */}
+                    <div style={{ marginBottom: 6, paddingBottom: 10, borderBottom: `1px solid ${border}` }}>
+                        {sectionHeader('優先度', 'priority')}
+                        {!collapsed['priority'] && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                {pill('全部', filterPriority === 'all', () => setFilterPriority('all'))}
+                                {ALL_PRIORITIES.map(p => pill(
+                                    PRIORITY_CONFIG[p].label,
+                                    filterPriority === p,
+                                    () => setFilterPriority(filterPriority === p ? 'all' : p)
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* P8 — 標籤區塊永遠顯示，無標籤時顯示提示 */}
+                    <div style={{ paddingBottom: 4 }}>
+                        {sectionHeader('標籤', 'tags')}
+                        {!collapsed['tags'] && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                {allTags.length === 0 ? (
+                                    <span style={{ fontSize: 12, color: textMuted, fontStyle: 'italic', padding: '4px 10px' }}>
+                                        尚無標籤
+                                    </span>
+                                ) : (
+                                    <>
+                                        {pill('全部', filterTag === null, () => setFilterTag(null))}
+                                        {allTags.map(tag => pill(
+                                            `#${tag}`,
+                                            filterTag === tag,
+                                            () => setFilterTag(filterTag === tag ? null : tag)
+                                        ))}
+                                    </>
+                                )}
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 {/* Main card area */}
@@ -546,9 +679,28 @@ export function CardLibrary({ boards, onJump, onClose, isDark }: CardLibraryProp
                     style={{ flex: 1, overflowY: 'auto', background: mainBg, padding: '14px 16px' }}
                 >
                     {filteredCards.length === 0 ? (
+                        /* P3 — 空狀態加清除篩選按鈕 */
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 12 }}>
                             <span style={{ fontSize: 40 }}>🗃️</span>
-                            <span style={{ fontSize: 14, color: textMuted }}>{allCards.length === 0 ? '尚無卡片' : '沒有符合條件的卡片'}</span>
+                            <span style={{ fontSize: 14, color: textMuted }}>
+                                {allCards.length === 0 ? '尚無卡片' : '沒有符合條件的卡片'}
+                            </span>
+                            {allCards.length > 0 && hasActiveFilters && (
+                                <button
+                                    onClick={clearAllFilters}
+                                    style={{
+                                        height: 34, padding: '0 16px', borderRadius: 8,
+                                        border: `1px solid ${border}`,
+                                        background: cardBg, color: textPrim,
+                                        fontSize: 13, cursor: 'pointer',
+                                        marginTop: 4,
+                                    }}
+                                    onMouseEnter={e => (e.currentTarget.style.background = cardHover)}
+                                    onMouseLeave={e => (e.currentTarget.style.background = cardBg)}
+                                >
+                                    清除篩選
+                                </button>
+                            )}
                         </div>
                     ) : (
                         <div style={{ height: virtualizer.getTotalSize(), width: '100%', position: 'relative' }}>
@@ -571,7 +723,6 @@ export function CardLibrary({ boards, onJump, onClose, isDark }: CardLibraryProp
                                         </div>
                                     )
                                 } else {
-                                    // Grid row: 3 cards per row
                                     const startIdx = vItem.index * COLS
                                     const rowCards = filteredCards.slice(startIdx, startIdx + COLS)
                                     return (
@@ -586,7 +737,6 @@ export function CardLibrary({ boards, onJump, onClose, isDark }: CardLibraryProp
                                             }}
                                         >
                                             {rowCards.map(card => renderGridCard(card))}
-                                            {/* Fill empty slots so last row aligns */}
                                             {Array.from({ length: COLS - rowCards.length }).map((_, i) => (
                                                 <div key={`empty-${i}`} style={{ flex: 1 }} />
                                             ))}
