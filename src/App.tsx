@@ -11,6 +11,7 @@ import { BackupPanel } from './BackupPanel'
 import { ReviewCenter } from './ReviewCenter'
 import { HotkeyPanel } from './HotkeyPanel'
 import { KnowledgeGraph } from './KnowledgeGraph'
+import { CardLibrary } from './CardLibrary'
 import { QuickCapture } from './components/QuickCapture'
 import { OnboardingModal } from './components/OnboardingModal'
 import { SIDEBAR_WIDTH, SIDEBAR_COLLAPSED_WIDTH, INBOX_BOARD_ID } from './constants'
@@ -43,6 +44,7 @@ export default function App() {
     const [backupPanelOpen, setBackupPanelOpen] = useState(false)
     const [movingCardShapeId, setMovingCardShapeId] = useState<string | null>(null)
     const [knowledgeGraphOpen, setKnowledgeGraphOpen] = useState(false)
+    const [cardLibraryOpen, setCardLibraryOpen] = useState(false)
     const [quickCaptureOpen, setQuickCaptureOpen] = useState(false)
     const [onboardingOpen, setOnboardingOpen] = useState(false)
     const [overdueBannerVisible, setOverdueBannerVisible] = useState(false)
@@ -122,6 +124,10 @@ export default function App() {
                 e.preventDefault()
                 setKnowledgeGraphOpen(prev => !prev)
             }
+            if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'l') {
+                e.preventDefault()
+                setCardLibraryOpen(prev => !prev)
+            }
             if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key === ' ') {
                 e.preventDefault()
                 setQuickCaptureOpen(prev => !prev)
@@ -177,6 +183,7 @@ export default function App() {
                 onOpenBackup={() => setBackupPanelOpen(true)}
                 onGoToInbox={handleGoToInbox}
                 onOpenKnowledgeGraph={() => setKnowledgeGraphOpen(true)}
+                onOpenCardLibrary={() => setCardLibraryOpen(true)}
                 isDark={isDark}
                 onToggleTheme={toggleTheme}
                 onReorderBoards={handleReorderBoards}
@@ -265,6 +272,14 @@ export default function App() {
                         setKnowledgeGraphOpen(false)
                         handleSwitch(boardId)
                     }}
+                />
+            )}
+            {cardLibraryOpen && (
+                <CardLibrary
+                    boards={boards}
+                    onJump={(boardId, shapeId, x, y) => { setCardLibraryOpen(false); handleJump(boardId, shapeId, x, y) }}
+                    onClose={() => setCardLibraryOpen(false)}
+                    isDark={isDark}
                 />
             )}
             {quickCaptureOpen && (

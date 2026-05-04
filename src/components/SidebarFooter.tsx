@@ -7,6 +7,7 @@ interface SidebarFooterProps {
     onOpenBackup: () => void
     onHotkey: () => void
     onOpenKnowledgeGraph: () => void
+    onOpenCardLibrary: () => void
     isDark: boolean
     onToggleTheme: () => void
     overdueCount: number
@@ -14,7 +15,7 @@ interface SidebarFooterProps {
     onOpenOnboarding: () => void
 }
 
-export function SidebarFooter({ onOpenTaskCenter, onOpenFilter, onOpenReviewCenter, onOpenBackup, onHotkey, onOpenKnowledgeGraph, isDark, onToggleTheme, overdueCount, todayCount, onOpenOnboarding }: SidebarFooterProps) {
+export function SidebarFooter({ onOpenTaskCenter, onOpenFilter, onOpenReviewCenter, onOpenBackup, onHotkey, onOpenKnowledgeGraph, onOpenCardLibrary, isDark, onToggleTheme, overdueCount, todayCount, onOpenOnboarding }: SidebarFooterProps) {
     const [moreMenuOpen, setMoreMenuOpen] = useState(false)
     const hoverBg = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.045)'
 
@@ -126,6 +127,19 @@ export function SidebarFooter({ onOpenTaskCenter, onOpenFilter, onOpenReviewCent
                                 boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
                                 zIndex: 99998, minWidth: 160,
                             }}>
+                                <div
+                                    onClick={() => { setMoreMenuOpen(false); onOpenCardLibrary() }}
+                                    style={{
+                                        padding: '7px 14px', cursor: 'pointer',
+                                        fontSize: 13, color: 'var(--text-primary)',
+                                        display: 'flex', alignItems: 'center', gap: 8,
+                                        borderRadius: 6,
+                                    }}
+                                    onMouseEnter={e => (e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.06)' : '#f5f5f5')}
+                                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                                >
+                                    🗂️ 卡片庫
+                                </div>
                                 <div
                                     onClick={() => { setMoreMenuOpen(false); onOpenOnboarding() }}
                                     style={{

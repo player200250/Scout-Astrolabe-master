@@ -34,6 +34,7 @@ interface BoardTabBarProps {
     onOpenBackup: () => void
     onGoToInbox: () => void
     onOpenKnowledgeGraph: () => void
+    onOpenCardLibrary: () => void
     isDark: boolean
     onToggleTheme: () => void
     onReorderBoards: (activeId: string, overId: string) => void
@@ -65,7 +66,7 @@ function SortableBoardItem({ id, children }: { id: string; children: React.React
     )
 }
 
-export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelete, onSearch, onHotkey, onOpenOverview, onSetJournal, navigationStack, onBack, onSetParent, onSwitchToChild, collapsed, onToggleCollapse, onSetStatus, onOpenTaskCenter, onOpenFilter, onOpenReviewCenter, onOpenBackup, onGoToInbox, onOpenKnowledgeGraph, isDark, onToggleTheme, onReorderBoards, inboxCardCount, onQuickCapture, overdueCount, todayCount, onOpenOnboarding }: BoardTabBarProps) {
+export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelete, onSearch, onHotkey, onOpenOverview, onSetJournal, navigationStack, onBack, onSetParent, onSwitchToChild, collapsed, onToggleCollapse, onSetStatus, onOpenTaskCenter, onOpenFilter, onOpenReviewCenter, onOpenBackup, onGoToInbox, onOpenKnowledgeGraph, onOpenCardLibrary, isDark, onToggleTheme, onReorderBoards, inboxCardCount, onQuickCapture, overdueCount, todayCount, onOpenOnboarding }: BoardTabBarProps) {
     const [hoveredId, setHoveredId] = useState<string | null>(null)
     const [renamingId, setRenamingId] = useState<string | null>(null)
     const [renameValue, setRenameValue] = useState('')
@@ -448,6 +449,7 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                         onOpenBackup={onOpenBackup}
                         onHotkey={onHotkey}
                         onOpenKnowledgeGraph={onOpenKnowledgeGraph}
+                        onOpenCardLibrary={onOpenCardLibrary}
                         isDark={isDark}
                         onToggleTheme={onToggleTheme}
                         overdueCount={overdueCount}
