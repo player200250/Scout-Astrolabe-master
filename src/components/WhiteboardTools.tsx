@@ -3,6 +3,7 @@ import { useEditor, getSnapshot, loadSnapshot, exportToBlob } from 'tldraw'
 import type { TLEditorSnapshot, TLShapeId } from 'tldraw'
 import { jsPDF } from 'jspdf'
 import type { BoardRecord } from '../db'
+import type { HomeView } from './Whiteboard'
 import TldrawToolPanel, { type CardCreators } from '../TIdrawToolPanel'
 import { useContextMenu } from '../ContextMenu'
 import { useHotkeys } from '../Usehotkeys'
@@ -27,6 +28,8 @@ interface WhiteboardToolsProps {
     isInboxBoard: boolean
     onMoveCard: (shapeId: string) => void
     isDark: boolean
+    homeView?: HomeView
+    onSetHomeView?: (v: HomeView) => void
 }
 
 export const getExportBtnStyle = (isDark: boolean): React.CSSProperties => ({
@@ -47,7 +50,7 @@ export const getExportBtnStyle = (isDark: boolean): React.CSSProperties => ({
 /** @deprecated use getExportBtnStyle(isDark) */
 export const exportBtnStyle: React.CSSProperties = getExportBtnStyle(false)
 
-export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSearch, onOpenHotkey, onCreateBoard, onSwitchBoard, isInboxBoard, onMoveCard, isDark }: WhiteboardToolsProps) {
+export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSearch, onOpenHotkey, onCreateBoard, onSwitchBoard, isInboxBoard, onMoveCard, isDark, homeView, onSetHomeView }: WhiteboardToolsProps) {
     const editor = useEditor()
     const initialized = useRef(false)
     const imageInputRef = useRef<HTMLInputElement>(null)
@@ -450,6 +453,34 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
         <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
             <TldrawToolPanel {...cardCreators} isDark={isDark} />
             <div style={{ position: 'absolute', top: 10, right: 10, display: 'flex', gap: 6, pointerEvents: 'auto', zIndex: 100 }}>
+                {homeView !== undefined && onSetHomeView && (
+                    <>
+                        <button
+                            onClick={() => onSetHomeView('dashboard')}
+                            style={{
+                                ...getExportBtnStyle(isDark),
+                                ...(homeView === 'dashboard' ? {
+                                    background: '#2563eb', color: '#fff',
+                                    border: '1px solid #2563eb',
+                                } : {}),
+                            }}
+                            onMouseEnter={e => { if (homeView !== 'dashboard') e.currentTarget.style.background = isDark ? '#2d3748' : '#f0f0f0' }}
+                            onMouseLeave={e => { if (homeView !== 'dashboard') e.currentTarget.style.background = isDark ? 'rgba(30,41,59,0.92)' : 'rgba(255,255,255,0.92)' }}
+                        >📊 儀表板</button>
+                        <button
+                            onClick={() => onSetHomeView('whiteboard')}
+                            style={{
+                                ...getExportBtnStyle(isDark),
+                                ...(homeView === 'whiteboard' ? {
+                                    background: '#2563eb', color: '#fff',
+                                    border: '1px solid #2563eb',
+                                } : {}),
+                            }}
+                            onMouseEnter={e => { if (homeView !== 'whiteboard') e.currentTarget.style.background = isDark ? '#2d3748' : '#f0f0f0' }}
+                            onMouseLeave={e => { if (homeView !== 'whiteboard') e.currentTarget.style.background = isDark ? 'rgba(30,41,59,0.92)' : 'rgba(255,255,255,0.92)' }}
+                        >🖼️ 白板</button>
+                    </>
+                )}
                 {window.electronAPI && (
                     <button
                         onClick={() => window.electronAPI?.saveDocument(JSON.stringify({ snapshot: getSnapshot(editor.store) }))}

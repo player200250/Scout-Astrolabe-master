@@ -162,6 +162,12 @@ export default function App() {
                     isInboxBoard={activeBoardId === INBOX_BOARD_ID}
                     onMoveCard={shapeId => setMovingCardShapeId(shapeId)}
                     isDark={isDark}
+                    onOpenTaskCenter={() => setTaskCenterOpen(true)}
+                    onOpenReviewCenter={() => setReviewCenterOpen(true)}
+                    onOpenKnowledgeGraph={() => setKnowledgeGraphOpen(true)}
+                    onOpenCardLibrary={() => setCardLibraryOpen(true)}
+                    onOpenOverview={() => setOverviewOpen(true)}
+                    onQuickCapture={() => setQuickCaptureOpen(true)}
                 />
             )}
 
