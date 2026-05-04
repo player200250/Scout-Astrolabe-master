@@ -9,6 +9,8 @@ import fs from 'fs';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+app.setPath('userData', path.join(app.getPath('appData'), 'Scout-Astrolabe'));
+
 const store = new Store();
 
 function createWindow() {

@@ -183,6 +183,10 @@ function ContextMenuUI({ x, y, items, onClose, showColorPicker, onColorPick, cur
 
     return (
         <>
+            <div
+                style={{ position: 'fixed', inset: 0, zIndex: 99998 }}
+                onMouseDown={onClose}
+            />
             <div ref={ref} style={{ position: 'fixed', top: pos.y, left: pos.x, ...menuBoxStyle }}>
                 {showColorPicker && onColorPick && (
                     <>

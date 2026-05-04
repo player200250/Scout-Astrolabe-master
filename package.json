@@ -9,7 +9,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "electron-dev": "concurrently \"npm run dev\" \"electron .\"",
+    "electron-dev": "concurrently \"npm run dev\" \"electron --icu-data-dir=node_modules/electron/dist .\"",
     "build:win": "node scripts/prepare-cache.mjs && vite build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --windows"
   },
   "dependencies": {
@@ -72,10 +72,12 @@
     "win": {
       "target": [
         "nsis"
-      ]
+      ],
+      "requestedExecutionLevel": "asInvoker"
     },
     "nsis": {
       "oneClick": false,
+      "perMachine": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true
