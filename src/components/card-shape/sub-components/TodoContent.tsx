@@ -112,7 +112,7 @@ export const TodoContent = ({ shape, isEditing, exitEdit }: TodoContentProps) =>
                 gap: 12,
                 height: '100%',
                 outline: 'none',
-                padding: '16px'
+                padding: '12px'
             }}
             onPointerDown={(e) => { if (isEditing) e.stopPropagation() }}
         >

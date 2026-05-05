@@ -50,8 +50,8 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
             state: 'idle',
             preview: false,
             color: 'none',
-            w: 240,
-            h: 120,
+            w: 280,
+            h: 320,
             tags: [],
             cardStatus: 'none',
             priority: 'none',
@@ -196,7 +196,7 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
                             position: 'relative',
                             overflow: 'hidden', display: 'flex', flexDirection: 'column',
                             borderRadius: 12,
-                            border: isEditing ? '1.5px solid #2563eb' : isDark ? '1px solid #475569' : '1px solid #e8e8e8',
+                            border: isEditing ? '1.5px solid #2563eb' : isDark ? '1px solid #334155' : '1px solid #e8e8e8',
                             padding: 0, boxSizing: 'border-box',
                             pointerEvents: shouldInnerDivCaptureEvents || p.type === 'image' || p.type === 'todo' || (p.type === 'text' && p.text?.includes('[[')) ? 'auto' : 'none',
                             cursor: shouldInnerDivCaptureEvents || p.type === 'image' || (p.type === 'text' && p.text?.includes('[[')) ? 'default' : 'grab',
@@ -206,10 +206,10 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
                                     ? '0 0 0 3px rgba(37,99,235,0.18), 0 4px 20px rgba(37,99,235,0.10)'
                                     : '0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04)',
                             transition: 'box-shadow 0.15s ease-in-out, border-color 0.15s ease-in-out',
-                            backgroundColor: p.color === 'dark' ? '#1a1a2e' : colorStyle.bg,
+                            backgroundColor: p.color === 'dark' ? '#1a1a2e' : (!p.color || p.color === 'none') ? (isDark ? '#1e293b' : '#ffffff') : colorStyle.bg,
                         }}
                     >
-                        {p.color && p.color !== 'none' && (
+                        {p.color && p.color !== 'none' && p.type !== 'image' && (
                             <div style={{
                                 height: 4, width: '100%', flexShrink: 0,
                                 backgroundColor: colorStyle.accent,
@@ -240,6 +240,28 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
                                 background: PRIORITY_DOT[p.priority],
                                 boxShadow: `0 0 0 2px ${PRIORITY_DOT[p.priority]}44`,
                             }} />
+                        )}
+                        {/* 圖片卡片：hover 時顯示全螢幕預覽按鈕 */}
+                        {p.type === 'image' && p.image && isHovered && !isEditing && (
+                            <div
+                                onPointerDown={(e) => {
+                                    e.stopPropagation()
+                                    editor.updateShape({ id: shape.id, type: 'card', props: { preview: true } })
+                                }}
+                                style={{
+                                    position: 'absolute', top: 8, right: 8,
+                                    width: 28, height: 28,
+                                    background: 'rgba(0,0,0,0.5)',
+                                    borderRadius: 6,
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    cursor: 'pointer', zIndex: 10,
+                                    pointerEvents: 'auto',
+                                    color: 'white', fontSize: 14,
+                                    transition: 'background 0.15s',
+                                }}
+                            >
+                                ⛶
+                            </div>
                         )}
                         {/* 編輯模式：屬性列 */}
                         {isEditing && (p.type === 'text' || p.type === 'todo' || p.type === 'journal') && (

@@ -364,7 +364,7 @@ export function TextContent({ editor: tldrawEditor, shape, isEditing, exitEdit, 
                     style={{
                         flex: 1,
                         overflow: 'hidden',
-                        padding: '14px 18px 0',
+                        padding: '12px 12px 0',
                         position: 'relative',
                     }}
                 >
@@ -447,7 +447,7 @@ export function TextContent({ editor: tldrawEditor, shape, isEditing, exitEdit, 
             >
                 <Toolbar tiptap={tiptap} isDark={isDark} />
 
-                <div style={{ flex: 1, overflow: 'auto', padding: '14px 18px' }}>
+                <div style={{ flex: 1, overflow: 'auto', padding: '12px' }}>
                     <EditorContent
                         editor={tiptap}
                         style={{ height: '100%', outline: 'none' }}

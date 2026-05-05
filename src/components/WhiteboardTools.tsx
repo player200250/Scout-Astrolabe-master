@@ -16,6 +16,34 @@ function isCardShape(s: { type: string }): s is TLCardShape {
     return s.type === 'card'
 }
 
+async function compressImage(dataUrl: string): Promise<string> {
+    return new Promise(resolve => {
+        const img = new Image()
+        img.onload = () => {
+            const MAX = 1200
+            let { width, height } = img
+            if (width > MAX || height > MAX) {
+                if (width > height) { height = Math.round(height * MAX / width); width = MAX }
+                else { width = Math.round(width * MAX / height); height = MAX }
+            }
+            const canvas = document.createElement('canvas')
+            canvas.width = width; canvas.height = height
+            const ctx = canvas.getContext('2d')!
+            ctx.drawImage(img, 0, 0, width, height)
+            // Preserve transparency for PNG; convert to JPEG otherwise
+            if (dataUrl.startsWith('data:image/png')) {
+                const px = ctx.getImageData(0, 0, width, height).data
+                for (let i = 3; i < px.length; i += 4) {
+                    if (px[i] < 255) { resolve(canvas.toDataURL('image/png')); return }
+                }
+            }
+            resolve(canvas.toDataURL('image/jpeg', 0.8))
+        }
+        img.onerror = () => resolve(dataUrl)
+        img.src = dataUrl
+    })
+}
+
 interface WhiteboardToolsProps {
     board: BoardRecord
     boards: BoardRecord[]
@@ -57,26 +85,26 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
     const jsonInputRef = useRef<HTMLInputElement>(null)
 
     const createTextCard = useCallback((x?: number, y?: number) => {
-        editor.createShape({ type: 'card', x, y, props: { type: 'text', text: '', image: null, todos: [], url: '', state: 'idle', w: 240, h: 160 } })
+        editor.createShape({ type: 'card', x, y, props: { type: 'text', text: '', image: null, todos: [], url: '', state: 'idle', w: 280, h: 320 } })
     }, [editor])
 
     const createTodoCard = useCallback((x?: number, y?: number) => {
-        editor.createShape({ type: 'card', x, y, props: { type: 'todo', text: '', image: null, todos: [{ id: `todo_${Date.now()}`, text: '新任務', checked: false }], url: null, state: 'idle', w: 260, h: 200 } })
+        editor.createShape({ type: 'card', x, y, props: { type: 'todo', text: '', image: null, todos: [{ id: `todo_${Date.now()}`, text: '新任務', checked: false }], url: null, state: 'idle', w: 280, h: 320 } })
     }, [editor])
 
     const createLinkCard = useCallback((x?: number, y?: number) => {
-        editor.createShape({ type: 'card', x, y, props: { type: 'link', text: '', image: null, todos: [], url: 'https://example.com', linkEmbedUrl: null, state: 'idle', color: 'none', cardStatus: 'none', priority: 'none', tags: [], w: 260, h: 120 } })
+        editor.createShape({ type: 'card', x, y, props: { type: 'link', text: '', image: null, todos: [], url: 'https://example.com', linkEmbedUrl: null, state: 'idle', color: 'none', cardStatus: 'none', priority: 'none', tags: [], w: 280, h: 200 } })
     }, [editor])
 
     const createImageCard = useCallback((imgBase64: string) => {
-        editor.createShape({ type: 'card', props: { type: 'image', text: '', image: imgBase64, todos: [], url: '', state: 'idle', w: 300, h: 200 } })
+        editor.createShape({ type: 'card', props: { type: 'image', text: '', image: imgBase64, todos: [], url: '', state: 'idle', w: 280, h: 200 } })
     }, [editor])
 
     const createBoardCard = useCallback((x?: number, y?: number) => {
         const newBoard = onCreateBoard(`子白板 ${boards.length + 1}`)
         editor.createShape({
             type: 'card', x, y,
-            props: { type: 'board', text: newBoard.name, image: null, todos: [], url: '', linkEmbedUrl: null, linkedBoardId: newBoard.id, state: 'idle', color: 'none', w: 280, h: 200 }
+            props: { type: 'board', text: newBoard.name, image: null, todos: [], url: '', linkEmbedUrl: null, linkedBoardId: newBoard.id, state: 'idle', color: 'none', w: 280, h: 320 }
         })
     }, [editor, onCreateBoard, boards.length])
 
@@ -156,7 +184,7 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
             const pageCenter = editor.screenToPage(center)
             editor.createShape({
                 type: 'card', x: pageCenter.x - 140, y: pageCenter.y - 100,
-                props: { type: 'board', text: boardName, image: null, todos: [], url: '', linkEmbedUrl: null, linkedBoardId, state: 'idle', color: 'none', w: 280, h: 200 }
+                props: { type: 'board', text: boardName, image: null, todos: [], url: '', linkEmbedUrl: null, linkedBoardId, state: 'idle', color: 'none', w: 280, h: 320 }
             })
         }
         window.addEventListener('create-board-card-on', handler)
@@ -182,7 +210,7 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
                     type: 'text', text,
                     image: null, todos: [], url: null,
                     linkEmbedUrl: null, journalDate: null,
-                    state: 'idle', color: 'none', w: 240, h: 180,
+                    state: 'idle', color: 'none', w: 280, h: 320,
                     cardStatus: 'none', priority: 'none', tags: [],
                 },
             })
@@ -213,11 +241,11 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
                     const file = item.getAsFile()
                     if (!file) continue
                     const reader = new FileReader()
-                    reader.onload = () => {
-                        const base64 = reader.result as string
+                    reader.onload = async () => {
+                        const compressed = await compressImage(reader.result as string)
                         const center = editor.getViewportScreenCenter()
                         const pagePoint = editor.screenToPage(center)
-                        editor.createShape({ type: 'card', x: pagePoint.x - 150, y: pagePoint.y - 100, props: { type: 'image', text: '', image: base64, todos: [], url: '', state: 'idle', w: 300, h: 200 } })
+                        editor.createShape({ type: 'card', x: pagePoint.x - 140, y: pagePoint.y - 100, props: { type: 'image', text: '', image: compressed, todos: [], url: '', state: 'idle', w: 280, h: 200 } })
                     }
                     reader.readAsDataURL(file)
                     return
@@ -234,17 +262,17 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
                         const res = await fetch(imgUrl)
                         const blob = await res.blob()
                         const reader = new FileReader()
-                        reader.onload = () => {
-                            const base64 = reader.result as string
+                        reader.onload = async () => {
+                            const compressed = await compressImage(reader.result as string)
                             const center = editor.getViewportScreenCenter()
                             const pagePoint = editor.screenToPage(center)
-                            editor.createShape({ type: 'card', x: pagePoint.x - 150, y: pagePoint.y - 100, props: { type: 'image', text: '', image: base64, todos: [], url: '', state: 'idle', w: 300, h: 200 } })
+                            editor.createShape({ type: 'card', x: pagePoint.x - 140, y: pagePoint.y - 100, props: { type: 'image', text: '', image: compressed, todos: [], url: '', state: 'idle', w: 280, h: 200 } })
                         }
                         reader.readAsDataURL(blob)
                     } catch {
                         const center = editor.getViewportScreenCenter()
                         const pagePoint = editor.screenToPage(center)
-                        editor.createShape({ type: 'card', x: pagePoint.x - 150, y: pagePoint.y - 100, props: { type: 'image', text: '', image: imgUrl, todos: [], url: '', state: 'idle', w: 300, h: 200 } })
+                        editor.createShape({ type: 'card', x: pagePoint.x - 140, y: pagePoint.y - 100, props: { type: 'image', text: '', image: imgUrl, todos: [], url: '', state: 'idle', w: 280, h: 200 } })
                     }
                 })
                 return
@@ -258,7 +286,7 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
                         new URL(trimmed.startsWith('http') ? trimmed : `https://${trimmed}`)
                         const center = editor.getViewportScreenCenter()
                         const pagePoint = editor.screenToPage(center)
-                        editor.createShape({ type: 'card', x: pagePoint.x - 130, y: pagePoint.y - 60, props: { type: 'link', text: '', image: null, todos: [], url: trimmed, linkEmbedUrl: null, state: 'idle', color: 'none', cardStatus: 'none', priority: 'none', tags: [], w: 260, h: 120 } })
+                        editor.createShape({ type: 'card', x: pagePoint.x - 140, y: pagePoint.y - 100, props: { type: 'link', text: '', image: null, todos: [], url: trimmed, linkEmbedUrl: null, state: 'idle', color: 'none', cardStatus: 'none', priority: 'none', tags: [], w: 280, h: 200 } })
                     } catch { }
                 })
             }
@@ -344,7 +372,7 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
                             type: 'card',
                             x: pageCenter.x - 140 + (idx % 4) * 300,
                             y: pageCenter.y - 100 + Math.floor(idx / 4) * 240,
-                            props: { type: 'board', text: child.name, image: null, todos: [], url: '', linkEmbedUrl: null, linkedBoardId: child.id, state: 'idle', color: 'none', w: 280, h: 200 }
+                            props: { type: 'board', text: child.name, image: null, todos: [], url: '', linkEmbedUrl: null, linkedBoardId: child.id, state: 'idle', color: 'none', w: 280, h: 320 }
                         })
                     })
                 }
@@ -361,7 +389,7 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
                     const maxX = allShapes.length > 0 ? Math.max(...allShapes.map(s => s.x + s.props.w)) + 40 : 100
                     const journalText = `<h2>${todayLabel}</h2><p><strong>今天做了什麼</strong></p><p></p><p><strong>學到什麼（在哪個白板）</strong></p><p></p><p><strong>計畫/待辦</strong></p><p></p><p><strong>卡住的地方</strong></p><p></p><p><strong>明天先做</strong></p><p></p>`
                     editor.createShape({ type: 'card', x: maxX, y: 100, props: { type: 'journal', text: journalText, image: null, todos: [], url: '', linkEmbedUrl: null, journalDate: todayStr, state: 'idle', color: 'yellow', w: 280, h: 380 } })
-                    editor.createShape({ type: 'card', x: maxX + 320, y: 100, props: { type: 'todo', text: `${todayLabel} 計畫`, image: null, todos: [{ id: `todo_${Date.now()}`, text: '今日任務', checked: false }], url: null, linkEmbedUrl: null, journalDate: todayStr, state: 'idle', color: 'blue', w: 260, h: 200 } })
+                    editor.createShape({ type: 'card', x: maxX + 320, y: 100, props: { type: 'todo', text: `${todayLabel} 計畫`, image: null, todos: [{ id: `todo_${Date.now()}`, text: '今日任務', checked: false }], url: null, linkEmbedUrl: null, journalDate: todayStr, state: 'idle', color: 'blue', w: 280, h: 320 } })
                 }
 
                 const weekKey = getISOWeekKey(today)
@@ -386,7 +414,7 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
                             journalDate: weekKey,
                             state: 'idle',
                             color: 'purple',
-                            w: 300, h: 420,
+                            w: 280, h: 380,
                         },
                     })
                 }
@@ -540,7 +568,10 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
                 onChange={e => {
                     const file = e.target.files?.[0]; if (!file) return
                     const reader = new FileReader()
-                    reader.onload = () => createImageCard(reader.result as string)
+                    reader.onload = async () => {
+                        const compressed = await compressImage(reader.result as string)
+                        createImageCard(compressed)
+                    }
                     reader.readAsDataURL(file)
                     e.target.value = ''
                 }}
