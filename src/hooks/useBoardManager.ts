@@ -5,7 +5,77 @@ import { loadAllBoards, saveBoard, deleteBoard, generateId } from '../utils/boar
 import { INBOX_BOARD_ID, BACKUP_THROTTLE_MS } from '../constants'
 import {
     getSnapshotStore, withUpdatedStore, toMutableSnapshot, toTLEditorSnapshot,
+    type SnapshotShapeProps,
 } from '../utils/snapshot'
+
+// ── sanitizeSnapshot ────────────────────────────────────────────────────────
+
+const CARD_PROP_DEFAULTS: Record<string, unknown> = {
+    text: '',
+    image: null,
+    todos: [],
+    url: '',
+    linkEmbedUrl: null,
+    state: 'idle',
+    preview: false,
+    color: 'none',
+    w: 240,
+    h: 120,
+    tags: [],
+    cardStatus: 'none',
+    priority: 'none',
+    linkedBoardId: null,
+    journalDate: null,
+}
+
+function sanitizeCardProps(props: SnapshotShapeProps): SnapshotShapeProps {
+    const result = { ...props } as Record<string, unknown>
+    let changed = false
+
+    // Replace any undefined value already present in the object
+    for (const key of Object.keys(result)) {
+        if (result[key] === undefined) {
+            result[key] = key in CARD_PROP_DEFAULTS ? CARD_PROP_DEFAULTS[key] : null
+            changed = true
+        }
+    }
+
+    // Ensure every required default field exists (covers fields missing entirely)
+    for (const [key, def] of Object.entries(CARD_PROP_DEFAULTS)) {
+        if (!(key in result)) {
+            result[key] = def
+            changed = true
+        }
+    }
+
+    return changed ? (result as SnapshotShapeProps) : props
+}
+
+async function sanitizeBoards(boards: BoardRecord[]): Promise<BoardRecord[]> {
+    const out: BoardRecord[] = []
+    for (const board of boards) {
+        if (!board.snapshot) { out.push(board); continue }
+        const store = getSnapshotStore(board.snapshot)
+        let dirty = false
+        const newStore = { ...store }
+        for (const record of Object.values(store)) {
+            if (record.typeName !== 'shape' || record.type !== 'card' || !record.props) continue
+            const fixed = sanitizeCardProps(record.props)
+            if (fixed !== record.props) {
+                newStore[record.id] = { ...record, props: fixed }
+                dirty = true
+            }
+        }
+        if (dirty) {
+            const updated = { ...board, snapshot: withUpdatedStore(board.snapshot, newStore) }
+            await saveBoard(updated)
+            out.push(updated)
+        } else {
+            out.push(board)
+        }
+    }
+    return out
+}
 
 export function useBoardManager() {
     const [boards, setBoards] = useState<BoardRecord[]>([])
@@ -47,9 +117,10 @@ export function useBoardManager() {
         navigator.storage?.persist?.().then(granted => {
             if (!granted) console.warn('[Storage] 持久化未授權，資料可能被清除')
         })
-        loadAllBoards().then(loaded => {
-            setBoards(loaded)
-            const firstId = loaded[0]?.id ?? null
+        loadAllBoards().then(async loaded => {
+            const sanitized = await sanitizeBoards(loaded)
+            setBoards(sanitized)
+            const firstId = sanitized[0]?.id ?? null
             setActiveBoardId(firstId)
             if (firstId) setNavigationStack([firstId])
             setLoading(false)

@@ -65,7 +65,7 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
     }, [editor])
 
     const createLinkCard = useCallback((x?: number, y?: number) => {
-        editor.createShape({ type: 'card', x, y, props: { type: 'link', text: '', image: null, todos: [], url: 'https://example.com', state: 'idle', w: 260, h: 120 } })
+        editor.createShape({ type: 'card', x, y, props: { type: 'link', text: '', image: null, todos: [], url: 'https://example.com', linkEmbedUrl: null, state: 'idle', color: 'none', cardStatus: 'none', priority: 'none', tags: [], w: 260, h: 120 } })
     }, [editor])
 
     const createImageCard = useCallback((imgBase64: string) => {
@@ -258,7 +258,7 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
                         new URL(trimmed.startsWith('http') ? trimmed : `https://${trimmed}`)
                         const center = editor.getViewportScreenCenter()
                         const pagePoint = editor.screenToPage(center)
-                        editor.createShape({ type: 'card', x: pagePoint.x - 130, y: pagePoint.y - 60, props: { type: 'link', text: '', image: null, todos: [], url: trimmed, state: 'idle', w: 260, h: 120 } })
+                        editor.createShape({ type: 'card', x: pagePoint.x - 130, y: pagePoint.y - 60, props: { type: 'link', text: '', image: null, todos: [], url: trimmed, linkEmbedUrl: null, state: 'idle', color: 'none', cardStatus: 'none', priority: 'none', tags: [], w: 260, h: 120 } })
                     } catch { }
                 })
             }

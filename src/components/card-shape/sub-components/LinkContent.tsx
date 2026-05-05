@@ -45,8 +45,8 @@ export const LinkContent = ({ editor, shape, isEditing, exitEdit, getEmbedData }
                 const metadata = await api.getLinkPreview(inputUrl)
                 if (metadata) {
                     updatePayload.title = metadata.title
-                    updatePayload.description = metadata.description ?? undefined
-                    updatePayload.thumbnail = metadata.image ?? undefined
+                    if (metadata.description != null) updatePayload.description = metadata.description
+                    if (metadata.image != null) updatePayload.thumbnail = metadata.image
                 }
             }
         }
