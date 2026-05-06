@@ -68,6 +68,12 @@
 #### 7. 欄位（Frame 容器）
 - 📊 tldraw 內建 Frame，卡片可自由拖入拖出
 
+#### 8. 主頁儀表板
+- 🏠 首頁白板可在「儀表板」與「白板」兩種視圖間一鍵切換
+- 顯示今日問候語、日期、ISO 週數等情境資訊
+- 本週統計：已完成待辦、新建卡片數、知識連結數
+- 快速入口：任務中心、復盤中心、知識圖譜、卡片庫
+
 ---
 
 ### 🎨 視覺設計
@@ -99,6 +105,7 @@
 | 📦 卡片跨白板移動 | 右鍵卡片 → 移動至其他白板 |
 | 🏷️ 白板管理 | 釘選、封存、拖曳排序、設為子板 |
 | 🌟 新手導覽 | 首次啟動自動顯示，可從設定重新觀看 |
+| 📚 卡片庫 | 跨白板瀏覽所有卡片，依類型 / 狀態 / 優先度篩選，清單或格狀視圖（Ctrl+Shift+L） |
 | 💾 本機儲存 | 完全離線，不需帳號，資料不上傳 |
 
 ---
@@ -258,6 +265,7 @@ npm run electron-dev
 - 🖼️ 選取卡片 → PNG
 - 📄 整個白板 → PDF
 - 📄 選取卡片 → PDF
+- 📝 選取文字 / Journal 卡片 → Markdown（`.md` 檔案）
 
 ---
 
@@ -321,6 +329,7 @@ npm run electron-dev
 | `Ctrl+Shift+I` | 跳到收件匣 |
 | `Ctrl+Shift+C` | 復盤中心 |
 | `Ctrl+Shift+G` | 知識圖譜 |
+| `Ctrl+Shift+L` | 卡片庫 |
 | `?` 或 `Ctrl+/` | 快捷鍵說明 |
 
 ### 日記頁面（日記白板內）
@@ -371,7 +380,9 @@ Scout-Astrolabe-master/
 │   │   │   ├── type/CardShape.ts        # 型別 + 顏色常數
 │   │   │   └── sub-components/          # TextContent, TodoContent,
 │   │   │                                # ImageContent, LinkContent...
-│   │   ├── Whiteboard.tsx               # 主白板元件
+│   │   ├── Whiteboard.tsx               # 主白板元件（含視圖切換）
+│   │   ├── Dashboard.tsx                # 主頁儀表板
+│   │   ├── WhiteboardTools.tsx          # 白板工具列
 │   │   ├── BoardTabBar.tsx              # 側邊欄
 │   │   ├── SidebarFooter.tsx            # 側邊欄底部工具列
 │   │   ├── BoardOverview.tsx            # 白板總覽
@@ -385,6 +396,7 @@ Scout-Astrolabe-master/
 │   ├── utils/
 │   │   ├── boardDb.ts                   # IndexedDB CRUD
 │   │   ├── boardExport.ts               # PNG / PDF 匯出
+│   │   ├── exportMarkdown.ts            # Markdown 匯出
 │   │   ├── snapshot.ts                  # tldraw snapshot 工具
 │   │   └── date.ts                      # 日期工具
 │   ├── db.ts                            # Dexie 實例 + 型別
@@ -394,8 +406,10 @@ Scout-Astrolabe-master/
 │   ├── FilterPanel.tsx                  # 篩選面板
 │   ├── ReviewCenter.tsx                 # 復盤中心
 │   ├── KnowledgeGraph.tsx               # 知識圖譜
+│   ├── CardLibrary.tsx                  # 卡片庫（跨白板索引）
 │   ├── BackupPanel.tsx                  # 備份 / 還原
 │   ├── HotkeyPanel.tsx                  # 快捷鍵說明
+│   ├── TIdrawToolPanel.tsx              # tldraw 工具面板
 │   ├── CalendarView.tsx                 # 日曆檢視
 │   ├── JournalDayView.tsx               # 日記日視圖
 │   ├── WeeklyReview.tsx                 # 週回顧
@@ -483,6 +497,9 @@ A: 點側邊欄底部「⋯」→「📖 使用導覽」。
 - [x] **卡片跨白板移動**
 - [x] **白板釘選 / 封存 / 拖曳排序**
 - [x] **新手導覽** — 首次啟動自動顯示
+- [x] **主頁儀表板** — 首頁白板儀表板 / 白板視圖切換，本週統計快速入口
+- [x] **卡片庫** — 跨白板卡片索引，依類型 / 狀態 / 優先度篩選，清單 / 格狀視圖（Ctrl+Shift+L）
+- [x] **Markdown 匯出** — 文字 / Journal 卡片匯出為 `.md` 檔案
 
 ### 📋 v1.1.0（計劃中）
 
