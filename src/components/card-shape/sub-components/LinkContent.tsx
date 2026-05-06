@@ -221,7 +221,7 @@ export const LinkContent = ({ editor, shape, isEditing, exitEdit, getEmbedData }
 
             {/* 下方資訊區域 */}
             <div style={{
-                flex: 1, padding: '12px',
+                flex: 1, padding: '14px 16px',
                 display: 'flex', flexDirection: 'column',
                 justifyContent: 'center', gap: '6px',
             }}>

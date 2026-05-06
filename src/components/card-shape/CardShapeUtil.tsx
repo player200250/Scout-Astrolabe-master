@@ -196,22 +196,22 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
                             position: 'relative',
                             overflow: 'hidden', display: 'flex', flexDirection: 'column',
                             borderRadius: 12,
-                            border: isEditing ? '1.5px solid #2563eb' : isDark ? '1px solid #334155' : '1px solid #e8e8e8',
+                            border: isEditing ? '1.5px solid #2563eb' : isDark ? '1px solid #334155' : '1px solid #f0f0f0',
                             padding: 0, boxSizing: 'border-box',
                             pointerEvents: shouldInnerDivCaptureEvents || p.type === 'image' || p.type === 'todo' || (p.type === 'text' && p.text?.includes('[[')) ? 'auto' : 'none',
                             cursor: shouldInnerDivCaptureEvents || p.type === 'image' || (p.type === 'text' && p.text?.includes('[[')) ? 'default' : 'grab',
-                            boxShadow: isHovered && !isEditing
-                                ? '0 4px 16px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.06)'
-                                : isEditing
-                                    ? '0 0 0 3px rgba(37,99,235,0.18), 0 4px 20px rgba(37,99,235,0.10)'
-                                    : '0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04)',
+                            boxShadow: isEditing
+                                ? '0 0 0 3px rgba(37,99,235,0.18), 0 4px 20px rgba(37,99,235,0.10)'
+                                : isHovered
+                                    ? isDark ? '0 2px 8px rgba(0,0,0,0.30)' : '0 2px 8px rgba(0,0,0,0.08)'
+                                    : 'none',
                             transition: 'box-shadow 0.15s ease-in-out, border-color 0.15s ease-in-out',
                             backgroundColor: p.color === 'dark' ? '#1a1a2e' : (!p.color || p.color === 'none') ? (isDark ? '#1e293b' : '#ffffff') : colorStyle.bg,
                         }}
                     >
                         {p.color && p.color !== 'none' && p.type !== 'image' && (
                             <div style={{
-                                height: 4, width: '100%', flexShrink: 0,
+                                height: 3, width: '100%', flexShrink: 0,
                                 backgroundColor: colorStyle.accent,
                                 borderRadius: '12px 12px 0 0',
                             }} />
@@ -220,7 +220,7 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
                         {!isEditing && p.cardStatus && p.cardStatus !== 'none' && STATUS_BADGE[p.cardStatus] && (
                             <div style={{
                                 position: 'absolute',
-                                top: p.color && p.color !== 'none' ? 9 : 5,
+                                top: p.color && p.color !== 'none' ? 8 : 5,
                                 left: 8, zIndex: 5, pointerEvents: 'none',
                                 fontSize: 10, fontWeight: 600,
                                 color: STATUS_BADGE[p.cardStatus].color,
@@ -234,7 +234,7 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
                         {!isEditing && p.priority && p.priority !== 'none' && PRIORITY_DOT[p.priority] && (
                             <div style={{
                                 position: 'absolute',
-                                top: p.color && p.color !== 'none' ? 11 : 7,
+                                top: p.color && p.color !== 'none' ? 10 : 7,
                                 right: 8, zIndex: 5, pointerEvents: 'none',
                                 width: 9, height: 9, borderRadius: '50%',
                                 background: PRIORITY_DOT[p.priority],

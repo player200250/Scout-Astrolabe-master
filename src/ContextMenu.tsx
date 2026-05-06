@@ -392,6 +392,7 @@ export function useContextMenu({
         if (!editor) return
 
         const handleContextMenu = (e: MouseEvent) => {
+            if ((e.target as Element)?.closest('[data-sidebar]')) return
             console.log('[ContextMenu] handleContextMenu triggered', e.clientX, e.clientY)
             e.preventDefault()
             e.stopPropagation()

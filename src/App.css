@@ -2,7 +2,7 @@
    CSS 變數主題系統
    ================================================ */
 :root {
-    --bg-canvas:      #f4f4f4;
+    --bg-canvas:      #ffffff;
     --bg-dot:         #d8d8d8;
     --bg-card:        #ffffff;
     --bg-card-hover:  #fafafa;

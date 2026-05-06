@@ -13,7 +13,7 @@ import { BacklinksPanel } from './BacklinksPanel'
 function TagsDisplay({ tags }: { tags: string[] }) {
     if (!tags.length) return null
     return (
-        <div style={{ padding: '3px 12px 5px', display: 'flex', flexWrap: 'wrap', gap: 3, flexShrink: 0 }}>
+        <div style={{ padding: '3px 16px 5px', display: 'flex', flexWrap: 'wrap', gap: 3, flexShrink: 0 }}>
             {tags.map(tag => (
                 <span key={tag} style={{
                     background: '#eff6ff', color: '#2563eb',

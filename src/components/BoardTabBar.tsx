@@ -80,7 +80,7 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
     const [hoveredId, setHoveredId] = useState<string | null>(null)
     const [renamingId, setRenamingId] = useState<string | null>(null)
     const [renameValue, setRenameValue] = useState('')
-    const [contextMenu, setContextMenu] = useState<{ boardId: string; x: number; y: number } | null>(null)
+    const [contextMenu, setContextMenu] = useState<{ boardId: string; y: number } | null>(null)
     const [selectingParentFor, setSelectingParentFor] = useState<string | null>(null)
     const [archivedOpen, setArchivedOpen] = useState(false)
     const [recentOpen, setRecentOpen] = useState(true)
@@ -107,7 +107,9 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
 
     return (
         <>
-            <div style={{
+            <div
+                data-sidebar="true"
+                style={{
                 position: 'fixed',
                 top: 0,
                 right: 0,
@@ -297,7 +299,18 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                                 onMouseEnter={() => setHoveredId(board.id)}
                                 onMouseLeave={() => setHoveredId(null)}
                                 onClick={() => onSwitch(board.id)}
-                                onContextMenu={e => { e.preventDefault(); if (!board.isHome && !board.isInbox) setContextMenu({ boardId: board.id, x: e.clientX, y: e.clientY }) }}
+                                onContextMenu={e => {
+                                    e.preventDefault()
+                                    e.stopPropagation()
+                                    if (!board.isHome && !board.isInbox) {
+                                        const rect = e.currentTarget.getBoundingClientRect()
+                                        const MENU_H = 300
+                                        const y = rect.bottom + 2 + MENU_H > window.innerHeight
+                                            ? Math.max(8, rect.top - MENU_H)
+                                            : rect.bottom + 2
+                                        setContextMenu({ boardId: board.id, y })
+                                    }
+                                }}
                                 style={{
                                     position: 'relative', borderRadius: 7,
                                     background: isActive ? 'rgba(37,99,235,0.1)' : isHovered ? hoverBg : 'transparent',
@@ -493,38 +506,46 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
             {contextMenu && (() => {
                 const targetBoard = boards.find(b => b.id === contextMenu.boardId)
                 if (!targetBoard) return null
-                const menuBg = isDark ? '#1e293b' : 'white'
-                const menuBorder = isDark ? '1px solid #334155' : '1px solid rgba(0,0,0,0.06)'
-                const menuItemHover = isDark ? '#2d3748' : '#f5f5f5'
+                const menuBg      = isDark ? '#1e293b' : '#ffffff'
+                const menuShadow  = isDark ? '0 4px 20px rgba(0,0,0,0.5)' : '0 4px 20px rgba(0,0,0,0.12)'
+                const menuBorderC = isDark ? '#334155' : 'rgba(0,0,0,0.08)'
+                const menuItemHover = isDark ? '#334155' : '#f5f5f5'
+                const menuText    = isDark ? '#e2e8f0' : '#1a1a1a'
+                const menuMuted   = isDark ? '#64748b' : '#999'
+                const menuDivider = isDark ? '#334155' : '#f0f0f0'
+                const deleteHover = isDark ? '#3f1f1f' : '#fff5f5'
                 return (
                     <>
                         <div style={{ position: 'fixed', inset: 0, zIndex: 99998 }} onClick={() => setContextMenu(null)} />
                         <div style={{
                             position: 'fixed',
-                            left: contextMenu.x + 180 > window.innerWidth ? contextMenu.x - 180 : contextMenu.x,
+                            right: sidebarWidth,
+                            left: 'auto',
                             top: contextMenu.y,
-                            background: menuBg, borderRadius: 10, padding: '4px 0',
-                            boxShadow: '0 4px 20px rgba(0,0,0,0.15), ' + menuBorder,
+                            background: menuBg,
+                            borderRadius: 10, padding: '4px 0',
+                            boxShadow: menuShadow,
+                            border: `1px solid ${menuBorderC}`,
                             zIndex: 99999, minWidth: 180,
                         }}>
-                            <div style={{ padding: '4px 12px 6px', fontSize: 11, color: 'var(--text-muted)', borderBottom: `1px solid var(--border-light)`, marginBottom: 4 }}>
+                            <div style={{ padding: '4px 12px 6px', fontSize: 11, color: menuMuted, borderBottom: `1px solid ${menuDivider}`, marginBottom: 4 }}>
                                 {targetBoard.name}
                             </div>
                             <div
                                 onClick={() => { onSetJournal(contextMenu.boardId, !targetBoard.isJournal); setContextMenu(null) }}
-                                style={{ padding: '7px 14px', cursor: 'pointer', fontSize: 13, color: 'var(--text-primary)' }}
+                                style={{ padding: '7px 14px', cursor: 'pointer', fontSize: 13, color: menuText }}
                                 onMouseEnter={e => (e.currentTarget.style.background = menuItemHover)}
                                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                             >
                                 {targetBoard.isJournal ? '📔 取消 Journal 白板' : '📔 設為 Journal 白板'}
                             </div>
-                            <div style={{ height: 1, background: 'var(--border-light)', margin: '4px 0' }} />
+                            <div style={{ height: 1, background: menuDivider, margin: '4px 0' }} />
                             <div
                                 onClick={() => {
                                     onSetStatus(contextMenu.boardId, targetBoard.status === 'pinned' ? 'active' : 'pinned')
                                     setContextMenu(null)
                                 }}
-                                style={{ padding: '7px 14px', cursor: 'pointer', fontSize: 13, color: 'var(--text-primary)' }}
+                                style={{ padding: '7px 14px', cursor: 'pointer', fontSize: 13, color: menuText }}
                                 onMouseEnter={e => (e.currentTarget.style.background = menuItemHover)}
                                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                             >
@@ -535,26 +556,26 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                                     onSetStatus(contextMenu.boardId, targetBoard.status === 'archived' ? 'active' : 'archived')
                                     setContextMenu(null)
                                 }}
-                                style={{ padding: '7px 14px', cursor: 'pointer', fontSize: 13, color: 'var(--text-primary)' }}
+                                style={{ padding: '7px 14px', cursor: 'pointer', fontSize: 13, color: menuText }}
                                 onMouseEnter={e => (e.currentTarget.style.background = menuItemHover)}
                                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                             >
                                 {targetBoard.status === 'archived' ? '↩ 取消封存' : '🗄️ 封存白板'}
                             </div>
-                            <div style={{ height: 1, background: 'var(--border-light)', margin: '4px 0' }} />
+                            <div style={{ height: 1, background: menuDivider, margin: '4px 0' }} />
                             <div
                                 onClick={() => { setSelectingParentFor(contextMenu.boardId); setContextMenu(null) }}
-                                style={{ padding: '7px 14px', cursor: 'pointer', fontSize: 13, color: 'var(--text-primary)' }}
+                                style={{ padding: '7px 14px', cursor: 'pointer', fontSize: 13, color: menuText }}
                                 onMouseEnter={e => (e.currentTarget.style.background = menuItemHover)}
                                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                             >
                                 📂 設為子板...
                             </div>
-                            <div style={{ height: 1, background: 'var(--border-light)', margin: '4px 0' }} />
+                            <div style={{ height: 1, background: menuDivider, margin: '4px 0' }} />
                             <div
                                 onClick={() => { if (confirm(`確定刪除「${targetBoard.name}」嗎？`)) { onDelete(contextMenu.boardId); setContextMenu(null) } }}
                                 style={{ padding: '7px 14px', cursor: 'pointer', fontSize: 13, color: '#e03131' }}
-                                onMouseEnter={e => (e.currentTarget.style.background = '#fff5f5')}
+                                onMouseEnter={e => (e.currentTarget.style.background = deleteHover)}
                                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                             >
                                 🗑️ 刪除白板
@@ -575,19 +596,19 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                                                         onKeyDown={e => { if (e.key === 'Enter') commitRename(child.id); if (e.key === 'Escape') setRenamingId(null); e.stopPropagation() }}
                                                         onChange={e => setRenameValue(e.target.value)}
                                                         onClick={e => e.stopPropagation()}
-                                                        style={{ flex: 1, border: 'none', borderBottom: '1px solid #333', outline: 'none', fontSize: 13, background: 'transparent', padding: '4px 0', color: 'var(--text-primary)' }}
+                                                        style={{ flex: 1, border: 'none', borderBottom: `1px solid ${menuMuted}`, outline: 'none', fontSize: 13, background: 'transparent', padding: '4px 0', color: menuText }}
                                                     />
                                                 ) : (
                                                     <div
                                                         onClick={() => { onSwitchToChild(child.id); setContextMenu(null) }}
-                                                        style={{ flex: 1, padding: '7px 6px 7px 0', cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-primary)' }}
+                                                        style={{ flex: 1, padding: '7px 6px 7px 0', cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6, color: menuText }}
                                                     >
-                                                        <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>{depth > 0 ? '└' : '📋'}</span>
+                                                        <span style={{ color: menuMuted, fontSize: 11 }}>{depth > 0 ? '└' : '📋'}</span>
                                                         {child.name}
                                                     </div>
                                                 )}
-                                                <button onClick={e => { e.stopPropagation(); startRename(child) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 11, padding: '2px 4px', borderRadius: 4, flexShrink: 0 }}>✏️</button>
-                                                <button onClick={e => { e.stopPropagation(); onSetParent(child.id, null); setContextMenu(null) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 11, padding: '2px 4px', borderRadius: 4, flexShrink: 0, whiteSpace: 'nowrap' }}>↑主板</button>
+                                                <button onClick={e => { e.stopPropagation(); startRename(child) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: menuMuted, fontSize: 11, padding: '2px 4px', borderRadius: 4, flexShrink: 0 }}>✏️</button>
+                                                <button onClick={e => { e.stopPropagation(); onSetParent(child.id, null); setContextMenu(null) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: menuMuted, fontSize: 11, padding: '2px 4px', borderRadius: 4, flexShrink: 0, whiteSpace: 'nowrap' }}>↑主板</button>
                                                 <button onClick={e => { e.stopPropagation(); if (confirm(`確定刪除「${child.name}」嗎？`)) { onDelete(child.id); setContextMenu(null) } }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ccc', fontSize: 14, padding: '2px 4px', borderRadius: 4, flexShrink: 0 }}>×</button>
                                             </div>
                                             {renderChildren(child.id, depth + 1)}
@@ -596,8 +617,8 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                                 }
                                 return (
                                     <>
-                                        <div style={{ height: 1, background: 'var(--border-light)', margin: '4px 4px' }} />
-                                        <div style={{ padding: '4px 14px 2px', fontSize: 11, color: 'var(--text-muted)' }}>子板</div>
+                                        <div style={{ height: 1, background: menuDivider, margin: '4px 4px' }} />
+                                        <div style={{ padding: '4px 14px 2px', fontSize: 11, color: menuMuted }}>子板</div>
                                         {renderChildren(contextMenu.boardId, 0)}
                                     </>
                                 )
