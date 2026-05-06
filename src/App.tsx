@@ -14,6 +14,7 @@ import { KnowledgeGraph } from './KnowledgeGraph'
 import { CardLibrary } from './CardLibrary'
 import { QuickCapture } from './components/QuickCapture'
 import { OnboardingModal } from './components/OnboardingModal'
+import { TrashPanel } from './TrashPanel'
 import { SIDEBAR_WIDTH, SIDEBAR_COLLAPSED_WIDTH, INBOX_BOARD_ID } from './constants'
 import { getCardShapes } from './utils/snapshot'
 import { getTodayStr } from './utils/date'
@@ -23,8 +24,11 @@ export default function App() {
     const {
         boards, activeBoardId, loading, navigationStack,
         sidebarCollapsed, jumpRef,
+        trashCount, refreshTrashCount,
         handleSaveBoard, handleNew, handleSwitch, handleSwitchToChild,
-        handleSetParent, handleBack, handleRename, handleDelete,
+        handleSetParent, handleBack, handleRename,
+        handleSoftDeleteBoard, handlePermanentDeleteBoard, handleRestoreBoard,
+        handleEmptyTrash, handleCardTrashed,
         handleJump, handleSetJournal, handleSetStatus,
         handleRestore, handleGoToWeeklyCard, handleSaveJournal,
         handleMoveCardToBoard, handleCreateBoard,
@@ -47,6 +51,7 @@ export default function App() {
     const [cardLibraryOpen, setCardLibraryOpen] = useState(false)
     const [quickCaptureOpen, setQuickCaptureOpen] = useState(false)
     const [onboardingOpen, setOnboardingOpen] = useState(false)
+    const [trashOpen, setTrashOpen] = useState(false)
     const [overdueBannerVisible, setOverdueBannerVisible] = useState(false)
     const bannerShownRef = useRef(false)
 
@@ -138,6 +143,10 @@ export default function App() {
                 e.preventDefault()
                 setQuickCaptureOpen(prev => !prev)
             }
+            if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 't') {
+                e.preventDefault()
+                setTrashOpen(prev => !prev)
+            }
         }
         window.addEventListener('keydown', handler)
         return () => window.removeEventListener('keydown', handler)
@@ -168,6 +177,7 @@ export default function App() {
                     onOpenCardLibrary={() => setCardLibraryOpen(true)}
                     onOpenOverview={() => setOverviewOpen(true)}
                     onQuickCapture={() => setQuickCaptureOpen(true)}
+                    onCardTrashed={handleCardTrashed}
                 />
             )}
 
@@ -177,7 +187,7 @@ export default function App() {
                 onSwitch={handleSwitch}
                 onNew={handleNew}
                 onRename={handleRename}
-                onDelete={handleDelete}
+                onDelete={handleSoftDeleteBoard}
                 onSearch={() => setSearchOpen(true)}
                 onHotkey={() => setHotkeyOpen(true)}
                 onOpenOverview={() => setOverviewOpen(true)}
@@ -205,6 +215,8 @@ export default function App() {
                 todayCount={todayCount}
                 onOpenOnboarding={() => setOnboardingOpen(true)}
                 activePanel={activePanel}
+                trashCount={trashCount}
+                onOpenTrash={() => setTrashOpen(true)}
             />
 
             {movingCardShapeId && (
@@ -256,7 +268,7 @@ export default function App() {
                     onSelect={handleSwitch}
                     onNew={handleNew}
                     onRename={handleRename}
-                    onDelete={handleDelete}
+                    onDelete={handleSoftDeleteBoard}
                     onSetStatus={handleSetStatus}
                     onClose={() => setOverviewOpen(false)}
                     isDark={isDark}
@@ -305,6 +317,16 @@ export default function App() {
             {onboardingOpen && (
                 <OnboardingModal
                     onClose={() => setOnboardingOpen(false)}
+                    isDark={isDark}
+                />
+            )}
+            {trashOpen && (
+                <TrashPanel
+                    onClose={() => setTrashOpen(false)}
+                    onRestoreBoard={handleRestoreBoard}
+                    onPermanentDeleteBoard={handlePermanentDeleteBoard}
+                    onEmptyTrash={handleEmptyTrash}
+                    onCardRestored={() => { refreshTrashCount() }}
                     isDark={isDark}
                 />
             )}

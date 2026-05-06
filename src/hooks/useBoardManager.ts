@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { db, saveAutoBackup, type BoardRecord } from '../db'
+import type { DeletedCardRecord } from '../db'
 import { getISOWeekKey } from '../WeeklyReview'
 import { loadAllBoards, saveBoard, deleteBoard, generateId } from '../utils/boardDb'
 import { INBOX_BOARD_ID, BACKUP_THROTTLE_MS } from '../constants'
@@ -77,6 +78,8 @@ async function sanitizeBoards(boards: BoardRecord[]): Promise<BoardRecord[]> {
     return out
 }
 
+const TRASH_EXPIRE_MS = 14 * 86400000
+
 export function useBoardManager() {
     const [boards, setBoards] = useState<BoardRecord[]>([])
     const [activeBoardId, setActiveBoardId] = useState<string | null>(null)
@@ -85,8 +88,15 @@ export function useBoardManager() {
     const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
         try { return localStorage.getItem('sidebar-collapsed') === 'true' } catch { return false }
     })
+    const [trashCount, setTrashCount] = useState(0)
     const jumpRef = useRef<((shapeId: string, x: number, y: number) => void) | null>(null)
     const lastBackupRef = useRef<number>(0)
+
+    const refreshTrashCount = useCallback(async () => {
+        const deletedBoardCount = await db.table('boards').where('deletedAt').above(0).count()
+        const deletedCardCount = await db.table('deletedCards').count()
+        setTrashCount(deletedBoardCount + deletedCardCount)
+    }, [])
 
     const handleToggleCollapse = useCallback(() => {
         setSidebarCollapsed(prev => {
@@ -118,12 +128,23 @@ export function useBoardManager() {
             if (!granted) console.warn('[Storage] 持久化未授權，資料可能被清除')
         })
         loadAllBoards().then(async loaded => {
-            const sanitized = await sanitizeBoards(loaded)
+            // Auto-cleanup expired trash items
+            const cutoff = Date.now() - TRASH_EXPIRE_MS
+            const expiredBoards = loaded.filter(b => b.deletedAt && b.deletedAt < cutoff)
+            for (const b of expiredBoards) await deleteBoard(b.id)
+            try {
+                const expiredCards: DeletedCardRecord[] = await db.table('deletedCards').where('deletedAt').below(cutoff).toArray()
+                for (const c of expiredCards) await db.table('deletedCards').delete(c.id)
+            } catch { /* table may not exist on first run before migration */ }
+
+            const active = loaded.filter(b => !b.deletedAt)
+            const sanitized = await sanitizeBoards(active)
             setBoards(sanitized)
             const firstId = sanitized[0]?.id ?? null
             setActiveBoardId(firstId)
             if (firstId) setNavigationStack([firstId])
             setLoading(false)
+            refreshTrashCount()
         })
     }, [])
 
@@ -224,7 +245,7 @@ export function useBoardManager() {
         setBoards(prev => prev.map(b => b.id === id ? updated : b))
     }, [boards])
 
-    const handleDelete = useCallback((id: string) => {
+    const handlePermanentDeleteBoard = useCallback((id: string) => {
         deleteBoard(id)
 
         const orphanChildren = boards.filter(b => b.parentId === id)
@@ -253,7 +274,67 @@ export function useBoardManager() {
 
         setBoards(cleaned)
         window.dispatchEvent(new CustomEvent('cleanup-orphan-board-cards', { detail: { deletedBoardId: id } }))
-    }, [activeBoardId, boards])
+        refreshTrashCount()
+    }, [activeBoardId, boards, refreshTrashCount])
+
+    // Kept for backward-compat; internally uses soft delete
+    const handleDelete = useCallback((id: string) => {
+        handlePermanentDeleteBoard(id)
+    }, [handlePermanentDeleteBoard])
+
+    const handleSoftDeleteBoard = useCallback((id: string) => {
+        const board = boards.find(b => b.id === id)
+        if (!board) return
+        const updated = { ...board, deletedAt: Date.now() }
+        saveBoard(updated).then(() => refreshTrashCount())
+        const next = boards.filter(b => b.id !== id)
+        if (activeBoardId === id) setActiveBoardId(next[0]?.id ?? null)
+        setBoards(next)
+    }, [activeBoardId, boards, refreshTrashCount])
+
+    const handleRestoreBoard = useCallback(async (id: string) => {
+        const record: BoardRecord | undefined = await db.table('boards').get(id)
+        if (!record) return
+        const restored = { ...record, deletedAt: undefined }
+        // Dexie doesn't remove the field on put; explicitly delete via update
+        await db.table('boards').update(id, { deletedAt: undefined })
+        setBoards(prev => [...prev, restored])
+        refreshTrashCount()
+    }, [refreshTrashCount])
+
+    const handleEmptyTrash = useCallback(async () => {
+        const deletedBoards: BoardRecord[] = await db.table('boards').where('deletedAt').above(0).toArray()
+        for (const b of deletedBoards) {
+            deleteBoard(b.id)
+            // Also clean up orphan board-card references
+            boards.forEach(active => {
+                if (!active.snapshot) return
+                const store = getSnapshotStore(active.snapshot)
+                const orphanIds = Object.keys(store).filter(shapeId => {
+                    const s = store[shapeId]
+                    return s.typeName === 'shape' && s.type === 'card' && s.props?.type === 'board' && s.props?.linkedBoardId === b.id
+                })
+                if (orphanIds.length > 0) {
+                    const newStore = { ...store }
+                    orphanIds.forEach(sid => { delete newStore[sid] })
+                    const updated = { ...active, snapshot: withUpdatedStore(active.snapshot, newStore) }
+                    saveBoard(updated)
+                }
+            })
+        }
+        await db.table('deletedCards').clear()
+        setTrashCount(0)
+    }, [boards])
+
+    const handleCardTrashed = useCallback(() => {
+        refreshTrashCount()
+    }, [refreshTrashCount])
+
+    useEffect(() => {
+        const handler = () => { refreshTrashCount() }
+        window.addEventListener('trash-count-changed', handler)
+        return () => window.removeEventListener('trash-count-changed', handler)
+    }, [refreshTrashCount])
 
     const handleJump = useCallback((boardId: string, shapeId: string, x: number, y: number) => {
         if (boardId !== activeBoardId) {
@@ -486,6 +567,8 @@ export function useBoardManager() {
         navigationStack,
         sidebarCollapsed,
         jumpRef,
+        trashCount,
+        refreshTrashCount,
         handleSaveBoard,
         handleCreateBoard,
         handleSwitch,
@@ -495,6 +578,11 @@ export function useBoardManager() {
         handleNew,
         handleRename,
         handleDelete,
+        handleSoftDeleteBoard,
+        handlePermanentDeleteBoard,
+        handleRestoreBoard,
+        handleEmptyTrash,
+        handleCardTrashed,
         handleJump,
         handleSetJournal,
         handleSetStatus,

@@ -15,6 +15,18 @@ export interface BoardRecord {
     status?: 'active' | 'archived' | 'pinned'
     lastVisitedAt?: number
     sortOrder?: number
+    deletedAt?: number
+}
+
+export interface DeletedCardRecord {
+    id: string
+    shapeId: string
+    boardId: string
+    boardName: string
+    shapeData: unknown
+    deletedAt: number
+    type: string
+    preview: string
 }
 
 export interface BackupRecord {
@@ -37,6 +49,8 @@ db.version(2).stores({ snapshots: 'id', boards: 'id' })
 db.version(3).stores({ snapshots: 'id', boards: 'id', backups: 'id' })
 db.version(4).stores({ snapshots: 'id', boards: 'id', backups: 'id, timestamp' })
 db.version(5).stores({ snapshots: 'id', boards: 'id', backups: 'id, timestamp', templates: 'id, createdAt' })
+db.version(6).stores({ snapshots: 'id', boards: 'id, deletedAt', backups: 'id, timestamp', templates: 'id, createdAt', deletedCards: 'id, deletedAt, boardId' })
+db.version(7).stores({ snapshots: 'id', boards: 'id, deletedAt', backups: 'id, timestamp', templates: 'id, createdAt', deletedCards: 'id, deletedAt, boardId, shapeId' })
 
 export const MAX_BACKUPS = 30
 

@@ -45,13 +45,14 @@ interface WhiteboardProps {
     onOpenCardLibrary: () => void
     onOpenOverview: () => void
     onQuickCapture: () => void
+    onCardTrashed?: () => void
 }
 
 export function Whiteboard({
     board, boards, onSaveBoard, jumpRef, onOpenSearch, onOpenHotkey,
     onCreateBoard, onSwitchBoard, sidebarWidth, isInboxBoard, onMoveCard, isDark,
     onOpenTaskCenter, onOpenReviewCenter, onOpenKnowledgeGraph,
-    onOpenCardLibrary, onOpenOverview, onQuickCapture,
+    onOpenCardLibrary, onOpenOverview, onQuickCapture, onCardTrashed,
 }: WhiteboardProps) {
     const boardInfos = boards.map(b => ({ id: b.id, name: b.name, thumbnail: b.thumbnail }))
     const { forwardLinks, backlinks } = useBacklinks(boards)
@@ -121,6 +122,7 @@ export function Whiteboard({
                             isDark={isDark}
                             homeView={board.isHome ? homeView : undefined}
                             onSetHomeView={board.isHome ? handleSetHomeView : undefined}
+                            onCardTrashed={onCardTrashed}
                         />
                     </Tldraw>
                 </BoardsContext.Provider>

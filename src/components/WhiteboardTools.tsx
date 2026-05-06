@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react'
 import { useEditor, getSnapshot, loadSnapshot, exportToBlob } from 'tldraw'
 import type { TLEditorSnapshot, TLShapeId } from 'tldraw'
 import { jsPDF } from 'jspdf'
+import { db } from '../db'
 import type { BoardRecord } from '../db'
 import type { HomeView } from './Whiteboard'
 import TldrawToolPanel, { type CardCreators } from '../TIdrawToolPanel'
@@ -11,6 +12,7 @@ import { getISOWeekKey, getWeekRange } from '../WeeklyReview'
 import { exportJSON, importJSON } from '../utils/boardExport'
 import { exportBoardToMarkdown, exportSelectedToMarkdown } from '../utils/exportMarkdown'
 import type { TLCardShape } from './card-shape/type/CardShape'
+import { saveCardToTrash, getCardPreview } from '../TrashPanel'
 
 function isCardShape(s: { type: string }): s is TLCardShape {
     return s.type === 'card'
@@ -58,6 +60,7 @@ interface WhiteboardToolsProps {
     isDark: boolean
     homeView?: HomeView
     onSetHomeView?: (v: HomeView) => void
+    onCardTrashed?: () => void
 }
 
 export const getExportBtnStyle = (isDark: boolean): React.CSSProperties => ({
@@ -78,11 +81,13 @@ export const getExportBtnStyle = (isDark: boolean): React.CSSProperties => ({
 /** @deprecated use getExportBtnStyle(isDark) */
 export const exportBtnStyle: React.CSSProperties = getExportBtnStyle(false)
 
-export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSearch, onOpenHotkey, onCreateBoard, onSwitchBoard, isInboxBoard, onMoveCard, isDark, homeView, onSetHomeView }: WhiteboardToolsProps) {
+export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSearch, onOpenHotkey, onCreateBoard, onSwitchBoard, isInboxBoard, onMoveCard, isDark, homeView, onSetHomeView, onCardTrashed }: WhiteboardToolsProps) {
     const editor = useEditor()
     const initialized = useRef(false)
     const imageInputRef = useRef<HTMLInputElement>(null)
     const jsonInputRef = useRef<HTMLInputElement>(null)
+    // Tracks shapeIds that were moved to trash so Ctrl+Z can sync them out
+    const recentlyTrashedShapeIds = useRef<Set<string>>(new Set())
 
     const createTextCard = useCallback((x?: number, y?: number) => {
         editor.createShape({ type: 'card', x, y, props: { type: 'text', text: '', image: null, todos: [], url: '', state: 'idle', w: 280, h: 320 } })
@@ -191,13 +196,77 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
         return () => window.removeEventListener('create-board-card-on', handler)
     }, [board.id, editor])
 
-    const { menuElement } = useContextMenu({ editor, createTextCard, createTodoCard, createLinkCard, openImageInput, createTextCardWithContent, isInboxBoard, onMoveCard, isDark })
+    const { menuElement } = useContextMenu({
+        editor,
+        createTextCard,
+        createTodoCard,
+        createLinkCard,
+        openImageInput,
+        createTextCardWithContent,
+        isInboxBoard,
+        onMoveCard,
+        isDark,
+        boardId: board.id,
+        boardName: board.name,
+        onCardTrashed,
+        onBeforeDeleteCard: (shapeId) => { recentlyTrashedShapeIds.current.add(shapeId) },
+    })
 
     useEffect(() => {
         const h = (e: CustomEvent<{ shapeId: string }>) => { if (editor) editor.deleteShapes([e.detail.shapeId as TLShapeId]) }
         window.addEventListener('delete-shape-from-editor', h)
         return () => window.removeEventListener('delete-shape-from-editor', h)
     }, [editor])
+
+    // When a shape is permanently deleted from trash, clear undo history so Ctrl+Z cannot restore it
+    useEffect(() => {
+        const handler = (e: Event) => {
+            const { shapeId, boardId } = (e as CustomEvent<{ shapeId: string; boardId: string }>).detail
+            if (boardId !== board.id) return
+            recentlyTrashedShapeIds.current.delete(shapeId)
+            editor.clearHistory()
+        }
+        window.addEventListener('permanent-delete-shape', handler)
+        return () => window.removeEventListener('permanent-delete-shape', handler)
+    }, [editor, board.id])
+
+    // When Ctrl+Z restores a trashed shape, remove it from the trash DB
+    useEffect(() => {
+        if (!editor) return
+        const cleanup = editor.store.listen(async (change) => {
+            for (const [id, record] of Object.entries(change.changes.added)) {
+                if (
+                    (record as { typeName?: string }).typeName === 'shape' &&
+                    recentlyTrashedShapeIds.current.has(id)
+                ) {
+                    recentlyTrashedShapeIds.current.delete(id)
+                    try {
+                        await db.table('deletedCards').where('shapeId').equals(id).delete()
+                        window.dispatchEvent(new CustomEvent('trash-count-changed'))
+                    } catch (err) {
+                        console.error('[Trash] undo sync failed', err)
+                    }
+                }
+            }
+        }, { scope: 'document' })
+        return cleanup
+    }, [editor])
+
+    // Restore a card from trash back into this board's editor
+    useEffect(() => {
+        const handler = (e: CustomEvent<{ shapeId: string; boardId: string; shapeData: unknown }>) => {
+            const { shapeId, boardId: targetBoardId, shapeData } = e.detail
+            if (targetBoardId !== board.id) return
+            if (!shapeData || typeof shapeData !== 'object') return
+            try {
+                editor.createShape(shapeData as Parameters<typeof editor.createShape>[0])
+            } catch {
+                // shape may have changed format; skip silently
+            }
+        }
+        window.addEventListener('restore-deleted-card', handler)
+        return () => window.removeEventListener('restore-deleted-card', handler)
+    }, [editor, board.id])
 
     useEffect(() => {
         const handler = (e: CustomEvent<{ text: string; x: number; y: number; shapeId: string }>) => {
@@ -226,6 +295,26 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
         openImageInput,
         openSearch: onOpenSearch,
         openHotkeyPanel: onOpenHotkey,
+        onDeleteShapes: (ids) => {
+            const shapes = ids
+                .map(id => editor.getShape(id as TLShapeId))
+                .filter((s): s is NonNullable<typeof s> => !!s)
+            for (const s of shapes) {
+                if (s.type === 'card') {
+                    const card = s as unknown as TLCardShape
+                    recentlyTrashedShapeIds.current.add(s.id)
+                    saveCardToTrash(
+                        s.id,
+                        s,
+                        board.id,
+                        board.name,
+                        card.props.type,
+                        getCardPreview(card as unknown as { props: Record<string, unknown> }),
+                    ).then(() => onCardTrashed?.())
+                }
+            }
+            editor.deleteShapes(ids as TLShapeId[])
+        },
     })
 
     useEffect(() => {

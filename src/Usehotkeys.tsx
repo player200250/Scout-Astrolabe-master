@@ -11,6 +11,7 @@ export interface HotkeyActions {
     openImageInput: () => void
     openSearch: () => void
     openHotkeyPanel: () => void
+    onDeleteShapes?: (ids: string[]) => void
 }
 
 // 使用 userAgentData（現代瀏覽器）或 userAgent 作為備援
@@ -78,7 +79,9 @@ export function useHotkeys(editor: Editor | null, actions: HotkeyActions) {
                     case 'Delete':
                         if (!isInput) {
                             e.preventDefault()
-                            editor.deleteShapes(editor.getSelectedShapeIds())
+                            const ids = editor.getSelectedShapeIds()
+                            if (actions.onDeleteShapes) actions.onDeleteShapes([...ids])
+                            else editor.deleteShapes(ids)
                         }
                         return
                 }
@@ -145,9 +148,12 @@ export function useHotkeys(editor: Editor | null, actions: HotkeyActions) {
 
                 // 刪除
                 case 'Delete':
-                case 'Backspace':
-                    editor.deleteShapes(editor.getSelectedShapeIds())
+                case 'Backspace': {
+                    const ids = editor.getSelectedShapeIds()
+                    if (actions.onDeleteShapes) actions.onDeleteShapes([...ids])
+                    else editor.deleteShapes(ids)
                     return
+                }
 
                 // Escape
                 case 'Escape':

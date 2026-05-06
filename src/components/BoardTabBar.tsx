@@ -53,6 +53,8 @@ interface BoardTabBarProps {
     todayCount: number
     onOpenOnboarding: () => void
     activePanel?: string | null
+    trashCount?: number
+    onOpenTrash: () => void
 }
 
 function SortableBoardItem({ id, children }: { id: string; children: React.ReactNode }) {
@@ -76,7 +78,7 @@ function SortableBoardItem({ id, children }: { id: string; children: React.React
     )
 }
 
-export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelete, onSearch, onHotkey, onOpenOverview, onSetJournal, navigationStack, onBack, onSetParent, onSwitchToChild, collapsed, onToggleCollapse, onSetStatus, onOpenTaskCenter, onOpenFilter, onOpenReviewCenter, onOpenBackup, onGoToInbox, onOpenKnowledgeGraph, onOpenCardLibrary, isDark, onToggleTheme, onReorderBoards, inboxCardCount, onQuickCapture, overdueCount, todayCount, onOpenOnboarding, activePanel }: BoardTabBarProps) {
+export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelete, onSearch, onHotkey, onOpenOverview, onSetJournal, navigationStack, onBack, onSetParent, onSwitchToChild, collapsed, onToggleCollapse, onSetStatus, onOpenTaskCenter, onOpenFilter, onOpenReviewCenter, onOpenBackup, onGoToInbox, onOpenKnowledgeGraph, onOpenCardLibrary, isDark, onToggleTheme, onReorderBoards, inboxCardCount, onQuickCapture, overdueCount, todayCount, onOpenOnboarding, activePanel, trashCount, onOpenTrash }: BoardTabBarProps) {
     const [hoveredId, setHoveredId] = useState<string | null>(null)
     const [renamingId, setRenamingId] = useState<string | null>(null)
     const [renameValue, setRenameValue] = useState('')
@@ -184,6 +186,7 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                         { icon: '✅', label: '任務中心', title: '任務中心', onClick: onOpenTaskCenter, isActive: activePanel === 'taskCenter', badge: (overdueCount > 0 || todayCount > 0) ? { count: overdueCount > 0 ? overdueCount : todayCount, color: overdueCount > 0 ? '#ef4444' : '#f97316' } : undefined },
                         { icon: '📔', label: '復盤中心', title: '復盤中心 (Ctrl+Shift+C)', onClick: onOpenReviewCenter, isActive: activePanel === 'reviewCenter' },
                         { icon: '🕸️', label: '知識圖譜', title: '知識圖譜 (Ctrl+Shift+G)', onClick: onOpenKnowledgeGraph, isActive: activePanel === 'knowledgeGraph' },
+                        { icon: '🗑️', label: '垃圾桶', title: '垃圾桶 (Ctrl+Shift+T)', onClick: onOpenTrash, isActive: false, badge: (trashCount ?? 0) > 0 ? { count: trashCount!, color: '#94a3b8' } : undefined },
                     ]
                     if (collapsed) {
                         return (
@@ -376,8 +379,8 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                                         >✎</button>
                                         {boards.length > 1 && (
                                             <button
-                                                onClick={() => { if (confirm(`確定刪除「${board.name}」嗎？`)) onDelete(board.id) }}
-                                                title="刪除"
+                                                onClick={() => onDelete(board.id)}
+                                                title="移至垃圾桶"
                                                 style={{ width: 20, height: 20, borderRadius: 4, border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 13, color: '#bbb', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
                                                 onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,77,79,0.1)'; e.currentTarget.style.color = '#ff4d4f' }}
                                                 onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#bbb' }}
@@ -573,12 +576,12 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                             </div>
                             <div style={{ height: 1, background: menuDivider, margin: '4px 0' }} />
                             <div
-                                onClick={() => { if (confirm(`確定刪除「${targetBoard.name}」嗎？`)) { onDelete(contextMenu.boardId); setContextMenu(null) } }}
+                                onClick={() => { onDelete(contextMenu.boardId); setContextMenu(null) }}
                                 style={{ padding: '7px 14px', cursor: 'pointer', fontSize: 13, color: '#e03131' }}
                                 onMouseEnter={e => (e.currentTarget.style.background = deleteHover)}
                                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                             >
-                                🗑️ 刪除白板
+                                🗑️ 移至垃圾桶
                             </div>
                             {boards.filter(b => b.parentId === contextMenu.boardId).length > 0 && (() => {
                                 const renderChildren = (parentId: string, depth: number): React.ReactNode => {
@@ -609,7 +612,7 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                                                 )}
                                                 <button onClick={e => { e.stopPropagation(); startRename(child) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: menuMuted, fontSize: 11, padding: '2px 4px', borderRadius: 4, flexShrink: 0 }}>✏️</button>
                                                 <button onClick={e => { e.stopPropagation(); onSetParent(child.id, null); setContextMenu(null) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: menuMuted, fontSize: 11, padding: '2px 4px', borderRadius: 4, flexShrink: 0, whiteSpace: 'nowrap' }}>↑主板</button>
-                                                <button onClick={e => { e.stopPropagation(); if (confirm(`確定刪除「${child.name}」嗎？`)) { onDelete(child.id); setContextMenu(null) } }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ccc', fontSize: 14, padding: '2px 4px', borderRadius: 4, flexShrink: 0 }}>×</button>
+                                                <button onClick={e => { e.stopPropagation(); onDelete(child.id); setContextMenu(null) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ccc', fontSize: 14, padding: '2px 4px', borderRadius: 4, flexShrink: 0 }}>×</button>
                                             </div>
                                             {renderChildren(child.id, depth + 1)}
                                         </React.Fragment>

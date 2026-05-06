@@ -67,7 +67,6 @@ export function BoardOverview({ boards, activeBoardId, onSelect, onNew, onRename
     }
 
     const deleteSelected = () => {
-        if (!confirm(`確定刪除選取的 ${selectedIds.size} 個白板嗎？此操作無法復原。`)) return
         selectedIds.forEach(id => onDelete(id))
         exitSelectionMode()
     }
@@ -178,10 +177,7 @@ export function BoardOverview({ boards, activeBoardId, onSelect, onNew, onRename
                             alert('沒有發現重複的空白板。')
                             return
                         }
-                        const names = toDelete.map(b => `・${b.name}`).join('\n')
-                        if (confirm(`以下 ${toDelete.length} 個空白板將被刪除：\n\n${names}\n\n確定繼續？`)) {
-                            toDelete.forEach(b => onDelete(b.id))
-                        }
+                        toDelete.forEach(b => onDelete(b.id))
                     }}
                     title="清理同名且空的重複白板"
                     style={{
@@ -303,7 +299,7 @@ export function BoardOverview({ boards, activeBoardId, onSelect, onNew, onRename
                                                 <button onClick={e => startRename(board, e)} title="重新命名" style={{ width: 24, height: 24, borderRadius: 6, border: `1px solid ${inputBorder}`, background: cardBg, cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, color: textPrimary }}>✎</button>
                                                 {boards.filter(b => !b.isHome).length > 1 && (
                                                     <button
-                                                        onClick={e => { e.stopPropagation(); if (confirm(`確定刪除「${board.name}」嗎？`)) onDelete(board.id) }}
+                                                        onClick={e => { e.stopPropagation(); onDelete(board.id) }}
                                                         title="刪除"
                                                         style={{ width: 24, height: 24, borderRadius: 6, border: `1px solid ${inputBorder}`, background: cardBg, cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, color: '#e84040' }}
                                                     >✕</button>

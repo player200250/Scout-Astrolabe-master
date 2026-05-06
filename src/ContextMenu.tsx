@@ -6,6 +6,7 @@ import { CARD_COLORS } from './components/card-shape/type/CardShape'
 import type { CardColor, TLCardShape } from './components/card-shape/type/CardShape'
 import { db } from './db'
 import type { TemplateRecord } from './db'
+import { saveCardToTrash, getCardPreview } from './TrashPanel'
 
 interface MenuItem {
     label: string
@@ -337,6 +338,10 @@ interface UseContextMenuOptions {
     isInboxBoard?: boolean
     onMoveCard?: (shapeId: string) => void
     isDark?: boolean
+    boardId?: string
+    boardName?: string
+    onCardTrashed?: () => void
+    onBeforeDeleteCard?: (shapeId: string) => void
 }
 
 export function useContextMenu({
@@ -349,6 +354,10 @@ export function useContextMenu({
     isInboxBoard,
     onMoveCard,
     isDark,
+    boardId,
+    boardName,
+    onCardTrashed,
+    onBeforeDeleteCard,
 }: UseContextMenuOptions) {
     const [saveTemplateState, setSaveTemplateState] = useState<{ defaultName: string; cardContent: string } | null>(null)
 
@@ -476,7 +485,19 @@ export function useContextMenu({
                     label: '刪除卡片',
                     danger: true,
                     divider: !isInboxBoard && !isLink && !isText,
-                    action: () => { editor.deleteShapes([hitShape.id]) },
+                    action: () => {
+                        onBeforeDeleteCard?.(hitShape.id)
+                        const shapeData = editor.getShape(hitShape.id)
+                        saveCardToTrash(
+                            hitShape.id,
+                            shapeData,
+                            boardId ?? '',
+                            boardName ?? '',
+                            shape.props.type,
+                            getCardPreview(shape as unknown as { props: Record<string, unknown> }),
+                        ).then(() => onCardTrashed?.())
+                        editor.deleteShapes([hitShape.id])
+                    },
                 })
 
                 setMenu({
