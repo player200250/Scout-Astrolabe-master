@@ -10,6 +10,18 @@ import {
     type SnapshotShapeProps,
 } from '../utils/snapshot'
 
+function cleanupOrphanBoardCards(snapshot: TLEditorSnapshot, deletedBoardId: string): TLEditorSnapshot {
+    const store = getSnapshotStore(snapshot)
+    const orphanIds = Object.keys(store).filter(sid => {
+        const s = store[sid]
+        return s.typeName === 'shape' && s.type === 'card' && s.props?.type === 'board' && s.props?.linkedBoardId === deletedBoardId
+    })
+    if (orphanIds.length === 0) return snapshot
+    const newStore = { ...store }
+    orphanIds.forEach(sid => { delete newStore[sid] })
+    return withUpdatedStore(snapshot, newStore)
+}
+
 async function sanitizeBoards(boards: BoardRecord[]): Promise<BoardRecord[]> {
     const out: BoardRecord[] = []
     for (const board of boards) {
@@ -17,7 +29,7 @@ async function sanitizeBoards(boards: BoardRecord[]): Promise<BoardRecord[]> {
 
         // Fix document:document and page records missing required fields
         let snapshot = sanitizeSnapshot(board.snapshot)
-        let dirty = snapshot !== board.snapshot
+        let dirty = JSON.stringify(snapshot) !== JSON.stringify(board.snapshot)
 
         const store = getSnapshotStore(snapshot)
         const newStore = { ...store }
@@ -117,7 +129,7 @@ export function useBoardManager() {
         const board = boards.find(b => b.id === activeBoardId)
         if (!board) return
         const updated = { ...board, snapshot, thumbnail, updatedAt: Date.now() }
-        saveBoard(updated)
+        saveBoard(updated).catch(err => console.error('[handleSaveBoard] DB 寫入失敗', err))
         setBoards(prev => prev.map(b => b.id === activeBoardId ? updated : b))
     }, [activeBoardId, boards])
 
@@ -229,15 +241,9 @@ export function useBoardManager() {
 
         const cleaned = next.map(b => {
             if (!b.snapshot) return b
-            const store = getSnapshotStore(b.snapshot)
-            const orphanIds = Object.keys(store).filter(shapeId => {
-                const s = store[shapeId]
-                return s.typeName === 'shape' && s.type === 'card' && s.props?.type === 'board' && s.props?.linkedBoardId === id
-            })
-            if (orphanIds.length === 0) return b
-            const newStore = { ...store }
-            orphanIds.forEach(shapeId => { delete newStore[shapeId] })
-            const updated = { ...b, snapshot: withUpdatedStore(b.snapshot, newStore) }
+            const newSnap = cleanupOrphanBoardCards(b.snapshot, id)
+            if (newSnap === b.snapshot) return b
+            const updated = { ...b, snapshot: newSnap }
             saveBoard(updated)
             return updated
         })
@@ -283,17 +289,8 @@ export function useBoardManager() {
             // Also clean up orphan board-card references
             boards.forEach(active => {
                 if (!active.snapshot) return
-                const store = getSnapshotStore(active.snapshot)
-                const orphanIds = Object.keys(store).filter(shapeId => {
-                    const s = store[shapeId]
-                    return s.typeName === 'shape' && s.type === 'card' && s.props?.type === 'board' && s.props?.linkedBoardId === b.id
-                })
-                if (orphanIds.length > 0) {
-                    const newStore = { ...store }
-                    orphanIds.forEach(sid => { delete newStore[sid] })
-                    const updated = { ...active, snapshot: withUpdatedStore(active.snapshot, newStore) }
-                    saveBoard(updated)
-                }
+                const newSnap = cleanupOrphanBoardCards(active.snapshot, b.id)
+                if (newSnap !== active.snapshot) saveBoard({ ...active, snapshot: newSnap })
             })
         }
         await db.table('deletedCards').clear()

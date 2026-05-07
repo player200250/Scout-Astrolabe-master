@@ -88,27 +88,27 @@
 ### L1 - compressImage 沒有 timeout，圖片卡住時 Promise 永不 resolve
 - 位置：`WhiteboardTools.tsx:22-46`
 - 影響：若圖片載入既無 load 也無 error（極少數情況），Promise 永遠掛住，UI 卡死
-- 狀態：低優先
+- 狀態：已修（加入 5 秒 timeout，超時後 fallback 回原始 dataUrl；用 `settled` flag 防止多次 resolve）
 
 ### L2 - handleSaveBoard 的 saveBoard 失敗時 state 已更新
-- 位置：`useBoardManager.ts:151-158`
+- 位置：`useBoardManager.ts` `handleSaveBoard`
 - 影響：DB 寫入失敗時（無 catch），記憶體狀態和 DB 不一致；有自動備份機制緩解，但仍有資料遺失風險
-- 狀態：低優先
+- 狀態：已修（加上 `.catch(err => console.error(...))` 記錄失敗，state 不還原因下次儲存會覆蓋）
 
 ### L3 - handleEmptyTrash 和 handlePermanentDeleteBoard 有重複的 orphan cleanup 邏輯
 - 位置：`useBoardManager.ts` 兩個函式
 - 影響：掃描 snapshot 清除 board card 的邏輯重複，維護時需同步修改兩處
-- 狀態：低優先（重構）
+- 狀態：已修（抽成 `cleanupOrphanBoardCards(snapshot, deletedBoardId)` 純函式，兩處呼叫點改用此函式）
 
 ### L4 - sanitizeBoards 的 dirty flag 用 reference equality 判斷
-- 位置：`useBoardManager.ts:56-80`
+- 位置：`useBoardManager.ts` `sanitizeBoards`
 - 影響：若 `sanitizeSnapshot` 或 `sanitizeDocumentRecord` 改為回傳新物件（即使內容相同），`dirty = true` 會觸發不必要的 DB 寫入
-- 狀態：低優先
+- 狀態：已修（改用 `JSON.stringify` 比較，確保只在內容真正改變時才標記 dirty）
 
 ### L5 - db.version(7) 的 shapeId index 對現有舊資料沒有 migrate
 - 位置：`db.ts`
 - 影響：Dexie schema 升級只對新寫入資料建立 index，舊的 `deletedCards` record 的 `shapeId` 欄位沒有 index entry；`where('shapeId').equals(id)` 在舊資料上可能做 full scan（效能降低）
-- 狀態：低優先
+- 狀態：已修（version(7) 加入 `.upgrade()` callback，對缺少 `shapeId` 的現有記錄補上空字串，確保 index 完整）
 
 ---
 
@@ -118,11 +118,11 @@
 |---|---|---|---|
 | Critical | 4 | 4 | 0 |
 | Medium | 11 | 10 | 0 |
-| Low | 5 | 0 | 5 |
-| **合計** | **20** | **14** | **5** |
+| Low | 5 | 5 | 0 |
+| **合計** | **20** | **19** | **0** |
 
-（M9 列為設計決策；M10 已審無需代碼變更；其餘 5 項為 Low 優先）
+（M9 列為設計決策；M10 已審無需代碼變更）
 
 ---
 
-最後更新：2026-05-07（C1–C4、M1–M8、M10–M11 已修/已審）
+最後更新：2026-05-07（全部 20 項已修/已審/設計決策）

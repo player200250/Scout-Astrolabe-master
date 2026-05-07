@@ -22,6 +22,9 @@ function isCardShape(s: { type: string }): s is TLCardShape {
 
 async function compressImage(dataUrl: string): Promise<string> {
     return new Promise(resolve => {
+        let settled = false
+        const done = (result: string) => { if (!settled) { settled = true; resolve(result) } }
+        setTimeout(() => done(dataUrl), 5000)
         const img = new Image()
         img.onload = () => {
             const MAX = 1200
@@ -38,12 +41,12 @@ async function compressImage(dataUrl: string): Promise<string> {
             if (dataUrl.startsWith('data:image/png')) {
                 const px = ctx.getImageData(0, 0, width, height).data
                 for (let i = 3; i < px.length; i += 4) {
-                    if (px[i] < 255) { resolve(canvas.toDataURL('image/png')); return }
+                    if (px[i] < 255) { done(canvas.toDataURL('image/png')); return }
                 }
             }
-            resolve(canvas.toDataURL('image/jpeg', 0.8))
+            done(canvas.toDataURL('image/jpeg', 0.8))
         }
-        img.onerror = () => resolve(dataUrl)
+        img.onerror = () => done(dataUrl)
         img.src = dataUrl
     })
 }

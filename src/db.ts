@@ -50,7 +50,11 @@ db.version(3).stores({ snapshots: 'id', boards: 'id', backups: 'id' })
 db.version(4).stores({ snapshots: 'id', boards: 'id', backups: 'id, timestamp' })
 db.version(5).stores({ snapshots: 'id', boards: 'id', backups: 'id, timestamp', templates: 'id, createdAt' })
 db.version(6).stores({ snapshots: 'id', boards: 'id, deletedAt', backups: 'id, timestamp', templates: 'id, createdAt', deletedCards: 'id, deletedAt, boardId' })
-db.version(7).stores({ snapshots: 'id', boards: 'id, deletedAt', backups: 'id, timestamp', templates: 'id, createdAt', deletedCards: 'id, deletedAt, boardId, shapeId' })
+db.version(7)
+    .stores({ snapshots: 'id', boards: 'id, deletedAt', backups: 'id, timestamp', templates: 'id, createdAt', deletedCards: 'id, deletedAt, boardId, shapeId' })
+    .upgrade(tx => tx.table('deletedCards').toCollection().modify(record => {
+        if (!('shapeId' in record)) record.shapeId = ''
+    }))
 
 export const MAX_BACKUPS = 30
 
