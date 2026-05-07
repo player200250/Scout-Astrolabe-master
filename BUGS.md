@@ -39,32 +39,32 @@
 ### M3 - handleSaveJournal 建立的 shape 缺少 preview 欄位
 - 位置：`useBoardManager.ts:425-436`
 - 影響：手動建立的 journal shape props 缺少 `preview`，`sanitizeCardProps` 啟動時會補，但原始 snapshot 不完整可能在某些路徑觸發驗證錯誤
-- 狀態：待修
+- 狀態：已修（補上 `preview: ''`）
 
 ### M4 - handleAddCardToInbox 的 url 設為 null 而非空字串
 - 位置：`useBoardManager.ts:523`
 - 影響：`url: null` 與 `CARD_PROP_DEFAULTS` 的 `url: ''` 不一致，可能在連結卡片邏輯裡造成 `null` vs `''` 比較出錯
-- 狀態：待修
+- 狀態：已修（`url: null` 改為 `url: ''`）
 
 ### M5 - createTextCardWithContent 缺少 color、cardStatus、priority、tags
 - 位置：`WhiteboardTools.tsx:119-122`
 - 影響：從模板建立的卡片 props 不完整，若 card shape util 在補值前先驗證則報錯
-- 狀態：待修
+- 狀態：已修（補上 `color: 'none', cardStatus: 'none', priority: 'none', tags: []`）
 
 ### M6 - saveCardToTrash 存入的 shapeData 沒有 sanitize
-- 位置：`TrashPanel.tsx:368-391`
+- 位置：`ContextMenu.tsx` / `WhiteboardTools.tsx` saveCardToTrash 呼叫處
 - 影響：還原卡片時若舊 shape 缺必要欄位，`editor.createShape` 可能驗證失敗（目前被 silent catch 吃掉，還原無聲無息地失敗）
-- 狀態：待修
+- 狀態：已修（`sanitizeCardProps` 移至 `snapshot.ts` 並 export；存入前呼叫 `sanitizeCardProps(shape.props)`）
 
 ### M7 - TrashPanel 只在 mount 時 load() 一次，不會自動同步外部變更
 - 位置：`TrashPanel.tsx:63`
 - 影響：垃圾桶開著時，若 Ctrl+Z 或其他路徑變更了 DB，TrashPanel 的卡片列表不更新，與 badge 數字不一致
-- 狀態：待修
+- 狀態：已修（新增 `trash-count-changed` 事件監聽器，觸發時重新呼叫 `load()`）
 
 ### M8 - handlePermanentDeleteCard 依賴 stale deletedCards state
 - 位置：`TrashPanel.tsx:83`
 - 影響：tab 切換觸發 `load()` 重新載入後，`handlePermanentDeleteCard` 仍用舊 state 找 record，`shapeId` / `boardId` 可能對不上，導致 `permanent-delete-shape` 事件帶錯誤資料
-- 狀態：待修
+- 狀態：已修（改為 `await db.table('deletedCards').get(id)` 直接查詢最新資料，移除 `deletedCards` 依賴）
 
 ### M9 - 刪除整個白板時，白板內的卡片不會進 deletedCards
 - 位置：`useBoardManager.ts` `handleSoftDeleteBoard`
@@ -74,12 +74,12 @@
 ### M10 - 多個 window.addEventListener 在 React Strict Mode 下可能短暫重複
 - 位置：`WhiteboardTools.tsx` 多個 `useEffect`
 - 影響：Strict Mode 下 effect 執行兩次，cleanup 和 re-register 之間若有事件觸發，handler 執行兩次
-- 狀態：低優先
+- 狀態：已審（全部 useEffect 皆已有對應 removeEventListener cleanup，現有模式已符合 React 規範）
 
 ### M11 - sanitizeSnapshot 未處理 frame、arrow 等非 card shape 的必要欄位
 - 位置：`snapshot.ts` `sanitizeSnapshot`
 - 影響：若 snapshot 含有 `frame` 或 `arrow` 且欄位缺失，載入時仍會報 ValidationError
-- 狀態：待修
+- 狀態：已修（`sanitizeSnapshot` 新增 frame/arrow 必要欄位補齊邏輯）
 
 ---
 
@@ -117,12 +117,12 @@
 | 嚴重程度 | 數量 | 已修 | 待修 |
 |---|---|---|---|
 | Critical | 4 | 4 | 0 |
-| Medium | 11 | 2 | 8 |
+| Medium | 11 | 10 | 0 |
 | Low | 5 | 0 | 5 |
-| **合計** | **20** | **6** | **13** |
+| **合計** | **20** | **14** | **5** |
 
-（M9 列為設計決策，不計入待修）
+（M9 列為設計決策；M10 已審無需代碼變更；其餘 5 項為 Low 優先）
 
 ---
 
-最後更新：2026-05-07（C1–C4、M1–M2 已修）
+最後更新：2026-05-07（C1–C4、M1–M8、M10–M11 已修/已審）

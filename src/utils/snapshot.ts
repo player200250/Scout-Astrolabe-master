@@ -80,6 +80,58 @@ export function toTLEditorSnapshot(snap: MutableSnapshot): TLEditorSnapshot {
     return snap as unknown as TLEditorSnapshot
 }
 
+// ── Card prop sanitization ───────────────────────────────────────────────────
+
+const CARD_PROP_DEFAULTS: Record<string, unknown> = {
+    text: '',
+    image: null,
+    todos: [],
+    url: '',
+    linkEmbedUrl: null,
+    state: 'idle',
+    preview: false,
+    color: 'none',
+    w: 240,
+    h: 120,
+    tags: [],
+    cardStatus: 'none',
+    priority: 'none',
+    linkedBoardId: null,
+    journalDate: null,
+}
+
+export function sanitizeCardProps(props: SnapshotShapeProps): SnapshotShapeProps {
+    const result = { ...props } as Record<string, unknown>
+    let changed = false
+    for (const key of Object.keys(result)) {
+        if (result[key] === undefined) {
+            result[key] = key in CARD_PROP_DEFAULTS ? CARD_PROP_DEFAULTS[key] : null
+            changed = true
+        }
+    }
+    for (const [key, def] of Object.entries(CARD_PROP_DEFAULTS)) {
+        if (!(key in result)) {
+            result[key] = def
+            changed = true
+        }
+    }
+    return changed ? (result as SnapshotShapeProps) : props
+}
+
+// ── Frame / Arrow prop defaults ──────────────────────────────────────────────
+
+const FRAME_PROP_DEFAULTS: Record<string, unknown> = { name: '', w: 320, h: 240 }
+const ARROW_PROP_DEFAULTS: Record<string, unknown> = {
+    dash: 'draw', size: 'm', fill: 'none', color: 'black',
+    labelColor: 'black', bend: 0, text: '', font: 'draw',
+    start: { type: 'point', x: 0, y: 0 },
+    end: { type: 'point', x: 100, y: 0 },
+    arrowheadStart: 'none', arrowheadEnd: 'arrow',
+    labelPosition: 0.5,
+}
+
+// ── Page record sanitization ─────────────────────────────────────────────────
+
 /** Ensure all page records have the fields tldraw requires. */
 export function sanitizePageRecords(snapshot: TLEditorSnapshot): TLEditorSnapshot {
     const store = getSnapshotStore(snapshot)
@@ -108,7 +160,24 @@ export function sanitizeDocumentRecord(snapshot: TLEditorSnapshot): TLEditorSnap
 
 /** Run all record sanitizers on a snapshot before passing it to tldraw. */
 export function sanitizeSnapshot(snapshot: TLEditorSnapshot): TLEditorSnapshot {
-    return sanitizePageRecords(sanitizeDocumentRecord(snapshot))
+    let snap = sanitizePageRecords(sanitizeDocumentRecord(snapshot))
+    const store = getSnapshotStore(snap)
+    const newStore = { ...store }
+    let dirty = false
+
+    for (const record of Object.values(store)) {
+        if (record.typeName !== 'shape') continue
+        const defaults = record.type === 'frame' ? FRAME_PROP_DEFAULTS
+            : record.type === 'arrow' ? ARROW_PROP_DEFAULTS
+            : null
+        if (!defaults) continue
+        const original = (record.props ?? {}) as Record<string, unknown>
+        if (!Object.keys(defaults).some(k => !(k in original))) continue
+        newStore[record.id] = { ...record, props: { ...defaults, ...original } as SnapshotShapeProps }
+        dirty = true
+    }
+
+    return dirty ? withUpdatedStore(snap, newStore) : snap
 }
 
 export function getCardShapes(snapshot: TLEditorSnapshot | null): SnapshotCardShape[] {

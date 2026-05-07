@@ -77,6 +77,12 @@ export function TrashPanel({
     useEffect(() => { load() }, [load])
 
     useEffect(() => {
+        const handler = () => { load() }
+        window.addEventListener('trash-count-changed', handler)
+        return () => window.removeEventListener('trash-count-changed', handler)
+    }, [load])
+
+    useEffect(() => {
         const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
         window.addEventListener('keydown', handler)
         return () => window.removeEventListener('keydown', handler)
@@ -95,7 +101,7 @@ export function TrashPanel({
     }, [onCardRestored])
 
     const handlePermanentDeleteCard = useCallback(async (id: string) => {
-        const record = deletedCards.find(c => c.id === id)
+        const record: DeletedCardRecord | undefined = await db.table('deletedCards').get(id)
         if (record) {
             window.dispatchEvent(new CustomEvent('permanent-delete-shape', {
                 detail: { shapeId: record.shapeId, boardId: record.boardId },
@@ -104,7 +110,7 @@ export function TrashPanel({
         await db.table('deletedCards').delete(id)
         setDeletedCards(prev => prev.filter(c => c.id !== id))
         window.dispatchEvent(new CustomEvent('trash-count-changed'))
-    }, [deletedCards])
+    }, [])
 
     const handleRestoreBoardLocal = useCallback(async (id: string) => {
         await db.table('boards').update(id, { deletedAt: undefined })

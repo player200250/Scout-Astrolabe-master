@@ -13,7 +13,8 @@ import { exportJSON, importJSON } from '../utils/boardExport'
 import { exportBoardToMarkdown, exportSelectedToMarkdown } from '../utils/exportMarkdown'
 import type { TLCardShape } from './card-shape/type/CardShape'
 import { saveCardToTrash, getCardPreview } from '../TrashPanel'
-import { sanitizeSnapshot } from '../utils/snapshot'
+import { sanitizeSnapshot, sanitizeCardProps } from '../utils/snapshot'
+import type { SnapshotShapeProps } from '../utils/snapshot'
 
 function isCardShape(s: { type: string }): s is TLCardShape {
     return s.type === 'card'
@@ -121,7 +122,7 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
 
     const createTextCardWithContent = useCallback((x: number, y: number, content: string, w = 280, h = 320) => {
         console.log('[createTextCardWithContent] called', { x, y, content, w, h })
-        editor.createShape({ type: 'card', x, y, props: { type: 'text', text: content, image: null, todos: [], url: '', state: 'idle', w, h } })
+        editor.createShape({ type: 'card', x, y, props: { type: 'text', text: content, image: null, todos: [], url: '', state: 'idle', color: 'none', cardStatus: 'none', priority: 'none', tags: [], w, h } })
     }, [editor])
 
     const openImageInput = useCallback(() => imageInputRef.current?.click(), [])
@@ -303,9 +304,10 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
                 if (s.type === 'card') {
                     const card = s as unknown as TLCardShape
                     recentlyTrashedShapeIds.current.add(s.id)
+                    const sanitizedShape = { ...s, props: sanitizeCardProps(card.props as unknown as SnapshotShapeProps) }
                     saveCardToTrash(
                         s.id,
-                        s,
+                        sanitizedShape,
                         board.id,
                         board.name,
                         card.props.type,

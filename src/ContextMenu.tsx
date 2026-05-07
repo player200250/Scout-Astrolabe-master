@@ -7,6 +7,8 @@ import type { CardColor, TLCardShape } from './components/card-shape/type/CardSh
 import { db } from './db'
 import type { TemplateRecord } from './db'
 import { saveCardToTrash, getCardPreview } from './TrashPanel'
+import { sanitizeCardProps } from './utils/snapshot'
+import type { SnapshotShapeProps } from './utils/snapshot'
 
 interface MenuItem {
     label: string
@@ -487,10 +489,14 @@ export function useContextMenu({
                     divider: !isInboxBoard && !isLink && !isText,
                     action: () => {
                         onBeforeDeleteCard?.(hitShape.id)
-                        const shapeData = editor.getShape(hitShape.id)
+                        const rawShape = editor.getShape(hitShape.id)
+                        const sanitizedData = rawShape ? {
+                            ...rawShape,
+                            props: sanitizeCardProps(rawShape.props as unknown as SnapshotShapeProps),
+                        } : rawShape
                         saveCardToTrash(
                             hitShape.id,
-                            shapeData,
+                            sanitizedData,
                             boardId ?? '',
                             boardName ?? '',
                             shape.props.type,

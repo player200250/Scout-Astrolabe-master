@@ -6,52 +6,9 @@ import { loadAllBoards, saveBoard, deleteBoard, generateId } from '../utils/boar
 import { INBOX_BOARD_ID, BACKUP_THROTTLE_MS } from '../constants'
 import {
     getSnapshotStore, withUpdatedStore, toMutableSnapshot, toTLEditorSnapshot,
-    sanitizeSnapshot,
+    sanitizeSnapshot, sanitizeCardProps,
     type SnapshotShapeProps,
 } from '../utils/snapshot'
-
-// ── sanitizeSnapshot ────────────────────────────────────────────────────────
-
-const CARD_PROP_DEFAULTS: Record<string, unknown> = {
-    text: '',
-    image: null,
-    todos: [],
-    url: '',
-    linkEmbedUrl: null,
-    state: 'idle',
-    preview: false,
-    color: 'none',
-    w: 240,
-    h: 120,
-    tags: [],
-    cardStatus: 'none',
-    priority: 'none',
-    linkedBoardId: null,
-    journalDate: null,
-}
-
-function sanitizeCardProps(props: SnapshotShapeProps): SnapshotShapeProps {
-    const result = { ...props } as Record<string, unknown>
-    let changed = false
-
-    // Replace any undefined value already present in the object
-    for (const key of Object.keys(result)) {
-        if (result[key] === undefined) {
-            result[key] = key in CARD_PROP_DEFAULTS ? CARD_PROP_DEFAULTS[key] : null
-            changed = true
-        }
-    }
-
-    // Ensure every required default field exists (covers fields missing entirely)
-    for (const [key, def] of Object.entries(CARD_PROP_DEFAULTS)) {
-        if (!(key in result)) {
-            result[key] = def
-            changed = true
-        }
-    }
-
-    return changed ? (result as SnapshotShapeProps) : props
-}
 
 async function sanitizeBoards(boards: BoardRecord[]): Promise<BoardRecord[]> {
     const out: BoardRecord[] = []
@@ -452,7 +409,7 @@ export function useBoardManager() {
                     type: 'journal', text: html,
                     image: null, todos: [], url: '',
                     linkEmbedUrl: null, journalDate: dateStr,
-                    state: 'idle', color: 'yellow', w: 280, h: 380,
+                    state: 'idle', preview: '', color: 'yellow', w: 280, h: 380,
                     cardStatus: 'none', priority: 'none', tags: [],
                 },
             }
@@ -543,7 +500,7 @@ export function useBoardManager() {
             parentId: pageId, isLocked: false, opacity: 1, meta: {},
             props: {
                 type: 'text', text,
-                image: null, todos: [], url: null,
+                image: null, todos: [], url: '',
                 linkEmbedUrl: null, journalDate: null,
                 state: 'idle', color: 'none', w: 240, h: 180,
                 cardStatus: 'none', priority: 'none', tags: [],
