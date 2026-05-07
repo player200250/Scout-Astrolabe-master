@@ -281,7 +281,7 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
                 type: 'card', x, y,
                 props: {
                     type: 'text', text,
-                    image: null, todos: [], url: null,
+                    image: null, todos: [], url: '',
                     linkEmbedUrl: null, journalDate: null,
                     state: 'idle', color: 'none', w: 280, h: 320,
                     cardStatus: 'none', priority: 'none', tags: [],

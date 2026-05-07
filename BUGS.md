@@ -1,4 +1,4 @@
-# Bug 清單（2026-05-06 掃描）
+# Bug 清單（2026-05-06 初始掃描 → 2026-05-07 全面驗證）
 
 ## Critical（4 項）
 
@@ -125,4 +125,49 @@
 
 ---
 
-最後更新：2026-05-07（全部 20 項已修/已審/設計決策）
+## 全面驗證報告（2026-05-07）
+
+每項 bug 均逐一對照源碼確認。以下為驗證結論：
+
+### Critical（4 項）— 全部確認已修
+| Bug | 確認點 | 結果 |
+|-----|--------|------|
+| C1 | `handlePermanentDeleteBoard` 為 async，`await deleteBoard(id)` + try/catch + alert | ✓ |
+| C2 | `handleEmptyTrash` for 迴圈內 `await deleteBoard(b.id)` | ✓ |
+| C3 | `handleDeleteWithConfirm` → `TrashDialog` → `handleSoftDeleteBoard`；`BoardTabBar.onDelete` 指向 `handleDeleteWithConfirm` | ✓ |
+| C4 | `recentlyTrashedShapeIds` ref 宣告於 `useBoardManager`，經 `App.tsx → Whiteboard → WhiteboardTools` 完整穿透 | ✓ |
+
+### Medium（11 項）— 全部確認已修（M9 設計決策）
+| Bug | 確認點 | 結果 |
+|-----|--------|------|
+| M1 | `handleSoftDeleteBoard` async；`await saveBoard` → `setBoards` → `await refreshTrashCount` 循序執行 | ✓ |
+| M2 | `update` 回傳 0 時 alert + return，不執行 `setBoards` | ✓ |
+| M3 | `handleSaveJournal` props 包含 `preview: ''` | ✓ |
+| M4 | `handleAddCardToInbox` props 為 `url: ''` | ✓ |
+| M5 | `createTextCardWithContent` 包含 `color/cardStatus/priority/tags` | ✓ |
+| M6 | `ContextMenu.tsx`（rawShape 包裝）與 `WhiteboardTools.tsx`（sanitizedShape）均在存入垃圾桶前呼叫 `sanitizeCardProps` | ✓ |
+| M7 | `TrashPanel` 有 `trash-count-changed` listener → `load()` | ✓ |
+| M8 | `handlePermanentDeleteCard` 改為 `await db.table('deletedCards').get(id)`，無 `deletedCards` state 依賴 | ✓ |
+| M9 | 設計決策（軟刪白板不逐一歸檔內部卡片） | — |
+| M10 | 審查 `WhiteboardTools.tsx` 所有 useEffect：10 個 window 事件 + 2 個 editor.store.listen，全有對應 cleanup | ✓ |
+| M11 | `sanitizeSnapshot` 新增 frame/arrow defaults 填補邏輯 | ✓ |
+
+### Low（5 項）— 全部確認已修
+| Bug | 確認點 | 結果 |
+|-----|--------|------|
+| L1 | `compressImage` 有 `settled` guard + `setTimeout(() => done(dataUrl), 5000)` | ✓ |
+| L2 | `handleSaveBoard` 的 `saveBoard(updated).catch(err => console.error(...))` | ✓ |
+| L3 | `cleanupOrphanBoardCards` 純函式存在；`handlePermanentDeleteBoard` 與 `handleEmptyTrash` 各呼叫一次 | ✓ |
+| L4 | `sanitizeBoards` 的 dirty flag 使用 `JSON.stringify` 比較 | ✓ |
+| L5 | `db.version(7).upgrade(tx => tx.table('deletedCards').toCollection().modify(...))` 補 shapeId 欄位 | ✓ |
+
+### 掃描發現的新問題
+
+#### NF1 — quick-capture-card handler 的 url 未同步 M4 修法
+- 位置：`WhiteboardTools.tsx` quick-capture-card useEffect（line 284，現已修）
+- 說明：M4 修了 `handleAddCardToInbox` 的 snapshot 寫入（`url: ''`），但同一次操作觸發的 `quick-capture-card` 事件 handler 裡，`editor.createShape` 仍用 `url: null`。下次自動儲存時，editor snapshot 會回寫 DB，覆蓋 `url: ''` 為 `url: null`
+- 狀態：已修（`url: null` → `url: ''`，TypeScript 零錯誤確認）
+
+---
+
+最後更新：2026-05-07（全面驗證通過；NF1 同步修復；TypeScript 零錯誤）
