@@ -13,6 +13,7 @@ import { exportJSON, importJSON } from '../utils/boardExport'
 import { exportBoardToMarkdown, exportSelectedToMarkdown } from '../utils/exportMarkdown'
 import type { TLCardShape } from './card-shape/type/CardShape'
 import { saveCardToTrash, getCardPreview } from '../TrashPanel'
+import { sanitizeSnapshot } from '../utils/snapshot'
 
 function isCardShape(s: { type: string }): s is TLCardShape {
     return s.type === 'card'
@@ -437,7 +438,7 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
     useEffect(() => {
         if (!editor || initialized.current) return
         initialized.current = true
-        if (board.snapshot) loadSnapshot(editor.store, board.snapshot)
+        if (board.snapshot) loadSnapshot(editor.store, sanitizeSnapshot(board.snapshot))
 
         setTimeout(() => {
             const targetBoards = board.isHome
@@ -650,7 +651,7 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
                     )}
                 </div>
                 <input ref={jsonInputRef} type="file" accept="application/json" style={{ display: 'none' }}
-                    onChange={e => { const f = e.target.files?.[0]; if (f) importJSON(f, d => loadSnapshot(editor.store, d.snapshot!)); e.target.value = '' }}
+                    onChange={e => { const f = e.target.files?.[0]; if (f) importJSON(f, d => loadSnapshot(editor.store, sanitizeSnapshot(d.snapshot!))); e.target.value = '' }}
                 />
             </div>
             <input ref={imageInputRef} type="file" accept="image/*" style={{ display: 'none' }}

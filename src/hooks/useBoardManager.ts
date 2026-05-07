@@ -6,6 +6,7 @@ import { loadAllBoards, saveBoard, deleteBoard, generateId } from '../utils/boar
 import { INBOX_BOARD_ID, BACKUP_THROTTLE_MS } from '../constants'
 import {
     getSnapshotStore, withUpdatedStore, toMutableSnapshot, toTLEditorSnapshot,
+    sanitizeSnapshot,
     type SnapshotShapeProps,
 } from '../utils/snapshot'
 
@@ -56,8 +57,12 @@ async function sanitizeBoards(boards: BoardRecord[]): Promise<BoardRecord[]> {
     const out: BoardRecord[] = []
     for (const board of boards) {
         if (!board.snapshot) { out.push(board); continue }
-        const store = getSnapshotStore(board.snapshot)
-        let dirty = false
+
+        // Fix document:document and page records missing required fields
+        let snapshot = sanitizeSnapshot(board.snapshot)
+        let dirty = snapshot !== board.snapshot
+
+        const store = getSnapshotStore(snapshot)
         const newStore = { ...store }
         for (const record of Object.values(store)) {
             if (record.typeName !== 'shape' || record.type !== 'card' || !record.props) continue
@@ -68,7 +73,8 @@ async function sanitizeBoards(boards: BoardRecord[]): Promise<BoardRecord[]> {
             }
         }
         if (dirty) {
-            const updated = { ...board, snapshot: withUpdatedStore(board.snapshot, newStore) }
+            snapshot = withUpdatedStore(snapshot, newStore)
+            const updated = { ...board, snapshot }
             await saveBoard(updated)
             out.push(updated)
         } else {
@@ -277,11 +283,6 @@ export function useBoardManager() {
         refreshTrashCount()
     }, [activeBoardId, boards, refreshTrashCount])
 
-    // Kept for backward-compat; internally uses soft delete
-    const handleDelete = useCallback((id: string) => {
-        handlePermanentDeleteBoard(id)
-    }, [handlePermanentDeleteBoard])
-
     const handleSoftDeleteBoard = useCallback((id: string) => {
         const board = boards.find(b => b.id === id)
         if (!board) return
@@ -291,6 +292,10 @@ export function useBoardManager() {
         if (activeBoardId === id) setActiveBoardId(next[0]?.id ?? null)
         setBoards(next)
     }, [activeBoardId, boards, refreshTrashCount])
+
+    const handleDelete = useCallback((id: string) => {
+        handleSoftDeleteBoard(id)
+    }, [handleSoftDeleteBoard])
 
     const handleRestoreBoard = useCallback(async (id: string) => {
         const record: BoardRecord | undefined = await db.table('boards').get(id)
@@ -408,12 +413,12 @@ export function useBoardManager() {
             if (rec.props) { rec.props['text'] = html } else { rec.props = { text: html } }
         } else {
             if (!store['document:document']) {
-                store['document:document'] = { typeName: 'document', id: 'document:document', meta: {} }
+                store['document:document'] = { typeName: 'document', id: 'document:document', gridSize: 10, name: '', meta: {} }
             }
             const pageRecord = Object.values(store).find(r => r.typeName === 'page')
             const pageId = pageRecord?.id ?? 'page:page'
             if (!store[pageId]) {
-                store[pageId] = { typeName: 'page', id: pageId }
+                store[pageId] = { typeName: 'page', id: pageId, name: '', index: 'a1', meta: {} }
             }
 
             const existingIndices = Object.values(store)
@@ -468,10 +473,10 @@ export function useBoardManager() {
         if (targetBoard) {
             const snap = toMutableSnapshot(targetBoard.snapshot)
             const st = snap.document.store
-            if (!st['document:document']) st['document:document'] = { typeName: 'document', id: 'document:document', meta: {} }
+            if (!st['document:document']) st['document:document'] = { typeName: 'document', id: 'document:document', gridSize: 10, name: '', meta: {} }
             const pageRec = Object.values(st).find(r => r.typeName === 'page')
             const pageId = pageRec?.id ?? 'page:page'
-            if (!st[pageId]) st[pageId] = { typeName: 'page', id: pageId }
+            if (!st[pageId]) st[pageId] = { typeName: 'page', id: pageId, name: '', index: 'a1', meta: {} }
             const existingShapes = Object.values(st).filter(r => r.typeName === 'shape')
             const maxX = existingShapes.length > 0 ? Math.max(...existingShapes.map(s => (s.x ?? 0) + (s.props?.w ?? 240))) + 40 : 100
             st[shapeId] = { ...structuredClone(shape), parentId: pageId, x: maxX, y: 100 }
@@ -501,12 +506,12 @@ export function useBoardManager() {
         const store = snap.document.store
 
         if (!store['document:document']) {
-            store['document:document'] = { typeName: 'document', id: 'document:document', meta: {} }
+            store['document:document'] = { typeName: 'document', id: 'document:document', gridSize: 10, name: '', meta: {} }
         }
         const pageRecord = Object.values(store).find(r => r.typeName === 'page')
         const pageId = pageRecord?.id ?? 'page:page'
         if (!store[pageId]) {
-            store[pageId] = { typeName: 'page', id: pageId }
+            store[pageId] = { typeName: 'page', id: pageId, name: '', index: 'a1', meta: {} }
         }
 
         const existingShapes = Object.values(store).filter(r => r.typeName === 'shape')

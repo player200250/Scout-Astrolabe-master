@@ -15,6 +15,7 @@ import { CardLibrary } from './CardLibrary'
 import { QuickCapture } from './components/QuickCapture'
 import { OnboardingModal } from './components/OnboardingModal'
 import { TrashPanel } from './TrashPanel'
+import { TrashDialog } from './components/TrashDialog'
 import { SIDEBAR_WIDTH, SIDEBAR_COLLAPSED_WIDTH, INBOX_BOARD_ID } from './constants'
 import { getCardShapes } from './utils/snapshot'
 import { getTodayStr } from './utils/date'
@@ -52,6 +53,7 @@ export default function App() {
     const [quickCaptureOpen, setQuickCaptureOpen] = useState(false)
     const [onboardingOpen, setOnboardingOpen] = useState(false)
     const [trashOpen, setTrashOpen] = useState(false)
+    const [deletingBoardId, setDeletingBoardId] = useState<string | null>(null)
     const [overdueBannerVisible, setOverdueBannerVisible] = useState(false)
     const bannerShownRef = useRef(false)
 
@@ -89,6 +91,10 @@ export default function App() {
         const t2 = setTimeout(() => setOverdueBannerVisible(false), 5300)
         return () => { clearTimeout(t1); clearTimeout(t2) }
     }, [loading, overdueCount])
+
+    const handleDeleteWithConfirm = useCallback((id: string) => {
+        setDeletingBoardId(id)
+    }, [])
 
     const toggleTheme = useCallback(() => {
         setIsDark(prev => {
@@ -187,7 +193,7 @@ export default function App() {
                 onSwitch={handleSwitch}
                 onNew={handleNew}
                 onRename={handleRename}
-                onDelete={handleSoftDeleteBoard}
+                onDelete={handleDeleteWithConfirm}
                 onSearch={() => setSearchOpen(true)}
                 onHotkey={() => setHotkeyOpen(true)}
                 onOpenOverview={() => setOverviewOpen(true)}
@@ -268,7 +274,7 @@ export default function App() {
                     onSelect={handleSwitch}
                     onNew={handleNew}
                     onRename={handleRename}
-                    onDelete={handleSoftDeleteBoard}
+                    onDelete={handleDeleteWithConfirm}
                     onSetStatus={handleSetStatus}
                     onClose={() => setOverviewOpen(false)}
                     isDark={isDark}
@@ -320,6 +326,18 @@ export default function App() {
                     isDark={isDark}
                 />
             )}
+            {deletingBoardId && (() => {
+                const boardName = boards.find(b => b.id === deletingBoardId)?.name ?? '此白板'
+                return (
+                    <TrashDialog
+                        message={`將「${boardName}」移到垃圾桶？`}
+                        subMessage="14 天後自動清除，你可以在垃圾桶中找回"
+                        onConfirm={() => { handleSoftDeleteBoard(deletingBoardId); setDeletingBoardId(null) }}
+                        onCancel={() => setDeletingBoardId(null)}
+                        isDark={isDark}
+                    />
+                )
+            })()}
             {trashOpen && (
                 <TrashPanel
                     onClose={() => setTrashOpen(false)}
