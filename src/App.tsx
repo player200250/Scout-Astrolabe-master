@@ -34,7 +34,7 @@ export default function App() {
         handleRestore, handleGoToWeeklyCard, handleSaveJournal,
         handleMoveCardToBoard, handleCreateBoard,
         handleToggleCollapse, handleGoToInbox, handleReorderBoards,
-        handleAddCardToInbox,
+        handleAddCardToInbox, recentlyTrashedShapeIds,
     } = useBoardManager()
 
     const [isDark, setIsDark] = useState(() => {
@@ -184,6 +184,7 @@ export default function App() {
                     onOpenOverview={() => setOverviewOpen(true)}
                     onQuickCapture={() => setQuickCaptureOpen(true)}
                     onCardTrashed={handleCardTrashed}
+                    recentlyTrashedShapeIds={recentlyTrashedShapeIds}
                 />
             )}
 

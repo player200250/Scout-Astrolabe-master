@@ -46,6 +46,7 @@ interface WhiteboardProps {
     onOpenOverview: () => void
     onQuickCapture: () => void
     onCardTrashed?: () => void
+    recentlyTrashedShapeIds: React.MutableRefObject<Set<string>>
 }
 
 export function Whiteboard({
@@ -53,6 +54,7 @@ export function Whiteboard({
     onCreateBoard, onSwitchBoard, sidebarWidth, isInboxBoard, onMoveCard, isDark,
     onOpenTaskCenter, onOpenReviewCenter, onOpenKnowledgeGraph,
     onOpenCardLibrary, onOpenOverview, onQuickCapture, onCardTrashed,
+    recentlyTrashedShapeIds,
 }: WhiteboardProps) {
     const boardInfos = boards.map(b => ({ id: b.id, name: b.name, thumbnail: b.thumbnail }))
     const { forwardLinks, backlinks } = useBacklinks(boards)
@@ -123,6 +125,7 @@ export function Whiteboard({
                             homeView={board.isHome ? homeView : undefined}
                             onSetHomeView={board.isHome ? handleSetHomeView : undefined}
                             onCardTrashed={onCardTrashed}
+                            recentlyTrashedShapeIds={recentlyTrashedShapeIds}
                         />
                     </Tldraw>
                 </BoardsContext.Provider>

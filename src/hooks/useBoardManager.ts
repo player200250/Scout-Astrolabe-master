@@ -97,6 +97,7 @@ export function useBoardManager() {
     const [trashCount, setTrashCount] = useState(0)
     const jumpRef = useRef<((shapeId: string, x: number, y: number) => void) | null>(null)
     const lastBackupRef = useRef<number>(0)
+    const recentlyTrashedShapeIds = useRef<Set<string>>(new Set())
 
     const refreshTrashCount = useCallback(async () => {
         const deletedBoardCount = await db.table('boards').where('deletedAt').above(0).count()
@@ -289,14 +290,15 @@ export function useBoardManager() {
         refreshTrashCount()
     }, [activeBoardId, boards, refreshTrashCount])
 
-    const handleSoftDeleteBoard = useCallback((id: string) => {
+    const handleSoftDeleteBoard = useCallback(async (id: string) => {
         const board = boards.find(b => b.id === id)
         if (!board) return
         const updated = { ...board, deletedAt: Date.now() }
-        saveBoard(updated).then(() => refreshTrashCount())
+        await saveBoard(updated)
         const next = boards.filter(b => b.id !== id)
         if (activeBoardId === id) setActiveBoardId(next[0]?.id ?? null)
         setBoards(next)
+        await refreshTrashCount()
     }, [activeBoardId, boards, refreshTrashCount])
 
     const handleDelete = useCallback((id: string) => {
@@ -308,7 +310,11 @@ export function useBoardManager() {
         if (!record) return
         const restored = { ...record, deletedAt: undefined }
         // Dexie doesn't remove the field on put; explicitly delete via update
-        await db.table('boards').update(id, { deletedAt: undefined })
+        const updated = await db.table('boards').update(id, { deletedAt: undefined })
+        if (updated === 0) {
+            alert('還原失敗，請重試。')
+            return
+        }
         setBoards(prev => [...prev, restored])
         refreshTrashCount()
     }, [refreshTrashCount])
@@ -605,5 +611,6 @@ export function useBoardManager() {
         handleGoToInbox,
         handleReorderBoards,
         handleAddCardToInbox,
+        recentlyTrashedShapeIds,
     }
 }

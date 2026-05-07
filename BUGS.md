@@ -20,7 +20,7 @@
 ### C4 - 切換白板後 recentlyTrashedShapeIds 重置，Ctrl+Z 同步失效
 - 位置：`WhiteboardTools.tsx`（`key={activeBoard.id}` 導致每次切板 re-mount）
 - 影響：在板 A 刪卡片 → 切到板 B → 切回板 A → 按 Ctrl+Z，shape 回到白板但垃圾桶記錄不被清除，造成資料重複
-- 狀態：待修
+- 狀態：已修（`recentlyTrashedShapeIds` ref 提升至 `useBoardManager`，經 `Whiteboard` 中繼傳入 `WhiteboardTools`，切板不再重置）
 
 ---
 
@@ -29,12 +29,12 @@
 ### M1 - handleSoftDeleteBoard：setBoards 在 saveBoard 完成前執行
 - 位置：`useBoardManager.ts` `handleSoftDeleteBoard`
 - 影響：`setBoards(next)` 在 `saveBoard` 完成前同步執行；若 DB 寫入慢，`refreshTrashCount` 查詢時 `deletedAt` 可能還未寫入，回傳舊計數
-- 狀態：待修
+- 狀態：已修（函式改為 async；`await saveBoard` → `setBoards` → `await refreshTrashCount` 依序執行）
 
 ### M2 - handleRestoreBoard：update 失敗時 UI 已更新
 - 位置：`useBoardManager.ts` `handleRestoreBoard`
 - 影響：Dexie `update` 失敗回傳 0 而非拋錯，但 `setBoards` 已執行，UI 顯示已還原但 DB 的 `deletedAt` 仍存在
-- 狀態：待修
+- 狀態：已修（檢查 `update` 回傳值，為 0 時 alert 並 return，不更新 UI）
 
 ### M3 - handleSaveJournal 建立的 shape 缺少 preview 欄位
 - 位置：`useBoardManager.ts:425-436`
@@ -116,13 +116,13 @@
 
 | 嚴重程度 | 數量 | 已修 | 待修 |
 |---|---|---|---|
-| Critical | 4 | 3 | 1 |
-| Medium | 11 | 0 | 10 |
+| Critical | 4 | 4 | 0 |
+| Medium | 11 | 2 | 8 |
 | Low | 5 | 0 | 5 |
-| **合計** | **20** | **3** | **16** |
+| **合計** | **20** | **6** | **13** |
 
 （M9 列為設計決策，不計入待修）
 
 ---
 
-最後更新：2026-05-07（C1、C2 已修）
+最後更新：2026-05-07（C1–C4、M1–M2 已修）

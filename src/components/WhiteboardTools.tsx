@@ -62,6 +62,7 @@ interface WhiteboardToolsProps {
     homeView?: HomeView
     onSetHomeView?: (v: HomeView) => void
     onCardTrashed?: () => void
+    recentlyTrashedShapeIds: React.MutableRefObject<Set<string>>
 }
 
 export const getExportBtnStyle = (isDark: boolean): React.CSSProperties => ({
@@ -82,13 +83,11 @@ export const getExportBtnStyle = (isDark: boolean): React.CSSProperties => ({
 /** @deprecated use getExportBtnStyle(isDark) */
 export const exportBtnStyle: React.CSSProperties = getExportBtnStyle(false)
 
-export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSearch, onOpenHotkey, onCreateBoard, onSwitchBoard, isInboxBoard, onMoveCard, isDark, homeView, onSetHomeView, onCardTrashed }: WhiteboardToolsProps) {
+export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSearch, onOpenHotkey, onCreateBoard, onSwitchBoard, isInboxBoard, onMoveCard, isDark, homeView, onSetHomeView, onCardTrashed, recentlyTrashedShapeIds }: WhiteboardToolsProps) {
     const editor = useEditor()
     const initialized = useRef(false)
     const imageInputRef = useRef<HTMLInputElement>(null)
     const jsonInputRef = useRef<HTMLInputElement>(null)
-    // Tracks shapeIds that were moved to trash so Ctrl+Z can sync them out
-    const recentlyTrashedShapeIds = useRef<Set<string>>(new Set())
 
     const createTextCard = useCallback((x?: number, y?: number) => {
         editor.createShape({ type: 'card', x, y, props: { type: 'text', text: '', image: null, todos: [], url: '', state: 'idle', w: 280, h: 320 } })
