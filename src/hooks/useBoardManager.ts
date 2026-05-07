@@ -251,8 +251,14 @@ export function useBoardManager() {
         setBoards(prev => prev.map(b => b.id === id ? updated : b))
     }, [boards])
 
-    const handlePermanentDeleteBoard = useCallback((id: string) => {
-        deleteBoard(id)
+    const handlePermanentDeleteBoard = useCallback(async (id: string) => {
+        try {
+            await deleteBoard(id)
+        } catch (err) {
+            console.error('[handlePermanentDeleteBoard] DB 刪除失敗', err)
+            alert('刪除失敗，請重試。')
+            return
+        }
 
         const orphanChildren = boards.filter(b => b.parentId === id)
         orphanChildren.forEach(b => saveBoard({ ...b, parentId: null }))
@@ -310,7 +316,7 @@ export function useBoardManager() {
     const handleEmptyTrash = useCallback(async () => {
         const deletedBoards: BoardRecord[] = await db.table('boards').where('deletedAt').above(0).toArray()
         for (const b of deletedBoards) {
-            deleteBoard(b.id)
+            await deleteBoard(b.id)
             // Also clean up orphan board-card references
             boards.forEach(active => {
                 if (!active.snapshot) return

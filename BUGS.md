@@ -5,12 +5,12 @@
 ### C1 - handlePermanentDeleteBoard：deleteBoard 未 await
 - 位置：`useBoardManager.ts` `handlePermanentDeleteBoard`
 - 影響：DB 刪除是 fire-and-forget，若失敗則 UI 已更新但 DB 未變，重開後白板又出現；後續 orphan cleanup 也在 DB 操作完成前執行
-- 狀態：待修
+- 狀態：已修（函式改為 async；`await deleteBoard(id)` 失敗時 alert 並 return，UI 不變）
 
 ### C2 - handleEmptyTrash：迴圈內 deleteBoard 未 await
 - 位置：`useBoardManager.ts` `handleEmptyTrash`
 - 影響：`for` 迴圈裡所有 `deleteBoard` 並發執行，接著立刻 `setTrashCount(0)`；若任一刪除失敗，垃圾桶已清空但 DB 仍有舊資料
-- 狀態：待修
+- 狀態：已修（迴圈內改為 `await deleteBoard(b.id)`，確保逐一完成後才繼續）
 
 ### C3 - handleDelete 說是軟刪除但實際呼叫永久刪除
 - 位置：`useBoardManager.ts:281-283`，`BoardTabBar` 的 `onDelete` prop
@@ -116,13 +116,13 @@
 
 | 嚴重程度 | 數量 | 已修 | 待修 |
 |---|---|---|---|
-| Critical | 4 | 1 | 3 |
+| Critical | 4 | 3 | 1 |
 | Medium | 11 | 0 | 10 |
 | Low | 5 | 0 | 5 |
-| **合計** | **20** | **1** | **18** |
+| **合計** | **20** | **3** | **16** |
 
 （M9 列為設計決策，不計入待修）
 
 ---
 
-最後更新：2026-05-07
+最後更新：2026-05-07（C1、C2 已修）

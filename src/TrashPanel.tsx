@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { db } from './db'
 import type { BoardRecord, DeletedCardRecord } from './db'
 import { saveBoard, deleteBoard } from './utils/boardDb'
@@ -37,7 +37,8 @@ export function TrashPanel({
     const [tab, setTab] = useState<Tab>('cards')
     const [deletedCards, setDeletedCards] = useState<DeletedCardRecord[]>([])
     const [deletedBoards, setDeletedBoards] = useState<BoardRecord[]>([])
-    const [confirmEmptyOpen, setConfirmEmptyOpen] = useState(false)
+    const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null)
+    const confirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
     const bg      = isDark ? '#0f172a' : '#f8f8f7'
     const panelBg = isDark ? '#1e293b' : '#ffffff'
@@ -47,6 +48,19 @@ export function TrashPanel({
     const hoverBg = isDark ? '#334155' : '#f1f5f9'
     const tabActive = isDark ? '#e2e8f0' : '#1a1a1a'
     const tabInactive = isDark ? '#64748b' : '#aaa'
+
+    const requestConfirm = useCallback((id: string) => {
+        if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current)
+        setConfirmingDeleteId(id)
+        confirmTimerRef.current = setTimeout(() => setConfirmingDeleteId(null), 2000)
+    }, [])
+
+    const cancelConfirm = useCallback(() => {
+        if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current)
+        setConfirmingDeleteId(null)
+    }, [])
+
+    useEffect(() => () => { if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current) }, [])
 
     const load = useCallback(async () => {
         try {
@@ -104,7 +118,7 @@ export function TrashPanel({
     }, [onPermanentDeleteBoard])
 
     const handleEmptyTrashLocal = useCallback(async () => {
-        setConfirmEmptyOpen(false)
+        cancelConfirm()
         for (const card of deletedCards) {
             window.dispatchEvent(new CustomEvent('permanent-delete-shape', {
                 detail: { shapeId: card.shapeId, boardId: card.boardId },
@@ -127,6 +141,7 @@ export function TrashPanel({
             background: bg,
             display: 'flex', flexDirection: 'column',
         }}>
+            <style>{`@keyframes trashConfirmIn { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: scale(1); } }`}</style>
             {/* Header */}
             <div style={{
                 display: 'flex', alignItems: 'center', gap: 12,
@@ -153,16 +168,38 @@ export function TrashPanel({
                 <div style={{ flex: 1 }} />
                 <span style={{ fontSize: 12, color: muted }}>項目在 14 天後自動永久刪除</span>
                 {totalCount > 0 && (
-                    <button
-                        onClick={() => setConfirmEmptyOpen(true)}
-                        style={{
-                            padding: '7px 14px', borderRadius: 8, border: 'none',
-                            background: isDark ? '#3f1f1f' : '#fee2e2',
-                            color: '#dc2626', cursor: 'pointer', fontSize: 13, fontWeight: 600,
-                        }}
-                    >
-                        清空垃圾桶
-                    </button>
+                    confirmingDeleteId === '__empty__' ? (
+                        <div style={{ display: 'flex', gap: 6, animation: 'trashConfirmIn 0.15s ease' }}>
+                            <button
+                                onClick={handleEmptyTrashLocal}
+                                style={{
+                                    padding: '7px 14px', borderRadius: 8, border: 'none',
+                                    background: '#dc2626', color: 'white',
+                                    cursor: 'pointer', fontSize: 13, fontWeight: 600,
+                                }}
+                            >確認清空</button>
+                            <button
+                                onClick={cancelConfirm}
+                                style={{
+                                    padding: '7px 12px', borderRadius: 8,
+                                    border: `1px solid ${border}`,
+                                    background: 'transparent', cursor: 'pointer',
+                                    fontSize: 13, color: muted,
+                                }}
+                            >取消</button>
+                        </div>
+                    ) : (
+                        <button
+                            onClick={() => requestConfirm('__empty__')}
+                            style={{
+                                padding: '7px 14px', borderRadius: 8, border: 'none',
+                                background: isDark ? '#3f1f1f' : '#fee2e2',
+                                color: '#dc2626', cursor: 'pointer', fontSize: 13, fontWeight: 600,
+                            }}
+                        >
+                            清空垃圾桶
+                        </button>
+                    )
                 )}
             </div>
 
@@ -238,17 +275,39 @@ export function TrashPanel({
                                             >
                                                 ↩ 還原
                                             </button>
-                                            <button
-                                                onClick={() => handlePermanentDeleteCard(card.id)}
-                                                style={{
-                                                    padding: '6px 12px', borderRadius: 7,
-                                                    border: 'none',
-                                                    background: isDark ? '#3f1f1f' : '#fee2e2',
-                                                    cursor: 'pointer', fontSize: 12, color: '#dc2626',
-                                                }}
-                                            >
-                                                永久刪除
-                                            </button>
+                                            {confirmingDeleteId === card.id ? (
+                                                <div style={{ display: 'flex', gap: 4, animation: 'trashConfirmIn 0.15s ease' }}>
+                                                    <button
+                                                        onClick={() => { cancelConfirm(); handlePermanentDeleteCard(card.id) }}
+                                                        style={{
+                                                            padding: '6px 10px', borderRadius: 7, border: 'none',
+                                                            background: '#dc2626', color: 'white',
+                                                            cursor: 'pointer', fontSize: 12, fontWeight: 600,
+                                                        }}
+                                                    >確認刪除</button>
+                                                    <button
+                                                        onClick={cancelConfirm}
+                                                        style={{
+                                                            padding: '6px 8px', borderRadius: 7,
+                                                            border: `1px solid ${border}`,
+                                                            background: 'transparent', cursor: 'pointer',
+                                                            fontSize: 12, color: muted,
+                                                        }}
+                                                    >取消</button>
+                                                </div>
+                                            ) : (
+                                                <button
+                                                    onClick={() => requestConfirm(card.id)}
+                                                    style={{
+                                                        padding: '6px 12px', borderRadius: 7,
+                                                        border: 'none',
+                                                        background: isDark ? '#3f1f1f' : '#fee2e2',
+                                                        cursor: 'pointer', fontSize: 12, color: '#dc2626',
+                                                    }}
+                                                >
+                                                    永久刪除
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
                                 ))}
@@ -300,17 +359,39 @@ export function TrashPanel({
                                             >
                                                 ↩ 還原
                                             </button>
-                                            <button
-                                                onClick={() => handlePermanentDeleteBoardLocal(board.id)}
-                                                style={{
-                                                    padding: '6px 12px', borderRadius: 7,
-                                                    border: 'none',
-                                                    background: isDark ? '#3f1f1f' : '#fee2e2',
-                                                    cursor: 'pointer', fontSize: 12, color: '#dc2626',
-                                                }}
-                                            >
-                                                永久刪除
-                                            </button>
+                                            {confirmingDeleteId === board.id ? (
+                                                <div style={{ display: 'flex', gap: 4, animation: 'trashConfirmIn 0.15s ease' }}>
+                                                    <button
+                                                        onClick={() => { cancelConfirm(); handlePermanentDeleteBoardLocal(board.id) }}
+                                                        style={{
+                                                            padding: '6px 10px', borderRadius: 7, border: 'none',
+                                                            background: '#dc2626', color: 'white',
+                                                            cursor: 'pointer', fontSize: 12, fontWeight: 600,
+                                                        }}
+                                                    >確認刪除</button>
+                                                    <button
+                                                        onClick={cancelConfirm}
+                                                        style={{
+                                                            padding: '6px 8px', borderRadius: 7,
+                                                            border: `1px solid ${border}`,
+                                                            background: 'transparent', cursor: 'pointer',
+                                                            fontSize: 12, color: muted,
+                                                        }}
+                                                    >取消</button>
+                                                </div>
+                                            ) : (
+                                                <button
+                                                    onClick={() => requestConfirm(board.id)}
+                                                    style={{
+                                                        padding: '6px 12px', borderRadius: 7,
+                                                        border: 'none',
+                                                        background: isDark ? '#3f1f1f' : '#fee2e2',
+                                                        cursor: 'pointer', fontSize: 12, color: '#dc2626',
+                                                    }}
+                                                >
+                                                    永久刪除
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
                                 ))}
@@ -319,47 +400,6 @@ export function TrashPanel({
                 )}
             </div>
 
-            {/* Confirm empty trash */}
-            {confirmEmptyOpen && (
-                <>
-                    <div
-                        style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 99998 }}
-                        onClick={() => setConfirmEmptyOpen(false)}
-                    />
-                    <div style={{
-                        position: 'fixed', top: '50%', left: '50%',
-                        transform: 'translate(-50%,-50%)',
-                        background: panelBg, borderRadius: 14, padding: '24px', width: 360,
-                        boxShadow: '0 8px 40px rgba(0,0,0,0.3)', zIndex: 99999,
-                        border: `1px solid ${border}`,
-                        display: 'flex', flexDirection: 'column', gap: 12,
-                    }}>
-                        <div style={{ fontSize: 15, fontWeight: 600, color: text }}>清空垃圾桶？</div>
-                        <div style={{ fontSize: 13, color: muted }}>
-                            將永久刪除 {totalCount} 個項目，此操作無法復原。
-                        </div>
-                        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
-                            <button
-                                onClick={() => setConfirmEmptyOpen(false)}
-                                style={{
-                                    padding: '8px 16px', borderRadius: 8,
-                                    border: `1px solid ${border}`,
-                                    background: 'transparent', cursor: 'pointer',
-                                    fontSize: 13, color: muted,
-                                }}
-                            >取消</button>
-                            <button
-                                onClick={handleEmptyTrashLocal}
-                                style={{
-                                    padding: '8px 16px', borderRadius: 8, border: 'none',
-                                    background: '#dc2626', color: 'white',
-                                    cursor: 'pointer', fontSize: 13, fontWeight: 600,
-                                }}
-                            >永久刪除全部</button>
-                        </div>
-                    </div>
-                </>
-            )}
         </div>
     )
 }
