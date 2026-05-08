@@ -264,6 +264,80 @@ export function useBoardManager() {
         await refreshTrashCount()
     }, [activeBoardId, boards, refreshTrashCount])
 
+    const handleSoftDeleteBoardWithInboxMove = useCallback(async (boardId: string, moveToInbox: boolean) => {
+        const board = boards.find(b => b.id === boardId)
+        if (!board) return
+
+        let inboxUpdated: BoardRecord | null = null
+
+        if (moveToInbox && board.snapshot) {
+            const inboxBoard = boards.find(b => b.isInbox)
+            if (inboxBoard) {
+                const srcStore = getSnapshotStore(board.snapshot)
+                const cardShapes = Object.values(srcStore).filter(
+                    s => s.typeName === 'shape' && s.type === 'card'
+                )
+
+                if (cardShapes.length > 0) {
+                    const snap = toMutableSnapshot(inboxBoard.snapshot)
+                    const st = snap.document.store
+
+                    if (!st['document:document']) {
+                        st['document:document'] = { typeName: 'document', id: 'document:document', gridSize: 10, name: '', meta: {} }
+                    }
+                    const pageRec = Object.values(st).find(r => r.typeName === 'page')
+                    const pageId = pageRec?.id ?? 'page:page'
+                    if (!st[pageId]) st[pageId] = { typeName: 'page', id: pageId, name: '', index: 'a1', meta: {} }
+
+                    const existingShapes = Object.values(st).filter(r => r.typeName === 'shape')
+                    const existingIndices = existingShapes
+                        .map(r => r.index)
+                        .filter((idx): idx is string => idx !== undefined)
+                        .sort()
+                    let lastIndex = existingIndices[existingIndices.length - 1] ?? 'a0'
+                    let offsetX = existingShapes.length > 0
+                        ? Math.max(...existingShapes.map(s => (s.x ?? 0) + (s.props?.w ?? 240))) + 40
+                        : 100
+
+                    for (const shape of cardShapes) {
+                        lastIndex = lastIndex + 'V'
+                        const newId = `shape:ibm_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
+                        st[newId] = {
+                            ...structuredClone(shape),
+                            id: newId,
+                            parentId: pageId,
+                            x: offsetX,
+                            y: 100,
+                            index: lastIndex,
+                        }
+                        offsetX += (shape.props?.w ?? 240) + 40
+                    }
+
+                    inboxUpdated = { ...inboxBoard, snapshot: toTLEditorSnapshot(snap), updatedAt: Date.now() }
+                    await saveBoard(inboxUpdated)
+                }
+            }
+        }
+
+        const deleted = { ...board, deletedAt: Date.now() }
+        await saveBoard(deleted)
+
+        if (activeBoardId === boardId) {
+            const next = boards.filter(b => b.id !== boardId)
+            setActiveBoardId(next[0]?.id ?? null)
+        }
+
+        setBoards(prev => {
+            const filtered = prev.filter(b => b.id !== boardId)
+            if (inboxUpdated) {
+                return filtered.map(b => b.id === inboxUpdated!.id ? inboxUpdated! : b)
+            }
+            return filtered
+        })
+
+        await refreshTrashCount()
+    }, [boards, activeBoardId, refreshTrashCount])
+
     const handleDelete = useCallback((id: string) => {
         handleSoftDeleteBoard(id)
     }, [handleSoftDeleteBoard])
@@ -550,6 +624,7 @@ export function useBoardManager() {
         handleRename,
         handleDelete,
         handleSoftDeleteBoard,
+        handleSoftDeleteBoardWithInboxMove,
         handlePermanentDeleteBoard,
         handleRestoreBoard,
         handleEmptyTrash,

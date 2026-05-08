@@ -15,7 +15,7 @@ import { CardLibrary } from './CardLibrary'
 import { QuickCapture } from './components/QuickCapture'
 import { OnboardingModal } from './components/OnboardingModal'
 import { TrashPanel } from './TrashPanel'
-import { TrashDialog } from './components/TrashDialog'
+import { DeleteBoardDialog } from './components/DeleteBoardDialog'
 import { SIDEBAR_WIDTH, SIDEBAR_COLLAPSED_WIDTH, INBOX_BOARD_ID } from './constants'
 import { getCardShapes } from './utils/snapshot'
 import { getTodayStr } from './utils/date'
@@ -28,7 +28,7 @@ export default function App() {
         trashCount, refreshTrashCount,
         handleSaveBoard, handleNew, handleSwitch, handleSwitchToChild,
         handleSetParent, handleBack, handleRename,
-        handleSoftDeleteBoard, handlePermanentDeleteBoard, handleRestoreBoard,
+        handleSoftDeleteBoard, handleSoftDeleteBoardWithInboxMove, handlePermanentDeleteBoard, handleRestoreBoard,
         handleEmptyTrash, handleCardTrashed,
         handleJump, handleSetJournal, handleSetStatus,
         handleRestore, handleGoToWeeklyCard, handleSaveJournal,
@@ -328,12 +328,17 @@ export default function App() {
                 />
             )}
             {deletingBoardId && (() => {
-                const boardName = boards.find(b => b.id === deletingBoardId)?.name ?? '此白板'
+                const board = boards.find(b => b.id === deletingBoardId)
+                if (!board) return null
+                const hasInbox = boards.some(b => b.isInbox)
                 return (
-                    <TrashDialog
-                        message={`將「${boardName}」移到垃圾桶？`}
-                        subMessage="14 天後自動清除，你可以在垃圾桶中找回"
-                        onConfirm={() => { handleSoftDeleteBoard(deletingBoardId); setDeletingBoardId(null) }}
+                    <DeleteBoardDialog
+                        board={board}
+                        hasInbox={hasInbox}
+                        onConfirm={(moveToInbox) => {
+                            handleSoftDeleteBoardWithInboxMove(deletingBoardId, moveToInbox)
+                            setDeletingBoardId(null)
+                        }}
                         onCancel={() => setDeletingBoardId(null)}
                         isDark={isDark}
                     />
