@@ -1,0 +1,230 @@
+# 資料安全與防護機制
+
+## 目的
+
+說明 Scout Astrolabe 的資料儲存限制、多層防護機制（sanitize、soft delete、備份）、已知風險，以及 Dexie 版本遷移的安全設計。
+
+## 適用範圍
+
+`src/db.ts`（Dexie schema）、`src/utils/snapshot.ts`（sanitize）、`src/hooks/useBoardManager.ts`（14 天清除、sanitizeBoards）、`src/BackupPanel.tsx`（備份）。
+
+## 相關檔案
+
+| 檔案 | 說明 |
+|------|------|
+| `src/db.ts` | IndexedDB schema v1–v7、所有 table 定義 |
+| `src/utils/snapshot.ts` | `sanitizeSnapshot`、`sanitizeCardProps`、`CARD_PROP_DEFAULTS` |
+| `src/hooks/useBoardManager.ts` | 啟動時 sanitizeBoards、14 天自動清除、備份觸發 |
+| `src/BackupPanel.tsx` | 備份清單 UI、手動還原 |
+| `src/constants.ts` | `BACKUP_THROTTLE_MS`（5 分鐘） |
+
+---
+
+## IndexedDB 儲存限制
+
+### 瀏覽器層限制
+
+| 限制類型 | 典型值 | 說明 |
+|---------|--------|------|
+| 總配額 | 50% 可用磁碟空間 | Chromium 動態配額，視作業系統空間而定 |
+| 單筆記錄大小 | 無明文上限（實測 ~250MB） | 過大的 value 會導致 OOM |
+| transaction 超時 | 無明文設定（瀏覽器自管） | 長時間寫入可能被中止 |
+
+**Electron 的差異**：Electron 使用 Chromium 的 IndexedDB 實作，預設配額更寬鬆（通常可用 `app.getPath('userData')` 所在磁碟的大量空間），但具體上限取決於 Electron 版本和作業系統設定。
+
+### 實際儲存規模（估算）
+
+| 項目 | 大小估算 |
+|------|---------|
+| 一張文字卡片 | < 5 KB |
+| 一張含 base64 圖片的卡片（已壓縮） | 50–200 KB |
+| 一個白板（50 張卡片，無圖片） | ~100 KB |
+| 一份備份（20 個白板，10 張圖片） | 10–50 MB |
+
+圖片卡片是儲存體積的主要來源。`compressImage` 在存入前壓縮至最大 1200px、JPEG 0.8 品質，但 base64 編碼會讓原始大小膨脹約 33%。
+
+---
+
+## 三層資料防護
+
+### 第 1 層：sanitizeCardProps（卡片欄位補齊）
+
+在以下時機自動執行：
+
+| 時機 | 位置 |
+|------|------|
+| App 啟動載入所有白板 | `sanitizeBoards()` → `sanitizeCardProps()` |
+| 存入垃圾桶前 | `ContextMenu.tsx`、`WhiteboardTools.tsx` 中 `saveCardToTrash()` 呼叫前 |
+| 從垃圾桶還原時 | `TrashPanel.handleRestoreCard()` → `editor.createShape(sanitizedData)` |
+
+```typescript
+// snapshot.ts — CARD_PROP_DEFAULTS
+const CARD_PROP_DEFAULTS: Record<string, unknown> = {
+    text: '', image: null, todos: [], url: '',
+    linkEmbedUrl: null, state: 'idle', preview: false,
+    color: 'none', w: 240, h: 120,
+    tags: [], cardStatus: 'none', priority: 'none',
+    linkedBoardId: null, journalDate: null,
+}
+
+export function sanitizeCardProps(props: Record<string, unknown>): Record<string, unknown> {
+    let changed = false
+    const result = { ...props }
+    for (const [key, defaultValue] of Object.entries(CARD_PROP_DEFAULTS)) {
+        if (result[key] === undefined || result[key] === null && defaultValue !== null) {
+            result[key] = defaultValue
+            changed = true
+        }
+    }
+    return changed ? result : props  // 未變更時回傳原始參照，避免不必要的深複製
+}
+```
+
+### 第 2 層：sanitizeSnapshot（snapshot 結構修復）
+
+在 App 啟動 `sanitizeBoards()` 中執行：
+
+```typescript
+// snapshot.ts — sanitizeSnapshot 修復的問題
+// 1. document:document record 缺少必要欄位（schema、meta 等）
+// 2. page record 缺少 name、index 等欄位
+// 3. frame shape 缺少 w/h/name 欄位（M11 修復）
+// 4. arrow shape 缺少 start/end/bend 欄位（M11 修復）
+```
+
+`sanitizeSnapshot` 使用 `JSON.stringify` 比較前後差異（L4 修復）：
+
+```typescript
+// useBoardManager.ts — sanitizeBoards
+const dirty = JSON.stringify(snapshot) !== JSON.stringify(board.snapshot)
+if (dirty) await saveBoard(updated)   // 只有真正改變才寫 DB
+```
+
+### 第 3 層：軟刪除 14 天緩衝
+
+```typescript
+// useBoardManager.ts — App 啟動時執行
+const TRASH_EXPIRE_MS = 14 * 86400000  // 14 天
+
+// 清除過期卡片記錄
+await db.table('deletedCards')
+    .filter(r => Date.now() - r.deletedAt > TRASH_EXPIRE_MS)
+    .delete()
+
+// 清除過期白板（永久刪除）
+const expiredBoards = await db.table('boards')
+    .filter(b => !!b.deletedAt && Date.now() - b.deletedAt > TRASH_EXPIRE_MS)
+    .toArray()
+```
+
+使用者有 14 天的緩衝期可還原誤刪的卡片或白板。
+
+---
+
+## 備份策略
+
+### 自動備份
+
+| 觸發事件 | 節流條件 |
+|---------|---------|
+| 切換白板 | 距上次備份 > 5 分鐘（`BACKUP_THROTTLE_MS`） |
+| 應用進入背景（`visibilitychange`） | 同上 |
+
+### 備份上限（30 份）
+
+```typescript
+// db.ts — saveAutoBackup
+const MAX_BACKUPS = 30
+const existing = await db.table('backups').orderBy('timestamp').reverse().toArray()
+if (existing.length >= MAX_BACKUPS) {
+    const toDelete = existing.slice(MAX_BACKUPS - 1)
+    await db.table('backups').bulkDelete(toDelete.map(b => b.id))
+}
+```
+
+超過 30 份時自動刪除最舊的備份，確保 IndexedDB 不無限成長。
+
+### 備份完整性
+
+每份備份儲存所有白板的完整 `BoardRecord` 陣列（含 tldraw snapshot、縮圖 base64）。**備份不包含 `deletedCards` 和 `backups` 自身的 table**，因此還原後垃圾桶和備份歷史會被清空。
+
+---
+
+## Dexie 版本遷移（資料安全角度）
+
+### 版本升級歷史
+
+| 版本 | 新增/變更 | 安全性說明 |
+|------|---------|-----------|
+| v1–v3 | 初始 schema | — |
+| v4 | `deletedCards` table | 新增 table，現有資料無影響 |
+| v5 | `backups` table | 新增 table |
+| v6 | `boards` 新增 `sortOrder` 欄位 | 既有記錄 `sortOrder` 為 undefined，首次讀取時補值 |
+| v7 | `deletedCards.shapeId` index | **重要**：加入 `.upgrade()` 對舊記錄補 `shapeId: ''`（L5 修復） |
+
+```typescript
+// db.ts — v7 upgrade
+db.version(7).stores({
+    deletedCards: 'id, deletedAt, boardId, shapeId'
+}).upgrade(tx =>
+    tx.table('deletedCards').toCollection().modify(record => {
+        if (!record.shapeId) record.shapeId = ''
+    })
+)
+```
+
+若未執行 `upgrade()`，舊記錄的 `shapeId` 欄位沒有 index entry，`where('shapeId').equals(id)` 會做 full scan（效能降低，但不影響正確性）。
+
+### 未來版本升級注意事項
+
+- 新增有 index 的欄位：必須提供 `.upgrade()` 對現有記錄補充預設值
+- 修改欄位型別：需要在 upgrade 中遷移資料，不能假設舊記錄符合新格式
+- 刪除欄位：Dexie 不會自動清理舊 record 中的多餘欄位（保留在 DB 中），需在讀取時容忍
+
+---
+
+## 已知風險
+
+### R1：大量圖片導致 IndexedDB 體積膨脹
+
+**描述**：圖片卡片的 base64 data URL 存入 snapshot，體積隨白板數量線性成長。備份時所有白板 snapshot 一次序列化，單份備份可能達數十 MB。
+
+**緩解**：目前無自動清理機制；`compressImage` 壓縮至 1200px/JPEG0.8 降低單張體積。
+
+**建議**：若白板體積超過 10MB，考慮：(1) 圖片改存獨立 object store，snapshot 只存參照 ID；(2) 或顯示警告建議使用者清理。
+
+### R2：App 未正常關閉時的未儲存變更
+
+**描述**：tldraw 的 auto-save 是 500ms debounce 非同步寫入（`handleSaveBoard`）。若 App 在 debounce 期間崩潰或強制關閉，最多可能遺失 500ms 的操作。
+
+**緩解**：`handleSaveBoard` 有 `visibilitychange` 觸發的備份（但備份本身也有 5 分鐘節流），崩潰場景無法完全覆蓋。
+
+### R3：sanitizeBoards 在白板數量大時啟動變慢
+
+**描述**：啟動時 `sanitizeBoards` 遍歷所有白板，對每張卡片執行 `JSON.stringify` 比較。50 個白板、每板 100 張卡片的場景下，啟動時間可能延長數百毫秒。
+
+**緩解**：`dirty` 判斷用 `JSON.stringify` 比較，僅在真正有變更時才寫 DB（L4 修復），減少不必要的 I/O。
+
+### R4：備份不包含 deletedCards
+
+**描述**：還原備份後，垃圾桶中的卡片全部消失。使用者可能誤以為還原時連垃圾桶資料也還原了。
+
+**緩解**：備份/還原的 UI 說明（待確認是否有足夠的使用者提示）。
+
+---
+
+## 維護注意事項
+
+- 新增 `TLCardProps` 欄位時，必須同步更新 `CARD_PROP_DEFAULTS`（`snapshot.ts`），否則 `sanitizeCardProps` 不會補齊新欄位，可能導致舊卡片在新版本載入時缺欄位報錯。
+- Dexie 版本號只能遞增，不可重複使用已用過的版本號。若在開發中誤用了版本號，需要清除 IndexedDB（DevTools → Application → Storage → Clear）才能重新測試 upgrade。
+- 備份還原（`handleRestore`）使用 `db.table('boards').clear()` + `bulkPut`，這是破壞性操作。UI 上應有確認步驟（`BackupPanel` 已有確認對話框）。
+
+## 待確認
+
+- `electron-store`（`config.json`）與 IndexedDB 的 `tldraw-document` 欄位：兩者是否都在使用，還是其中一個已廢棄？（從 `main.js` IPC 看，`electron-store` 的 `load-document` 仍在使用，但 Dexie 的 `boards` table 是主要存儲；兩者關係需釐清）
+- 30 份備份上限在重度使用者（每天多次切板）的場景下，最多保留幾天的歷史？（5 分鐘節流 × 30 份 = 至少 150 分鐘的不重複備份點，但跨天數取決於使用頻率）
+
+## 外部參考
+
+- [MDN IndexedDB 儲存限制](https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API/Browser_storage_limits_and_eviction_criteria)
+- [Dexie.js 版本與遷移](https://dexie.org/docs/Tutorial/Design#database-versioning)

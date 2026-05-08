@@ -18,6 +18,16 @@
 | [build-and-release.md](build-and-release.md) | 開發環境、Vite 建置、Windows NSIS 封裝 |
 | [trash-lifecycle.md](trash-lifecycle.md) | 卡片/白板軟刪除、14 天自動清除、Ctrl+Z 同步 |
 | [testing-strategy.md](testing-strategy.md) | 測試現況、高風險脆弱點、自動化測試建議 |
+| [search-and-links.md](search-and-links.md) | 全文搜尋、[[]] 雙向連結、BacklinksPanel、知識圖譜 |
+| [rich-text-editor.md](rich-text-editor.md) | TipTap 設定、格式支援、[[]] 自動補全、HTML 儲存格式 |
+| [journal-review.md](journal-review.md) | Journal 白板、每日卡片、週回顧、月曆、ReviewCenter |
+| [data-safety.md](data-safety.md) | IndexedDB 限制、備份策略、sanitize 防護、已知風險 |
+| [refactor-roadmap.md](refactor-roadmap.md) | 技術債清單、重構優先順序、架構演進建議 |
+| [adr/0001-use-electron.md](adr/0001-use-electron.md) | ADR：選用 Electron 作為桌面應用框架 |
+| [adr/0002-use-tldraw.md](adr/0002-use-tldraw.md) | ADR：選用 tldraw 作為無限白板引擎 |
+| [adr/0003-use-dexie-indexeddb.md](adr/0003-use-dexie-indexeddb.md) | ADR：選用 Dexie.js + IndexedDB 作為本地資料庫 |
+| [adr/0004-store-rich-text-as-html.md](adr/0004-store-rich-text-as-html.md) | ADR：以 HTML 字串儲存富文字內容 |
+| [adr/0005-local-first-product-direction.md](adr/0005-local-first-product-direction.md) | ADR：本地優先（Local-First）的產品方向 |
 | [maintenance/bugs.md](maintenance/bugs.md) | Bug 追蹤索引（詳細內容見根目錄 BUGS.md） |
 
 ---
@@ -44,6 +54,21 @@
 
 ### 我想引入自動化測試
 → [testing-strategy.md](testing-strategy.md)
+
+### 我想了解搜尋與雙向連結
+→ [search-and-links.md](search-and-links.md)
+
+### 我想修改或擴充富文字編輯器
+→ [rich-text-editor.md](rich-text-editor.md)
+
+### 我想了解 Journal / 月曆 / 週回顧的架構
+→ [journal-review.md](journal-review.md)
+
+### 我想了解某個技術選型的原因
+→ [adr/](adr/) 目錄下的 ADR 文件
+
+### 我想規劃重構或改善效能
+→ [refactor-roadmap.md](refactor-roadmap.md)
 
 ### 我在修 Bug
 → [maintenance/bugs.md](maintenance/bugs.md) → 根目錄 [BUGS.md](../BUGS.md)
