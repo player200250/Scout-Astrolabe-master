@@ -28,7 +28,7 @@ export default function App() {
         trashCount, refreshTrashCount,
         handleSaveBoard, handleNew, handleSwitch, handleSwitchToChild,
         handleSetParent, handleBack, handleRename,
-        handleSoftDeleteBoard, handleSoftDeleteBoardWithInboxMove, handlePermanentDeleteBoard, handleRestoreBoard,
+        handleSoftDeleteBoardWithInboxMove, handlePermanentDeleteBoard, handleRestoreBoard,
         handleEmptyTrash, handleCardTrashed,
         handleJump, handleSetJournal, handleSetStatus,
         handleRestore, handleGoToWeeklyCard, handleSaveJournal,
@@ -80,7 +80,7 @@ export default function App() {
             if (localStorage.getItem('onboarding-completed') !== 'true') {
                 setOnboardingOpen(true)
             }
-        } catch { }
+        } catch { /* empty */ }
     }, [loading])
 
     useEffect(() => {
@@ -99,7 +99,7 @@ export default function App() {
     const toggleTheme = useCallback(() => {
         setIsDark(prev => {
             const next = !prev
-            try { localStorage.setItem('theme', next ? 'dark' : 'light') } catch { }
+            try { localStorage.setItem('theme', next ? 'dark' : 'light') } catch { /* empty */ }
             return next
         })
     }, [])

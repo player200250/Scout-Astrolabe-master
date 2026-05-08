@@ -112,7 +112,7 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
         return
     }
 
-    onPointerDown(_shape: TLCardShape, _event: any): void { return }
+    onPointerDown(): void { return }
 
     override component(shape: TLCardShape) {
         const editor = useEditor()

@@ -72,7 +72,7 @@ export function Whiteboard({
 
     const handleSetHomeView = useCallback((v: HomeView) => {
         setHomeView(v)
-        try { localStorage.setItem('home-view', v) } catch {}
+        try { localStorage.setItem('home-view', v) } catch { /* empty */ }
     }, [])
 
     if (board.isHome && homeView === 'dashboard') {

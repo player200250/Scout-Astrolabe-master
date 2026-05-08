@@ -28,7 +28,8 @@
       "Bash(node --input-type=module -e \"import t from './node_modules/tldraw/dist-esm/index.js'; console.log\\(Object.keys\\(t\\).filter\\(k => k.toLowerCase\\(\\).includes\\('geo'\\)\\).join\\('\\\\n'\\)\\)\")",
       "Bash(Select-String -Pattern \"toolbar|panel|tool\" -CaseSensitive)",
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\win11\\\\Desktop\\\\Scout-Astrolabe-master\" -Recurse -Depth 2)",
-      "Bash(Select-Object -Property FullName)"
+      "Bash(Select-Object -Property FullName)",
+      "Bash(npx eslint *)"
     ]
   }
 }

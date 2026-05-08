@@ -14,12 +14,7 @@ export interface HotkeyActions {
     onDeleteShapes?: (ids: string[]) => void
 }
 
-// 使用 userAgentData（現代瀏覽器）或 userAgent 作為備援
-// Electron on Windows 一律是 false
-const isMac = typeof navigator !== 'undefined' && (
-    navigator.userAgentData?.platform === 'macOS' ||
-    (!navigator.userAgentData && /Macintosh|MacIntel|MacPPC|Mac68K/.test(navigator.userAgent))
-)
+const isMac = typeof navigator !== 'undefined' && /Macintosh|MacIntel|MacPPC|Mac68K/.test(navigator.userAgent)
 const mod = (e: KeyboardEvent) => isMac ? e.metaKey : e.ctrlKey
 
 export function useHotkeys(editor: Editor | null, actions: HotkeyActions) {

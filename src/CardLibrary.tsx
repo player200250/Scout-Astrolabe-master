@@ -110,7 +110,7 @@ export function CardLibrary({ boards, onJump, onClose, isDark }: CardLibraryProp
         try {
             const saved = localStorage.getItem(COLLAPSE_KEY)
             if (saved) return JSON.parse(saved) as Record<string, boolean>
-        } catch {}
+        } catch { /* empty */ }
         return { board: true }
     })
     /* P2 — 追蹤 hover 中的卡片，用於顯示跳轉提示 */
@@ -133,7 +133,7 @@ export function CardLibrary({ boards, onJump, onClose, isDark }: CardLibraryProp
     const toggleSection = useCallback((key: string) => {
         setCollapsed(prev => {
             const next = { ...prev, [key]: !prev[key] }
-            try { localStorage.setItem(COLLAPSE_KEY, JSON.stringify(next)) } catch {}
+            try { localStorage.setItem(COLLAPSE_KEY, JSON.stringify(next)) } catch { /* empty */ }
             return next
         })
     }, [])

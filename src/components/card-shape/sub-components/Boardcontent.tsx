@@ -9,7 +9,7 @@ interface BoardContentProps {
 
 }
 
-export function BoardContent({ shape: _shape, boardName, boardThumbnail }: BoardContentProps) {
+export function BoardContent({ boardName, boardThumbnail }: BoardContentProps) {
     const [hovered, setHovered] = useState(false)
 
 

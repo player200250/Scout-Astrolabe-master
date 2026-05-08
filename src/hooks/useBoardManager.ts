@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import type { TLEditorSnapshot } from 'tldraw'
 import { db, saveAutoBackup, type BoardRecord } from '../db'
 import type { DeletedCardRecord } from '../db'
 import { getISOWeekKey } from '../WeeklyReview'
@@ -7,7 +8,6 @@ import { INBOX_BOARD_ID, BACKUP_THROTTLE_MS } from '../constants'
 import {
     getSnapshotStore, withUpdatedStore, toMutableSnapshot, toTLEditorSnapshot,
     sanitizeSnapshot, sanitizeCardProps,
-    type SnapshotShapeProps,
 } from '../utils/snapshot'
 
 function cleanupOrphanBoardCards(snapshot: TLEditorSnapshot, deletedBoardId: string): TLEditorSnapshot {
@@ -77,7 +77,7 @@ export function useBoardManager() {
     const handleToggleCollapse = useCallback(() => {
         setSidebarCollapsed(prev => {
             const next = !prev
-            try { localStorage.setItem('sidebar-collapsed', String(next)) } catch { }
+            try { localStorage.setItem('sidebar-collapsed', String(next)) } catch { /* empty */ }
             return next
         })
     }, [])

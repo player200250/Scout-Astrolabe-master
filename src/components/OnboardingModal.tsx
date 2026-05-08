@@ -33,7 +33,7 @@ export function OnboardingModal({ onClose, isDark }: OnboardingModalProps) {
     const [step, setStep] = useState(0)
 
     const handleComplete = useCallback(() => {
-        try { localStorage.setItem('onboarding-completed', 'true') } catch { }
+        try { localStorage.setItem('onboarding-completed', 'true') } catch { /* empty */ }
         onClose()
     }, [onClose])
 

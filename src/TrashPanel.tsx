@@ -1,7 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { db } from './db'
 import type { BoardRecord, DeletedCardRecord } from './db'
-import { saveBoard, deleteBoard } from './utils/boardDb'
 
 interface TrashPanelProps {
     onClose: () => void

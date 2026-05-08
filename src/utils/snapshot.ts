@@ -160,7 +160,7 @@ export function sanitizeDocumentRecord(snapshot: TLEditorSnapshot): TLEditorSnap
 
 /** Run all record sanitizers on a snapshot before passing it to tldraw. */
 export function sanitizeSnapshot(snapshot: TLEditorSnapshot): TLEditorSnapshot {
-    let snap = sanitizePageRecords(sanitizeDocumentRecord(snapshot))
+    const snap = sanitizePageRecords(sanitizeDocumentRecord(snapshot))
     const store = getSnapshotStore(snap)
     const newStore = { ...store }
     let dirty = false
