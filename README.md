@@ -19,6 +19,7 @@
 - [使用說明](#-使用說明)
 - [鍵盤快捷鍵](#-鍵盤快捷鍵)
 - [技術架構](#-技術架構)
+- [技術文件](#-技術文件)
 - [開發指南](#-開發指南)
 - [常見問題](#-常見問題)
 - [開發路線圖](#-開發路線圖)
@@ -420,6 +421,21 @@ Scout-Astrolabe-master/
 ├── main.js                              # Electron 主程序
 └── preload.js                           # 安全橋接
 ```
+
+---
+
+## 📚 技術文件
+
+開發者導向的詳細技術文件位於 [`docs/`](docs/README.md) 目錄。
+
+| 文件 | 說明 |
+|------|------|
+| [docs/architecture.md](docs/architecture.md) | 系統架構、元件分層、資料流、特殊設計決策 |
+| [docs/data-model.md](docs/data-model.md) | IndexedDB schema、BoardRecord 欄位語意、軟刪除機制 |
+| [docs/tldraw-snapshot.md](docs/tldraw-snapshot.md) | TLEditorSnapshot 格式、直接讀寫 store 的標準模式 |
+| [docs/card-shape-spec.md](docs/card-shape-spec.md) | TLCardProps 完整欄位、各卡片類型行為、顏色常數 |
+| [docs/state-and-events.md](docs/state-and-events.md) | useBoardManager handler 清單、全域 CustomEvent 總覽 |
+| [docs/maintenance/bugs.md](docs/maintenance/bugs.md) | Bug 追蹤（詳細記錄見根目錄 BUGS.md） |
 
 ---
 

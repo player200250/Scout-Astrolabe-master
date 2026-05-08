@@ -1,5 +1,8 @@
 # Bug 清單（2026-05-06 初始掃描 → 2026-05-07 全面驗證）
 
+> 目前狀態索引與新發現追蹤請見 [docs/maintenance/bugs.md](docs/maintenance/bugs.md)。
+
+
 ## Critical（4 項）
 
 ### C1 - handlePermanentDeleteBoard：deleteBoard 未 await
