@@ -13,6 +13,11 @@
 | [tldraw-snapshot.md](tldraw-snapshot.md) | TLEditorSnapshot 格式、讀寫方式、sanitize 機制 |
 | [card-shape-spec.md](card-shape-spec.md) | CardShape 型別規格、各類型 props、顏色常數 |
 | [state-and-events.md](state-and-events.md) | useBoardManager 狀態管理、全域 CustomEvent 總覽 |
+| [electron-ipc.md](electron-ipc.md) | Electron IPC 架構、contextBridge API、安全設定 |
+| [import-export-backup.md](import-export-backup.md) | JSON/PNG/PDF/Markdown 匯出、自動備份、手動還原 |
+| [build-and-release.md](build-and-release.md) | 開發環境、Vite 建置、Windows NSIS 封裝 |
+| [trash-lifecycle.md](trash-lifecycle.md) | 卡片/白板軟刪除、14 天自動清除、Ctrl+Z 同步 |
+| [testing-strategy.md](testing-strategy.md) | 測試現況、高風險脆弱點、自動化測試建議 |
 | [maintenance/bugs.md](maintenance/bugs.md) | Bug 追蹤索引（詳細內容見根目錄 BUGS.md） |
 
 ---
@@ -29,7 +34,16 @@
 → [state-and-events.md](state-and-events.md) → CustomEvent 總覽表
 
 ### 我想了解白板刪除的完整流程
-→ [state-and-events.md](state-and-events.md) 的「軟刪除流程」一節
+→ [trash-lifecycle.md](trash-lifecycle.md) → [state-and-events.md](state-and-events.md) 的「軟刪除流程」一節
+
+### 我想了解 Electron 主程序與 React 的通訊
+→ [electron-ipc.md](electron-ipc.md)
+
+### 我想打包 Windows 安裝程式
+→ [build-and-release.md](build-and-release.md)
+
+### 我想引入自動化測試
+→ [testing-strategy.md](testing-strategy.md)
 
 ### 我在修 Bug
 → [maintenance/bugs.md](maintenance/bugs.md) → 根目錄 [BUGS.md](../BUGS.md)
