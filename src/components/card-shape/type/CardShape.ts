@@ -1,7 +1,7 @@
 // src/CardShape.ts
 import type { TLBaseShape } from '@tldraw/editor'
 
-export type CardType = 'text' | 'image' | 'todo' | 'link' | 'board' | 'journal'
+export type CardType = 'text' | 'image' | 'todo' | 'link' | 'board' | 'journal' | 'heading'
 export type CardState = 'idle' | 'editing'
 
 // 卡片顏色

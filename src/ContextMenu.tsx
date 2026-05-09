@@ -334,6 +334,7 @@ interface UseContextMenuOptions {
     createTextCard: (x?: number, y?: number) => void
     createTodoCard: (x?: number, y?: number) => void
     createLinkCard: (x?: number, y?: number) => void
+    createHeadingCard?: (x?: number, y?: number) => void
     openImageInput: () => void
     // Required — always passed from WhiteboardTools
     createTextCardWithContent: (x: number, y: number, content: string, w?: number, h?: number) => void
@@ -351,6 +352,7 @@ export function useContextMenu({
     createTextCard,
     createTodoCard,
     createLinkCard,
+    createHeadingCard,
     openImageInput,
     createTextCardWithContent,
     isInboxBoard,
@@ -588,6 +590,7 @@ export function useContextMenu({
                         { icon: '✅', label: '新增待辦清單', action: () => createTodoCard(px, py) },
                         { icon: '🔗', label: '新增連結卡片', action: () => createLinkCard(px, py) },
                         { icon: '🖼️', label: '新增圖片卡片', action: () => openImageInput() },
+                        { icon: 'A', label: '新增標題卡片', action: () => createHeadingCard?.(px, py) },
                         {
                             icon: '📋',
                             label: '從模板新增',
@@ -602,7 +605,7 @@ export function useContextMenu({
 
         window.addEventListener('contextmenu', handleContextMenu, { capture: true })
         return () => window.removeEventListener('contextmenu', handleContextMenu, { capture: true })
-    }, [editor, createTextCard, createTodoCard, createLinkCard, openImageInput, createTextCardWithContent, isInboxBoard, onMoveCard, refreshTemplates])
+    }, [editor, createTextCard, createTodoCard, createLinkCard, createHeadingCard, openImageInput, createTextCardWithContent, isInboxBoard, onMoveCard, refreshTemplates])
 
     const closeMenu = () => setMenu(null)
 

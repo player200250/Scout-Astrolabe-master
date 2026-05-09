@@ -102,6 +102,12 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
                     detail: { linkedBoardId: shape.props.linkedBoardId }
                 }))
                 return { id: shape.id, type: shape.type }
+            } else if (type === 'heading') {
+                this.editor.updateShape({
+                    id: shape.id, type: 'card',
+                    props: { state: 'editing' },
+                })
+                return { id: shape.id, type: shape.type }
             } else if (type === 'text' || type === 'journal') {
                 window.dispatchEvent(new CustomEvent('text-card-edit', {
                     detail: { shapeId: shape.id }
@@ -196,17 +202,17 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
                             position: 'relative',
                             overflow: 'hidden', display: 'flex', flexDirection: 'column',
                             borderRadius: 12,
-                            border: isEditing ? '1.5px solid #2563eb' : isDark ? '1px solid #334155' : '1px solid #f0f0f0',
+                            border: p.type === 'heading' ? 'none' : isEditing ? '1.5px solid #2563eb' : isDark ? '1px solid #334155' : '1px solid #f0f0f0',
                             padding: 0, boxSizing: 'border-box',
                             pointerEvents: shouldInnerDivCaptureEvents || p.type === 'image' || p.type === 'todo' || (p.type === 'text' && p.text?.includes('[[')) ? 'auto' : 'none',
                             cursor: shouldInnerDivCaptureEvents || p.type === 'image' || (p.type === 'text' && p.text?.includes('[[')) ? 'default' : 'grab',
-                            boxShadow: isEditing
+                            boxShadow: p.type === 'heading' ? 'none' : isEditing
                                 ? '0 0 0 3px rgba(37,99,235,0.18), 0 4px 20px rgba(37,99,235,0.10)'
                                 : isHovered
                                     ? isDark ? '0 2px 8px rgba(0,0,0,0.30)' : '0 2px 8px rgba(0,0,0,0.08)'
                                     : 'none',
                             transition: 'box-shadow 0.15s ease-in-out, border-color 0.15s ease-in-out',
-                            backgroundColor: p.color === 'dark' ? '#1a1a2e' : (!p.color || p.color === 'none') ? (isDark ? '#1e293b' : '#ffffff') : colorStyle.bg,
+                            backgroundColor: p.type === 'heading' ? 'transparent' : p.color === 'dark' ? '#1a1a2e' : (!p.color || p.color === 'none') ? (isDark ? '#1e293b' : '#ffffff') : colorStyle.bg,
                         }}
                     >
                         {p.color && p.color !== 'none' && p.type !== 'image' && (
@@ -217,7 +223,7 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
                             }} />
                         )}
                         {/* 非編輯：status badge 左上角 */}
-                        {!isEditing && p.cardStatus && p.cardStatus !== 'none' && STATUS_BADGE[p.cardStatus] && (
+                        {p.type !== 'heading' && !isEditing && p.cardStatus && p.cardStatus !== 'none' && STATUS_BADGE[p.cardStatus] && (
                             <div style={{
                                 position: 'absolute',
                                 top: p.color && p.color !== 'none' ? 8 : 5,
@@ -231,7 +237,7 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
                             </div>
                         )}
                         {/* 非編輯：priority 圓點右上角 */}
-                        {!isEditing && p.priority && p.priority !== 'none' && PRIORITY_DOT[p.priority] && (
+                        {p.type !== 'heading' && !isEditing && p.priority && p.priority !== 'none' && PRIORITY_DOT[p.priority] && (
                             <div style={{
                                 position: 'absolute',
                                 top: p.color && p.color !== 'none' ? 10 : 7,

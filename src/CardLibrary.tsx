@@ -5,7 +5,7 @@ import type { BoardRecord } from './db'
 import { getCardShapes } from './utils/snapshot'
 
 /* ─── Types ─── */
-type LibCardType = 'text' | 'todo' | 'link' | 'journal'
+type LibCardType = 'text' | 'todo' | 'link' | 'journal' | 'heading'
 type StatusType  = 'none' | 'todo' | 'in-progress' | 'done'
 type PriorityType = 'none' | 'low' | 'medium' | 'high'
 type SortKey = 'updatedAt-desc' | 'updatedAt-asc' | 'boardName' | 'type'
@@ -33,10 +33,10 @@ export interface CardLibraryProps {
 }
 
 /* ─── Constants ─── */
-const TYPE_ICON: Record<LibCardType, string>  = { text: '📝', todo: '✅', link: '🔗', journal: '📖' }
-const TYPE_LABEL: Record<LibCardType, string> = { text: '文字', todo: 'Todo', link: '連結', journal: 'Journal' }
+const TYPE_ICON: Record<LibCardType, string>  = { text: '📝', todo: '✅', link: '🔗', journal: '📖', heading: 'A' }
+const TYPE_LABEL: Record<LibCardType, string> = { text: '文字', todo: 'Todo', link: '連結', journal: 'Journal', heading: '標題' }
 
-const ALL_TYPES: LibCardType[]    = ['text', 'todo', 'link', 'journal']
+const ALL_TYPES: LibCardType[]    = ['text', 'todo', 'link', 'journal', 'heading']
 const ALL_STATUSES: StatusType[]  = ['none', 'todo', 'in-progress', 'done']
 const ALL_PRIORITIES: PriorityType[] = ['none', 'low', 'medium', 'high']
 
@@ -152,7 +152,7 @@ export function CardLibrary({ boards, onJump, onClose, isDark }: CardLibraryProp
         for (const board of boards) {
             for (const shape of getCardShapes(board.snapshot)) {
                 const t = shape.props.type
-                if (t !== 'text' && t !== 'todo' && t !== 'link' && t !== 'journal') continue
+                if (t !== 'text' && t !== 'todo' && t !== 'link' && t !== 'journal' && t !== 'heading') continue
                 const raw = shape.props.text ?? ''
                 cards.push({
                     shapeId: shape.id,

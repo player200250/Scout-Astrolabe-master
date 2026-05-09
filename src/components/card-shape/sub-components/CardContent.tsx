@@ -9,6 +9,7 @@ import { TodoContent } from './TodoContent'
 import { LinkContent } from './LinkContent'
 import { BoardContent } from './Boardcontent'
 import { BacklinksPanel } from './BacklinksPanel'
+import { HeadingContent } from './HeadingContent'
 
 function TagsDisplay({ tags }: { tags: string[] }) {
     if (!tags.length) return null
@@ -115,6 +116,8 @@ export function CardContent({ editor, shape, isEditing, exitEdit }: CardContentP
                     </div>
                 </div>
             )
+        case 'heading':
+            return <HeadingContent shape={shape} isEditing={isEditing} exitEdit={exitEdit} />
         // case 'code':
         //     return <CodeContent shape={shape} isEditing={isEditing} exitEdit={exitEdit} />
     }

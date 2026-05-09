@@ -109,6 +109,12 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
         editor.createShape({ type: 'card', props: { type: 'image', text: '', image: imgBase64, todos: [], url: '', state: 'idle', w: 280, h: 200 } })
     }, [editor])
 
+    const createHeadingCard = useCallback((x?: number, y?: number) => {
+        const center = editor.getViewportScreenCenter()
+        const pageCenter = editor.screenToPage(center)
+        editor.createShape({ type: 'card', x: x ?? pageCenter.x - 160, y: y ?? pageCenter.y - 30, props: { type: 'heading', text: '標題', image: null, todos: [], url: '', linkEmbedUrl: null, state: 'idle', color: 'none', cardStatus: 'none', priority: 'none', tags: [], w: 320, h: 60 } })
+    }, [editor])
+
     const createBoardCard = useCallback((x?: number, y?: number) => {
         const newBoard = onCreateBoard(`子白板 ${boards.length + 1}`)
         editor.createShape({
@@ -137,8 +143,9 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
         createLinkCard: () => createLinkCard(),
         createBoardCard: () => createBoardCard(),
         createColumnCard: () => createColumnCard(),
+        createHeadingCard: () => createHeadingCard(),
         openImageInput,
-    }), [createTextCard, createImageCard, createTodoCard, createLinkCard, createBoardCard, createColumnCard, openImageInput])
+    }), [createTextCard, createImageCard, createTodoCard, createLinkCard, createBoardCard, createColumnCard, createHeadingCard, openImageInput])
 
     useEffect(() => {
         const handleBoardEnter = (event: Event) => {
@@ -209,6 +216,7 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
         createTextCard,
         createTodoCard,
         createLinkCard,
+        createHeadingCard,
         openImageInput,
         createTextCardWithContent,
         isInboxBoard,
