@@ -55,6 +55,8 @@
 #### 4. 連結卡片
 - 🔗 支援一般網址
 - 🎬 YouTube（含 Shorts）、Vimeo、Bilibili 嵌入播放
+- 自動抓取 YouTube 影片標題顯示於卡片
+- 統一卡片尺寸，排版更整齊
 
 #### 5. Board 卡片（子白板）
 - 📋 雙擊進入子白板
@@ -69,11 +71,17 @@
 #### 7. 欄位（Frame 容器）
 - 📊 tldraw 內建 Frame，卡片可自由拖入拖出
 
-#### 8. 主頁儀表板
+#### 8. 標題卡片（Heading）
+- 📌 透明背景大字標題，用於白板區域分組標記
+- 支援 9 種顏色主題
+- 純展示用途，無額外屬性列
+
+#### 9. 主頁儀表板
 - 🏠 首頁白板可在「儀表板」與「白板」兩種視圖間一鍵切換
 - 顯示今日問候語、日期、ISO 週數等情境資訊
 - 本週統計：已完成待辦、新建卡片數、知識連結數
 - 快速入口：任務中心、復盤中心、知識圖譜、卡片庫
+- 最近白板、今日日記快速跳轉、收件匣未讀卡片預覽
 
 ---
 
@@ -107,6 +115,8 @@
 | 🏷️ 白板管理 | 釘選、封存、拖曳排序、設為子板 |
 | 🌟 新手導覽 | 首次啟動自動顯示，可從設定重新觀看 |
 | 📚 卡片庫 | 跨白板瀏覽所有卡片，依類型 / 狀態 / 優先度篩選，清單或格狀視圖（Ctrl+Shift+L） |
+| 🗑️ 垃圾桶 | 軟刪除保護 14 天，可還原，到期自動清除（Ctrl+Shift+T） |
+| 🗂️ 刪白板對話框 | 刪除白板前顯示卡片預覽，可選擇將卡片移至收件匣後再刪除 |
 | 💾 本機儲存 | 完全離線，不需帳號，資料不上傳 |
 
 ---
@@ -331,6 +341,7 @@ npm run electron-dev
 | `Ctrl+Shift+C` | 復盤中心 |
 | `Ctrl+Shift+G` | 知識圖譜 |
 | `Ctrl+Shift+L` | 卡片庫 |
+| `Ctrl+Shift+T` | 垃圾桶 |
 | `?` 或 `Ctrl+/` | 快捷鍵說明 |
 
 ### 日記頁面（日記白板內）
@@ -380,9 +391,12 @@ Scout-Astrolabe-master/
 │   │   │   ├── CardShapeUtil.tsx        # 卡片核心邏輯
 │   │   │   ├── type/CardShape.ts        # 型別 + 顏色常數
 │   │   │   └── sub-components/          # TextContent, TodoContent,
-│   │   │                                # ImageContent, LinkContent...
+│   │   │                                # ImageContent, LinkContent,
+│   │   │                                # HeadingContent...
 │   │   ├── Whiteboard.tsx               # 主白板元件（含視圖切換）
 │   │   ├── Dashboard.tsx                # 主頁儀表板
+│   │   ├── DeleteBoardDialog.tsx        # 刪白板對話框（卡片預覽+收件匣選項）
+│   │   ├── TrashDialog.tsx              # 垃圾桶對話框（還原 / 永久刪除）
 │   │   ├── WhiteboardTools.tsx          # 白板工具列
 │   │   ├── BoardTabBar.tsx              # 側邊欄
 │   │   ├── SidebarFooter.tsx            # 側邊欄底部工具列
@@ -408,6 +422,7 @@ Scout-Astrolabe-master/
 │   ├── ReviewCenter.tsx                 # 復盤中心
 │   ├── KnowledgeGraph.tsx               # 知識圖譜
 │   ├── CardLibrary.tsx                  # 卡片庫（跨白板索引）
+│   ├── TrashPanel.tsx                   # 垃圾桶面板
 │   ├── BackupPanel.tsx                  # 備份 / 還原
 │   ├── HotkeyPanel.tsx                  # 快捷鍵說明
 │   ├── TIdrawToolPanel.tsx              # tldraw 工具面板
@@ -417,7 +432,25 @@ Scout-Astrolabe-master/
 │   ├── ContextMenu.tsx                  # 右鍵選單
 │   └── Usehotkeys.tsx                   # 全域快捷鍵 hook
 ├── docs/
-│   └── screenshots/                     # 應用程式截圖
+│   ├── README.md                        # 技術文件索引
+│   ├── architecture.md                  # 系統架構
+│   ├── data-model.md                    # 資料模型
+│   ├── tldraw-snapshot.md               # snapshot 規範
+│   ├── card-shape-spec.md               # 卡片規格
+│   ├── state-and-events.md              # 狀態與事件
+│   ├── electron-ipc.md                  # Electron IPC
+│   ├── import-export-backup.md          # 匯入匯出備份
+│   ├── build-and-release.md             # 建置發布
+│   ├── trash-lifecycle.md               # 垃圾桶生命週期
+│   ├── testing-strategy.md              # 測試策略
+│   ├── search-and-links.md              # 搜尋與連結
+│   ├── rich-text-editor.md              # 富文本編輯器
+│   ├── journal-review.md                # 日記與復盤
+│   ├── data-safety.md                   # 資料安全
+│   ├── refactor-roadmap.md              # 重構路線圖
+│   ├── adr/                             # 架構決策紀錄
+│   ├── maintenance/                     # 維護文件
+│   └── screenshots/                     # 截圖
 ├── main.js                              # Electron 主程序
 └── preload.js                           # 安全橋接
 ```
@@ -435,6 +468,16 @@ Scout-Astrolabe-master/
 | [docs/tldraw-snapshot.md](docs/tldraw-snapshot.md) | TLEditorSnapshot 格式、直接讀寫 store 的標準模式 |
 | [docs/card-shape-spec.md](docs/card-shape-spec.md) | TLCardProps 完整欄位、各卡片類型行為、顏色常數 |
 | [docs/state-and-events.md](docs/state-and-events.md) | useBoardManager handler 清單、全域 CustomEvent 總覽 |
+| [docs/electron-ipc.md](docs/electron-ipc.md) | Electron IPC 通道清單、preload 橋接規範 |
+| [docs/import-export-backup.md](docs/import-export-backup.md) | 匯入匯出流程、備份格式、還原機制 |
+| [docs/build-and-release.md](docs/build-and-release.md) | 建置流程、electron-builder 設定、發布步驟 |
+| [docs/trash-lifecycle.md](docs/trash-lifecycle.md) | 垃圾桶軟刪除生命週期、14 天保護、自動清除排程 |
+| [docs/testing-strategy.md](docs/testing-strategy.md) | 測試策略、覆蓋範圍、CI 整合 |
+| [docs/search-and-links.md](docs/search-and-links.md) | 全域搜尋實作、雙向連結解析、知識圖譜資料來源 |
+| [docs/rich-text-editor.md](docs/rich-text-editor.md) | TipTap 擴充清單、`[[連結]]` 自動補全實作 |
+| [docs/journal-review.md](docs/journal-review.md) | 日記白板機制、週回顧卡片自動建立邏輯 |
+| [docs/data-safety.md](docs/data-safety.md) | 資料安全、隱私保護、本機儲存策略 |
+| [docs/refactor-roadmap.md](docs/refactor-roadmap.md) | 重構路線圖與技術債追蹤 |
 | [docs/maintenance/bugs.md](docs/maintenance/bugs.md) | Bug 追蹤（詳細記錄見根目錄 BUGS.md） |
 
 ---
@@ -513,9 +556,13 @@ A: 點側邊欄底部「⋯」→「📖 使用導覽」。
 - [x] **卡片跨白板移動**
 - [x] **白板釘選 / 封存 / 拖曳排序**
 - [x] **新手導覽** — 首次啟動自動顯示
-- [x] **主頁儀表板** — 首頁白板儀表板 / 白板視圖切換，本週統計快速入口
+- [x] **主頁儀表板** — 儀表板 / 白板視圖切換，本週統計、最近白板、今日日記、收件匣預覽快速入口
 - [x] **卡片庫** — 跨白板卡片索引，依類型 / 狀態 / 優先度篩選，清單 / 格狀視圖（Ctrl+Shift+L）
 - [x] **Markdown 匯出** — 文字 / Journal 卡片匯出為 `.md` 檔案
+- [x] **垃圾桶** — 軟刪除 14 天保護，可還原，到期自動清除（Ctrl+Shift+T）
+- [x] **刪白板對話框** — 刪除白板前顯示卡片預覽，可選擇移至收件匣
+- [x] **標題卡片（Heading）** — 透明背景大字標題，白板區域分組標記
+- [x] **連結卡片改善** — YouTube 標題自動抓取、卡片尺寸統一
 
 ### 📋 v1.1.0（計劃中）
 
