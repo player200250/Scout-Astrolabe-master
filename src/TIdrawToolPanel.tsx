@@ -751,7 +751,7 @@ export default function TldrawToolPanel({
         const defaultProps: Record<string, Record<string, unknown>> = {
             text:    { type: 'text',    text: '', image: null, todos: [], url: '', linkEmbedUrl: null, state: 'idle', color: 'none', w: 240, h: 160 },
             todo:    { type: 'todo',    text: '', image: null, todos: [{ id: `todo_${Date.now()}`, text: '新任務', checked: false }], url: null, linkEmbedUrl: null, state: 'idle', color: 'none', w: 260, h: 200 },
-            link:    { type: 'link',    text: '', image: null, todos: [], url: '', linkEmbedUrl: null, state: 'idle', color: 'none', w: 260, h: 120 },
+            link:    { type: 'link',    text: '', image: null, todos: [], url: '', linkEmbedUrl: null, state: 'idle', color: 'none', w: 280, h: 200 },
             image:   { type: 'image',   text: '', image: null, todos: [], url: '', linkEmbedUrl: null, state: 'idle', color: 'none', w: 300, h: 200 },
             heading: { type: 'heading', text: '標題', image: null, todos: [], url: '', linkEmbedUrl: null, state: 'idle', color: 'none', w: 320, h: 60 },
         }

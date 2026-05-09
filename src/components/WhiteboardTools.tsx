@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react'
-import { useEditor, getSnapshot, loadSnapshot, exportToBlob } from 'tldraw'
+import { useEditor, getSnapshot, loadSnapshot, exportToBlob, createShapeId } from 'tldraw'
 import type { TLEditorSnapshot, TLShapeId } from 'tldraw'
 import { jsPDF } from 'jspdf'
 import { db } from '../db'
@@ -12,6 +12,7 @@ import { getISOWeekKey, getWeekRange } from '../WeeklyReview'
 import { exportJSON, importJSON } from '../utils/boardExport'
 import { exportBoardToMarkdown, exportSelectedToMarkdown } from '../utils/exportMarkdown'
 import type { TLCardShape } from './card-shape/type/CardShape'
+import { getEmbedData, fetchLinkMeta } from './card-shape/utils/embedUtils'
 import { saveCardToTrash, getCardPreview } from '../TrashPanel'
 import { sanitizeSnapshot, sanitizeCardProps } from '../utils/snapshot'
 import type { SnapshotShapeProps } from '../utils/snapshot'
@@ -338,33 +339,41 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
 
     useEffect(() => {
         const handlePaste = async (e: ClipboardEvent) => {
+            // Yield to tldraw when a shape (link/todo/heading input) or native editable is focused
+            if (editor.getEditingShapeId() !== null) return
             const target = e.target as HTMLElement
-            if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return
-            const items = e.clipboardData?.items
-            if (!items) return
+            if (target.tagName === 'TEXTAREA') return
+            if (target.isContentEditable) return
+            if (target.tagName === 'INPUT') return // let input's own onPaste handler take over
 
-            for (const item of Array.from(items)) {
-                if (item.type.startsWith('image/')) {
-                    e.preventDefault()
-                    const file = item.getAsFile()
-                    if (!file) continue
+            const data = e.clipboardData
+            if (!data) return
+
+            // 1. Direct image file ─────────────────────────────────────────────
+            const imageItem = Array.from(data.items).find(i => i.type.startsWith('image/'))
+            if (imageItem) {
+                e.preventDefault()
+                e.stopPropagation()
+                const file = imageItem.getAsFile()
+                if (file) {
                     const reader = new FileReader()
                     reader.onload = async () => {
                         const compressed = await compressImage(reader.result as string)
-                        const center = editor.getViewportScreenCenter()
-                        const pagePoint = editor.screenToPage(center)
-                        editor.createShape({ type: 'card', x: pagePoint.x - 140, y: pagePoint.y - 100, props: { type: 'image', text: '', image: compressed, todos: [], url: '', state: 'idle', w: 280, h: 200 } })
+                        const vp = editor.getViewportPageBounds()
+                        editor.createShape({ type: 'card', x: vp.x + vp.w / 2 - 140, y: vp.y + vp.h / 2 - 100, props: { type: 'image', text: '', image: compressed, todos: [], url: '', state: 'idle', w: 280, h: 200 } })
                     }
                     reader.readAsDataURL(file)
-                    return
                 }
+                return
             }
 
-            const htmlItem = Array.from(items).find(i => i.type === 'text/html')
-            if (htmlItem) {
-                htmlItem.getAsString(async (html) => {
-                    const match = html.match(/<img[^>]+src=["']([^"']+)["']/)
-                    if (!match) return
+            // 2. HTML containing an <img> src (e.g. image copied from browser) ─
+            const htmlText = data.getData('text/html')
+            if (htmlText) {
+                const match = htmlText.match(/<img[^>]+src=["']([^"']+)["']/)
+                if (match) {
+                    e.preventDefault()
+                    e.stopPropagation()
                     const imgUrl = match[1]
                     try {
                         const res = await fetch(imgUrl)
@@ -372,35 +381,64 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
                         const reader = new FileReader()
                         reader.onload = async () => {
                             const compressed = await compressImage(reader.result as string)
-                            const center = editor.getViewportScreenCenter()
-                            const pagePoint = editor.screenToPage(center)
-                            editor.createShape({ type: 'card', x: pagePoint.x - 140, y: pagePoint.y - 100, props: { type: 'image', text: '', image: compressed, todos: [], url: '', state: 'idle', w: 280, h: 200 } })
+                            const vp = editor.getViewportPageBounds()
+                            editor.createShape({ type: 'card', x: vp.x + vp.w / 2 - 140, y: vp.y + vp.h / 2 - 100, props: { type: 'image', text: '', image: compressed, todos: [], url: '', state: 'idle', w: 280, h: 200 } })
                         }
                         reader.readAsDataURL(blob)
                     } catch {
-                        const center = editor.getViewportScreenCenter()
-                        const pagePoint = editor.screenToPage(center)
-                        editor.createShape({ type: 'card', x: pagePoint.x - 140, y: pagePoint.y - 100, props: { type: 'image', text: '', image: imgUrl, todos: [], url: '', state: 'idle', w: 280, h: 200 } })
+                        const vp = editor.getViewportPageBounds()
+                        editor.createShape({ type: 'card', x: vp.x + vp.w / 2 - 140, y: vp.y + vp.h / 2 - 100, props: { type: 'image', text: '', image: imgUrl, todos: [], url: '', state: 'idle', w: 280, h: 200 } })
                     }
-                })
-                return
+                    return
+                }
             }
 
-            const textItem = Array.from(items).find(i => i.type === 'text/plain')
-            if (textItem) {
-                textItem.getAsString(text => {
-                    const trimmed = text.trim()
-                    try {
-                        new URL(trimmed.startsWith('http') ? trimmed : `https://${trimmed}`)
-                        const center = editor.getViewportScreenCenter()
-                        const pagePoint = editor.screenToPage(center)
-                        editor.createShape({ type: 'card', x: pagePoint.x - 140, y: pagePoint.y - 100, props: { type: 'link', text: '', image: null, todos: [], url: trimmed, linkEmbedUrl: null, state: 'idle', color: 'none', cardStatus: 'none', priority: 'none', tags: [], w: 280, h: 200 } })
-                    } catch { /* empty */ }
-                })
+            // 3. Plain-text URL ─────────────────────────────────────────────────
+            // Use synchronous getData() so stopPropagation runs before any await
+            const rawText = data.getData('text/plain').trim()
+            if (!rawText) return
+            let isUrl = false
+            try { new URL(rawText.startsWith('http') ? rawText : `https://${rawText}`); isUrl = true } catch { /* not a URL */ }
+            if (!isUrl) return // plain text → let tldraw handle normally
+
+            e.preventDefault()
+            e.stopPropagation()
+
+            const embedData = getEmbedData(rawText)
+            const { embedUrl, isEmbeddable } = embedData
+            const cardW = isEmbeddable ? 400 : 280
+            const cardH = isEmbeddable ? 300 : 200
+            const viewport = editor.getViewportPageBounds()
+            const x = viewport.x + viewport.w / 2 - 200  // 400寬的一半
+            const y = viewport.y + viewport.h / 2 - 150  // 300高的一半
+            console.log('[Paste] viewport:', viewport)
+            console.log('[Paste] x:', x, 'y:', y)
+            const shapeId = createShapeId()
+            editor.createShape({
+                id: shapeId,
+                type: 'card',
+                x,
+                y,
+                props: {
+                    type: 'link', text: '', image: null, todos: [],
+                    url: rawText, linkEmbedUrl: embedUrl,
+                    state: 'idle', color: 'none',
+                    cardStatus: 'none', priority: 'none', tags: [],
+                    w: cardW, h: cardH,
+                },
+            })
+            const meta = await fetchLinkMeta(rawText, embedData)
+            const updateProps = {
+                ...(meta.title       && { title: meta.title }),
+                ...(meta.description && { description: meta.description }),
+                ...(meta.thumbnail   && { thumbnail: meta.thumbnail }),
+            }
+            if (meta.title || meta.description || meta.thumbnail) {
+                editor.updateShape<TLCardShape>({ id: shapeId, type: 'card', props: updateProps })
             }
         }
-        window.addEventListener('paste', handlePaste)
-        return () => window.removeEventListener('paste', handlePaste)
+        document.addEventListener('paste', handlePaste, true)
+        return () => document.removeEventListener('paste', handlePaste, true)
     }, [editor, createImageCard])
 
     const exportPNG = useCallback(async (selectedOnly: boolean) => {

@@ -57,3 +57,50 @@ export function getEmbedData(url: string): EmbedData {
 
     return { embedUrl, isEmbeddable, domain }
 }
+
+export interface LinkMeta {
+    title?: string
+    description?: string
+    thumbnail?: string
+}
+
+/**
+ * Fetch link metadata for a URL.
+ * - YouTube / Vimeo: uses their public oEmbed API (CORS-safe, no server needed).
+ * - Other URLs: falls back to window.electronAPI.getLinkPreview when available.
+ */
+export async function fetchLinkMeta(url: string, embed: EmbedData): Promise<LinkMeta> {
+    if (embed.isEmbeddable) {
+        try {
+            let oembedEndpoint = ''
+            if (embed.domain === 'YouTube') {
+                oembedEndpoint = `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`
+            } else if (embed.domain === 'Vimeo') {
+                oembedEndpoint = `https://vimeo.com/api/oembed.json?url=${encodeURIComponent(url)}`
+            }
+            if (oembedEndpoint) {
+                const res = await fetch(oembedEndpoint)
+                if (res.ok) {
+                    const data = await res.json() as { title?: string; thumbnail_url?: string }
+                    return { title: data.title, thumbnail: data.thumbnail_url }
+                }
+            }
+        } catch { /* network failure — fall through */ }
+    }
+
+    // Fallback: Electron main-process scraper
+    if (typeof window !== 'undefined' && window.electronAPI?.getLinkPreview) {
+        try {
+            const meta = await window.electronAPI.getLinkPreview(url)
+            if (meta) {
+                return {
+                    title: meta.title,
+                    description: meta.description ?? undefined,
+                    thumbnail: meta.image ?? undefined,
+                }
+            }
+        } catch { /* empty */ }
+    }
+
+    return {}
+}

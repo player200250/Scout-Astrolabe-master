@@ -1,6 +1,7 @@
 import { useMemo, useCallback, useState } from 'react'
 import { Editor } from 'tldraw'
 import type { TLCardShape, TLCardProps } from '../type/CardShape'
+import { fetchLinkMeta } from '../utils/embedUtils'
 
 interface LinkContentProps {
     editor: Editor
@@ -26,29 +27,29 @@ export const LinkContent = ({ editor, shape, isEditing, exitEdit, getEmbedData }
         }
     }, [p.url])
 
-    const updateLinkData = useCallback(async (inputUrl: string, isFinal: boolean = false) => {
-        const { embedUrl, isEmbeddable } = getEmbedData(inputUrl)
-        const targetW = isEmbeddable ? 800 : 450
-        const targetH = isEmbeddable ? 520 : 300
+    const updateLinkData = useCallback(async (inputUrl: string, isFinal: boolean = false, fromBlur: boolean = false) => {
+        if (!inputUrl.trim() && fromBlur) {
+            editor.deleteShapes([shape.id])
+            return
+        }
+        const embedData = getEmbedData(inputUrl)
+        const { embedUrl, isEmbeddable } = embedData
+        const LINK_W = isEmbeddable ? 400 : 280
+        const targetH = isEmbeddable ? 300 : 200
 
         const updatePayload: Partial<TLCardProps> = {
             url: inputUrl,
             linkEmbedUrl: embedUrl,
-            w: targetW,
+            w: LINK_W,
             h: targetH,
             state: isFinal ? 'idle' : 'editing',
         }
 
         if (isFinal && inputUrl) {
-            const api = window.electronAPI
-            if (api?.getLinkPreview) {
-                const metadata = await api.getLinkPreview(inputUrl)
-                if (metadata) {
-                    updatePayload.title = metadata.title
-                    if (metadata.description != null) updatePayload.description = metadata.description
-                    if (metadata.image != null) updatePayload.thumbnail = metadata.image
-                }
-            }
+            const meta = await fetchLinkMeta(inputUrl, embedData)
+            if (meta.title)       updatePayload.title       = meta.title
+            if (meta.description) updatePayload.description = meta.description
+            if (meta.thumbnail)   updatePayload.thumbnail   = meta.thumbnail
         }
 
         editor.updateShape<TLCardShape>({
@@ -112,10 +113,17 @@ export const LinkContent = ({ editor, shape, isEditing, exitEdit, getEmbedData }
                     autoFocus
                     value={p.url ?? ''}
                     onChange={(e) => updateLinkData(e.target.value, false)}
-                    onBlur={(e) => updateLinkData(e.target.value, true)}
+                    onBlur={(e) => updateLinkData(e.target.value, true, true)}
                     onKeyDown={(e) => {
                         if (e.key === 'Enter') updateLinkData(e.currentTarget.value, true)
                         if (e.key === 'Escape') exitEdit()
+                    }}
+                    onPaste={(e) => {
+                        const text = e.clipboardData.getData('text/plain').trim()
+                        if (text.startsWith('http')) {
+                            e.preventDefault()
+                            updateLinkData(text, true)
+                        }
                     }}
                     placeholder="貼上網址或影片連結..."
                     style={{
