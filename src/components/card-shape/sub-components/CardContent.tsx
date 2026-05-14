@@ -10,6 +10,8 @@ import { LinkContent } from './LinkContent'
 import { BoardContent } from './Boardcontent'
 import { BacklinksPanel } from './BacklinksPanel'
 import { HeadingContent } from './HeadingContent'
+import { StickyContent } from './StickyContent'
+import { TableContent } from './TableContent'
 
 function TagsDisplay({ tags }: { tags: string[] }) {
     if (!tags.length) return null
@@ -118,7 +120,9 @@ export function CardContent({ editor, shape, isEditing, exitEdit }: CardContentP
             )
         case 'heading':
             return <HeadingContent shape={shape} isEditing={isEditing} exitEdit={exitEdit} />
-        // case 'code':
-        //     return <CodeContent shape={shape} isEditing={isEditing} exitEdit={exitEdit} />
+        case 'sticky':
+            return <StickyContent shape={shape} isEditing={isEditing} exitEdit={exitEdit} />
+        case 'table':
+            return <TableContent shape={shape} />
     }
 }

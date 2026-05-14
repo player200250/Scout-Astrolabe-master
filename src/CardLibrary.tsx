@@ -5,7 +5,7 @@ import type { BoardRecord } from './db'
 import { getCardShapes } from './utils/snapshot'
 
 /* ─── Types ─── */
-type LibCardType = 'text' | 'todo' | 'link' | 'journal' | 'heading'
+type LibCardType = 'text' | 'todo' | 'link' | 'journal' | 'heading' | 'sticky' | 'table'
 type StatusType  = 'none' | 'todo' | 'in-progress' | 'done'
 type PriorityType = 'none' | 'low' | 'medium' | 'high'
 type SortKey = 'updatedAt-desc' | 'updatedAt-asc' | 'boardName' | 'type'
@@ -33,10 +33,10 @@ export interface CardLibraryProps {
 }
 
 /* ─── Constants ─── */
-const TYPE_ICON: Record<LibCardType, string>  = { text: '📝', todo: '✅', link: '🔗', journal: '📖', heading: 'A' }
-const TYPE_LABEL: Record<LibCardType, string> = { text: '文字', todo: 'Todo', link: '連結', journal: 'Journal', heading: '標題' }
+const TYPE_ICON: Record<LibCardType, string>  = { text: '📝', todo: '✅', link: '🔗', journal: '📖', heading: 'A', sticky: '📌', table: '▦' }
+const TYPE_LABEL: Record<LibCardType, string> = { text: '文字', todo: 'Todo', link: '連結', journal: 'Journal', heading: '標題', sticky: '便利貼', table: '表格' }
 
-const ALL_TYPES: LibCardType[]    = ['text', 'todo', 'link', 'journal', 'heading']
+const ALL_TYPES: LibCardType[]    = ['text', 'todo', 'link', 'journal', 'heading', 'sticky', 'table']
 const ALL_STATUSES: StatusType[]  = ['none', 'todo', 'in-progress', 'done']
 const ALL_PRIORITIES: PriorityType[] = ['none', 'low', 'medium', 'high']
 
@@ -152,14 +152,21 @@ export function CardLibrary({ boards, onJump, onClose, isDark }: CardLibraryProp
         for (const board of boards) {
             for (const shape of getCardShapes(board.snapshot)) {
                 const t = shape.props.type
-                if (t !== 'text' && t !== 'todo' && t !== 'link' && t !== 'journal' && t !== 'heading') continue
-                const raw = shape.props.text ?? ''
+                if (t !== 'text' && t !== 'todo' && t !== 'link' && t !== 'journal' && t !== 'heading' && t !== 'sticky' && t !== 'table') continue
+                let preview = ''
+                if (t === 'table') {
+                    const td = (shape.props as { tableData?: { cells: { content: string }[] }[] }).tableData ?? []
+                    const headers = td[0]?.cells.map(c => c.content).filter(Boolean).join(' | ') ?? ''
+                    preview = headers || '（表格）'
+                } else {
+                    preview = stripHtml(shape.props.text ?? '').slice(0, 200)
+                }
                 cards.push({
                     shapeId: shape.id,
                     boardId: board.id,
                     boardName: board.name,
                     type: t as LibCardType,
-                    preview: stripHtml(raw).slice(0, 200),
+                    preview,
                     tags: Array.isArray(shape.props.tags) ? (shape.props.tags as string[]) : [],
                     status: parseStatus(shape.props.cardStatus),
                     priority: parsePriority(shape.props.priority),

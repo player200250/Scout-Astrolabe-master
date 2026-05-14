@@ -1,7 +1,17 @@
 // src/CardShape.ts
 import type { TLBaseShape } from '@tldraw/editor'
 
-export type CardType = 'text' | 'image' | 'todo' | 'link' | 'board' | 'journal' | 'heading'
+export type CardType = 'text' | 'image' | 'todo' | 'link' | 'board' | 'journal' | 'heading' | 'sticky' | 'table'
+
+export interface TableCell {
+    id: string
+    content: string
+}
+
+export interface TableRow {
+    id: string
+    cells: TableCell[]
+}
 export type CardState = 'idle' | 'editing'
 
 // 卡片顏色
@@ -27,6 +37,18 @@ export const CARD_COLORS: Record<CardColor, { bg: string; accent: string; label:
     pink:   { bg: '#fdf2f8', accent: '#ec4899', label: '粉' },
     dark:   { bg: '#1a1a2e', accent: '#6366f1', label: '深' },
 }
+
+export type StickyColor = 'yellow' | 'green' | 'blue' | 'pink' | 'orange'
+
+export const STICKY_COLORS: Record<StickyColor, { bg: string; darkBg: string; label: string }> = {
+    yellow: { bg: '#FEF08A', darkBg: '#CA8A04', label: '黃' },
+    green:  { bg: '#BBF7D0', darkBg: '#15803D', label: '綠' },
+    blue:   { bg: '#BAE6FD', darkBg: '#0369A1', label: '藍' },
+    pink:   { bg: '#FBCFE8', darkBg: '#BE185D', label: '粉' },
+    orange: { bg: '#FED7AA', darkBg: '#C2410C', label: '橙' },
+}
+
+export const STICKY_COLOR_LIST: StickyColor[] = ['yellow', 'green', 'blue', 'pink', 'orange']
 
 export type CardStatusType = 'none' | 'todo' | 'in-progress' | 'done'
 export type PriorityType   = 'none' | 'low'  | 'medium'      | 'high'
@@ -67,6 +89,10 @@ export interface TLCardProps {
     // 格式 'YYYY-MM-DD'，系統用來判斷當天是否已建立
     // 建立後不可修改，作為唯一識別鍵
     journalDate?: string | null
+
+    // ---- Table ----
+    tableData?: TableRow[]
+    tableCols?: number
 
     // ---- 共用狀態 ----
     state: CardState

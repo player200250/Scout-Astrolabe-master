@@ -11,7 +11,7 @@ import { useHotkeys } from '../Usehotkeys'
 import { getISOWeekKey, getWeekRange } from '../WeeklyReview'
 import { exportJSON, importJSON } from '../utils/boardExport'
 import { exportBoardToMarkdown, exportSelectedToMarkdown } from '../utils/exportMarkdown'
-import type { TLCardShape } from './card-shape/type/CardShape'
+import type { TLCardShape, StickyColor, TableRow } from './card-shape/type/CardShape'
 import { getEmbedData, fetchLinkMeta } from './card-shape/utils/embedUtils'
 import { saveCardToTrash, getCardPreview } from '../TrashPanel'
 import { sanitizeSnapshot, sanitizeCardProps } from '../utils/snapshot'
@@ -116,6 +116,41 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
         editor.createShape({ type: 'card', x: x ?? pageCenter.x - 160, y: y ?? pageCenter.y - 30, props: { type: 'heading', text: '標題', image: null, todos: [], url: '', linkEmbedUrl: null, state: 'idle', color: 'none', cardStatus: 'none', priority: 'none', tags: [], w: 320, h: 60 } })
     }, [editor])
 
+    const createStickyCard = useCallback((color: StickyColor = 'yellow', x?: number, y?: number) => {
+        const center = editor.getViewportScreenCenter()
+        const pageCenter = editor.screenToPage(center)
+        editor.createShape({ type: 'card', x: x ?? pageCenter.x - 100, y: y ?? pageCenter.y - 100, props: { type: 'sticky', text: '', image: null, todos: [], url: '', linkEmbedUrl: null, state: 'idle', color, cardStatus: 'none', priority: 'none', tags: [], w: 200, h: 200 } })
+    }, [editor])
+
+    const createTableCard = useCallback((cols: number = 3, x?: number, y?: number) => {
+        const center = editor.getViewportScreenCenter()
+        const pageCenter = editor.screenToPage(center)
+        const ts = Date.now()
+        const colNames = Array.from({ length: cols }, (_, i) => `欄位 ${i + 1}`)
+        const headerRow: TableRow = {
+            id: `row_${ts}_0`,
+            cells: colNames.map((name, i) => ({ id: `cell_${ts}_0_${i}`, content: name })),
+        }
+        const dataRows: TableRow[] = Array.from({ length: 3 }, (_, r) => ({
+            id: `row_${ts}_${r + 1}`,
+            cells: Array.from({ length: cols }, (_, c) => ({ id: `cell_${ts}_${r + 1}_${c}`, content: '' })),
+        }))
+        const tableData = [headerRow, ...dataRows]
+        const h = 40 + 3 * 36 + 32  // header + 3 data rows + footer = 180
+        editor.createShape({
+            type: 'card',
+            x: x ?? pageCenter.x - 200,
+            y: y ?? pageCenter.y - 90,
+            props: {
+                type: 'table', text: '', image: null, todos: [], url: '', linkEmbedUrl: null,
+                state: 'idle', color: 'none', cardStatus: 'none', priority: 'none', tags: [],
+                w: 400, h,
+                tableCols: cols,
+                tableData,
+            },
+        })
+    }, [editor])
+
     const createBoardCard = useCallback((x?: number, y?: number) => {
         const newBoard = onCreateBoard(`子白板 ${boards.length + 1}`)
         editor.createShape({
@@ -131,7 +166,6 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
     }, [editor])
 
     const createTextCardWithContent = useCallback((x: number, y: number, content: string, w = 280, h = 320) => {
-        console.log('[createTextCardWithContent] called', { x, y, content, w, h })
         editor.createShape({ type: 'card', x, y, props: { type: 'text', text: content, image: null, todos: [], url: '', state: 'idle', color: 'none', cardStatus: 'none', priority: 'none', tags: [], w, h } })
     }, [editor])
 
@@ -145,8 +179,10 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
         createBoardCard: () => createBoardCard(),
         createColumnCard: () => createColumnCard(),
         createHeadingCard: () => createHeadingCard(),
+        createStickyCard: () => createStickyCard('yellow'),
+        createTableCard: (cols: number) => createTableCard(cols),
         openImageInput,
-    }), [createTextCard, createImageCard, createTodoCard, createLinkCard, createBoardCard, createColumnCard, createHeadingCard, openImageInput])
+    }), [createTextCard, createImageCard, createTodoCard, createLinkCard, createBoardCard, createColumnCard, createHeadingCard, createStickyCard, createTableCard, openImageInput])
 
     useEffect(() => {
         const handleBoardEnter = (event: Event) => {
@@ -218,6 +254,8 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
         createTodoCard,
         createLinkCard,
         createHeadingCard,
+        createStickyCard,
+        createTableCard,
         openImageInput,
         createTextCardWithContent,
         isInboxBoard,
@@ -411,8 +449,6 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
             const viewport = editor.getViewportPageBounds()
             const x = viewport.x + viewport.w / 2 - 200  // 400寬的一半
             const y = viewport.y + viewport.h / 2 - 150  // 300高的一半
-            console.log('[Paste] viewport:', viewport)
-            console.log('[Paste] x:', x, 'y:', y)
             const shapeId = createShapeId()
             editor.createShape({
                 id: shapeId,

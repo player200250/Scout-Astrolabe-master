@@ -29,7 +29,12 @@
       "Bash(Select-String -Pattern \"toolbar|panel|tool\" -CaseSensitive)",
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\win11\\\\Desktop\\\\Scout-Astrolabe-master\" -Recurse -Depth 2)",
       "Bash(Select-Object -Property FullName)",
-      "Bash(npx eslint *)"
+      "Bash(npx eslint *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\win11\\\\Desktop\\\\Scout-Astrolabe-master\" -Directory)",
+      "Bash(Select-Object Name)",
+      "Bash(echo \"Exit: $?\")",
+      "Bash(Get-ChildItem \"C:\\\\Users\\\\win11\\\\Desktop\\\\Scout-Astrolabe-master\" -Name)",
+      "Bash(Select-Object -First 40)"
     ]
   }
 }

@@ -1,9 +1,8 @@
 // src/ContextMenu.tsx
-console.log('[ContextMenu] module loaded')
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Editor } from 'tldraw'
-import { CARD_COLORS } from './components/card-shape/type/CardShape'
-import type { CardColor, TLCardShape } from './components/card-shape/type/CardShape'
+import { CARD_COLORS, STICKY_COLORS, STICKY_COLOR_LIST } from './components/card-shape/type/CardShape'
+import type { CardColor, TLCardShape, StickyColor } from './components/card-shape/type/CardShape'
 import { db } from './db'
 import type { TemplateRecord } from './db'
 import { saveCardToTrash, getCardPreview } from './TrashPanel'
@@ -28,6 +27,7 @@ interface ContextMenuProps {
     onColorPick?: (color: CardColor) => void
     currentColor?: CardColor
     isDark?: boolean
+    isSticky?: boolean
 }
 
 // ── Built-in templates ──────────────────────────────────────────────────────
@@ -78,7 +78,7 @@ function getDefaultTemplateName(html: string): string {
 
 // ── ContextMenuUI ───────────────────────────────────────────────────────────
 
-function ContextMenuUI({ x, y, items, onClose, showColorPicker, onColorPick, currentColor, isDark }: ContextMenuProps) {
+function ContextMenuUI({ x, y, items, onClose, showColorPicker, onColorPick, currentColor, isDark, isSticky }: ContextMenuProps) {
     const ref = useRef<HTMLDivElement>(null)
     const itemRefs = useRef<(HTMLDivElement | null)[]>([])
     const [pos, setPos] = useState({ x, y })
@@ -191,7 +191,7 @@ function ContextMenuUI({ x, y, items, onClose, showColorPicker, onColorPick, cur
                 onMouseDown={onClose}
             />
             <div ref={ref} style={{ position: 'fixed', top: pos.y, left: pos.x, ...menuBoxStyle }}>
-                {showColorPicker && onColorPick && (
+                {showColorPicker && onColorPick && !isSticky && (
                     <>
                         <div style={{ padding: '8px 14px 4px', fontSize: 11, color: mutedColor, fontWeight: 600, letterSpacing: '0.5px' }}>
                             卡片顏色
@@ -215,6 +215,35 @@ function ContextMenuUI({ x, y, items, onClose, showColorPicker, onColorPick, cur
                                     {key === 'none' && <span style={{ fontSize: 10, color: mutedColor }}>✕</span>}
                                 </div>
                             ))}
+                        </div>
+                        <div style={{ height: 1, background: dividerColor, margin: '0 0 4px' }} />
+                    </>
+                )}
+                {showColorPicker && onColorPick && isSticky && (
+                    <>
+                        <div style={{ padding: '8px 14px 4px', fontSize: 11, color: mutedColor, fontWeight: 600, letterSpacing: '0.5px' }}>
+                            便利貼顏色
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, padding: '4px 14px 8px' }}>
+                            {STICKY_COLOR_LIST.map((key) => {
+                                const val = STICKY_COLORS[key]
+                                return (
+                                    <div
+                                        key={key}
+                                        title={val.label}
+                                        onClick={() => { onColorPick(key as CardColor); onClose() }}
+                                        style={{
+                                            width: 22, height: 22, borderRadius: '50%', cursor: 'pointer',
+                                            backgroundColor: val.bg,
+                                            border: currentColor === key ? `2px solid ${textColor}` : '2px solid transparent',
+                                            boxSizing: 'border-box', transition: 'transform 0.1s',
+                                            boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
+                                        }}
+                                        onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.2)')}
+                                        onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
+                                    />
+                                )
+                            })}
                         </div>
                         <div style={{ height: 1, background: dividerColor, margin: '0 0 4px' }} />
                     </>
@@ -335,6 +364,8 @@ interface UseContextMenuOptions {
     createTodoCard: (x?: number, y?: number) => void
     createLinkCard: (x?: number, y?: number) => void
     createHeadingCard?: (x?: number, y?: number) => void
+    createStickyCard?: (color: StickyColor, x?: number, y?: number) => void
+    createTableCard?: (cols: number, x?: number, y?: number) => void
     openImageInput: () => void
     // Required — always passed from WhiteboardTools
     createTextCardWithContent: (x: number, y: number, content: string, w?: number, h?: number) => void
@@ -353,6 +384,8 @@ export function useContextMenu({
     createTodoCard,
     createLinkCard,
     createHeadingCard,
+    createStickyCard,
+    createTableCard,
     openImageInput,
     createTextCardWithContent,
     isInboxBoard,
@@ -370,6 +403,7 @@ export function useContextMenu({
         showColorPicker?: boolean
         onColorPick?: (color: CardColor) => void
         currentColor?: CardColor
+        isSticky?: boolean
     } | null>(null)
 
     // Ref keeps latest templates visible to the event handler closure without re-registering the listener
@@ -406,7 +440,6 @@ export function useContextMenu({
 
         const handleContextMenu = (e: MouseEvent) => {
             if ((e.target as Element)?.closest('[data-sidebar]')) return
-            console.log('[ContextMenu] handleContextMenu triggered', e.clientX, e.clientY)
             e.preventDefault()
             e.stopPropagation()
 
@@ -420,13 +453,8 @@ export function useContextMenu({
                 const cardType = shape.props.type
                 const isLink = cardType === 'link'
                 const isText = cardType === 'text'
+                const isSticky = cardType === 'sticky'
                 const currentColor: CardColor = shape.props.color
-
-                console.log('[ContextMenu] buildMenuItems called', {
-                    hasCreateTextCardWithContent: !!createTextCardWithContent,
-                    isText,
-                    selectedShape: shape.props.type,
-                })
 
                 const items: MenuItem[] = [
                     {
@@ -512,6 +540,7 @@ export function useContextMenu({
                     x: e.clientX, y: e.clientY, items,
                     showColorPicker: true,
                     currentColor,
+                    isSticky,
                     onColorPick: (color: CardColor) => {
                         editor.updateShape({ id: hitShape.id, type: 'card', props: { color } })
                     },
@@ -535,16 +564,10 @@ export function useContextMenu({
                     const tmplContent = t.content
                     const tmplW = t.w
                     const tmplH = t.h
-                    console.log('[Template] pushing template', t.name)
                     templateSubmenu.push({
                         icon: t.icon,
                         label: t.name,
                         action: () => {
-                            console.log('[Template] action triggered', {
-                                px, py,
-                                contentLength: tmplContent.length,
-                                hasCreateFn: !!createTextCardWithContent,
-                            })
                             createTextCardWithContent(px, py, tmplContent, tmplW, tmplH)
                         },
                     })
@@ -583,6 +606,18 @@ export function useContextMenu({
                     })
                 }
 
+                const stickySubmenu: MenuItem[] = STICKY_COLOR_LIST.map(color => ({
+                    icon: '●',
+                    label: STICKY_COLORS[color].label,
+                    action: () => createStickyCard?.(color, px, py),
+                }))
+
+                const tableSubmenu: MenuItem[] = [2, 3, 4].map(cols => ({
+                    icon: '▦',
+                    label: `${cols} 欄`,
+                    action: () => createTableCard?.(cols, px, py),
+                }))
+
                 setMenu({
                     x: e.clientX, y: e.clientY,
                     items: [
@@ -591,6 +626,18 @@ export function useContextMenu({
                         { icon: '🔗', label: '新增連結卡片', action: () => createLinkCard(px, py) },
                         { icon: '🖼️', label: '新增圖片卡片', action: () => openImageInput() },
                         { icon: 'A', label: '新增標題卡片', action: () => createHeadingCard?.(px, py) },
+                        {
+                            icon: '📌',
+                            label: '新增便利貼',
+                            action: () => createStickyCard?.('yellow', px, py),
+                            submenu: stickySubmenu,
+                        },
+                        {
+                            icon: '▦',
+                            label: '新增表格',
+                            action: () => createTableCard?.(3, px, py),
+                            submenu: tableSubmenu,
+                        },
                         {
                             icon: '📋',
                             label: '從模板新增',
@@ -605,7 +652,7 @@ export function useContextMenu({
 
         window.addEventListener('contextmenu', handleContextMenu, { capture: true })
         return () => window.removeEventListener('contextmenu', handleContextMenu, { capture: true })
-    }, [editor, createTextCard, createTodoCard, createLinkCard, createHeadingCard, openImageInput, createTextCardWithContent, isInboxBoard, onMoveCard, refreshTemplates])
+    }, [editor, createTextCard, createTodoCard, createLinkCard, createHeadingCard, createStickyCard, createTableCard, openImageInput, createTextCardWithContent, isInboxBoard, onMoveCard, refreshTemplates])
 
     const closeMenu = () => setMenu(null)
 
@@ -619,6 +666,7 @@ export function useContextMenu({
                     onColorPick={menu.onColorPick}
                     currentColor={menu.currentColor}
                     isDark={isDark}
+                    isSticky={menu.isSticky}
                 />
             )}
             {saveTemplateState && (
