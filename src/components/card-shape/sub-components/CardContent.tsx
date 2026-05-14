@@ -12,6 +12,7 @@ import { BacklinksPanel } from './BacklinksPanel'
 import { HeadingContent } from './HeadingContent'
 import { StickyContent } from './StickyContent'
 import { TableContent } from './TableContent'
+import { ColorSwatchContent } from './ColorSwatchContent'
 
 function TagsDisplay({ tags }: { tags: string[] }) {
     if (!tags.length) return null
@@ -124,5 +125,7 @@ export function CardContent({ editor, shape, isEditing, exitEdit }: CardContentP
             return <StickyContent shape={shape} isEditing={isEditing} exitEdit={exitEdit} />
         case 'table':
             return <TableContent shape={shape} />
+        case 'color':
+            return <ColorSwatchContent shape={shape} />
     }
 }

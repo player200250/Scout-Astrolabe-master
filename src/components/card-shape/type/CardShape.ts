@@ -1,7 +1,13 @@
 // src/CardShape.ts
 import type { TLBaseShape } from '@tldraw/editor'
 
-export type CardType = 'text' | 'image' | 'todo' | 'link' | 'board' | 'journal' | 'heading' | 'sticky' | 'table'
+export type CardType = 'text' | 'image' | 'todo' | 'link' | 'board' | 'journal' | 'heading' | 'sticky' | 'table' | 'color'
+
+export interface ColorSwatch {
+    id: string
+    hex: string
+    name: string
+}
 
 export interface TableCell {
     id: string
@@ -93,6 +99,9 @@ export interface TLCardProps {
     // ---- Table ----
     tableData?: TableRow[]
     tableCols?: number
+
+    // ---- Color Swatch ----
+    swatches?: ColorSwatch[]
 
     // ---- 共用狀態 ----
     state: CardState

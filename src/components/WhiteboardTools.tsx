@@ -122,6 +122,23 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
         editor.createShape({ type: 'card', x: x ?? pageCenter.x - 100, y: y ?? pageCenter.y - 100, props: { type: 'sticky', text: '', image: null, todos: [], url: '', linkEmbedUrl: null, state: 'idle', color, cardStatus: 'none', priority: 'none', tags: [], w: 200, h: 200 } })
     }, [editor])
 
+    const createColorCard = useCallback((x?: number, y?: number) => {
+        const center = editor.getViewportScreenCenter()
+        const pageCenter = editor.screenToPage(center)
+        const ts = Date.now()
+        editor.createShape({
+            type: 'card',
+            x: x ?? pageCenter.x - 140,
+            y: y ?? pageCenter.y - 100,
+            props: {
+                type: 'color', text: '', image: null, todos: [], url: '', linkEmbedUrl: null,
+                state: 'idle', color: 'none', cardStatus: 'none', priority: 'none', tags: [],
+                w: 280, h: 200,
+                swatches: [{ id: `sw_${ts}`, hex: '#3B82F6', name: '' }],
+            },
+        })
+    }, [editor])
+
     const createTableCard = useCallback((cols: number = 3, x?: number, y?: number) => {
         const center = editor.getViewportScreenCenter()
         const pageCenter = editor.screenToPage(center)
@@ -181,8 +198,9 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
         createHeadingCard: () => createHeadingCard(),
         createStickyCard: () => createStickyCard('yellow'),
         createTableCard: (cols: number) => createTableCard(cols),
+        createColorCard: () => createColorCard(),
         openImageInput,
-    }), [createTextCard, createImageCard, createTodoCard, createLinkCard, createBoardCard, createColumnCard, createHeadingCard, createStickyCard, createTableCard, openImageInput])
+    }), [createTextCard, createImageCard, createTodoCard, createLinkCard, createBoardCard, createColumnCard, createHeadingCard, createStickyCard, createTableCard, createColorCard, openImageInput])
 
     useEffect(() => {
         const handleBoardEnter = (event: Event) => {
@@ -256,6 +274,7 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
         createHeadingCard,
         createStickyCard,
         createTableCard,
+        createColorCard,
         openImageInput,
         createTextCardWithContent,
         isInboxBoard,

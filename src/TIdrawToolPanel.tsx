@@ -144,6 +144,15 @@ const IcoTableCard = (
         <path d="M12 7.5v7.5"/>
     </svg>
 )
+const IcoColorCard = (
+    <svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="2" y="3" width="14" height="12" rx="1.5"/>
+        <path d="M2 8.5h14"/>
+        <circle cx="5.5" cy="12" r="1.5" fill="currentColor" stroke="none"/>
+        <circle cx="9" cy="12" r="1.5" fill="currentColor" stroke="none"/>
+        <circle cx="12.5" cy="12" r="1.5" fill="currentColor" stroke="none"/>
+    </svg>
+)
 const IcoAlign = (
     <svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
         <path d="M3 5h12M5 9h8M4 13h10"/>
@@ -152,7 +161,7 @@ const IcoAlign = (
 
 /* drag ghost chars (text-only, shown during HTML drag) */
 const DRAG_GHOST: Record<string, string> = {
-    text: 'T', todo: '✓', link: '⌘', image: '⬜', board: '⊞', column: '▥', heading: 'H', sticky: '📌', table: '▦',
+    text: 'T', todo: '✓', link: '⌘', image: '⬜', board: '⊞', column: '▥', heading: 'H', sticky: '📌', table: '▦', color: '🎨',
 }
 
 /* ─── Types ─── */
@@ -166,6 +175,7 @@ export interface CardCreators {
     createHeadingCard: () => void
     createStickyCard: () => void
     createTableCard: (cols: number) => void
+    createColorCard: () => void
     openImageInput: () => void
     isDark?: boolean
 }
@@ -283,7 +293,7 @@ function DraggableCardButton({
 }: {
     icon: ReactNode
     label: string
-    cardType: 'text' | 'todo' | 'link' | 'image' | 'board' | 'column' | 'heading' | 'sticky'
+    cardType: 'text' | 'todo' | 'link' | 'image' | 'board' | 'column' | 'heading' | 'sticky' | 'color'
     onClick: () => void
     onDragStart?: () => void
     onDragEnd?: () => void
@@ -757,7 +767,7 @@ function HighlightButton({
 ================================================ */
 export default function TldrawToolPanel({
     createTextCard, createTodoCard, createLinkCard,
-    createBoardCard, createColumnCard, createHeadingCard, createStickyCard, createTableCard, openImageInput, isDark,
+    createBoardCard, createColumnCard, createHeadingCard, createStickyCard, createTableCard, createColorCard, openImageInput, isDark,
 }: CardCreators) {
     const editor = useEditor()
     const currentTool = editor.getCurrentToolId()
@@ -854,6 +864,19 @@ export default function TldrawToolPanel({
             heading: { type: 'heading', text: '標題', image: null, todos: [], url: '', linkEmbedUrl: null, state: 'idle', color: 'none', w: 320, h: 60 },
             sticky:  { type: 'sticky',  text: '', image: null, todos: [], url: '', linkEmbedUrl: null, state: 'idle', color: 'yellow', w: 200, h: 200 },
         }
+        if (cardType === 'color') {
+            const ts = Date.now()
+            editor.createShape({
+                type: 'card', x: pagePoint.x - 140, y: pagePoint.y - 100,
+                props: {
+                    type: 'color', text: '', image: null, todos: [], url: '', linkEmbedUrl: null,
+                    state: 'idle', color: 'none', cardStatus: 'none', priority: 'none', tags: [],
+                    w: 280, h: 200,
+                    swatches: [{ id: `sw_${ts}`, hex: '#3B82F6', name: '' }],
+                },
+            })
+            return
+        }
         if (cardType === 'image') { openImageInput(); return }
         if (cardType === 'board') { createBoardCard(); return }
         if (cardType === 'column') {
@@ -944,6 +967,7 @@ export default function TldrawToolPanel({
                 <DraggableCardButton icon={IcoHeadingCard} label="標題卡片（拖曳或點擊）" cardType="heading" onClick={createHeadingCard} isDark={isDark} btnHover={btnHover} onDragStart={() => { draggingCardType.current = 'heading' }} onDragEnd={() => {}} />
                 <DraggableCardButton icon={IcoStickyCard} label="便利貼（拖曳或點擊）" cardType="sticky" onClick={createStickyCard} isDark={isDark} btnHover={btnHover} onDragStart={() => { draggingCardType.current = 'sticky' }} onDragEnd={() => {}} />
                 <TableCardButton createTableCard={createTableCard} isDark={isDark} btnHover={btnHover} onDragStart={() => { draggingCardType.current = 'table' }} onDragEnd={() => {}} />
+                <DraggableCardButton icon={IcoColorCard} label="顏色樣本（拖曳或點擊）" cardType="color" onClick={createColorCard} isDark={isDark} btnHover={btnHover} onDragStart={() => { draggingCardType.current = 'color' }} onDragEnd={() => {}} />
 
                 <div style={{ height: 1, background: dividerColor, margin: '6px 0' }} />
 

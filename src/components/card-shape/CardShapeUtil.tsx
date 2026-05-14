@@ -116,6 +116,9 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
             } else if (type === 'table') {
                 // Table cells handle their own inline editing
                 return { id: shape.id, type: shape.type }
+            } else if (type === 'color') {
+                // Color swatches handle their own inline editing
+                return { id: shape.id, type: shape.type }
             } else if (type === 'text' || type === 'journal') {
                 window.dispatchEvent(new CustomEvent('text-card-edit', {
                     detail: { shapeId: shape.id }
@@ -214,8 +217,8 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
                             borderRadius: 12,
                             border: (p.type === 'heading' || isSticky) ? 'none' : isEditing ? '1.5px solid #2563eb' : isDark ? '1px solid #334155' : '1px solid #f0f0f0',
                             padding: 0, boxSizing: 'border-box',
-                            pointerEvents: shouldInnerDivCaptureEvents || p.type === 'image' || p.type === 'todo' || p.type === 'table' || (p.type === 'text' && p.text?.includes('[[')) ? 'auto' : 'none',
-                            cursor: shouldInnerDivCaptureEvents || p.type === 'image' || p.type === 'todo' || p.type === 'table' || (p.type === 'text' && p.text?.includes('[[')) ? 'default' : 'grab',
+                            pointerEvents: shouldInnerDivCaptureEvents || p.type === 'image' || p.type === 'todo' || p.type === 'table' || p.type === 'color' || (p.type === 'text' && p.text?.includes('[[')) ? 'auto' : 'none',
+                            cursor: shouldInnerDivCaptureEvents || p.type === 'image' || p.type === 'todo' || p.type === 'table' || p.type === 'color' || (p.type === 'text' && p.text?.includes('[[')) ? 'default' : 'grab',
                             boxShadow: p.type === 'heading' ? 'none' : isSticky
                                 ? isEditing
                                     ? '0 0 0 2px rgba(37,99,235,0.35), 0 2px 8px rgba(0,0,0,0.15)'
