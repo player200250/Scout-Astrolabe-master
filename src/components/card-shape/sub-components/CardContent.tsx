@@ -13,6 +13,7 @@ import { HeadingContent } from './HeadingContent'
 import { StickyContent } from './StickyContent'
 import { TableContent } from './TableContent'
 import { ColorSwatchContent } from './ColorSwatchContent'
+import { FileContent } from './FileContent'
 
 function TagsDisplay({ tags }: { tags: string[] }) {
     if (!tags.length) return null
@@ -127,5 +128,7 @@ export function CardContent({ editor, shape, isEditing, exitEdit }: CardContentP
             return <TableContent shape={shape} />
         case 'color':
             return <ColorSwatchContent shape={shape} />
+        case 'file':
+            return <FileContent shape={shape} />
     }
 }

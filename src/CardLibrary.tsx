@@ -5,7 +5,7 @@ import type { BoardRecord } from './db'
 import { getCardShapes } from './utils/snapshot'
 
 /* ─── Types ─── */
-type LibCardType = 'text' | 'todo' | 'link' | 'journal' | 'heading' | 'sticky' | 'table' | 'color'
+type LibCardType = 'text' | 'todo' | 'link' | 'journal' | 'heading' | 'sticky' | 'table' | 'color' | 'file'
 type StatusType  = 'none' | 'todo' | 'in-progress' | 'done'
 type PriorityType = 'none' | 'low' | 'medium' | 'high'
 type SortKey = 'updatedAt-desc' | 'updatedAt-asc' | 'boardName' | 'type'
@@ -33,10 +33,10 @@ export interface CardLibraryProps {
 }
 
 /* ─── Constants ─── */
-const TYPE_ICON: Record<LibCardType, string>  = { text: '📝', todo: '✅', link: '🔗', journal: '📖', heading: 'A', sticky: '📌', table: '▦', color: '🎨' }
-const TYPE_LABEL: Record<LibCardType, string> = { text: '文字', todo: 'Todo', link: '連結', journal: 'Journal', heading: '標題', sticky: '便利貼', table: '表格', color: '顏色樣本' }
+const TYPE_ICON: Record<LibCardType, string>  = { text: '📝', todo: '✅', link: '🔗', journal: '📖', heading: 'A', sticky: '📌', table: '▦', color: '🎨', file: '📎' }
+const TYPE_LABEL: Record<LibCardType, string> = { text: '文字', todo: 'Todo', link: '連結', journal: 'Journal', heading: '標題', sticky: '便利貼', table: '表格', color: '顏色樣本', file: '檔案' }
 
-const ALL_TYPES: LibCardType[]    = ['text', 'todo', 'link', 'journal', 'heading', 'sticky', 'table', 'color']
+const ALL_TYPES: LibCardType[]    = ['text', 'todo', 'link', 'journal', 'heading', 'sticky', 'table', 'color', 'file']
 const ALL_STATUSES: StatusType[]  = ['none', 'todo', 'in-progress', 'done']
 const ALL_PRIORITIES: PriorityType[] = ['none', 'low', 'medium', 'high']
 
@@ -152,7 +152,7 @@ export function CardLibrary({ boards, onJump, onClose, isDark }: CardLibraryProp
         for (const board of boards) {
             for (const shape of getCardShapes(board.snapshot)) {
                 const t = shape.props.type
-                if (t !== 'text' && t !== 'todo' && t !== 'link' && t !== 'journal' && t !== 'heading' && t !== 'sticky' && t !== 'table' && t !== 'color') continue
+                if (t !== 'text' && t !== 'todo' && t !== 'link' && t !== 'journal' && t !== 'heading' && t !== 'sticky' && t !== 'table' && t !== 'color' && t !== 'file') continue
                 let preview = ''
                 if (t === 'table') {
                     const td = (shape.props as { tableData?: { cells: { content: string }[] }[] }).tableData ?? []
@@ -161,6 +161,13 @@ export function CardLibrary({ boards, onJump, onClose, isDark }: CardLibraryProp
                 } else if (t === 'color') {
                     const sw = (shape.props as { swatches?: { hex: string; name: string }[] }).swatches ?? []
                     preview = sw.map(s => s.name ? `${s.hex} ${s.name}` : s.hex).join('  ') || '（顏色樣本）'
+                } else if (t === 'file') {
+                    const fp = shape.props as { originalName?: string; fileSize?: number; fileExt?: string }
+                    const name = fp.originalName ?? '未知檔案'
+                    const size = fp.fileSize != null
+                        ? (fp.fileSize < 1024 ? `${fp.fileSize} B` : fp.fileSize < 1024 * 1024 ? `${(fp.fileSize / 1024).toFixed(1)} KB` : `${(fp.fileSize / (1024 * 1024)).toFixed(1)} MB`)
+                        : ''
+                    preview = size ? `${name}（${size}）` : name
                 } else {
                     preview = stripHtml(shape.props.text ?? '').slice(0, 200)
                 }

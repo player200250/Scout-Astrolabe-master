@@ -153,6 +153,13 @@ const IcoColorCard = (
         <circle cx="12.5" cy="12" r="1.5" fill="currentColor" stroke="none"/>
     </svg>
 )
+const IcoFileCard = (
+    <svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M4 2h7l4 4v11H4V2z"/>
+        <path d="M11 2v4h4"/>
+        <path d="M7 10h5M7 13h3"/>
+    </svg>
+)
 const IcoAlign = (
     <svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
         <path d="M3 5h12M5 9h8M4 13h10"/>
@@ -176,6 +183,7 @@ export interface CardCreators {
     createStickyCard: () => void
     createTableCard: (cols: number) => void
     createColorCard: () => void
+    createFileCard?: () => void
     openImageInput: () => void
     isDark?: boolean
 }
@@ -767,7 +775,7 @@ function HighlightButton({
 ================================================ */
 export default function TldrawToolPanel({
     createTextCard, createTodoCard, createLinkCard,
-    createBoardCard, createColumnCard, createHeadingCard, createStickyCard, createTableCard, createColorCard, openImageInput, isDark,
+    createBoardCard, createColumnCard, createHeadingCard, createStickyCard, createTableCard, createColorCard, createFileCard, openImageInput, isDark,
 }: CardCreators) {
     const editor = useEditor()
     const currentTool = editor.getCurrentToolId()
@@ -968,6 +976,9 @@ export default function TldrawToolPanel({
                 <DraggableCardButton icon={IcoStickyCard} label="便利貼（拖曳或點擊）" cardType="sticky" onClick={createStickyCard} isDark={isDark} btnHover={btnHover} onDragStart={() => { draggingCardType.current = 'sticky' }} onDragEnd={() => {}} />
                 <TableCardButton createTableCard={createTableCard} isDark={isDark} btnHover={btnHover} onDragStart={() => { draggingCardType.current = 'table' }} onDragEnd={() => {}} />
                 <DraggableCardButton icon={IcoColorCard} label="顏色樣本（拖曳或點擊）" cardType="color" onClick={createColorCard} isDark={isDark} btnHover={btnHover} onDragStart={() => { draggingCardType.current = 'color' }} onDragEnd={() => {}} />
+                {createFileCard && window.electronAPI?.selectAndCopyFile && (
+                    <DraggableCardButton icon={IcoFileCard} label="上傳檔案（點擊）" cardType="file" onClick={createFileCard} isDark={isDark} btnHover={btnHover} onDragStart={() => {}} onDragEnd={() => {}} />
+                )}
 
                 <div style={{ height: 1, background: dividerColor, margin: '6px 0' }} />
 

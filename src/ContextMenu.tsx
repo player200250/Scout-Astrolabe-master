@@ -367,6 +367,7 @@ interface UseContextMenuOptions {
     createStickyCard?: (color: StickyColor, x?: number, y?: number) => void
     createTableCard?: (cols: number, x?: number, y?: number) => void
     createColorCard?: (x?: number, y?: number) => void
+    createFileCard?: (x?: number, y?: number) => void
     openImageInput: () => void
     // Required — always passed from WhiteboardTools
     createTextCardWithContent: (x: number, y: number, content: string, w?: number, h?: number) => void
@@ -388,6 +389,7 @@ export function useContextMenu({
     createStickyCard,
     createTableCard,
     createColorCard,
+    createFileCard,
     openImageInput,
     createTextCardWithContent,
     isInboxBoard,
@@ -641,6 +643,7 @@ export function useContextMenu({
                             submenu: tableSubmenu,
                         },
                         { icon: '🎨', label: '新增顏色樣本', action: () => createColorCard?.(px, py) },
+                        ...(createFileCard && window.electronAPI?.selectAndCopyFile ? [{ icon: '📎', label: '上傳檔案', action: () => createFileCard(px, py) }] : []),
                         {
                             icon: '📋',
                             label: '從模板新增',
@@ -655,7 +658,7 @@ export function useContextMenu({
 
         window.addEventListener('contextmenu', handleContextMenu, { capture: true })
         return () => window.removeEventListener('contextmenu', handleContextMenu, { capture: true })
-    }, [editor, createTextCard, createTodoCard, createLinkCard, createHeadingCard, createStickyCard, createTableCard, createColorCard, openImageInput, createTextCardWithContent, isInboxBoard, onMoveCard, refreshTemplates])
+    }, [editor, createTextCard, createTodoCard, createLinkCard, createHeadingCard, createStickyCard, createTableCard, createColorCard, createFileCard, openImageInput, createTextCardWithContent, isInboxBoard, onMoveCard, refreshTemplates])
 
     const closeMenu = () => setMenu(null)
 

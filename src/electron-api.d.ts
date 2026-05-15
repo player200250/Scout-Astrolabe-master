@@ -16,7 +16,16 @@ export interface IElectronAPI {
     loadDocument: () => Promise<LoadDocumentResult | null>
     openDocument: () => Promise<string | null>
     openLink: (url: string) => void
+    openExternal: (url: string) => void
     getLinkPreview?: (url: string) => Promise<LinkPreviewResult | null>
+    selectAndCopyFile: () => Promise<{
+        storedName: string
+        originalName: string
+        size: number
+        ext: string
+    } | null>
+    openFile: (storedName: string) => Promise<void>
+    deleteFile: (storedName: string) => Promise<void>
 }
 
 declare global {

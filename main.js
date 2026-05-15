@@ -1,10 +1,11 @@
 // 🌸 統一在頂部導入所有需要的模組
-import { app, BrowserWindow, ipcMain, dialog, shell, net } from 'electron'; 
+import { app, BrowserWindow, ipcMain, dialog, shell, net } from 'electron';
 import Store from 'electron-store';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import path from 'path';
 import fs from 'fs';
+import { randomUUID } from 'crypto';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -41,6 +42,9 @@ function createWindow() {
     win.webContents.openDevTools(); // 調試中
   }
 }
+
+const filesDir = path.join(app.getPath('userData'), 'files')
+fs.mkdirSync(filesDir, { recursive: true })
 
 app.whenReady().then(() => {
   createWindow();
@@ -126,3 +130,44 @@ ipcMain.on('open-external-link', (_event, url) => {
   console.log("🚀 Electron 大腦收到指令了！準備開啟網頁:", url); // 加這行
   shell.openExternal(url).catch(err => console.error("❌ 開啟失敗:", err));
 });
+
+ipcMain.on('open-external', (_event, url) => {
+  shell.openExternal(url).catch(err => console.error("❌ openExternal 失敗:", err));
+});
+
+ipcMain.handle('select-and-copy-file', async () => {
+  const result = await dialog.showOpenDialog({
+    properties: ['openFile'],
+    title: '選擇檔案'
+  })
+  if (result.canceled || !result.filePaths[0]) return null
+
+  const srcPath = result.filePaths[0]
+  const fileName = path.basename(srcPath)
+  const ext = path.extname(srcPath)
+  const uuid = randomUUID()
+  const destName = uuid + ext
+  const destPath = path.join(filesDir, destName)
+
+  await fs.promises.copyFile(srcPath, destPath)
+
+  const stat = await fs.promises.stat(srcPath)
+  return {
+    storedName: destName,
+    originalName: fileName,
+    size: stat.size,
+    ext: ext.toLowerCase()
+  }
+})
+
+ipcMain.handle('open-file', async (_, storedName) => {
+  const filePath = path.join(filesDir, storedName)
+  await shell.openPath(filePath)
+})
+
+ipcMain.handle('delete-file', async (_, storedName) => {
+  const filePath = path.join(filesDir, storedName)
+  try {
+    await fs.promises.unlink(filePath)
+  } catch { /* 檔案不存在時忽略 */ }
+})

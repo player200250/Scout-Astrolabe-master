@@ -105,6 +105,12 @@ export function TrashPanel({
             window.dispatchEvent(new CustomEvent('permanent-delete-shape', {
                 detail: { shapeId: record.shapeId, boardId: record.boardId },
             }))
+            if (record.type === 'file') {
+                const props = (record.shapeData as { props?: { storedName?: string } })?.props
+                if (props?.storedName) {
+                    window.electronAPI?.deleteFile(props.storedName)
+                }
+            }
         }
         await db.table('deletedCards').delete(id)
         setDeletedCards(prev => prev.filter(c => c.id !== id))
@@ -128,6 +134,12 @@ export function TrashPanel({
             window.dispatchEvent(new CustomEvent('permanent-delete-shape', {
                 detail: { shapeId: card.shapeId, boardId: card.boardId },
             }))
+            if (card.type === 'file') {
+                const props = (card.shapeData as { props?: { storedName?: string } })?.props
+                if (props?.storedName) {
+                    window.electronAPI?.deleteFile(props.storedName)
+                }
+            }
         }
         await onEmptyTrash()
         setDeletedCards([])

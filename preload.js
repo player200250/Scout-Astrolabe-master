@@ -7,5 +7,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openDocument: () => ipcRenderer.invoke('open-document'),
   // 這裡也要補上 openLink 
   openLink: (url) => ipcRenderer.send('open-external-link', url),
-  getLinkPreview: (url) => ipcRenderer.invoke('get-link-preview', url)
+  openExternal: (url) => ipcRenderer.send('open-external', url),
+  getLinkPreview: (url) => ipcRenderer.invoke('get-link-preview', url),
+  selectAndCopyFile: () => ipcRenderer.invoke('select-and-copy-file'),
+  openFile: (storedName) => ipcRenderer.invoke('open-file', storedName),
+  deleteFile: (storedName) => ipcRenderer.invoke('delete-file', storedName),
 })

@@ -119,6 +119,11 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
             } else if (type === 'color') {
                 // Color swatches handle their own inline editing
                 return { id: shape.id, type: shape.type }
+            } else if (type === 'file') {
+                if (shape.props.storedName) {
+                    window.electronAPI?.openFile(shape.props.storedName)
+                }
+                return { id: shape.id, type: shape.type }
             } else if (type === 'text' || type === 'journal') {
                 window.dispatchEvent(new CustomEvent('text-card-edit', {
                     detail: { shapeId: shape.id }
@@ -217,8 +222,8 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
                             borderRadius: 12,
                             border: (p.type === 'heading' || isSticky) ? 'none' : isEditing ? '1.5px solid #2563eb' : isDark ? '1px solid #334155' : '1px solid #f0f0f0',
                             padding: 0, boxSizing: 'border-box',
-                            pointerEvents: shouldInnerDivCaptureEvents || p.type === 'image' || p.type === 'todo' || p.type === 'table' || p.type === 'color' || (p.type === 'text' && p.text?.includes('[[')) ? 'auto' : 'none',
-                            cursor: shouldInnerDivCaptureEvents || p.type === 'image' || p.type === 'todo' || p.type === 'table' || p.type === 'color' || (p.type === 'text' && p.text?.includes('[[')) ? 'default' : 'grab',
+                            pointerEvents: shouldInnerDivCaptureEvents || p.type === 'image' || p.type === 'todo' || p.type === 'table' || p.type === 'color' || p.type === 'file' || (p.type === 'text' && p.text?.includes('[[')) ? 'auto' : 'none',
+                            cursor: shouldInnerDivCaptureEvents || p.type === 'image' || p.type === 'todo' || p.type === 'table' || p.type === 'color' || p.type === 'file' || (p.type === 'text' && p.text?.includes('[[')) ? 'default' : 'grab',
                             boxShadow: p.type === 'heading' ? 'none' : isSticky
                                 ? isEditing
                                     ? '0 0 0 2px rgba(37,99,235,0.35), 0 2px 8px rgba(0,0,0,0.15)'
@@ -264,28 +269,6 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
                                 boxShadow: `0 0 0 2px ${PRIORITY_DOT[p.priority]}44`,
                             }} />
                         )}
-                        {/* 圖片卡片：hover 時顯示全螢幕預覽按鈕 */}
-                        {p.type === 'image' && p.image && isHovered && !isEditing && (
-                            <div
-                                onPointerDown={(e) => {
-                                    e.stopPropagation()
-                                    editor.updateShape({ id: shape.id, type: 'card', props: { preview: true } })
-                                }}
-                                style={{
-                                    position: 'absolute', top: 8, right: 8,
-                                    width: 28, height: 28,
-                                    background: 'rgba(0,0,0,0.5)',
-                                    borderRadius: 6,
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    cursor: 'pointer', zIndex: 10,
-                                    pointerEvents: 'auto',
-                                    color: 'white', fontSize: 14,
-                                    transition: 'background 0.15s',
-                                }}
-                            >
-                                ⛶
-                            </div>
-                        )}
                         {/* 編輯模式：屬性列 */}
                         {isEditing && !isSticky && (p.type === 'text' || p.type === 'todo' || p.type === 'journal') && (
                             <CardPropsBar editor={editor} shape={shape} isDark={isDark} />
@@ -309,8 +292,14 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
                             display: 'flex', flexDirection: 'column',
                             justifyContent: 'center', alignItems: 'center',
                             zIndex: 99999, cursor: 'zoom-out',
+                            pointerEvents: 'auto',
                         }}
-                        onClick={(e) => { e.stopPropagation(); closePreview() }}
+                        onPointerDown={(e) => {
+                            if (e.target === e.currentTarget) {
+                                e.stopPropagation()
+                                closePreview()
+                            }
+                        }}
                     >
                         <img
                             src={p.image || ''}
@@ -321,11 +310,11 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
                                 boxShadow: '0 8px 40px rgba(0,0,0,0.6)',
                                 cursor: 'default',
                             }}
-                            onClick={(e) => e.stopPropagation()}
+                            onPointerDown={(e) => e.stopPropagation()}
                         />
                         <div
-                            style={{ marginTop: 16, display: 'flex', gap: 8, pointerEvents: 'auto' }}
-                            onClick={(e) => e.stopPropagation()}
+                            style={{ marginTop: 16, display: 'flex', gap: 8, pointerEvents: 'auto', zIndex: 100000 }}
+                            onPointerDown={(e) => e.stopPropagation()}
                         >
                             <a
                                 href={p.image || ''}
@@ -338,7 +327,7 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
                                     textDecoration: 'none', border: '1px solid rgba(255,255,255,0.2)',
                                     backdropFilter: 'blur(8px)',
                                 }}
-                                onClick={(e) => e.stopPropagation()}
+                                onPointerDown={(e) => e.stopPropagation()}
                             >
                                 ⬇ 下載
                             </a>
@@ -351,7 +340,24 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
                                     border: '1px solid rgba(255,255,255,0.2)',
                                     backdropFilter: 'blur(8px)',
                                 }}
-                                onClick={(e) => { e.stopPropagation(); window.open(p.image || '', '_blank') }}
+                                onPointerDown={(e) => {
+                                    e.stopPropagation()
+                                    if (!p.image) return
+                                    const base64Data = p.image.split(',')[1]
+                                    const mimeType = p.image.split(';')[0].split(':')[1]
+                                    const byteCharacters = atob(base64Data)
+                                    const byteArray = new Uint8Array(byteCharacters.length)
+                                    for (let i = 0; i < byteCharacters.length; i++) {
+                                        byteArray[i] = byteCharacters.charCodeAt(i)
+                                    }
+                                    const blob = new Blob([byteArray], { type: mimeType })
+                                    const blobUrl = URL.createObjectURL(blob)
+                                    if (window.electronAPI?.openExternal) {
+                                        window.electronAPI.openExternal(blobUrl)
+                                    } else {
+                                        window.open(blobUrl, '_blank')
+                                    }
+                                }}
                             >
                                 🔗 新分頁
                             </button>
@@ -364,7 +370,7 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
                                     border: '1px solid rgba(255,255,255,0.15)',
                                     backdropFilter: 'blur(8px)',
                                 }}
-                                onClick={(e) => { e.stopPropagation(); closePreview() }}
+                                onPointerDown={(e) => { e.stopPropagation(); closePreview() }}
                             >
                                 ✕ 關閉
                             </button>

@@ -110,7 +110,13 @@ export function useBoardManager() {
             for (const b of expiredBoards) await deleteBoard(b.id)
             try {
                 const expiredCards: DeletedCardRecord[] = await db.table('deletedCards').where('deletedAt').below(cutoff).toArray()
-                for (const c of expiredCards) await db.table('deletedCards').delete(c.id)
+                for (const c of expiredCards) {
+                    if (c.type === 'file') {
+                        const props = (c.shapeData as { props?: { storedName?: string } })?.props
+                        if (props?.storedName) window.electronAPI?.deleteFile(props.storedName)
+                    }
+                    await db.table('deletedCards').delete(c.id)
+                }
             } catch { /* table may not exist on first run before migration */ }
 
             const active = loaded.filter(b => !b.deletedAt)
