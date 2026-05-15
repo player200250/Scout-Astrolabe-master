@@ -5,7 +5,7 @@ import type { BoardRecord } from './db'
 import { getCardShapes } from './utils/snapshot'
 
 /* ─── Types ─── */
-type LibCardType = 'text' | 'todo' | 'link' | 'journal' | 'heading' | 'sticky' | 'table' | 'color' | 'file'
+type LibCardType = 'text' | 'todo' | 'link' | 'journal' | 'heading' | 'sticky' | 'table' | 'color' | 'file' | 'group'
 type StatusType  = 'none' | 'todo' | 'in-progress' | 'done'
 type PriorityType = 'none' | 'low' | 'medium' | 'high'
 type SortKey = 'updatedAt-desc' | 'updatedAt-asc' | 'boardName' | 'type'
@@ -33,10 +33,10 @@ export interface CardLibraryProps {
 }
 
 /* ─── Constants ─── */
-const TYPE_ICON: Record<LibCardType, string>  = { text: '📝', todo: '✅', link: '🔗', journal: '📖', heading: 'A', sticky: '📌', table: '▦', color: '🎨', file: '📎' }
-const TYPE_LABEL: Record<LibCardType, string> = { text: '文字', todo: 'Todo', link: '連結', journal: 'Journal', heading: '標題', sticky: '便利貼', table: '表格', color: '顏色樣本', file: '檔案' }
+const TYPE_ICON: Record<LibCardType, string>  = { text: '📝', todo: '✅', link: '🔗', journal: '📖', heading: 'A', sticky: '📌', table: '▦', color: '🎨', file: '📎', group: '▣' }
+const TYPE_LABEL: Record<LibCardType, string> = { text: '文字', todo: 'Todo', link: '連結', journal: 'Journal', heading: '標題', sticky: '便利貼', table: '表格', color: '顏色樣本', file: '檔案', group: '群組' }
 
-const ALL_TYPES: LibCardType[]    = ['text', 'todo', 'link', 'journal', 'heading', 'sticky', 'table', 'color', 'file']
+const ALL_TYPES: LibCardType[]    = ['text', 'todo', 'link', 'journal', 'heading', 'sticky', 'table', 'color', 'file', 'group']
 const ALL_STATUSES: StatusType[]  = ['none', 'todo', 'in-progress', 'done']
 const ALL_PRIORITIES: PriorityType[] = ['none', 'low', 'medium', 'high']
 
@@ -152,7 +152,7 @@ export function CardLibrary({ boards, onJump, onClose, isDark }: CardLibraryProp
         for (const board of boards) {
             for (const shape of getCardShapes(board.snapshot)) {
                 const t = shape.props.type
-                if (t !== 'text' && t !== 'todo' && t !== 'link' && t !== 'journal' && t !== 'heading' && t !== 'sticky' && t !== 'table' && t !== 'color' && t !== 'file') continue
+                if (t !== 'text' && t !== 'todo' && t !== 'link' && t !== 'journal' && t !== 'heading' && t !== 'sticky' && t !== 'table' && t !== 'color' && t !== 'file' && t !== 'group') continue
                 let preview = ''
                 if (t === 'table') {
                     const td = (shape.props as { tableData?: { cells: { content: string }[] }[] }).tableData ?? []

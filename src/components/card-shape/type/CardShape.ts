@@ -1,7 +1,7 @@
 // src/CardShape.ts
 import type { TLBaseShape } from '@tldraw/editor'
 
-export type CardType = 'text' | 'image' | 'todo' | 'link' | 'board' | 'journal' | 'heading' | 'sticky' | 'table' | 'color' | 'file'
+export type CardType = 'text' | 'image' | 'todo' | 'link' | 'board' | 'journal' | 'heading' | 'sticky' | 'table' | 'color' | 'file' | 'group'
 
 export interface ColorSwatch {
     id: string

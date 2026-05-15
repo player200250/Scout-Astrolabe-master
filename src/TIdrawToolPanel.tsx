@@ -153,6 +153,12 @@ const IcoColorCard = (
         <circle cx="12.5" cy="12" r="1.5" fill="currentColor" stroke="none"/>
     </svg>
 )
+const IcoGroupCard = (
+    <svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="2" y="5" width="14" height="11" rx="2" strokeDasharray="3 1.5"/>
+        <rect x="2" y="1.5" width="5.5" height="2.5" rx="0.8" fill="currentColor" stroke="none" opacity="0.75"/>
+    </svg>
+)
 const IcoFileCard = (
     <svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
         <path d="M4 2h7l4 4v11H4V2z"/>
@@ -184,6 +190,7 @@ export interface CardCreators {
     createTableCard: (cols: number) => void
     createColorCard: () => void
     createFileCard?: () => void
+    createGroupCard?: () => void
     openImageInput: () => void
     isDark?: boolean
 }
@@ -775,7 +782,7 @@ function HighlightButton({
 ================================================ */
 export default function TldrawToolPanel({
     createTextCard, createTodoCard, createLinkCard,
-    createBoardCard, createColumnCard, createHeadingCard, createStickyCard, createTableCard, createColorCard, createFileCard, openImageInput, isDark,
+    createBoardCard, createColumnCard, createHeadingCard, createStickyCard, createTableCard, createColorCard, createFileCard, createGroupCard, openImageInput, isDark,
 }: CardCreators) {
     const editor = useEditor()
     const currentTool = editor.getCurrentToolId()
@@ -978,6 +985,9 @@ export default function TldrawToolPanel({
                 <DraggableCardButton icon={IcoColorCard} label="顏色樣本（拖曳或點擊）" cardType="color" onClick={createColorCard} isDark={isDark} btnHover={btnHover} onDragStart={() => { draggingCardType.current = 'color' }} onDragEnd={() => {}} />
                 {createFileCard && window.electronAPI?.selectAndCopyFile && (
                     <DraggableCardButton icon={IcoFileCard} label="上傳檔案（點擊）" cardType="file" onClick={createFileCard} isDark={isDark} btnHover={btnHover} onDragStart={() => {}} onDragEnd={() => {}} />
+                )}
+                {createGroupCard && (
+                    <SidebarButton icon={IcoGroupCard} label="群組" onClick={createGroupCard} {...shared} />
                 )}
 
                 <div style={{ height: 1, background: dividerColor, margin: '6px 0' }} />
