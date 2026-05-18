@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { useIsDarkMode } from '@tldraw/editor'
 import type { Editor } from '@tldraw/editor'
 import type { TLCardShape } from '../type/CardShape'
@@ -21,11 +21,24 @@ export function GroupContent({ editor, shape }: GroupContentProps) {
         ? CARD_COLORS[p.color].accent
         : isDark ? '#94a3b8' : '#6b7280'
 
+    const lastPointerDownRef = useRef(0)
+
     const startEdit = () => {
         setDraft(p.text || '群組')
         setEditing(true)
         setTimeout(() => { inputRef.current?.focus(); inputRef.current?.select() }, 0)
     }
+
+    const handleTitlePointerDown = useCallback((e: React.PointerEvent) => {
+        e.stopPropagation()
+        const now = Date.now()
+        if (now - lastPointerDownRef.current < 300) {
+            startEdit()
+            lastPointerDownRef.current = 0
+        } else {
+            lastPointerDownRef.current = now
+        }
+    }, [p.text])
 
     const commitEdit = () => {
         editor.updateShape({ id: shape.id, type: 'card', props: { text: draft.trim() || '群組' } })
@@ -73,7 +86,7 @@ export function GroupContent({ editor, shape }: GroupContentProps) {
                 />
             ) : (
                 <span
-                    onDoubleClick={startEdit}
+                    onPointerDown={handleTitlePointerDown}
                     style={{
                         fontSize: 14,
                         fontWeight: 500,

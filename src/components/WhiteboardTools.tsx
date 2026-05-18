@@ -159,7 +159,7 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
                 w: 400, h: 300,
             },
         })
-        editor.sendToBack([id])
+        setTimeout(() => editor.sendToBack([id]), 0)
     }, [editor])
 
     const createColorCard = useCallback((x?: number, y?: number) => {
