@@ -191,6 +191,32 @@ navigationStack: string[]   // 麵包屑導航歷史
 
 ---
 
+## userData/files/ 目錄
+
+儲存所有「檔案卡片」上傳的附件。此目錄不使用 IndexedDB，而是直接以 Node.js `fs` 操作。
+
+| 屬性 | 說明 |
+|------|------|
+| 路徑 | `%APPDATA%\Scout-Astrolabe\files\` |
+| 命名規則 | `{UUID}{.ext}`，由 `select-and-copy-file` IPC handler 在主程序產生 |
+| 讀取方式 | 透過 `open-file` IPC channel，主程序呼叫 `shell.openPath()` |
+
+### 生命週期
+
+| 時機 | 動作 |
+|------|------|
+| 建立檔案卡片 | `select-and-copy-file`：以系統對話框選取，`fs.copyFile` 複製到 files/，回傳 `FilePickResult` |
+| 刪除卡片（移至垃圾桶） | 檔案**保留**（卡片可能被還原） |
+| 垃圾桶永久清除 | 呼叫 `delete-file`，主程序執行 `fs.unlink` |
+| App 啟動時 | 不自動掃描孤兒檔案，需手動維護 |
+
+### 注意
+
+- `files/` 目錄不在備份範圍內（`BackupRecord` 只備份 `BoardRecord[]`），還原備份後若原始機器的檔案已刪除，檔案卡片會顯示但無法開啟。
+- IPC 欄位 `storedName` 存於 `TLCardProps.storedName`；刪除卡片時渲染層需自行傳入 `storedName` 到 `deleteFile` API。
+
+---
+
 ## 維護注意事項
 
 - 每次新增 schema 欄位都必須升版並考慮 `upgrade()` callback（v7 的 `shapeId` 遷移是一個範例）。

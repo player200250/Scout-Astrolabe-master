@@ -2,7 +2,7 @@
 
 一個受 Milanote 啟發的 Windows 桌面白板應用程式，使用 React + Electron + tldraw 建構。
 
-![Version](https://img.shields.io/badge/version-1.0.0-blue)
+![Version](https://img.shields.io/badge/version-1.1.0-blue)
 ![Platform](https://img.shields.io/badge/platform-Windows%2010%2B-0078D6?logo=windows)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Build](https://img.shields.io/badge/build-passing-brightgreen)
@@ -68,15 +68,39 @@
 - 週回顧卡片（每週自動建立 `week-YYYY-WW`）
 - 紫色週回顧範本：完成、學習、卡住、目標、待跟進
 
-#### 7. 欄位（Frame 容器）
-- 📊 tldraw 內建 Frame，卡片可自由拖入拖出
+#### 7. 便利貼卡片（Sticky）
+- 🗒️ 5 種顏色（黃／藍／綠／粉／紫），摺角效果
+- 正方形佈局，輕量文字記錄
+- 雙擊進入 inline 編輯模式
 
-#### 8. 標題卡片（Heading）
+#### 8. 表格卡片（Table）
+- 📋 支援 2 / 3 / 4 欄
+- 單元格 inline 編輯，Tab / Enter 鍵盤導航
+- 可動態新增 / 刪除列
+
+#### 9. 顏色樣本卡片（Color）
+- 🎨 設定一個主色 + 最多 8 個額外顏色
+- 顯示色塊及 HEX 值
+- 適合設計系統或品牌色彩管理
+
+#### 10. 檔案卡片（File）
+- 📁 支援所有格式（PDF、Word、圖片、影片等）
+- 雙擊以系統預設程式開啟
+- 顯示檔名、副檔名、檔案大小
+- 檔案複製至 userData/files/ 目錄本機存放
+
+#### 11. 欄位（Frame 容器）
+- 📊 自訂外觀（FigJam Section 風格）
+- 標題顯示於 Frame 外部上方，可雙擊編輯
+- Frame 內的卡片隨 Frame 整體移動
+- 支援亮色 / 暗色模式，背景半透明
+
+#### 12. 標題卡片（Heading）
 - 📌 透明背景大字標題，用於白板區域分組標記
 - 支援 9 種顏色主題
 - 純展示用途，無額外屬性列
 
-#### 9. 主頁儀表板
+#### 13. 主頁儀表板
 - 🏠 首頁白板可在「儀表板」與「白板」兩種視圖間一鍵切換
 - 顯示今日問候語、日期、ISO 週數等情境資訊
 - 本週統計：已完成待辦、新建卡片數、知識連結數
@@ -148,7 +172,7 @@
 ### 方法 1：下載安裝檔（一般使用者）
 
 1. 前往 [Releases](https://github.com/player200250/Scout-Astrolabe-master/releases) 頁面
-2. 下載最新版本的 `Scout-Astrolabe-Setup-1.0.0.exe`
+2. 下載最新版本的 `Scout-Astrolabe-Setup-1.1.0.exe`
 3. 執行安裝程式
 4. 完成安裝後從開始選單啟動
 
@@ -198,7 +222,7 @@ npm run electron-dev
 
 1. **下載安裝檔**
    - 前往 [Releases](https://github.com/player200250/Scout-Astrolabe-master/releases)
-   - 下載 `Scout-Astrolabe-Setup-1.0.0.exe`
+   - 下載 `Scout-Astrolabe-Setup-1.1.0.exe`
 
 2. **執行安裝程式**
    - 雙擊下載的 `.exe` 檔案
@@ -563,24 +587,24 @@ A: 點側邊欄底部「⋯」→「📖 使用導覽」。
 - [x] 暗色模式
 - [x] 新手導覽
 
-### 🔧 v1.1.0（開發中）
+### ✅ v1.1.0（已完成）
 
 **新卡片類型**
-- [ ] 表格卡片（簡單行列，可新增列）
-- [ ] 顏色樣本卡片（單色+多色，最多8個）
-- [ ] 檔案上傳卡片（所有格式，系統開啟）
+- [x] 便利貼卡片（5色、摺角效果）
+- [x] 表格卡片（2/3/4欄，inline 編輯，鍵盤導航）
+- [x] 顏色樣本卡片（主色 + 最多 8 個額外顏色）
+- [x] 檔案卡片（所有格式，雙擊系統開啟）
 
-**穩定性與效能**
-- [ ] 架構重構（App.tsx / useBoardManager 拆分）
-- [ ] 搜尋效能優化
-- [ ] 圖片上傳體驗改善
-
-**分享與匯出**
-- [ ] 白板唯讀快照分享
-- [ ] PDF 匯出優化
+**白板分組**
+- [x] 自訂 Frame 外觀（FigJam Section 風格，標題於外部上方，卡片隨 Frame 移動）
 
 ### 🚀 v1.2.0（規劃中）
 
+- [ ] 架構重構（App.tsx / useBoardManager 拆分）
+- [ ] 搜尋效能優化
+- [ ] 圖片上傳體驗改善
+- [ ] 白板唯讀快照分享
+- [ ] PDF 匯出優化
 - [ ] AI 輔助功能（摘要/待辦拆解/週回顧草稿）
 - [ ] 可選雲端同步
 - [ ] macOS / Linux 支援

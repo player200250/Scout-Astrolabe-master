@@ -44,7 +44,7 @@ interface TLCardProps {
     h: number           // 預設 320
 
     // ── 類型 ──
-    type: CardType      // 'text' | 'image' | 'todo' | 'link' | 'board' | 'journal'
+    type: CardType      // 'text' | 'image' | 'todo' | 'link' | 'board' | 'journal' | 'heading' | 'sticky' | 'table' | 'color' | 'file'
 
     // ── 顏色 ──
     color: CardColor    // 見下方 CARD_COLORS
@@ -76,6 +76,23 @@ interface TLCardProps {
     state: CardState    // 'idle' | 'editing'
     preview?: boolean   // true 時顯示全螢幕圖片預覽（image 類型用）
 
+    // ── Sticky ──
+    stickyColor?: StickyColor       // 'yellow' | 'blue' | 'green' | 'pink' | 'purple'
+
+    // ── Table ──
+    tableColumns?: number           // 2 | 3 | 4
+    tableRows?: TableRow[]
+
+    // ── Color Swatch ──
+    mainColor?: string              // HEX 字串，主色
+    extraColors?: string[]          // 最多 8 個額外顏色
+
+    // ── File ──
+    storedName?: string             // userData/files/ 下的檔案名稱（UUID + ext）
+    originalName?: string           // 原始檔案名稱
+    fileSize?: number               // 位元組
+    fileExt?: string                // 副檔名（含 '.'）
+
     // ── 卡片屬性 ──
     tags?: string[] | null
     cardStatus?: CardStatusType | null   // 'none' | 'todo' | 'in-progress' | 'done'
@@ -87,6 +104,13 @@ interface TodoItem {
     text: string
     checked: boolean
     dueDate?: string | null   // 'YYYY-MM-DD'
+}
+
+type StickyColor = 'yellow' | 'blue' | 'green' | 'pink' | 'purple'
+
+interface TableRow {
+    id: string
+    cells: string[]   // 長度等於 tableColumns
 }
 ```
 
@@ -135,6 +159,53 @@ interface TodoItem {
 - 雙擊 / 點擊右上角 ⛶ 按鈕 → `preview: true` → 全螢幕 Modal（Portal 到 body）
 - `pointerEvents: 'auto'` 以便接收 hover 事件（顯示 ⛶ 按鈕）
 - 壓縮邏輯在 `WhiteboardTools.compressImage()`：有透明度保 PNG，否則轉 JPEG 0.8 品質，5 秒 timeout
+
+### heading
+
+- 透明背景，大字標題，純展示用途
+- `text` 儲存標題內容（純文字，非 HTML）
+- `color` 控制文字顏色，連動 `CARD_COLORS[color].accent`
+- 無 `CardPropsBar`（無狀態 / 優先度 / 標籤屬性列）
+
+### sticky
+
+- `stickyColor` 決定便利貼顏色，預設 `'yellow'`
+- 正方形佈局（預設 `w: 200, h: 200`）
+- 右下角 CSS 摺角效果（偽元素三角形）
+- 雙擊進入 `state: 'editing'`，inline 直接編輯文字
+
+| stickyColor | 背景色 |
+|-------------|--------|
+| yellow | `#fef08a` |
+| blue | `#bfdbfe` |
+| green | `#bbf7d0` |
+| pink | `#fbcfe8` |
+| purple | `#e9d5ff` |
+
+### table
+
+- `tableColumns` 決定欄數（2 / 3 / 4），預設 `2`
+- `tableRows` 陣列存每列資料，每列有 `cells[]`（長度等於 `tableColumns`）
+- 雙擊任意儲存格進入編輯，Tab 鍵移至下一格，Enter 新增列
+- 行高固定，欄寬平均分配
+- 最後一列可按 Delete 鍵刪除（空列）
+
+### color
+
+- `mainColor` 必填，HEX 字串（如 `'#3b82f6'`）
+- `extraColors` 最多 8 個，`[]` 表示無額外顏色
+- 卡片顯示大色塊（`mainColor`）+ HEX 標籤
+- 額外顏色以小色點橫排顯示於主色塊下方
+- 雙擊主色塊或額外顏色進入 color picker 編輯
+
+### file
+
+- `storedName`：檔案在 `userData/files/` 中的名稱（`{UUID}{.ext}`）
+- `originalName`：原始檔名，顯示於卡片
+- `fileSize`：位元組，格式化後顯示（KB / MB）
+- `fileExt`：副檔名（含 `.`），用於決定圖示
+- 雙擊卡片 → 呼叫 `window.electronAPI.openFile(storedName)` 以系統預設程式開啟
+- 刪除卡片時需同步呼叫 `window.electronAPI.deleteFile(storedName)` 清除附件
 
 ### board
 
@@ -261,7 +332,8 @@ const CARD_PROP_DEFAULTS: Record<string, unknown> = {
 
 ## 維護注意事項
 
-- 新增 `CardType` 時需更新：`CardShape.ts`、`CardShapeUtil.onDoubleClick()`、`CardContent.tsx`（分派邏輯）、`snapshot.ts CARD_PROP_DEFAULTS`、`TrashPanel.getCardPreview()`、`DeleteBoardDialog.getTypeIcon()`。
+- 新增 `CardType` 時需更新：`CardShape.ts`、`CardShapeUtil.onDoubleClick()`、`CardContent.tsx`（分派邏輯）、`snapshot.ts CARD_PROP_DEFAULTS`、`TrashPanel.getCardPreview()`、`DeleteBoardDialog.getTypeIcon()`、`CardLibrary.tsx`（TYPE_ICON、TYPE_LABEL、ALL_TYPES）、`TIdrawToolPanel.tsx`（工具列按鈕）、`ContextMenu.tsx`（右鍵選單）。
+- 自訂 Frame 外觀由 `CustomFrameShapeUtil.tsx` 實作（extends `FrameShapeUtil`），在 `Whiteboard.tsx` 的 `shapeUtils` 陣列中取代預設 FrameShapeUtil。
 - `text` 欄位存 HTML，在搜尋（`SearchPanel`）、backlinks（`useBacklinks`）等地方都需要 strip HTML。各處有各自的 `stripHtml` 實作，目前未統一。
 - `preview` 欄位只有 image 類型使用，其他類型的值應為 `false`，但 `CARD_PROP_DEFAULTS` 中設為 `false` 而非 `undefined`。
 

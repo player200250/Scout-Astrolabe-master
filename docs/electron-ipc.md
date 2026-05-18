@@ -68,6 +68,9 @@ app.setPath('userData', path.join(app.getPath('appData'), 'Scout-Astrolabe'))
 | `load-document` | renderer → main | `{ snapshot: string } \| null` | 從 electron-store 讀取上次儲存的 snapshot |
 | `open-document` | renderer → main | `string \| null` | 開啟系統檔案選擇器（.json），回傳內容字串 |
 | `get-link-preview` | renderer → main | `{ title, description, thumbnail } \| null` | 以 `net.fetch` 抓取 URL 並用 regex 解析 og/meta tags |
+| `select-and-copy-file` | renderer → main | `{ storedName, originalName, fileSize, fileExt } \| null` | 開啟系統檔案選擇器（所有格式），將選取的檔案複製到 `userData/files/`，以 UUID 命名 |
+| `open-file` | renderer → main | `void` | 以系統預設程式開啟 `userData/files/` 中的指定檔案（`shell.openPath`） |
+| `delete-file` | renderer → main | `void` | 刪除 `userData/files/` 中的指定檔案 |
 
 ---
 
@@ -82,7 +85,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     loadDocument: () => ipcRenderer.invoke('load-document'),
     openDocument: () => ipcRenderer.invoke('open-document'),
     openLink: (url) => ipcRenderer.send('open-external-link', url),
-    getLinkPreview: (url) => ipcRenderer.invoke('get-link-preview', url)
+    getLinkPreview: (url) => ipcRenderer.invoke('get-link-preview', url),
+    selectAndCopyFile: () => ipcRenderer.invoke('select-and-copy-file'),
+    openFile: (storedName) => ipcRenderer.invoke('open-file', storedName),
+    deleteFile: (storedName) => ipcRenderer.invoke('delete-file', storedName),
 })
 ```
 
@@ -99,12 +105,22 @@ interface LoadDocumentResult {
     snapshot: string
 }
 
+interface FilePickResult {
+    storedName: string      // userData/files/ 中的檔案名稱（UUID + ext）
+    originalName: string    // 原始檔名
+    fileSize: number        // 位元組
+    fileExt: string         // 副檔名（含 '.'）
+}
+
 interface IElectronAPI {
     saveDocument: (document: string) => void
     loadDocument: () => Promise<LoadDocumentResult | null>
     openDocument: () => Promise<string | null>
     openLink: (url: string) => void
     getLinkPreview?: (url: string) => Promise<LinkPreviewResult | null>
+    selectAndCopyFile?: () => Promise<FilePickResult | null>
+    openFile?: (storedName: string) => Promise<void>
+    deleteFile?: (storedName: string) => Promise<void>
 }
 
 declare global {
