@@ -14,7 +14,6 @@ import { StickyContent } from './StickyContent'
 import { TableContent } from './TableContent'
 import { ColorSwatchContent } from './ColorSwatchContent'
 import { FileContent } from './FileContent'
-import { GroupContent } from './GroupContent'
 
 function TagsDisplay({ tags }: { tags: string[] }) {
     if (!tags.length) return null
@@ -131,7 +130,5 @@ export function CardContent({ editor, shape, isEditing, exitEdit }: CardContentP
             return <ColorSwatchContent shape={shape} />
         case 'file':
             return <FileContent shape={shape} />
-        case 'group':
-            return <GroupContent editor={editor} shape={shape} />
     }
 }

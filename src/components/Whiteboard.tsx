@@ -3,6 +3,7 @@ import { Tldraw, SelectTool, defaultTools, useEditor } from 'tldraw'
 import type { TLEditorSnapshot } from 'tldraw'
 import type { BoardRecord } from '../db'
 import { CardShapeUtil, BoardsContext, BacklinksContext } from './card-shape/CardShapeUtil'
+import { CustomFrameShapeUtil } from './CustomFrameShapeUtil'
 import { useBacklinks } from '../hooks/useBacklinks'
 import { WhiteboardTools } from './WhiteboardTools'
 import { Dashboard } from './Dashboard'
@@ -108,7 +109,7 @@ export function Whiteboard({
         >
             <BacklinksContext.Provider value={backlinksValue}>
                 <BoardsContext.Provider value={boardInfos}>
-                    <Tldraw hideUi={true} tools={customTools} shapeUtils={[CardShapeUtil]}>
+                    <Tldraw hideUi={true} tools={customTools} shapeUtils={[CardShapeUtil, CustomFrameShapeUtil]}>
                         <ThemeSync isDark={isDark} />
                         <WhiteboardTools
                             board={board}

@@ -144,24 +144,6 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
         })
     }, [editor])
 
-    const createGroupCard = useCallback((x?: number, y?: number) => {
-        const center = editor.getViewportScreenCenter()
-        const pageCenter = editor.screenToPage(center)
-        const id = createShapeId()
-        editor.createShape({
-            id,
-            type: 'card',
-            x: x !== undefined ? x - 200 : pageCenter.x - 200,
-            y: y !== undefined ? y - 150 : pageCenter.y - 150,
-            props: {
-                type: 'group', text: '群組', image: null, todos: [], url: '', linkEmbedUrl: null,
-                state: 'idle', color: 'none', cardStatus: 'none', priority: 'none', tags: [],
-                w: 400, h: 300,
-            },
-        })
-        setTimeout(() => editor.sendToBack([id]), 0)
-    }, [editor])
-
     const createColorCard = useCallback((x?: number, y?: number) => {
         const center = editor.getViewportScreenCenter()
         const pageCenter = editor.screenToPage(center)
@@ -240,9 +222,8 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
         createTableCard: (cols: number) => createTableCard(cols),
         createColorCard: () => createColorCard(),
         createFileCard: () => createFileCard(),
-        createGroupCard: () => createGroupCard(),
         openImageInput,
-    }), [createTextCard, createImageCard, createTodoCard, createLinkCard, createBoardCard, createColumnCard, createHeadingCard, createStickyCard, createTableCard, createColorCard, createFileCard, createGroupCard, openImageInput])
+    }), [createTextCard, createImageCard, createTodoCard, createLinkCard, createBoardCard, createColumnCard, createHeadingCard, createStickyCard, createTableCard, createColorCard, createFileCard, openImageInput])
 
     useEffect(() => {
         const handleBoardEnter = (event: Event) => {
@@ -318,7 +299,6 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
         createTableCard,
         createColorCard,
         createFileCard,
-        createGroupCard,
         openImageInput,
         createTextCardWithContent,
         isInboxBoard,

@@ -64,12 +64,10 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
     }
 
     override getGeometry(shape: TLCardShape) {
-        const isGroup = shape.props.type === 'group'
         return new Rectangle2d({
-            x: 0,
-            y: isGroup ? -28 : 0,
+            x: 0, y: 0,
             width: shape.props.w,
-            height: isGroup ? shape.props.h + 28 : shape.props.h,
+            height: shape.props.h,
             isFilled: true,
         })
     }
@@ -88,10 +86,6 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
 
     onDoubleClick(shape: TLCardShape) {
         const type = shape.props.type
-
-        if (type === 'group') {
-            return { id: shape.id, type: shape.type }
-        }
 
         if (type === 'image') {
             if (shape.props.image) {
@@ -154,23 +148,7 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
         const shouldInnerDivCaptureEvents = isEditing
         const colorStyle = CARD_COLORS[p.color ?? 'none']
         const isSticky = p.type === 'sticky'
-        const isGroup = p.type === 'group'
         const stickyStyle = isSticky ? STICKY_COLORS[toStickyColor(p.color)] : null
-
-        const groupAccent = (isGroup && p.color && p.color !== 'none') ? CARD_COLORS[p.color].accent : null
-        const groupBorder = groupAccent
-            ? `1.5px solid ${groupAccent}`
-            : isDark ? '1.5px solid #334155' : '1.5px solid #d1d5db'
-        const groupBg = (() => {
-            if (!isGroup) return undefined
-            if (groupAccent) {
-                const r = parseInt(groupAccent.slice(1, 3), 16)
-                const g = parseInt(groupAccent.slice(3, 5), 16)
-                const b = parseInt(groupAccent.slice(5, 7), 16)
-                return `rgba(${r},${g},${b},0.08)`
-            }
-            return isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)'
-        })()
 
         const exitEdit = () => {
             editor.updateShape({
@@ -240,14 +218,14 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
                         style={{
                             width: '100%', height: '100%',
                             position: 'relative',
-                            overflow: isGroup ? 'visible' : 'hidden',
+                            overflow: 'hidden',
                             display: 'flex', flexDirection: 'column',
                             borderRadius: 12,
-                            border: isGroup ? groupBorder : (p.type === 'heading' || isSticky) ? 'none' : isEditing ? '1.5px solid #2563eb' : isDark ? '1px solid #334155' : '1px solid #f0f0f0',
+                            border: (p.type === 'heading' || isSticky) ? 'none' : isEditing ? '1.5px solid #2563eb' : isDark ? '1px solid #334155' : '1px solid #f0f0f0',
                             padding: 0, boxSizing: 'border-box',
-                            pointerEvents: isGroup || shouldInnerDivCaptureEvents || p.type === 'image' || p.type === 'todo' || p.type === 'table' || p.type === 'color' || p.type === 'file' || (p.type === 'text' && p.text?.includes('[[')) ? 'auto' : 'none',
-                            cursor: isGroup ? 'grab' : shouldInnerDivCaptureEvents || p.type === 'image' || p.type === 'todo' || p.type === 'table' || p.type === 'color' || p.type === 'file' || (p.type === 'text' && p.text?.includes('[[')) ? 'default' : 'grab',
-                            boxShadow: isGroup ? 'none' : p.type === 'heading' ? 'none' : isSticky
+                            pointerEvents: shouldInnerDivCaptureEvents || p.type === 'image' || p.type === 'todo' || p.type === 'table' || p.type === 'color' || p.type === 'file' || (p.type === 'text' && p.text?.includes('[[')) ? 'auto' : 'none',
+                            cursor: shouldInnerDivCaptureEvents || p.type === 'image' || p.type === 'todo' || p.type === 'table' || p.type === 'color' || p.type === 'file' || (p.type === 'text' && p.text?.includes('[[')) ? 'default' : 'grab',
+                            boxShadow: p.type === 'heading' ? 'none' : isSticky
                                 ? isEditing
                                     ? '0 0 0 2px rgba(37,99,235,0.35), 0 2px 8px rgba(0,0,0,0.15)'
                                     : '0 2px 8px rgba(0,0,0,0.15)'
@@ -257,10 +235,10 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
                                         ? isDark ? '0 2px 8px rgba(0,0,0,0.30)' : '0 2px 8px rgba(0,0,0,0.08)'
                                         : 'none',
                             transition: 'box-shadow 0.15s ease-in-out, border-color 0.15s ease-in-out',
-                            backgroundColor: isGroup ? groupBg : p.type === 'heading' ? 'transparent' : isSticky ? (isDark ? stickyStyle!.darkBg : stickyStyle!.bg) : p.color === 'dark' ? '#1a1a2e' : (!p.color || p.color === 'none') ? (isDark ? '#1e293b' : '#ffffff') : colorStyle.bg,
+                            backgroundColor: p.type === 'heading' ? 'transparent' : isSticky ? (isDark ? stickyStyle!.darkBg : stickyStyle!.bg) : p.color === 'dark' ? '#1a1a2e' : (!p.color || p.color === 'none') ? (isDark ? '#1e293b' : '#ffffff') : colorStyle.bg,
                         }}
                     >
-                        {p.color && p.color !== 'none' && p.type !== 'image' && !isSticky && !isGroup && (
+                        {p.color && p.color !== 'none' && p.type !== 'image' && !isSticky && (
                             <div style={{
                                 height: 3, width: '100%', flexShrink: 0,
                                 backgroundColor: colorStyle.accent,
@@ -268,7 +246,7 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
                             }} />
                         )}
                         {/* 非編輯：status badge 左上角 */}
-                        {p.type !== 'heading' && !isSticky && !isGroup && !isEditing && p.cardStatus && p.cardStatus !== 'none' && STATUS_BADGE[p.cardStatus] && (
+                        {p.type !== 'heading' && !isSticky && !isEditing && p.cardStatus && p.cardStatus !== 'none' && STATUS_BADGE[p.cardStatus] && (
                             <div style={{
                                 position: 'absolute',
                                 top: p.color && p.color !== 'none' ? 8 : 5,
@@ -282,7 +260,7 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
                             </div>
                         )}
                         {/* 非編輯：priority 圓點右上角 */}
-                        {p.type !== 'heading' && !isSticky && !isGroup && !isEditing && p.priority && p.priority !== 'none' && PRIORITY_DOT[p.priority] && (
+                        {p.type !== 'heading' && !isSticky && !isEditing && p.priority && p.priority !== 'none' && PRIORITY_DOT[p.priority] && (
                             <div style={{
                                 position: 'absolute',
                                 top: p.color && p.color !== 'none' ? 10 : 7,
@@ -293,7 +271,7 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
                             }} />
                         )}
                         {/* 編輯模式：屬性列 */}
-                        {isEditing && !isSticky && !isGroup && (p.type === 'text' || p.type === 'todo' || p.type === 'journal') && (
+                        {isEditing && !isSticky && (p.type === 'text' || p.type === 'todo' || p.type === 'journal') && (
                             <CardPropsBar editor={editor} shape={shape} isDark={isDark} />
                         )}
                         <CardContent
