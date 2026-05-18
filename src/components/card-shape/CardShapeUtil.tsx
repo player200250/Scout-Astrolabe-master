@@ -64,10 +64,12 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
     }
 
     override getGeometry(shape: TLCardShape) {
+        const isGroup = shape.props.type === 'group'
         return new Rectangle2d({
-            x: 0, y: 0,
+            x: 0,
+            y: isGroup ? -28 : 0,
             width: shape.props.w,
-            height: shape.props.h,
+            height: isGroup ? shape.props.h + 28 : shape.props.h,
             isFilled: true,
         })
     }
