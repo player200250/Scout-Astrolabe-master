@@ -5,6 +5,7 @@ import type { DeletedCardRecord } from '../db'
 import { getISOWeekKey } from '../WeeklyReview'
 import { loadAllBoards, saveBoard, deleteBoard, generateId } from '../utils/boardDb'
 import { INBOX_BOARD_ID, BACKUP_THROTTLE_MS, JUMP_DELAY_MS } from '../constants'
+import { emitAppEvent, onAppEvent } from '../utils/appEvents'
 import {
     getSnapshotStore, withUpdatedStore, toMutableSnapshot, toTLEditorSnapshot,
     sanitizeSnapshot, sanitizeCardProps,
@@ -195,7 +196,7 @@ export function useBoardManager() {
             setActiveBoardId(parentId)
             setNavigationStack([parentId])
             setTimeout(() => {
-                window.dispatchEvent(new CustomEvent('create-board-card-on', { detail: { targetBoardId: parentId, linkedBoardId: boardId, boardName: childBoard.name } }))
+                emitAppEvent('create-board-card-on', { targetBoardId: parentId, linkedBoardId: boardId, boardName: childBoard.name })
             }, 400)
         }
         if (activeBoardId === boardId && parentId === null) setNavigationStack([boardId])
@@ -255,7 +256,7 @@ export function useBoardManager() {
         })
 
         setBoards(cleaned)
-        window.dispatchEvent(new CustomEvent('cleanup-orphan-board-cards', { detail: { deletedBoardId: id } }))
+        emitAppEvent('cleanup-orphan-board-cards', { deletedBoardId: id })
         refreshTrashCount()
     }, [activeBoardId, boards, refreshTrashCount])
 
@@ -382,9 +383,7 @@ export function useBoardManager() {
     }, [refreshTrashCount])
 
     useEffect(() => {
-        const handler = () => { refreshTrashCount() }
-        window.addEventListener('trash-count-changed', handler)
-        return () => window.removeEventListener('trash-count-changed', handler)
+        return onAppEvent('trash-count-changed', () => { refreshTrashCount() })
     }, [refreshTrashCount])
 
     const handleJump = useCallback((boardId: string, shapeId: string, x: number, y: number) => {
@@ -536,7 +535,7 @@ export function useBoardManager() {
             return b
         }))
 
-        window.dispatchEvent(new CustomEvent('delete-shape-from-editor', { detail: { shapeId } }))
+        emitAppEvent('delete-shape-from-editor', { shapeId })
     }, [boards])
 
     const handleGoToInbox = useCallback(() => {
@@ -588,9 +587,7 @@ export function useBoardManager() {
         saveBoard(updated)
         setBoards(prev => prev.map(b => b.id === inboxBoard.id ? updated : b))
 
-        window.dispatchEvent(new CustomEvent('quick-capture-card', {
-            detail: { text, x: maxX, y: 100, shapeId: newShapeId },
-        }))
+        emitAppEvent('quick-capture-card', { text, x: maxX, y: 100, shapeId: newShapeId })
     }, [boards])
 
     const handleReorderBoards = useCallback((activeId: string, overId: string) => {

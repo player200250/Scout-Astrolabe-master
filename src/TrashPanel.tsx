@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { db } from './db'
 import type { BoardRecord, DeletedCardRecord } from './db'
+import { emitAppEvent, onAppEvent } from './utils/appEvents'
 
 interface TrashPanelProps {
     onClose: () => void
@@ -76,9 +77,7 @@ export function TrashPanel({
     useEffect(() => { load() }, [load])
 
     useEffect(() => {
-        const handler = () => { load() }
-        window.addEventListener('trash-count-changed', handler)
-        return () => window.removeEventListener('trash-count-changed', handler)
+        return onAppEvent('trash-count-changed', () => { load() })
     }, [load])
 
     useEffect(() => {
@@ -93,7 +92,7 @@ export function TrashPanel({
             setDeletedCards(prev => prev.filter(c => c.id !== record.id))
             onCardRestored()
             // Dispatch an event so the active editor can re-add the shape if on the same board
-            window.dispatchEvent(new CustomEvent('restore-deleted-card', { detail: record }))
+            emitAppEvent('restore-deleted-card', record)
         } catch (err) {
             console.error('[Trash] 還原卡片失敗', err)
         }
@@ -102,9 +101,7 @@ export function TrashPanel({
     const handlePermanentDeleteCard = useCallback(async (id: string) => {
         const record: DeletedCardRecord | undefined = await db.table('deletedCards').get(id)
         if (record) {
-            window.dispatchEvent(new CustomEvent('permanent-delete-shape', {
-                detail: { shapeId: record.shapeId, boardId: record.boardId },
-            }))
+            emitAppEvent('permanent-delete-shape', { shapeId: record.shapeId, boardId: record.boardId })
             if (record.type === 'file') {
                 const props = (record.shapeData as { props?: { storedName?: string } })?.props
                 if (props?.storedName) {
@@ -114,7 +111,7 @@ export function TrashPanel({
         }
         await db.table('deletedCards').delete(id)
         setDeletedCards(prev => prev.filter(c => c.id !== id))
-        window.dispatchEvent(new CustomEvent('trash-count-changed'))
+        emitAppEvent('trash-count-changed')
     }, [])
 
     const handleRestoreBoardLocal = useCallback(async (id: string) => {
@@ -131,9 +128,7 @@ export function TrashPanel({
     const handleEmptyTrashLocal = useCallback(async () => {
         cancelConfirm()
         for (const card of deletedCards) {
-            window.dispatchEvent(new CustomEvent('permanent-delete-shape', {
-                detail: { shapeId: card.shapeId, boardId: card.boardId },
-            }))
+            emitAppEvent('permanent-delete-shape', { shapeId: card.shapeId, boardId: card.boardId })
             if (card.type === 'file') {
                 const props = (card.shapeData as { props?: { storedName?: string } })?.props
                 if (props?.storedName) {

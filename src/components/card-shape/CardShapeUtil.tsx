@@ -17,6 +17,7 @@ export type { TLCardShape } from './type/CardShape'
 import { CARD_COLORS, STICKY_COLORS, STICKY_COLOR_LIST } from './type/CardShape'
 import type { StickyColor } from './type/CardShape'
 import { Z_MODAL } from '../../constants'
+import { emitAppEvent, onAppEvent } from '../../utils/appEvents'
 
 function toStickyColor(color: string): StickyColor {
     return STICKY_COLOR_LIST.includes(color as StickyColor) ? (color as StickyColor) : 'yellow'
@@ -69,15 +70,12 @@ function CardShapeComponent({ shape, editor }: { shape: TLCardShape; editor: Edi
     }, [editor, shape.id, p.preview])
 
     useEffect(() => {
-        const handler = (e: Event) => {
-            const detail = (e as CustomEvent).detail
-            if (detail?.shapeId === shape.id) {
+        return onAppEvent('text-card-edit', ({ shapeId }) => {
+            if (shapeId === shape.id) {
                 editor.selectNone()
                 setShowTextModal(true)
             }
-        }
-        window.addEventListener('text-card-edit', handler)
-        return () => window.removeEventListener('text-card-edit', handler)
+        })
     }, [shape.id])
 
     const handleEscape = useCallback((e: KeyboardEvent) => {
@@ -394,9 +392,7 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
                 })
                 return { id: shape.id, type: shape.type }
             } else if (type === 'board') {
-                window.dispatchEvent(new CustomEvent('board-card-enter', {
-                    detail: { linkedBoardId: shape.props.linkedBoardId }
-                }))
+                emitAppEvent('board-card-enter', { linkedBoardId: shape.props.linkedBoardId ?? '' })
                 return { id: shape.id, type: shape.type }
             } else if (type === 'heading' || type === 'sticky') {
                 this.editor.updateShape({
@@ -416,9 +412,7 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
                 }
                 return { id: shape.id, type: shape.type }
             } else if (type === 'text' || type === 'journal') {
-                window.dispatchEvent(new CustomEvent('text-card-edit', {
-                    detail: { shapeId: shape.id }
-                }))
+                emitAppEvent('text-card-edit', { shapeId: shape.id })
                 return { id: shape.id, type: shape.type }
             }
         }

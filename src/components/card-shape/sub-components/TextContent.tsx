@@ -11,6 +11,7 @@ import { CodeBlockLowlight } from '@tiptap/extension-code-block-lowlight'
 import { createLowlight, common } from 'lowlight'
 import { BacklinksContext } from '../../../hooks/useBacklinks'
 import { Z_MODAL } from '../../../constants'
+import { emitAppEvent } from '../../../utils/appEvents'
 
 // 建立 lowlight 實例（包含常用語言）
 const lowlight = createLowlight(common)
@@ -222,7 +223,7 @@ export function TextContent({ editor: tldrawEditor, shape, isEditing, exitEdit, 
             e.stopPropagation()
             e.preventDefault()
             const name = decodeURIComponent(encoded)
-            window.dispatchEvent(new CustomEvent('jump-to-card', { detail: { targetName: name } }))
+            emitAppEvent('jump-to-card', { targetName: name })
         }
         el.addEventListener('pointerdown', handler, { capture: true })
         return () => el.removeEventListener('pointerdown', handler, { capture: true })

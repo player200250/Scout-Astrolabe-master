@@ -1,6 +1,7 @@
 import { useState, useContext } from 'react'
 import { useIsDarkMode } from '@tldraw/editor'
 import { BacklinksContext, extractCardName, type BacklinkEntry } from '../../../hooks/useBacklinks'
+import { emitAppEvent } from '../../../utils/appEvents'
 
 interface BacklinksPanelProps {
     shapeId: string
@@ -87,9 +88,7 @@ export function BacklinksPanel({ shapeId, htmlContent }: BacklinksPanelProps) {
                                     onPointerDown={e => {
                                         e.stopPropagation()
                                         e.preventDefault()
-                                        window.dispatchEvent(new CustomEvent('jump-to-card', {
-                                            detail: { targetName: name }
-                                        }))
+                                        emitAppEvent('jump-to-card', { targetName: name })
                                         setExpanded(false)
                                     }}
                                     style={{ padding: '6px 12px', cursor: 'pointer', fontSize: 12, color: '#3b82f6', display: 'flex', alignItems: 'center', gap: 6 }}
@@ -118,14 +117,12 @@ export function BacklinksPanel({ shapeId, htmlContent }: BacklinksPanelProps) {
                                     onPointerDown={e => {
                                         e.stopPropagation()
                                         e.preventDefault()
-                                        window.dispatchEvent(new CustomEvent('jump-to-card', {
-                                            detail: {
-                                                boardId: entry.boardId,
-                                                shapeId: entry.shapeId,
-                                                x: entry.x,
-                                                y: entry.y,
-                                            }
-                                        }))
+                                        emitAppEvent('jump-to-card', {
+                                            boardId: entry.boardId,
+                                            shapeId: entry.shapeId,
+                                            x: entry.x,
+                                            y: entry.y,
+                                        })
                                         setExpanded(false)
                                     }}
                                     style={{ padding: '6px 12px', cursor: 'pointer', fontSize: 12 }}

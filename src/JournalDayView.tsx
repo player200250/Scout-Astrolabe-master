@@ -87,12 +87,14 @@ export function JournalDayContent({ date, boards, onSaveJournal, onDateChange, o
 
     useEffect(() => {
         skipUpdate.current = true
-        const c = findCard(boards, ds)
+        // cardRef.current 是 findCard(boards, ds) 的 ref mirror，已在每次 render 更新
+        // 使用 ref 避免 boards 成為 dep（我們只關心日期切換，不關心 boards 其他卡片變更）
+        const c = cardRef.current
         tiptap?.commands.setContent(c?.text ?? defaultTemplate(ds), false)
         setSaveStatus('saved')
         const t = setTimeout(() => { skipUpdate.current = false }, 120)
         return () => clearTimeout(t)
-    }, [ds]) // eslint-disable-line react-hooks/exhaustive-deps
+    }, [ds, tiptap])
 
     useEffect(() => {
         skipUpdate.current = false

@@ -17,6 +17,7 @@ import { saveCardToTrash, getCardPreview } from '../TrashPanel'
 import { sanitizeSnapshot, sanitizeCardProps } from '../utils/snapshot'
 import type { SnapshotShapeProps } from '../utils/snapshot'
 import { JUMP_DELAY_MS, Z_TOOL_SUBMENU } from '../constants'
+import { emitAppEvent, onAppEvent } from '../utils/appEvents'
 
 function isCardShape(s: { type: string }): s is TLCardShape {
     return s.type === 'card'
@@ -227,34 +228,23 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
     }), [createTextCard, createImageCard, createTodoCard, createLinkCard, createBoardCard, createColumnCard, createHeadingCard, createStickyCard, createTableCard, createColorCard, createFileCard, openImageInput])
 
     useEffect(() => {
-        const handleBoardEnter = (event: Event) => {
-            const e = event as CustomEvent<{ linkedBoardId: string }>
-            const { linkedBoardId } = e.detail
+        return onAppEvent('board-card-enter', ({ linkedBoardId }) => {
             if (linkedBoardId) onSwitchBoard(linkedBoardId)
-        }
-        window.addEventListener('board-card-enter', handleBoardEnter)
-        return () => window.removeEventListener('board-card-enter', handleBoardEnter)
+        })
     }, [onSwitchBoard])
 
     useEffect(() => {
-        const handler = (event: Event) => {
-            const e = event as CustomEvent<{ deletedBoardId: string }>
-            const { deletedBoardId } = e.detail
+        return onAppEvent('cleanup-orphan-board-cards', ({ deletedBoardId }) => {
             const orphans = editor.getCurrentPageShapes()
                 .filter(isCardShape)
                 .filter(s => s.props.type === 'board' && s.props.linkedBoardId === deletedBoardId)
                 .map(s => s.id)
             if (orphans.length > 0) editor.deleteShapes(orphans)
-        }
-        window.addEventListener('cleanup-orphan-board-cards', handler)
-        return () => window.removeEventListener('cleanup-orphan-board-cards', handler)
+        })
     }, [editor])
 
     useEffect(() => {
-        const handler = (event: Event) => {
-            const e = event as CustomEvent<{ boardId?: string; shapeId?: string; x?: number; y?: number; targetName?: string }>
-            const { boardId, shapeId, x, y, targetName } = e.detail ?? {}
-
+        return onAppEvent('jump-to-card', ({ boardId, shapeId, x, y, targetName }) => {
             if (targetName) {
                 const target = boards.find(b => b.name.toLowerCase() === targetName.toLowerCase())
                 if (target) onSwitchBoard(target.id)
@@ -269,15 +259,11 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
                 onSwitchBoard(boardId)
                 setTimeout(() => jumpRef.current?.(shapeId, x ?? 0, y ?? 0), JUMP_DELAY_MS)
             }
-        }
-        window.addEventListener('jump-to-card', handler)
-        return () => window.removeEventListener('jump-to-card', handler)
+        })
     }, [boards, board.id, onSwitchBoard, jumpRef])
 
     useEffect(() => {
-        const handler = (event: Event) => {
-            const e = event as CustomEvent<{ targetBoardId: string; linkedBoardId: string; boardName: string }>
-            const { targetBoardId, linkedBoardId, boardName } = e.detail
+        return onAppEvent('create-board-card-on', ({ targetBoardId, linkedBoardId, boardName }) => {
             if (targetBoardId !== board.id) return
             const center = editor.getViewportScreenCenter()
             const pageCenter = editor.screenToPage(center)
@@ -285,9 +271,7 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
                 type: 'card', x: pageCenter.x - 140, y: pageCenter.y - 100,
                 props: { type: 'board', text: boardName, image: null, todos: [], url: '', linkEmbedUrl: null, linkedBoardId, state: 'idle', color: 'none', w: 280, h: 320 }
             })
-        }
-        window.addEventListener('create-board-card-on', handler)
-        return () => window.removeEventListener('create-board-card-on', handler)
+        })
     }, [board.id, editor])
 
     const { menuElement } = useContextMenu({
@@ -312,21 +296,18 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
     })
 
     useEffect(() => {
-        const h = (event: Event) => { const e = event as CustomEvent<{ shapeId: string }>; if (editor) editor.deleteShapes([e.detail.shapeId as TLShapeId]) }
-        window.addEventListener('delete-shape-from-editor', h)
-        return () => window.removeEventListener('delete-shape-from-editor', h)
+        return onAppEvent('delete-shape-from-editor', ({ shapeId }) => {
+            if (editor) editor.deleteShapes([shapeId as TLShapeId])
+        })
     }, [editor])
 
     // When a shape is permanently deleted from trash, clear undo history so Ctrl+Z cannot restore it
     useEffect(() => {
-        const handler = (e: Event) => {
-            const { shapeId, boardId } = (e as CustomEvent<{ shapeId: string; boardId: string }>).detail
+        return onAppEvent('permanent-delete-shape', ({ shapeId, boardId }) => {
             if (boardId !== board.id) return
             recentlyTrashedShapeIds.current.delete(shapeId)
             editor.clearHistory()
-        }
-        window.addEventListener('permanent-delete-shape', handler)
-        return () => window.removeEventListener('permanent-delete-shape', handler)
+        })
     }, [editor, board.id])
 
     // When Ctrl+Z restores a trashed shape, remove it from the trash DB
@@ -341,7 +322,7 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
                     recentlyTrashedShapeIds.current.delete(id)
                     try {
                         await db.table('deletedCards').where('shapeId').equals(id).delete()
-                        window.dispatchEvent(new CustomEvent('trash-count-changed'))
+                        emitAppEvent('trash-count-changed')
                     } catch (err) {
                         console.error('[Trash] undo sync failed', err)
                     }
@@ -353,9 +334,7 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
 
     // Restore a card from trash back into this board's editor
     useEffect(() => {
-        const handler = (event: Event) => {
-            const e = event as CustomEvent<{ shapeId: string; boardId: string; shapeData: unknown }>
-            const { boardId: targetBoardId, shapeData } = e.detail
+        return onAppEvent('restore-deleted-card', ({ boardId: targetBoardId, shapeData }) => {
             if (targetBoardId !== board.id) return
             if (!shapeData || typeof shapeData !== 'object') return
             try {
@@ -363,16 +342,12 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
             } catch {
                 // shape may have changed format; skip silently
             }
-        }
-        window.addEventListener('restore-deleted-card', handler)
-        return () => window.removeEventListener('restore-deleted-card', handler)
+        })
     }, [editor, board.id])
 
     useEffect(() => {
-        const handler = (event: Event) => {
+        return onAppEvent('quick-capture-card', ({ text, x, y, shapeId }) => {
             if (!isInboxBoard) return
-            const e = event as CustomEvent<{ text: string; x: number; y: number; shapeId: string }>
-            const { text, x, y, shapeId } = e.detail
             editor.createShape({
                 id: shapeId as TLShapeId,
                 type: 'card', x, y,
@@ -384,9 +359,7 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
                     cardStatus: 'none', priority: 'none', tags: [],
                 },
             })
-        }
-        window.addEventListener('quick-capture-card', handler)
-        return () => window.removeEventListener('quick-capture-card', handler)
+        })
     }, [editor, isInboxBoard])
 
     useHotkeys(editor, {

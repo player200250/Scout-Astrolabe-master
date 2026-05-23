@@ -69,12 +69,14 @@ interface WeeklyReviewContentProps {
 }
 
 export function WeeklyReviewContent({ boards, onGoToWeeklyCard, isDark }: WeeklyReviewContentProps) {
-    const today = new Date()
-    const { start: weekStart, end: weekEnd, weekNum } = getWeekRange(today)
+    // 週期邊界以 useMemo 穩定化，避免每次 render 產生新 Date 物件影響 deps
+    const { start: weekStart, end: weekEnd, weekNum } = useMemo(
+        () => getWeekRange(new Date()),
+        [] // 每次掛載計算一次；週回顧頁面重新開啟時自然更新
+    )
     const stats = useMemo(
         () => computeWeekStats(boards, weekStart, weekEnd),
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        [boards, weekStart.getTime(), weekEnd.getTime()]
+        [boards, weekStart, weekEnd]
     )
 
     const startLabel = `${weekStart.getMonth() + 1}/${weekStart.getDate()}`
