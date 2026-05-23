@@ -16,7 +16,7 @@ import { QuickCapture } from './components/QuickCapture'
 import { OnboardingModal } from './components/OnboardingModal'
 import { TrashPanel } from './TrashPanel'
 import { DeleteBoardDialog } from './components/DeleteBoardDialog'
-import { SIDEBAR_WIDTH, SIDEBAR_COLLAPSED_WIDTH, INBOX_BOARD_ID } from './constants'
+import { SIDEBAR_WIDTH, SIDEBAR_COLLAPSED_WIDTH, INBOX_BOARD_ID, JUMP_DELAY_MS, Z_MODAL_BACKDROP } from './constants'
 import { getCardShapes } from './utils/snapshot'
 import { getTodayStr } from './utils/date'
 import 'tldraw/tldraw.css'
@@ -298,7 +298,7 @@ export default function App() {
                     onJumpToCard={(boardId, shapeId) => {
                         setKnowledgeGraphOpen(false)
                         handleSwitch(boardId)
-                        setTimeout(() => jumpRef.current?.(shapeId, 0, 0), 400)
+                        setTimeout(() => jumpRef.current?.(shapeId, 0, 0), JUMP_DELAY_MS)
                     }}
                     onSwitchBoard={boardId => {
                         setKnowledgeGraphOpen(false)
@@ -356,7 +356,7 @@ export default function App() {
             )}
             {overdueBannerVisible && (
                 <div style={{
-                    position: 'fixed', bottom: 24, left: 24, zIndex: 99998,
+                    position: 'fixed', bottom: 24, left: 24, zIndex: Z_MODAL_BACKDROP,
                     background: isDark ? '#1e293b' : 'white',
                     border: `1px solid ${isDark ? '#475569' : '#fecaca'}`,
                     borderRadius: 14, padding: '14px 18px',

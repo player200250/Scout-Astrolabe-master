@@ -7,6 +7,7 @@ import TextStyle from '@tiptap/extension-text-style'
 import { Color } from '@tiptap/extension-color'
 import type { BoardRecord } from './db'
 import { getSnapshotStore } from './utils/snapshot'
+import { SAVE_STATUS_RESET_MS } from './constants'
 
 function toDateStr(d: Date): string {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -79,7 +80,7 @@ export function JournalDayContent({ date, boards, onSaveJournal, onDateChange, o
                 setSaveStatus('saving')
                 const c = cardRef.current
                 onSaveJournal(c?.boardId ?? journalBoardIdRef.current ?? '', dsRef.current, editor.getHTML(), c?.shapeId ?? null)
-                setTimeout(() => setSaveStatus('saved'), 400)
+                setTimeout(() => setSaveStatus('saved'), SAVE_STATUS_RESET_MS)
             }, 900)
         },
     })

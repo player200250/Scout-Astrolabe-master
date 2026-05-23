@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, type ReactNode } from "react"
 import { useEditor, DefaultColorStyle, DefaultSizeStyle } from "tldraw"
+import { Z_TOOL_SUBMENU, Z_MODAL } from "./constants"
 import type { TLDefaultColorStyle, TLDefaultSizeStyle } from "tldraw"
 import { GeoShapeGeoStyle } from "@tldraw/tlschema"
 import type { TLGeoShapeGeoStyle } from "@tldraw/tlschema"
@@ -195,7 +196,7 @@ function Tooltip({ label }: { label: string }) {
             position: 'absolute', left: 44, top: '50%', transform: 'translateY(-50%)',
             background: '#1a1a1a', color: 'white', fontSize: 12,
             padding: '4px 8px', borderRadius: 6, whiteSpace: 'nowrap',
-            pointerEvents: 'none', zIndex: 99999,
+            pointerEvents: 'none', zIndex: Z_MODAL,
             boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
         }}>
             {label}
@@ -267,7 +268,7 @@ function TableCardButton({
                     background: panelBg, borderRadius: 10,
                     boxShadow: isDark ? '0 4px 20px rgba(0,0,0,0.5)' : '0 4px 20px rgba(0,0,0,0.15)',
                     border: `1px solid ${panelBorder}`,
-                    padding: '4px 0', zIndex: 99999, minWidth: 90,
+                    padding: '4px 0', zIndex: Z_MODAL, minWidth: 90,
                 }}>
                     <div style={{ fontSize: 11, color: isDark ? '#94a3b8' : '#9ca3af', padding: '6px 12px 4px', fontWeight: 600, letterSpacing: '0.04em' }}>欄數</div>
                     {[2, 3, 4].map(cols => (
@@ -453,7 +454,7 @@ function AlignSubmenu({ onAlign, isDark, alignMenuBg, alignMenuBorder, btnHover 
                     boxShadow: isDark ? '0 4px 16px rgba(0,0,0,0.4)' : '0 4px 16px rgba(0,0,0,0.12)',
                     border: `1px solid ${menuBorder}`, padding: 6,
                     display: 'grid', gridTemplateColumns: '1fr 1fr 1fr',
-                    gap: 4, zIndex: 99999,
+                    gap: 4, zIndex: Z_MODAL,
                 }}>
                     {alignButtons.map(btn => (
                         <button
@@ -541,7 +542,7 @@ function DrawButton({
                     background: panelBg, borderRadius: 12,
                     boxShadow: isDark ? '0 4px 20px rgba(0,0,0,0.5)' : '0 4px 20px rgba(0,0,0,0.15)',
                     border: `1px solid ${panelBorder}`,
-                    padding: '10px 12px', zIndex: 99999, minWidth: 184,
+                    padding: '10px 12px', zIndex: Z_MODAL, minWidth: 184,
                 }}>
                     <div style={{ fontSize: 11, color: isDark ? '#94a3b8' : '#9ca3af', marginBottom: 8, fontWeight: 600, letterSpacing: '0.04em' }}>顏色</div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, marginBottom: 12 }}>
@@ -652,7 +653,7 @@ function EraserButton({
                     background: panelBg, borderRadius: 12,
                     boxShadow: isDark ? '0 4px 20px rgba(0,0,0,0.5)' : '0 4px 20px rgba(0,0,0,0.15)',
                     border: `1px solid ${panelBorder}`,
-                    padding: '10px 12px', zIndex: 99999, minWidth: 152,
+                    padding: '10px 12px', zIndex: Z_MODAL, minWidth: 152,
                 }}>
                     <div style={{ fontSize: 11, color: isDark ? '#94a3b8' : '#9ca3af', marginBottom: 8, fontWeight: 600, letterSpacing: '0.04em' }}>大小</div>
                     <div style={{ display: 'flex', gap: 5 }}>
@@ -742,7 +743,7 @@ function HighlightButton({
                     background: panelBg, borderRadius: 12,
                     boxShadow: isDark ? '0 4px 20px rgba(0,0,0,0.5)' : '0 4px 20px rgba(0,0,0,0.15)',
                     border: `1px solid ${panelBorder}`,
-                    padding: '10px 12px', zIndex: 99999, minWidth: 152,
+                    padding: '10px 12px', zIndex: Z_MODAL, minWidth: 152,
                 }}>
                     <div style={{ fontSize: 11, color: isDark ? '#94a3b8' : '#9ca3af', marginBottom: 8, fontWeight: 600, letterSpacing: '0.04em' }}>大小</div>
                     <div style={{ display: 'flex', gap: 5 }}>
@@ -961,7 +962,7 @@ export default function TldrawToolPanel({
                         ? '0 4px 24px rgba(0,0,0,0.45), 0 1px 3px rgba(0,0,0,0.3)'
                         : '0 4px 20px rgba(0,0,0,0.09), 0 1px 3px rgba(0,0,0,0.05)',
                     border: panelBorder,
-                    pointerEvents: 'auto', zIndex: 9999,
+                    pointerEvents: 'auto', zIndex: Z_TOOL_SUBMENU,
                 }}
                 onDragOver={(e) => e.preventDefault()}
             >

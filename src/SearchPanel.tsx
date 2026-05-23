@@ -1,6 +1,7 @@
 // src/SearchPanel.tsx
 import { useState, useEffect, useRef, useCallback } from 'react'
 import type { TLEditorSnapshot } from 'tldraw'
+import { Z_MODAL_BACKDROP, Z_MODAL } from './constants'
 
 interface BoardRecord {
     id: string
@@ -164,11 +165,11 @@ export function SearchPanel({ boards, onJump, onClose, isDark }: SearchPanelProp
 
     return (
         <>
-            <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.25)', zIndex: 99998 }} />
+            <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.25)', zIndex: Z_MODAL_BACKDROP }} />
             <div style={{
                 position: 'fixed', top: '15%', left: '50%', transform: 'translateX(-50%)',
                 width: 520, maxWidth: '90vw', background: bg,
-                borderRadius: 14, boxShadow: '0 8px 40px rgba(0,0,0,0.18)', zIndex: 99999, overflow: 'hidden',
+                borderRadius: 14, boxShadow: '0 8px 40px rgba(0,0,0,0.18)', zIndex: Z_MODAL, overflow: 'hidden',
             }}>
                 <div style={{
                     display: 'flex', alignItems: 'center',

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Z_CLICK_AWAY, Z_MODAL_BACKDROP } from '../constants'
 
 interface SidebarFooterProps {
     onOpenFilter: () => void
@@ -56,14 +57,14 @@ export function SidebarFooter({ onOpenFilter, onOpenBackup, onHotkey, isDark, on
                     >⋯</button>
                     {moreMenuOpen && (
                         <>
-                            <div style={{ position: 'fixed', inset: 0, zIndex: 99997 }} onClick={() => setMoreMenuOpen(false)} />
+                            <div style={{ position: 'fixed', inset: 0, zIndex: Z_CLICK_AWAY }} onClick={() => setMoreMenuOpen(false)} />
                             <div style={{
                                 position: 'absolute', bottom: 34, right: 0,
                                 background: isDark ? '#1e293b' : 'white',
                                 border: `1px solid ${isDark ? '#334155' : 'rgba(0,0,0,0.08)'}`,
                                 borderRadius: 10, padding: '4px 0',
                                 boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
-                                zIndex: 99998, minWidth: 160,
+                                zIndex: Z_MODAL_BACKDROP, minWidth: 160,
                             }}>
                                 <div
                                     onClick={() => { setMoreMenuOpen(false); onOpenOnboarding() }}

@@ -1,5 +1,6 @@
 // src/HotkeyPanel.tsx
 import { isMac } from './Usehotkeys'
+import { Z_MODAL_BACKDROP, Z_MODAL } from './constants'
 
 const MOD = isMac ? '⌘' : 'Ctrl'
 
@@ -116,7 +117,7 @@ export function HotkeyPanel({ onClose }: HotkeyPanelProps) {
             {/* 背景遮罩 */}
             <div
                 onClick={onClose}
-                style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.3)', zIndex: 99998 }}
+                style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.3)', zIndex: Z_MODAL_BACKDROP }}
             />
 
             {/* 面板 */}
@@ -131,7 +132,7 @@ export function HotkeyPanel({ onClose }: HotkeyPanelProps) {
                 background: '#fff',
                 borderRadius: 14,
                 boxShadow: '0 12px 48px rgba(0,0,0,0.2)',
-                zIndex: 99999,
+                zIndex: Z_MODAL,
                 display: 'flex',
                 flexDirection: 'column',
                 overflow: 'hidden',

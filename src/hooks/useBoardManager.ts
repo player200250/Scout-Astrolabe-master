@@ -4,7 +4,7 @@ import { db, saveAutoBackup, type BoardRecord } from '../db'
 import type { DeletedCardRecord } from '../db'
 import { getISOWeekKey } from '../WeeklyReview'
 import { loadAllBoards, saveBoard, deleteBoard, generateId } from '../utils/boardDb'
-import { INBOX_BOARD_ID, BACKUP_THROTTLE_MS } from '../constants'
+import { INBOX_BOARD_ID, BACKUP_THROTTLE_MS, JUMP_DELAY_MS } from '../constants'
 import {
     getSnapshotStore, withUpdatedStore, toMutableSnapshot, toTLEditorSnapshot,
     sanitizeSnapshot, sanitizeCardProps,
@@ -390,7 +390,7 @@ export function useBoardManager() {
     const handleJump = useCallback((boardId: string, shapeId: string, x: number, y: number) => {
         if (boardId !== activeBoardId) {
             setActiveBoardId(boardId)
-            setTimeout(() => jumpRef.current?.(shapeId, x, y), 350)
+            setTimeout(() => jumpRef.current?.(shapeId, x, y), JUMP_DELAY_MS)
         } else {
             jumpRef.current?.(shapeId, x, y)
         }
@@ -440,7 +440,7 @@ export function useBoardManager() {
         if (journalBoard.id !== activeBoardId) {
             setActiveBoardId(journalBoard.id)
             setNavigationStack([journalBoard.id])
-            if (cardId) setTimeout(() => jumpRef.current?.(cardId!, cardX, cardY), 400)
+            if (cardId) setTimeout(() => jumpRef.current?.(cardId!, cardX, cardY), JUMP_DELAY_MS)
         } else if (cardId) {
             jumpRef.current?.(cardId, cardX, cardY)
         }

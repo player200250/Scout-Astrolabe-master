@@ -16,6 +16,7 @@ import type { TLCardShape } from './type/CardShape'
 export type { TLCardShape } from './type/CardShape'
 import { CARD_COLORS, STICKY_COLORS, STICKY_COLOR_LIST } from './type/CardShape'
 import type { StickyColor } from './type/CardShape'
+import { Z_MODAL } from '../../constants'
 
 function toStickyColor(color: string): StickyColor {
     return STICKY_COLOR_LIST.includes(color as StickyColor) ? (color as StickyColor) : 'yellow'
@@ -193,7 +194,7 @@ function CardShapeComponent({ shape, editor }: { shape: TLCardShape; editor: Edi
                         backgroundColor: 'rgba(0,0,0,0.92)',
                         display: 'flex', flexDirection: 'column',
                         justifyContent: 'center', alignItems: 'center',
-                        zIndex: 99999, cursor: 'zoom-out',
+                        zIndex: Z_MODAL, cursor: 'zoom-out',
                         pointerEvents: 'auto',
                     }}
                     onPointerDown={(e) => {
@@ -292,7 +293,7 @@ function CardShapeComponent({ shape, editor }: { shape: TLCardShape; editor: Edi
                         width: '100vw', height: '100vh',
                         backgroundColor: 'rgba(0,0,0,0.45)',
                         display: 'flex', justifyContent: 'center', alignItems: 'center',
-                        zIndex: 99999, pointerEvents: 'auto',
+                        zIndex: Z_MODAL, pointerEvents: 'auto',
                     }}
                     onPointerDown={(e) => {
                         // 只有點到背景本身（不是 modal 內容）才關閉

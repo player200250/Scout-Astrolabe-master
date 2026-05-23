@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
+import { Z_MODAL_BACKDROP, Z_MODAL } from '../constants'
 
 interface TrashDialogProps {
     message: string
@@ -38,14 +39,14 @@ export function TrashDialog({
     return createPortal(
         <>
             <div
-                style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 99998 }}
+                style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: Z_MODAL_BACKDROP }}
                 onClick={onCancel}
             />
             <div style={{
                 position: 'fixed', top: '50%', left: '50%',
                 transform: 'translate(-50%,-50%)',
                 background: bg, borderRadius: 14, padding: '24px', width: 360,
-                boxShadow: '0 8px 40px rgba(0,0,0,0.3)', zIndex: 99999,
+                boxShadow: '0 8px 40px rgba(0,0,0,0.3)', zIndex: Z_MODAL,
                 border: `1px solid ${border}`,
                 display: 'flex', flexDirection: 'column', gap: 12,
             }}>

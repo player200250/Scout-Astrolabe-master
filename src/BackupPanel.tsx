@@ -1,6 +1,7 @@
 // src/BackupPanel.tsx
 import { useState, useEffect } from 'react'
 import { loadBackups, deleteBackup, type BackupRecord, type BoardRecord } from './db'
+import { Z_PANEL, Z_BACKUP_PANEL } from './constants'
 
 interface BackupPanelProps {
     sidebarWidth: number
@@ -68,17 +69,17 @@ export function BackupPanel({ sidebarWidth, onClose, onRestore, isDark }: Backup
 
     return (
         <>
-            <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.2)', zIndex: 19998 }} />
+            <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.2)', zIndex: Z_PANEL - 1 }} />
 
             {confirmRestore && (
                 <>
-                    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 29999 }} />
+                    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: Z_BACKUP_PANEL }} />
                     <div style={{
                         position: 'fixed', top: '50%', left: '50%',
                         transform: 'translate(-50%,-50%)',
                         background: dialogBg, borderRadius: 14, padding: 24,
                         boxShadow: '0 8px 40px rgba(0,0,0,0.2)',
-                        zIndex: 30000, width: 320,
+                        zIndex: Z_BACKUP_PANEL + 1, width: 320,
                         border: `1px solid ${borderCol}`,
                     }}>
                         <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8, color: titleColor }}>⚠️ 確認還原備份</div>
@@ -105,7 +106,7 @@ export function BackupPanel({ sidebarWidth, onClose, onRestore, isDark }: Backup
                 position: 'fixed', top: 0, right: sidebarWidth, width: 320, bottom: 0,
                 background: panelBg, borderLeft: `1px solid ${borderCol}`,
                 boxShadow: '-4px 0 24px rgba(0,0,0,0.10)',
-                zIndex: 19999, display: 'flex', flexDirection: 'column', overflow: 'hidden',
+                zIndex: Z_PANEL, display: 'flex', flexDirection: 'column', overflow: 'hidden',
             }}>
                 <div style={{ padding: '14px 16px', borderBottom: `1px solid ${headerBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
                     <div>

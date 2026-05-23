@@ -8,6 +8,7 @@ import type { TemplateRecord } from './db'
 import { saveCardToTrash, getCardPreview } from './TrashPanel'
 import { sanitizeCardProps } from './utils/snapshot'
 import type { SnapshotShapeProps } from './utils/snapshot'
+import { Z_CLICK_AWAY, Z_MODAL, Z_ABOVE_MODAL } from './constants'
 
 interface MenuItem {
     label: string
@@ -127,7 +128,7 @@ function ContextMenuUI({ x, y, items, onClose, showColorPicker, onColorPick, cur
         boxShadow: isDark
             ? '0 4px 24px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.06)'
             : '0 4px 24px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.06)',
-        zIndex: 99999, minWidth: 180, padding: '4px 0',
+        zIndex: Z_MODAL, minWidth: 180, padding: '4px 0',
         userSelect: 'none' as const, pointerEvents: 'auto' as const,
     }
 
@@ -187,7 +188,7 @@ function ContextMenuUI({ x, y, items, onClose, showColorPicker, onColorPick, cur
     return (
         <>
             <div
-                style={{ position: 'fixed', inset: 0, zIndex: 99998 }}
+                style={{ position: 'fixed', inset: 0, zIndex: Z_CLICK_AWAY }}
                 onMouseDown={onClose}
             />
             <div ref={ref} style={{ position: 'fixed', top: pos.y, left: pos.x, ...menuBoxStyle }}>
@@ -320,7 +321,7 @@ function SaveTemplateModal({ defaultName, cardContent, onConfirm, onClose, isDar
 
     return (
         <div
-            style={{ position: 'fixed', inset: 0, zIndex: 999999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.35)' }}
+            style={{ position: 'fixed', inset: 0, zIndex: Z_ABOVE_MODAL, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.35)' }}
             onMouseDown={onClose}
         >
             <div

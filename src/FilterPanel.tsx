@@ -2,6 +2,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import type { BoardRecord } from './db'
 import { getCardShapes } from './utils/snapshot'
+import { Z_PANEL } from './constants'
 
 type CardStatusType = 'none' | 'todo' | 'in-progress' | 'done'
 type PriorityType   = 'none' | 'low'  | 'medium'      | 'high'
@@ -192,7 +193,7 @@ export function FilterPanel({ boards, onJump, onClose, isDark }: FilterPanelProp
         <div style={{
             position: 'fixed', top: 0, right: 0, width: 320, height: '100vh',
             background: panelBg, backdropFilter: 'blur(12px)',
-            boxShadow: '-4px 0 24px rgba(0,0,0,0.12)', zIndex: 19999,
+            boxShadow: '-4px 0 24px rgba(0,0,0,0.12)', zIndex: Z_PANEL,
             display: 'flex', flexDirection: 'column', borderLeft: `1px solid ${btnBorder}`,
         }}>
             <div style={{ padding: '14px 16px 12px', borderBottom: `1px solid ${headerBorder}`, flexShrink: 0 }}>

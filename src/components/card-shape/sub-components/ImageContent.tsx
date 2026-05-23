@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { Editor } from '@tldraw/editor'
 import type { TLCardShape } from '../type/CardShape'
+import { Z_MODAL } from '../../../constants'
 
 interface ImageContentProps {
     editor: Editor
@@ -132,7 +133,7 @@ export function ImageContent({ editor, shape }: ImageContentProps) {
                         position: 'fixed',
                         inset: 0,
                         background: 'rgba(0,0,0,0.85)',
-                        zIndex: 99999,
+                        zIndex: Z_MODAL,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',

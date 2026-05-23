@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import type { BoardRecord } from '../db'
 import { isRasterThumbnail } from '../utils/boardDb'
+import { Z_MODAL_BACKDROP, Z_MODAL } from '../constants'
 
 interface MoveCardModalProps {
     boards: BoardRecord[]
@@ -28,11 +29,11 @@ export function MoveCardModal({ boards, onSelect, onClose, isDark }: MoveCardMod
 
     return (
         <>
-            <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.3)', zIndex: 99998 }} />
+            <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.3)', zIndex: Z_MODAL_BACKDROP }} />
             <div style={{
                 position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
                 background: bg, borderRadius: 12, width: 300, maxHeight: '60vh',
-                boxShadow: '0 12px 40px rgba(0,0,0,0.2)', zIndex: 99999,
+                boxShadow: '0 12px 40px rgba(0,0,0,0.2)', zIndex: Z_MODAL,
                 display: 'flex', flexDirection: 'column', overflow: 'hidden',
                 border: `1px solid ${borderColor}`,
             }}>

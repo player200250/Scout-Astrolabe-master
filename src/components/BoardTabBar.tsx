@@ -8,7 +8,7 @@ import { CSS } from '@dnd-kit/utilities'
 import type { BoardRecord } from '../db'
 import { isRasterThumbnail } from '../utils/boardDb'
 import { SidebarFooter } from './SidebarFooter'
-import { SIDEBAR_WIDTH, SIDEBAR_COLLAPSED_WIDTH, INBOX_BOARD_ID } from '../constants'
+import { SIDEBAR_WIDTH, SIDEBAR_COLLAPSED_WIDTH, INBOX_BOARD_ID, Z_MODAL_BACKDROP, Z_MODAL, Z_CLICK_AWAY } from '../constants'
 
 interface NavItemDef {
     icon: string
@@ -519,7 +519,7 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                 const deleteHover = isDark ? '#3f1f1f' : '#fff5f5'
                 return (
                     <>
-                        <div style={{ position: 'fixed', inset: 0, zIndex: 99998 }} onClick={() => setContextMenu(null)} />
+                        <div style={{ position: 'fixed', inset: 0, zIndex: Z_CLICK_AWAY }} onClick={() => setContextMenu(null)} />
                         <div style={{
                             position: 'fixed',
                             right: sidebarWidth,
@@ -529,7 +529,7 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                             borderRadius: 10, padding: '4px 0',
                             boxShadow: menuShadow,
                             border: `1px solid ${menuBorderC}`,
-                            zIndex: 99999, minWidth: 180,
+                            zIndex: Z_MODAL, minWidth: 180,
                         }}>
                             <div style={{ padding: '4px 12px 6px', fontSize: 11, color: menuMuted, borderBottom: `1px solid ${menuDivider}`, marginBottom: 4 }}>
                                 {targetBoard.name}
@@ -648,8 +648,8 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                 const dialogBg = isDark ? '#1e293b' : 'white'
                 return (
                     <>
-                        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 99998 }} onClick={() => setSelectingParentFor(null)} />
-                        <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', background: dialogBg, borderRadius: 14, padding: 20, boxShadow: '0 8px 40px rgba(0,0,0,0.3)', zIndex: 99999, minWidth: 280, border: `1px solid var(--border-light)` }}>
+                        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: Z_MODAL_BACKDROP }} onClick={() => setSelectingParentFor(null)} />
+                        <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', background: dialogBg, borderRadius: 14, padding: 20, boxShadow: '0 8px 40px rgba(0,0,0,0.3)', zIndex: Z_MODAL, minWidth: 280, border: `1px solid var(--border-light)` }}>
                             <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 4, color: 'var(--text-primary)' }}>設為子板</div>
                             <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16 }}>將「{target?.name}」設為哪個白板的子板？</div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>

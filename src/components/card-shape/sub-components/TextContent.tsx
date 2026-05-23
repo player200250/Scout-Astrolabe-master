@@ -10,6 +10,7 @@ import { Color } from '@tiptap/extension-color'
 import { CodeBlockLowlight } from '@tiptap/extension-code-block-lowlight'
 import { createLowlight, common } from 'lowlight'
 import { BacklinksContext } from '../../../hooks/useBacklinks'
+import { Z_MODAL } from '../../../constants'
 
 // 建立 lowlight 實例（包含常用語言）
 const lowlight = createLowlight(common)
@@ -463,7 +464,7 @@ export function TextContent({ editor: tldrawEditor, shape, isEditing, exitEdit, 
                         position: 'fixed',
                         left: suggest.coords.x,
                         top: suggest.coords.y,
-                        zIndex: 99999,
+                        zIndex: Z_MODAL,
                         background: isDark ? '#1e293b' : 'white',
                         border: `1px solid ${isDark ? '#334155' : '#e0e0e0'}`,
                         borderRadius: 8,

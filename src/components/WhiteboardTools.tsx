@@ -16,6 +16,7 @@ import { getEmbedData, fetchLinkMeta } from './card-shape/utils/embedUtils'
 import { saveCardToTrash, getCardPreview } from '../TrashPanel'
 import { sanitizeSnapshot, sanitizeCardProps } from '../utils/snapshot'
 import type { SnapshotShapeProps } from '../utils/snapshot'
+import { JUMP_DELAY_MS, Z_TOOL_SUBMENU } from '../constants'
 
 function isCardShape(s: { type: string }): s is TLCardShape {
     return s.type === 'card'
@@ -266,7 +267,7 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
                 jumpRef.current?.(shapeId, x ?? 0, y ?? 0)
             } else {
                 onSwitchBoard(boardId)
-                setTimeout(() => jumpRef.current?.(shapeId, x ?? 0, y ?? 0), 350)
+                setTimeout(() => jumpRef.current?.(shapeId, x ?? 0, y ?? 0), JUMP_DELAY_MS)
             }
         }
         window.addEventListener('jump-to-card', handler)
@@ -766,7 +767,7 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
                             position: 'absolute', top: '110%', right: 0, borderRadius: 10, padding: '4px 0',
                             background: isDark ? '#1e293b' : 'white',
                             boxShadow: isDark ? '0 4px 20px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.06)' : '0 4px 20px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.06)',
-                            minWidth: 180, zIndex: 9999, whiteSpace: 'nowrap',
+                            minWidth: 180, zIndex: Z_TOOL_SUBMENU, whiteSpace: 'nowrap',
                         }} onMouseLeave={() => setShowExportMenu(false)}>
                             {[
                                 { label: '🖼️ 整個白板 → PNG', fn: () => exportPNG(false) },

@@ -2,6 +2,7 @@
 import { useMemo } from 'react'
 import type { BoardRecord } from './db'
 import { getCardShapes } from './utils/snapshot'
+import { Z_PANEL } from './constants'
 
 /* ------------------------------------------------------------------ ISO week helpers */
 export function getISOWeekKey(date: Date): string {
@@ -186,7 +187,7 @@ export function WeeklyReview({ boards, sidebarWidth, onClose, onGoToWeeklyCard, 
                 position: 'fixed', top: 0, right: sidebarWidth, width: 320, bottom: 0,
                 background: panelBg, borderLeft: `1px solid ${borderCol}`,
                 boxShadow: '-4px 0 24px rgba(0,0,0,0.10)',
-                zIndex: 19999, display: 'flex', flexDirection: 'column', overflow: 'hidden',
+                zIndex: Z_PANEL, display: 'flex', flexDirection: 'column', overflow: 'hidden',
             }}>
                 <div style={{ padding: '14px 16px', borderBottom: `1px solid ${headerBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
                     <div>

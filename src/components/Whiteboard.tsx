@@ -7,6 +7,7 @@ import { CustomFrameShapeUtil } from './CustomFrameShapeUtil'
 import { useBacklinks } from '../hooks/useBacklinks'
 import { WhiteboardTools } from './WhiteboardTools'
 import { Dashboard } from './Dashboard'
+import { ErrorBoundary } from './ErrorBoundary'
 
 export type HomeView = 'dashboard' | 'whiteboard'
 
@@ -96,41 +97,43 @@ export function Whiteboard({
     }
 
     return (
-        <div
-            onDoubleClickCapture={e => { e.stopPropagation(); e.preventDefault() }}
-            style={{
-                position: 'fixed',
-                top: 0,
-                left: 0,
-                right: sidebarWidth,
-                bottom: 0,
-                transition: 'right 0.2s cubic-bezier(0.4,0,0.2,1)',
-            }}
-        >
-            <BacklinksContext.Provider value={backlinksValue}>
-                <BoardsContext.Provider value={boardInfos}>
-                    <Tldraw hideUi={true} tools={customTools} shapeUtils={[CardShapeUtil, CustomFrameShapeUtil]}>
-                        <ThemeSync isDark={isDark} />
-                        <WhiteboardTools
-                            board={board}
-                            boards={boards}
-                            onSaveBoard={onSaveBoard}
-                            jumpRef={jumpRef}
-                            onOpenSearch={onOpenSearch}
-                            onOpenHotkey={onOpenHotkey}
-                            onCreateBoard={onCreateBoard}
-                            onSwitchBoard={onSwitchBoard}
-                            isInboxBoard={isInboxBoard}
-                            onMoveCard={onMoveCard}
-                            isDark={isDark}
-                            homeView={board.isHome ? homeView : undefined}
-                            onSetHomeView={board.isHome ? handleSetHomeView : undefined}
-                            onCardTrashed={onCardTrashed}
-                            recentlyTrashedShapeIds={recentlyTrashedShapeIds}
-                        />
-                    </Tldraw>
-                </BoardsContext.Provider>
-            </BacklinksContext.Provider>
-        </div>
+        <ErrorBoundary name="白板">
+            <div
+                onDoubleClickCapture={e => { e.stopPropagation(); e.preventDefault() }}
+                style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: sidebarWidth,
+                    bottom: 0,
+                    transition: 'right 0.2s cubic-bezier(0.4,0,0.2,1)',
+                }}
+            >
+                <BacklinksContext.Provider value={backlinksValue}>
+                    <BoardsContext.Provider value={boardInfos}>
+                        <Tldraw hideUi={true} tools={customTools} shapeUtils={[CardShapeUtil, CustomFrameShapeUtil]}>
+                            <ThemeSync isDark={isDark} />
+                            <WhiteboardTools
+                                board={board}
+                                boards={boards}
+                                onSaveBoard={onSaveBoard}
+                                jumpRef={jumpRef}
+                                onOpenSearch={onOpenSearch}
+                                onOpenHotkey={onOpenHotkey}
+                                onCreateBoard={onCreateBoard}
+                                onSwitchBoard={onSwitchBoard}
+                                isInboxBoard={isInboxBoard}
+                                onMoveCard={onMoveCard}
+                                isDark={isDark}
+                                homeView={board.isHome ? homeView : undefined}
+                                onSetHomeView={board.isHome ? handleSetHomeView : undefined}
+                                onCardTrashed={onCardTrashed}
+                                recentlyTrashedShapeIds={recentlyTrashedShapeIds}
+                            />
+                        </Tldraw>
+                    </BoardsContext.Provider>
+                </BacklinksContext.Provider>
+            </div>
+        </ErrorBoundary>
     )
 }

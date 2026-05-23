@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Z_MODAL } from '../constants'
 
 interface QuickCaptureProps {
     onSave: (text: string) => void
@@ -54,7 +55,7 @@ export function QuickCapture({ onSave, onClose, isDark }: QuickCaptureProps) {
     return (
         <div
             style={{
-                position: 'fixed', inset: 0, zIndex: 99999,
+                position: 'fixed', inset: 0, zIndex: Z_MODAL,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 background: 'rgba(0,0,0,0.45)',
             }}
