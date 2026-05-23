@@ -1,7 +1,9 @@
 // src/SearchPanel.tsx
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import type { TLEditorSnapshot } from 'tldraw'
 import { Z_MODAL_BACKDROP, Z_MODAL } from './constants'
+
+// ── 資料型別 ────────────────────────────────────────────────────────────────
 
 interface BoardRecord {
     id: string
@@ -50,6 +52,27 @@ interface SearchShape {
     props?: SearchCardProps
 }
 
+// ── 搜尋索引型別（boards 變更時才重建，避免重複計算）──────────────────────
+
+interface SearchIndexEntry {
+    boardId: string
+    boardName: string
+    shapeId: string
+    type: 'text' | 'todo' | 'link' | 'image' | 'journal'
+    /** 預處理為 lowercase，供搜尋時直接 includes 比對 */
+    content: string
+    /** 原始預覽文字（用於 UI 顯示） */
+    preview: string
+    x: number
+    y: number
+}
+
+// ── 最多顯示筆數 ─────────────────────────────────────────────────────────────
+
+const MAX_RESULTS = 50
+
+// ── 工具函式 ─────────────────────────────────────────────────────────────────
+
 function toCardShapes(snapshot: TLEditorSnapshot | null): SearchShape[] {
     const store = (snapshot as { document?: { store?: Record<string, unknown> } } | null)?.document?.store
     if (!store) return []
@@ -70,80 +93,127 @@ function stripHtml(html: string): string {
         .trim()
 }
 
-function searchBoards(boards: BoardRecord[], keyword: string): SearchResult[] {
-    if (!keyword.trim()) return []
-    const kw = keyword.toLowerCase()
-    const results: SearchResult[] = []
-    const seenIds = new Set<string>()
+// ── 索引建立（純函式，由 useMemo 快取）─────────────────────────────────────
+// 每筆 entry 的 content 已預先 lowercase，搜尋時只需一次 includes 比對
+
+function buildSearchIndex(boards: BoardRecord[]): SearchIndexEntry[] {
+    const entries: SearchIndexEntry[] = []
+    const seen = new Set<string>()
 
     for (const board of boards) {
         for (const shape of toCardShapes(board.snapshot)) {
             const dedupKey = `${board.id}_${shape.id}`
-            if (seenIds.has(dedupKey)) continue
-            seenIds.add(dedupKey)
+            if (seen.has(dedupKey)) continue
+            seen.add(dedupKey)
 
             const props = shape.props ?? {}
-            let matched = false
+            const cardType = props.type
+
+            if (
+                cardType !== 'text' && cardType !== 'todo' &&
+                cardType !== 'link' && cardType !== 'image' && cardType !== 'journal'
+            ) continue
+
+            let content = ''
             let preview = ''
 
-            if (props.type === 'text' && props.text) {
-                const plain = stripHtml(props.text)
-                if (plain.toLowerCase().includes(kw)) { matched = true; preview = plain.slice(0, 80) }
-            } else if (props.type === 'todo') {
-                const titlePlain = stripHtml(props.text || '')
-                const titleHit = titlePlain.toLowerCase().includes(kw)
-                const todoHit = Array.isArray(props.todos) ? props.todos.find(t => t.text?.toLowerCase().includes(kw)) : null
-                if (titleHit || todoHit) {
-                    matched = true
-                    const titlePart = titlePlain ? `${titlePlain}：` : ''
-                    const todosPart = Array.isArray(props.todos)
-                        ? props.todos.map(t => `${t.checked ? '✅' : '☐'} ${t.text ?? ''}`).join('  ')
-                        : ''
-                    preview = (titlePart + todosPart).slice(0, 80)
-                }
-            } else if (props.type === 'link') {
-                const inUrl = props.url?.toLowerCase().includes(kw)
-                const inText = stripHtml(props.text || '').toLowerCase().includes(kw)
-                const inTitle = stripHtml(props.title || '').toLowerCase().includes(kw)
-                if (inUrl || inText || inTitle) {
-                    matched = true
-                    preview = stripHtml(props.title || props.text || props.url || '').slice(0, 80)
-                }
-            } else if (props.type === 'image') {
-                if (props.text?.toLowerCase().includes(kw)) { matched = true; preview = props.text.slice(0, 80) }
-            } else if (props.type === 'journal') {
+            if (cardType === 'text' || cardType === 'journal') {
                 const plain = stripHtml(props.text || '')
-                if (plain.toLowerCase().includes(kw)) { matched = true; preview = plain.slice(0, 80) }
+                content = plain.toLowerCase()
+                preview = plain.slice(0, 80)
+            } else if (cardType === 'todo') {
+                const titlePlain = stripHtml(props.text || '')
+                const todosText = Array.isArray(props.todos)
+                    ? props.todos.map(t => t.text ?? '').join(' ')
+                    : ''
+                content = `${titlePlain} ${todosText}`.toLowerCase()
+                const titlePart = titlePlain ? `${titlePlain}：` : ''
+                const todosPart = Array.isArray(props.todos)
+                    ? props.todos.map(t => `${t.checked ? '✅' : '☐'} ${t.text ?? ''}`).join('  ')
+                    : ''
+                preview = (titlePart + todosPart).slice(0, 80)
+            } else if (cardType === 'link') {
+                const urlText = props.url || ''
+                const bodyText = stripHtml(props.text || '')
+                const titleText = stripHtml(props.title || '')
+                content = `${urlText} ${bodyText} ${titleText}`.toLowerCase()
+                preview = stripHtml(props.title || props.text || props.url || '').slice(0, 80)
+            } else if (cardType === 'image') {
+                content = (props.text || '').toLowerCase()
+                preview = (props.text || '').slice(0, 80)
             }
 
-            if (matched) {
-                const resultType = props.type
-                results.push({
-                    boardId: board.id, boardName: board.name, shapeId: shape.id,
-                    type: (resultType === 'text' || resultType === 'todo' || resultType === 'link' || resultType === 'image' || resultType === 'journal') ? resultType : 'text',
-                    preview, x: shape.x ?? 0, y: shape.y ?? 0,
-                })
-            }
+            entries.push({
+                boardId: board.id,
+                boardName: board.name,
+                shapeId: shape.id,
+                type: cardType,
+                content,
+                preview,
+                x: shape.x ?? 0,
+                y: shape.y ?? 0,
+            })
         }
     }
-    return results
+
+    return entries
 }
 
-const typeIcon: Record<string, string> = { text: '📝', todo: '✅', link: '🔗', image: '🖼️', journal: '📔' }
+// ── 搜尋（純函式，掃描索引，不碰 snapshot）──────────────────────────────────
+
+function searchFromIndex(
+    index: SearchIndexEntry[],
+    keyword: string,
+): { results: SearchResult[]; total: number } {
+    if (!keyword.trim()) return { results: [], total: 0 }
+    const kw = keyword.toLowerCase()
+    const matched = index.filter(e => e.content.includes(kw))
+    return {
+        results: matched.slice(0, MAX_RESULTS).map(e => ({
+            boardId: e.boardId,
+            boardName: e.boardName,
+            shapeId: e.shapeId,
+            type: e.type,
+            preview: e.preview,
+            x: e.x,
+            y: e.y,
+        })),
+        total: matched.length,
+    }
+}
+
+// ── UI ───────────────────────────────────────────────────────────────────────
+
+const typeIcon: Record<string, string> = {
+    text: '📝', todo: '✅', link: '🔗', image: '🖼️', journal: '📔',
+}
 
 export function SearchPanel({ boards, onJump, onClose, isDark }: SearchPanelProps) {
     const [query, setQuery] = useState('')
-    const [results, setResults] = useState<SearchResult[]>([])
+    const [debouncedQuery, setDebouncedQuery] = useState('')
     const [selectedIdx, setSelectedIdx] = useState(0)
     const inputRef = useRef<HTMLInputElement>(null)
 
+    // 自動聚焦
     useEffect(() => { inputRef.current?.focus() }, [])
 
+    // 300ms debounce：打字時不立即搜尋，等停頓才觸發
     useEffect(() => {
-        const r = searchBoards(boards, query)
-        setResults(r)
-        setSelectedIdx(0)
-    }, [query, boards])
+        const timer = setTimeout(() => setDebouncedQuery(query), 300)
+        return () => clearTimeout(timer)
+    }, [query])
+
+    // 索引：boards 變更時才重建（stripHtml、snapshot parse 只做一次）
+    const searchIndex = useMemo(() => buildSearchIndex(boards), [boards])
+
+    // 搜尋結果：索引或 debouncedQuery 變更時重新計算（不碰 snapshot）
+    const { results, total } = useMemo(
+        () => searchFromIndex(searchIndex, debouncedQuery),
+        [searchIndex, debouncedQuery],
+    )
+
+    // query 改變時重置選取位置
+    useEffect(() => { setSelectedIdx(0) }, [debouncedQuery])
 
     const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
         if (e.key === 'Escape') { onClose() }
@@ -162,6 +232,9 @@ export function SearchPanel({ boards, onJump, onClose, isDark }: SearchPanelProp
     const hoverBg = isDark ? '#1e3a5f' : '#f0f4ff'
     const clearBg = isDark ? '#334155' : '#f0f0f0'
     const clearColor = isDark ? '#94a3b8' : '#666'
+    const mutedColor = isDark ? '#94a3b8' : '#aaa'
+
+    const hasMore = total > MAX_RESULTS
 
     return (
         <>
@@ -201,9 +274,16 @@ export function SearchPanel({ boards, onJump, onClose, isDark }: SearchPanelProp
                 {query && (
                     <div style={{ maxHeight: 400, overflowY: 'auto' }}>
                         {results.length === 0 ? (
-                            <div style={{ padding: '24px 16px', textAlign: 'center', color: '#aaa', fontSize: 14 }}>
-                                找不到符合「{query}」的卡片
-                            </div>
+                            // 打字中（query ≠ debouncedQuery）顯示「搜尋中...」，否則顯示「找不到」
+                            query !== debouncedQuery ? (
+                                <div style={{ padding: '24px 16px', textAlign: 'center', color: mutedColor, fontSize: 14 }}>
+                                    搜尋中...
+                                </div>
+                            ) : (
+                                <div style={{ padding: '24px 16px', textAlign: 'center', color: mutedColor, fontSize: 14 }}>
+                                    找不到符合「{debouncedQuery}」的卡片
+                                </div>
+                            )
                         ) : (
                             results.map((r, idx) => (
                                 <div
@@ -222,15 +302,21 @@ export function SearchPanel({ boards, onJump, onClose, isDark }: SearchPanelProp
                                         <div style={{ fontSize: 13, color: textPrimary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                             {r.preview || '(無內容)'}
                                         </div>
-                                        <div style={{ fontSize: 11, color: '#aaa', marginTop: 2 }}>{r.boardName}</div>
+                                        <div style={{ fontSize: 11, color: mutedColor, marginTop: 2 }}>{r.boardName}</div>
                                     </div>
                                     <span style={{ fontSize: 11, color: '#bbb', flexShrink: 0, alignSelf: 'center' }}>Enter ↵</span>
                                 </div>
                             ))
                         )}
                         {results.length > 0 && (
-                            <div style={{ padding: '8px 16px', fontSize: 11, color: '#bbb', textAlign: 'right', borderTop: `1px solid ${border}` }}>
-                                共 {results.length} 筆結果 ↑↓ 導航 Enter 跳轉 Esc 關閉
+                            <div style={{ padding: '8px 16px', fontSize: 11, color: '#bbb', borderTop: `1px solid ${border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span>
+                                    {hasMore
+                                        ? `顯示前 ${MAX_RESULTS} 筆，還有 ${total - MAX_RESULTS} 筆未顯示（請縮小關鍵字）`
+                                        : `共 ${total} 筆結果`
+                                    }
+                                </span>
+                                <span>↑↓ 導航 &nbsp; Enter 跳轉 &nbsp; Esc 關閉</span>
                             </div>
                         )}
                     </div>
