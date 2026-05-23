@@ -6,18 +6,19 @@ import { db } from '../db'
 import type { BoardRecord } from '../db'
 import type { HomeView } from './Whiteboard'
 import TldrawToolPanel, { type CardCreators } from '../TIdrawToolPanel'
-import { useContextMenu } from '../ContextMenu'
+import { useContextMenu } from '../utils/contextMenuUtils'
 import { useHotkeys } from '../Usehotkeys'
-import { getISOWeekKey, getWeekRange } from '../WeeklyReview'
+import { getISOWeekKey, getWeekRange } from '../utils/weeklyReviewUtils'
 import { exportJSON, importJSON } from '../utils/boardExport'
 import { exportBoardToMarkdown, exportSelectedToMarkdown } from '../utils/exportMarkdown'
 import type { TLCardShape, StickyColor, TableRow } from './card-shape/type/CardShape'
 import { getEmbedData, fetchLinkMeta } from './card-shape/utils/embedUtils'
-import { saveCardToTrash, getCardPreview } from '../TrashPanel'
+import { saveCardToTrash, getCardPreview } from '../utils/trashUtils'
 import { sanitizeSnapshot, sanitizeCardProps } from '../utils/snapshot'
 import type { SnapshotShapeProps } from '../utils/snapshot'
 import { JUMP_DELAY_MS, Z_TOOL_SUBMENU } from '../constants'
 import { emitAppEvent, onAppEvent } from '../utils/appEvents'
+import { getExportBtnStyle } from '../utils/whiteboardUtils'
 
 function isCardShape(s: { type: string }): s is TLCardShape {
     return s.type === 'card'
@@ -71,24 +72,6 @@ interface WhiteboardToolsProps {
     onCardTrashed?: () => void
     recentlyTrashedShapeIds: React.MutableRefObject<Set<string>>
 }
-
-export const getExportBtnStyle = (isDark: boolean): React.CSSProperties => ({
-    padding: '5px 11px',
-    fontSize: 12,
-    fontWeight: 500,
-    color: isDark ? '#e2e8f0' : '#333',
-    background: isDark ? 'rgba(30,41,59,0.92)' : 'rgba(255,255,255,0.92)',
-    border: isDark ? '1px solid #475569' : '1px solid #e0e0e0',
-    borderRadius: 8,
-    cursor: 'pointer',
-    backdropFilter: 'blur(4px)',
-    boxShadow: isDark ? '0 1px 4px rgba(0,0,0,0.3)' : '0 1px 4px rgba(0,0,0,0.08)',
-    transition: 'background 0.15s',
-    whiteSpace: 'nowrap' as const,
-})
-
-/** @deprecated use getExportBtnStyle(isDark) */
-export const exportBtnStyle: React.CSSProperties = getExportBtnStyle(false)
 
 export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSearch, onOpenHotkey, onCreateBoard, onSwitchBoard, isInboxBoard, onMoveCard, isDark, homeView, onSetHomeView, onCardTrashed, recentlyTrashedShapeIds }: WhiteboardToolsProps) {
     const editor = useEditor()
