@@ -120,9 +120,18 @@ recentlyTrashedShapeIds         // 提升至此的 Set，防切板後 Ctrl+Z 同
 
 ---
 
-## 全域 CustomEvent 清單
+## 全域事件系統（appEvents.ts）
 
-本專案以 `window.dispatchEvent(new CustomEvent(...))` 作為 tldraw React tree 與 App 層的橋接機制。
+本專案透過 `src/utils/appEvents.ts` 提供**型別安全的事件匯流排**，作為 tldraw React tree 與 App 層的橋接機制。
+
+```typescript
+// 所有事件的 payload 型別定義（AppEventPayloads interface）
+// 發送：emitAppEvent('event-name', payload)
+// 訂閱：const off = onAppEvent('event-name', detail => { ... })
+//       cleanup 中呼叫 off()
+```
+
+底層仍使用 `window.CustomEvent`，但透過 TypeScript 泛型在**編譯期**驗證事件名稱拼寫與 payload 結構。
 
 | 事件名稱 | 發送方 | 接收方 | detail 型別 |
 |---------|--------|--------|------------|
@@ -135,7 +144,7 @@ recentlyTrashedShapeIds         // 提升至此的 Set，防切板後 Ctrl+Z 同
 | `permanent-delete-shape` | `TrashPanel.handlePermanentDeleteCard()` | `WhiteboardTools` useEffect | `{ shapeId: string; boardId: string }` |
 | `restore-deleted-card` | `TrashPanel.handleRestoreCard()` | `WhiteboardTools` useEffect | `DeletedCardRecord` |
 | `quick-capture-card` | `useBoardManager.handleAddCardToInbox()` | `WhiteboardTools` useEffect（僅 isInboxBoard） | `{ text: string; x: number; y: number; shapeId: string }` |
-| `trash-count-changed` | `WhiteboardTools`（Ctrl+Z undo sync）、`TrashPanel.handlePermanentDeleteCard()` | `useBoardManager` useEffect | 無 |
+| `trash-count-changed` | `WhiteboardTools`（Ctrl+Z undo sync）、`TrashPanel.handlePermanentDeleteCard()` | `useBoardManager` useEffect | `undefined`（無 payload） |
 
 ### 特別說明
 
@@ -228,7 +237,7 @@ overdueBannerVisible // 逾期任務 banner
 ## 維護注意事項
 
 - 新增 Panel 時，在 `App.tsx` 加 boolean state、在對應快捷鍵 useEffect 加 toggle，並確認多面板同時開啟的視覺行為。
-- 新增 CustomEvent 時，在本文件的清單表格中補充；接收方必須在 `useEffect` cleanup 中 `removeEventListener`。
+- 新增事件時：①在 `src/utils/appEvents.ts` 的 `AppEventPayloads` 新增事件名稱與 payload 型別，②在本文件的清單表格補充，③接收方使用 `onAppEvent` 訂閱並在 cleanup 呼叫回傳的 `off()` 函式。
 - `handleSoftDeleteBoardWithInboxMove` 用函式式 `setBoards(prev => ...)` 同時應用兩個更新，若未來需要拆分，需注意 stale closure 問題（見 [tldraw-snapshot.md](tldraw-snapshot.md)）。
 
 ## 待確認

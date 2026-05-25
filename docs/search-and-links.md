@@ -27,31 +27,41 @@
 - `Ctrl+F`（`useHotkeys.ts`）→ `setSearchOpen(true)`
 - 側邊欄搜尋按鈕
 
-### 搜尋範圍與邏輯
+### 搜尋架構（索引式，commit `ff38071`）
 
-搜尋是**純前端**操作，直接遍歷 React props 的 `boards` 陣列（已在記憶體中），不查 DB。
+搜尋是**純前端**操作，採用**預建索引 + debounce** 設計：
+
+#### 1. 建立索引（`buildSearchIndex`）
 
 ```typescript
-// SearchPanel.tsx — searchBoards()
-function searchBoards(boards: BoardRecord[], keyword: string): SearchResult[] {
-    const kw = keyword.toLowerCase()
-    // 遍歷所有白板的所有 card shapes
-    for (const board of boards) {
-        for (const shape of toCardShapes(board.snapshot)) {
-            // 依類型決定搜尋欄位
-        }
-    }
-}
+// SearchPanel.tsx — buildSearchIndex()
+// useMemo([boards]) — 只在 boards 陣列變更時重建，不在每次輸入時觸發
+function buildSearchIndex(boards: BoardRecord[]): SearchIndex[]
 ```
 
-| 卡片類型 | 搜尋欄位 |
+| 卡片類型 | 索引內容（預先 lowercase） |
 |---------|---------|
 | `text` / `journal` | `stripHtml(props.text)` 純文字 |
 | `todo` | `props.text`（標題）+ `props.todos[].text` 每個項目 |
 | `link` | `props.url` + `props.text` + `props.title` |
 | `image` | `props.text`（圖片說明文字） |
 
-每個 shape 有 `seenIds` Set 去重（`boardId + shapeId`），防止白板多次出現於 `boards` 時重複。
+`stripHtml` 在建立索引時執行一次（不在搜尋時重複執行）。
+
+#### 2. 搜尋（`searchFromIndex`）
+
+```typescript
+// 只做 string.includes，無重複 HTML parse
+function searchFromIndex(index: SearchIndex[], query: string): SearchResult[]
+```
+
+- 最多回傳 **50 筆**結果，超過顯示「還有 N 筆未顯示」
+
+#### 3. 防抖（debounce）
+
+- **300ms** 延遲：打字停頓後才觸發 `searchFromIndex`
+- 打字中顯示「搜尋中...」視覺回饋
+- 依賴 `useRef<ReturnType<typeof setTimeout>>` 管理計時器（不引入外部 hook）
 
 ### 結果格式與互動
 
@@ -60,23 +70,9 @@ function searchBoards(boards: BoardRecord[], keyword: string): SearchResult[] {
 - `↑↓` 鍵導航 → `Enter` 鍵跳轉（呼叫 `onJump(boardId, shapeId, x, y)`）
 - `onJump` 對應 `handleJump`（`useBoardManager`）：若目標板非當前板，先切板再跳轉
 
-### stripHtml 實作（SearchPanel 版）
+### 注意
 
-```typescript
-function stripHtml(html: string): string {
-    return html
-        .replace(/<[^>]*>/g, ' ')
-        .replace(/&nbsp;/g, ' ')
-        .replace(/&amp;/g, '&')
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/&quot;/g, '"')
-        .replace(/\s+/g, ' ')
-        .trim()
-}
-```
-
-注意：`SearchPanel`、`useBacklinks`、`DeleteBoardDialog` 各自有略有差異的 `stripHtml` 實作（WO3，待決策是否統一）。
+`SearchPanel` 的 `stripHtml` 實作處理 HTML entities（`&amp;`、`&lt;` 等），與 `useBacklinks`、`DeleteBoardDialog` 的版本略有差異（WO3，待決策是否統一到 `src/utils/stringUtils.ts`）。
 
 ---
 
@@ -200,8 +196,8 @@ const boardBkLinks = currentBoardName ? (backlinks.get(currentBoardName.toLowerC
 
 ### 點擊跳轉
 
-- 前向連結（`[[name]]`）點擊 → `dispatchEvent('jump-to-card', { targetName: name })`（依白板名稱切換）
-- 反向引用點擊 → `dispatchEvent('jump-to-card', { boardId, shapeId, x, y })`（跳到指定 shape）
+- 前向連結（`[[name]]`）點擊 → `emitAppEvent('jump-to-card', { targetName: name })`（依白板名稱切換）
+- 反向引用點擊 → `emitAppEvent('jump-to-card', { boardId, shapeId, x, y })`（跳到指定 shape）
 
 ---
 

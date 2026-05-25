@@ -15,10 +15,16 @@
 | `src/main.tsx` | React 進入點，以 `StrictMode` 掛載 `<App />` |
 | `src/App.tsx` | 根元件，持有所有 panel 開關狀態，組合所有頂層 UI |
 | `src/hooks/useBoardManager.ts` | 白板狀態機，所有白板 CRUD 集中於此 |
-| `src/components/Whiteboard.tsx` | 單一白板的 tldraw 容器元件 |
+| `src/components/Whiteboard.tsx` | 單一白板的 tldraw 容器元件（以 ErrorBoundary 包覆） |
+| `src/components/ErrorBoundary.tsx` | React Error Boundary，包覆 Whiteboard 防止 crash 擴散 |
 | `src/components/WhiteboardTools.tsx` | tldraw `useEditor()` 工具集，card 建立、儲存、匯出、事件橋接 |
 | `src/components/BoardTabBar.tsx` | 側邊欄，顯示白板清單、導航、工具圖示 |
 | `src/utils/boardDb.ts` | IndexedDB CRUD 封裝（`saveBoard`、`deleteBoard`、`loadAllBoards`） |
+| `src/utils/appEvents.ts` | 型別安全事件匯流排（`emitAppEvent` / `onAppEvent`，定義 `AppEventPayloads`） |
+| `src/utils/contextMenuUtils.tsx` | `useContextMenu` hook 及 `BUILTIN_TEMPLATES` 常數（從 ContextMenu.tsx 分離） |
+| `src/utils/trashUtils.ts` | `saveCardToTrash`、`getCardPreview`（從 TrashPanel.tsx 分離） |
+| `src/utils/weeklyReviewUtils.ts` | `getISOWeekKey`、`getWeekRange`（從 WeeklyReview.tsx 分離） |
+| `src/utils/whiteboardUtils.ts` | `getExportBtnStyle`、`exportBtnStyle`（從 WhiteboardTools.tsx 分離） |
 | `src/db.ts` | Dexie 實例定義，schema 版本歷史（v1–v7） |
 | `main.js` | Electron 主程序：BrowserWindow、選單、`electronAPI` |
 | `preload.js` | contextBridge，暴露 `window.electronAPI` |
@@ -104,7 +110,18 @@ editor.store.listen（scope: 'document'）
 
 ## 跨元件通訊
 
-React props 向下傳遞的補充機制是 **`window.dispatchEvent(new CustomEvent(...))`**。詳細事件清單見 [state-and-events.md](state-and-events.md)。
+React props 向下傳遞的補充機制是**型別安全事件匯流排**（`src/utils/appEvents.ts`）。
+
+```typescript
+// 發送（型別全部由 AppEventPayloads 推斷）
+emitAppEvent('jump-to-card', { shapeId: '...', boardId: '...' })
+
+// 訂閱（在 useEffect 呼叫，cleanup 中呼叫回傳的 off 函式）
+const off = onAppEvent('jump-to-card', detail => { /* ... */ })
+return () => off()
+```
+
+底層仍使用 `window.CustomEvent`，但 `emitAppEvent` / `onAppEvent` 透過 TypeScript 泛型在編譯期驗證事件名稱與 payload 型別，防止字串拼錯或 payload 結構錯誤。詳細事件清單見 [state-and-events.md](state-and-events.md)。
 
 主要原因：`CardShapeUtil.component()` 在 tldraw 的 React tree 內部，無法直接存取 App 層的 callback，故透過全域事件橋接。
 
@@ -150,7 +167,7 @@ tldraw 預設雙擊 shape 進入編輯模式；此處覆蓋後，雙擊行為完
 
 ## 待確認
 
-- `CalendarView.tsx`、`JournalDayView.tsx` 在目前 `App.tsx` 中無渲染點，用途與啟動方式待確認。
+- `CalendarView.tsx`、`JournalDayView.tsx` 在目前 `App.tsx` 中無獨立渲染點（功能透過 `ReviewCenter` 提供），獨立元件是否廢棄待確認。
 - `src/hooks/useFileStorage.ts` 未在任何 tsx 中 import，功能待確認是否廢棄。
 
 ## 外部參考

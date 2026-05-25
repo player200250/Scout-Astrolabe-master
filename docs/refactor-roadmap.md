@@ -73,15 +73,11 @@ const [deletingBoardId, setDeletingBoardId] = useState<string | null>(null)
 
 ---
 
-### TD3：WhiteboardTools 多重 useEffect 事件橋接（中優先）
+### ~~TD3：WhiteboardTools 多重 useEffect 事件橋接~~ ✅ 已解決（commit `c7661c8`，2026-05-23）
 
-**現狀**：`WhiteboardTools.tsx` 有 10+ 個 `window.addEventListener` useEffect（分別監聽不同 CustomEvent）加上 2 個 `editor.store.listen`。每個 useEffect 各自管理 cleanup，但在 React Strict Mode 下 mount/unmount 兩次期間若有事件觸發，可能出現短暫重複（已審查為現有模式符合 React 規範，風險低）。
+**解決方案**：建立 `src/utils/appEvents.ts`，定義 `AppEventPayloads` interface（包含 10 種事件的完整型別），以 `emitAppEvent<K>` / `onAppEvent<K>` 包裝 `window.CustomEvent`。TypeScript 泛型在編譯期驗證事件名稱與 payload 型別，完全消除裸字串事件名稱。
 
-**影響**：程式碼難以閱讀和追蹤事件流向；事件命名字串分散在多個檔案，重構時容易漏改。
-
-**建議重構**：
-1. 將所有 CustomEvent 名稱定義為常數（`src/constants.ts` 或 `src/events.ts`）
-2. 長遠可考慮統一為 `useCustomEvent(eventName, handler)` 自訂 hook 封裝 addEventListener/removeEventListener
+已更新：`TrashPanel`、`useBoardManager`、`CardShapeUtil`、`BacklinksPanel`、`TextContent`、`WhiteboardTools`（共 6 支）。
 
 ---
 
@@ -99,28 +95,29 @@ const [deletingBoardId, setDeletingBoardId] = useState<string | null>(null)
 
 ### TD5：stripHtml 多個不一致的實作（低優先）
 
-**現狀**（WO3）：`SearchPanel.tsx`、`useBacklinks.ts`、`DeleteBoardDialog.tsx`、`exportMarkdown.ts` 各自有略有差異的 `stripHtml`：
+**現狀**（WO3）：`SearchPanel.tsx`（已改用索引）、`useBacklinks.ts`、`DeleteBoardDialog.tsx`、`exportMarkdown.ts` 各自有略有差異的 `stripHtml`：
 
 | 檔案 | 差異點 |
 |------|--------|
-| `SearchPanel.tsx` | 處理 `&amp;`、`&lt;`、`&gt;`、`&quot;` HTML entities |
+| `SearchPanel.tsx` | 已改為 `buildSearchIndex` 時預處理，stripHtml 僅執行一次 |
 | `useBacklinks.ts` | 只處理 `&nbsp;` |
 | `DeleteBoardDialog.tsx` | 只處理 `&nbsp;` |
 | `exportMarkdown.ts` | 使用 `DOMParser`（最完整） |
 
-**影響**：搜尋和反向連結的 HTML 剝除結果可能不一致（空白、特殊字元處理差異）。
+**影響**：反向連結和預覽的 HTML 剝除結果可能不一致（空白、特殊字元處理差異）。
 
 **建議重構**：統一到 `src/utils/stringUtils.ts` 導出，各處 import 使用。
 
 ---
 
-### TD6：SearchPanel 無防抖與分頁（低優先）
+### ~~TD6：SearchPanel 無防抖與分頁~~ ✅ 已解決（commit `ff38071`，2026-05-23）
 
-**現狀**：每次 keypress 觸發 `searchBoards(boards, query)` 全量掃描，在白板多的情況下每次輸入都會堵塞主執行緒。
-
-**建議**：
-1. 加入 150–200ms debounce（`useDebounce` hook 或 `setTimeout`）
-2. 長遠可考慮 lunr.js 或 Fuse.js 的模糊搜尋
+**解決方案**：
+1. `buildSearchIndex(boards)`：純函式，一次 parse snapshot + stripHtml，結果預存 lowercase，`useMemo([boards])` — boards 變更才重建，搜尋不再碰 snapshot
+2. `searchFromIndex(index, query)`：只做 `string.includes`，無重複 HTML parse
+3. 300ms debounce（`setTimeout` + cleanup ref）：打字停頓後才觸發搜尋
+4. 最多顯示 50 筆結果，超過顯示「還有 N 筆未顯示」
+5. 打字中顯示「搜尋中...」的視覺回饋
 
 ---
 
@@ -131,6 +128,30 @@ const [deletingBoardId, setDeletingBoardId] = useState<string | null>(null)
 **現況**：功能透過 `ReviewCenter` 完整提供，獨立元件是舊架構的殘留（或為未來分離出 ReviewCenter 的準備）。
 
 **建議**：若確認不需要，刪除 `CalendarView` 和 `JournalDayView` 的獨立全螢幕包裝；或保留但在 README 說明用途。
+
+---
+
+### ~~TD-P1~P4：魔術數字常數化 + 基礎架構補強~~ ✅ 已解決（commit `dc600f4`，2026-05-23）
+
+**解決方案**：
+- `constants.ts` 新增 `JUMP_DELAY_MS`（400ms）、`SAVE_STATUS_RESET_MS`（400ms），替換 5 處魔術延遲
+- `constants.ts` 新增 `Z_TOOL_SUBMENU`、`Z_PANEL`、`Z_BACKUP_PANEL`、`Z_MODAL_BACKDROP`、`Z_CLICK_AWAY`、`Z_MODAL`、`Z_ABOVE_MODAL`，替換全專案 30+ 處魔術 z-index
+- 新增 `ErrorBoundary` 元件，以 `key={activeBoard.id}` 包覆 `<Whiteboard>`，防止單一白板 crash 擴散
+
+---
+
+### ~~TD-utility：component 職責過重~~ ✅ 已解決（commit `672e93f`，2026-05-23）
+
+**解決方案**：將混入各元件的 utility 邏輯分離到 `src/utils/`：
+
+| 新檔案 | 來源 | 內容 |
+|--------|------|------|
+| `src/utils/contextMenuUtils.tsx` | `ContextMenu.tsx` | `useContextMenu` hook、`BUILTIN_TEMPLATES` |
+| `src/utils/trashUtils.ts` | `TrashPanel.tsx` | `saveCardToTrash`、`getCardPreview` |
+| `src/utils/weeklyReviewUtils.ts` | `WeeklyReview.tsx` | `getISOWeekKey`、`getWeekRange` |
+| `src/utils/whiteboardUtils.ts` | `WhiteboardTools.tsx` | `getExportBtnStyle`、`exportBtnStyle` |
+
+消除了 `react-refresh/only-export-components` ESLint 錯誤。`tsc --noEmit` 零錯誤。
 
 ---
 
@@ -149,15 +170,15 @@ const [deletingBoardId, setDeletingBoardId] = useState<string | null>(null)
 
 ## 重構優先順序
 
-| 優先度 | 技術債 | 建議時機 |
-|--------|--------|---------|
-| 🔴 高 | TD1：App.tsx 面板狀態 | 新增第 15 個面板前 |
-| 🔴 高 | TD2：useBoardManager 拆分 | 新增任何跨領域 handler 前 |
-| 🟡 中 | TD3：CustomEvent 常數化 | 下一次新增事件時順帶處理 |
-| 🟡 中 | TD4：useBacklinks 增量更新 | 白板數量超過 50 時 |
-| 🟢 低 | TD5：stripHtml 統一 | 下一次修改相關邏輯時 |
-| 🟢 低 | TD6：SearchPanel 防抖 | 白板數量超過 30 時 |
-| 🟢 低 | TD7：CalendarView 獨立元件 | 功能需求確認後清理 |
+| 優先度 | 技術債 | 狀態 | 建議時機 |
+|--------|--------|------|---------|
+| 🔴 高 | TD1：App.tsx 面板狀態 | 未解決 | 新增第 15 個面板前 |
+| 🔴 高 | TD2：useBoardManager 拆分 | 未解決 | 新增任何跨領域 handler 前 |
+| ✅ 完成 | TD3：CustomEvent 型別安全 | 已解決 `c7661c8` | — |
+| 🟡 中 | TD4：useBacklinks 增量更新 | 未解決 | 白板數量超過 50 時 |
+| 🟢 低 | TD5：stripHtml 統一 | 未解決 | 下一次修改相關邏輯時 |
+| ✅ 完成 | TD6：SearchPanel 防抖＋索引 | 已解決 `ff38071` | — |
+| 🟢 低 | TD7：CalendarView 獨立元件 | 未解決 | 功能需求確認後清理 |
 
 ---
 
