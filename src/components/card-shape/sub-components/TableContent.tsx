@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { useIsDarkMode } from '@tldraw/editor'
 import { useEditor } from 'tldraw'
 import type { TLCardShape, TableRow } from '../type/CardShape'
@@ -16,7 +16,7 @@ export function TableContent({ shape }: TableContentProps) {
     const isDark = useIsDarkMode()
     const p = shape.props
     const cols = p.tableCols ?? 3
-    const tableData: TableRow[] = p.tableData ?? []
+    const tableData = useMemo(() => p.tableData ?? [] as TableRow[], [p.tableData])
 
     const [editingCell, setEditingCell] = useState<{ rowIdx: number; colIdx: number } | null>(null)
     const [isHoveringFooter, setIsHoveringFooter] = useState(false)

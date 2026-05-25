@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { useEditor } from 'tldraw'
 import { useIsDarkMode } from '@tldraw/editor'
 import type { TLCardShape, ColorSwatch } from '../type/CardShape'
@@ -25,7 +25,7 @@ interface ColorSwatchContentProps {
 export function ColorSwatchContent({ shape }: ColorSwatchContentProps) {
     const editor = useEditor()
     const isDark = useIsDarkMode()
-    const swatches: ColorSwatch[] = ((shape.props.swatches ?? []) as ColorSwatch[])
+    const swatches = useMemo(() => (shape.props.swatches ?? []) as ColorSwatch[], [shape.props.swatches])
     const mainSwatch = swatches[0]
     const extraSwatches = swatches.slice(1)
 

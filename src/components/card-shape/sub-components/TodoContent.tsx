@@ -1,5 +1,5 @@
 // src/components/card-shape/sub-components/TodoContent.tsx
-import React, { useState, useRef, useCallback } from 'react'
+import React, { useState, useRef, useCallback, useMemo } from 'react'
 import { useEditor } from 'tldraw'
 import type { TLCardShape, TodoItem } from '../type/CardShape'
 
@@ -37,7 +37,7 @@ interface TodoContentProps {
 export const TodoContent = ({ shape, isEditing, exitEdit }: TodoContentProps) => {
     const editor = useEditor()
     const { id, props } = shape
-    const todos = props.todos || []
+    const todos = useMemo(() => props.todos ?? [], [props.todos])
     const isDarkCard = props.color === 'dark'
     const textColor = isDarkCard ? '#e2e8f0' : '#333'
     const mutedColor = isDarkCard ? '#94a3b8' : '#aaa'
