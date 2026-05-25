@@ -56,7 +56,7 @@ function getDateLabel(): string {
     const weekDays = ['日', '一', '二', '三', '四', '五', '六']
     const weekDay = weekDays[now.getDay()]
     const weekNum = getISOWeekNumber(now)
-    return `今天是 ${m} 月 ${d} 日（週${weekDay}）　第 ${weekNum} 週`
+    return `今天是 ${m} 月 ${d} 日（週${weekDay}） 第 ${weekNum} 週`
 }
 
 const CARD_TYPE_ICON: Record<string, string> = {

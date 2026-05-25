@@ -2,15 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { useEditor } from 'tldraw'
 import { useIsDarkMode } from '@tldraw/editor'
 import type { TLCardShape, ColorSwatch } from '../type/CardShape'
-
-export function getContrastColor(hex: string): '#000000' | '#ffffff' {
-    const clean = hex.replace('#', '')
-    if (clean.length !== 6) return '#000000'
-    const r = parseInt(clean.slice(0, 2), 16)
-    const g = parseInt(clean.slice(2, 4), 16)
-    const b = parseInt(clean.slice(4, 6), 16)
-    return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.5 ? '#000000' : '#ffffff'
-}
+import { getContrastColor } from '../../../utils/colorSwatchUtils'
 
 function genId() {
     return `sw_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`

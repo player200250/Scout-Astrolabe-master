@@ -100,7 +100,7 @@ export function CalendarContent({ boards, onJumpToBoard, onOpenJournalDay, isDar
 
     const todayDs = dateStr(today)
     const hasJournal = boards.some(b => b.isJournal)
-    const selLabel = `${selectedDate.getMonth() + 1} 月 ${selectedDate.getDate()} 日　${WEEKDAY_FULL[selectedDate.getDay()]}`
+    const selLabel = `${selectedDate.getMonth() + 1} 月 ${selectedDate.getDate()} 日 ${WEEKDAY_FULL[selectedDate.getDay()]}`
 
     const calBg     = isDark ? '#1e293b' : 'white'
     const borderCol = isDark ? '#334155' : '#e8e8e6'
