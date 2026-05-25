@@ -1,14 +1,14 @@
 import { useMemo, useCallback, useState } from 'react'
 import { Editor } from 'tldraw'
 import type { TLCardShape, TLCardProps } from '../type/CardShape'
-import { fetchLinkMeta } from '../utils/embedUtils'
+import { fetchLinkMeta, type EmbedData } from '../utils/embedUtils'
 
 interface LinkContentProps {
     editor: Editor
     shape: TLCardShape
     isEditing: boolean
     exitEdit: () => void
-    getEmbedData: (url: string) => { embedUrl: string | null; isEmbeddable: boolean }
+    getEmbedData: (url: string) => EmbedData
 }
 
 export const LinkContent = ({ editor, shape, isEditing, exitEdit, getEmbedData }: LinkContentProps) => {

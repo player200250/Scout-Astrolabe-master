@@ -4,7 +4,7 @@ import { Z_TOOL_SUBMENU, Z_MODAL } from "./constants"
 import type { TLDefaultColorStyle, TLDefaultSizeStyle } from "tldraw"
 import { GeoShapeGeoStyle } from "@tldraw/tlschema"
 import type { TLGeoShapeGeoStyle } from "@tldraw/tlschema"
-import type { TLCardShape } from "./components/card-shape/type/CardShape"
+import type { TLCardShape, CardType } from "./components/card-shape/type/CardShape"
 
 /* ─── Style constants ─── */
 const DRAW_COLORS: { id: TLDefaultColorStyle; css: string; label: string }[] = [
@@ -302,7 +302,7 @@ function DraggableCardButton({
 }: {
     icon: ReactNode
     label: string
-    cardType: 'text' | 'todo' | 'link' | 'image' | 'board' | 'column' | 'heading' | 'sticky' | 'color'
+    cardType: CardType | 'column'
     onClick: () => void
     onDragStart?: () => void
     onDragEnd?: () => void
