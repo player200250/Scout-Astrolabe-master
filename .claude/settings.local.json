@@ -37,7 +37,8 @@
       "Bash(Select-Object -First 40)",
       "Bash(node -e \"const fs = require\\('fs'\\); const main = fs.readFileSync\\('main.js','utf8'\\); console.log\\('filesDir:', main.includes\\('filesDir'\\)\\); console.log\\('select-and-copy-file:', main.includes\\('select-and-copy-file'\\)\\); console.log\\('open-file:', main.includes\\(\\\\\"'open-file'\\\\\"\\)\\); console.log\\('delete-file:', main.includes\\(\\\\\"'delete-file'\\\\\"\\)\\); const preload = fs.readFileSync\\('preload.js','utf8'\\); console.log\\('preload selectAndCopyFile:', preload.includes\\('selectAndCopyFile'\\)\\);\")",
       "Bash(node -e ' *)",
-      "Bash(node *)"
+      "Bash(node *)",
+      "PowerShell(cd \"C:\\\\Users\\\\win11\\\\Desktop\\\\Scout-Astrolabe-master\"; Get-ChildItem release\\\\ -Recurse -Depth 0 | Select-Object Name, @{N='Size';E={if\\($_.PSIsContainer\\){'<dir>'}else{'{0:N1} MB' -f \\($_.Length/1MB\\)}}})"
     ]
   }
 }

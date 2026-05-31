@@ -11,6 +11,7 @@ export interface HotkeyActions {
     openImageInput: () => void
     openSearch: () => void
     openHotkeyPanel: () => void
+    openQuickSwitcher?: () => void
     onDeleteShapes?: (ids: string[]) => void
 }
 
@@ -46,6 +47,10 @@ export function useHotkeys(editor: Editor | null, actions: HotkeyActions) {
                     case 'f':
                         e.preventDefault()
                         actions.openSearch()
+                        return
+                    case 'p':
+                        e.preventDefault()
+                        actions.openQuickSwitcher?.()
                         return
                     case '/':
                         e.preventDefault()

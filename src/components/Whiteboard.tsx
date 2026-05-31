@@ -35,6 +35,7 @@ interface WhiteboardProps {
     jumpRef: React.MutableRefObject<((shapeId: string, x: number, y: number) => void) | null>
     onOpenSearch: () => void
     onOpenHotkey: () => void
+    onOpenQuickSwitcher?: () => void
     onCreateBoard: (name: string) => BoardRecord
     onSwitchBoard: (id: string) => void
     sidebarWidth: number
@@ -52,7 +53,7 @@ interface WhiteboardProps {
 }
 
 export function Whiteboard({
-    board, boards, onSaveBoard, jumpRef, onOpenSearch, onOpenHotkey,
+    board, boards, onSaveBoard, jumpRef, onOpenSearch, onOpenHotkey, onOpenQuickSwitcher,
     onCreateBoard, onSwitchBoard, sidebarWidth, isInboxBoard, onMoveCard, isDark,
     onOpenTaskCenter, onOpenReviewCenter, onOpenKnowledgeGraph,
     onOpenCardLibrary, onOpenOverview, onQuickCapture, onCardTrashed,
@@ -120,6 +121,7 @@ export function Whiteboard({
                                 jumpRef={jumpRef}
                                 onOpenSearch={onOpenSearch}
                                 onOpenHotkey={onOpenHotkey}
+                                onOpenQuickSwitcher={onOpenQuickSwitcher}
                                 onCreateBoard={onCreateBoard}
                                 onSwitchBoard={onSwitchBoard}
                                 isInboxBoard={isInboxBoard}

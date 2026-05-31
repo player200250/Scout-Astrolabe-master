@@ -13,6 +13,7 @@ import { HotkeyPanel } from './HotkeyPanel'
 import { KnowledgeGraph } from './KnowledgeGraph'
 import { CardLibrary } from './CardLibrary'
 import { QuickCapture } from './components/QuickCapture'
+import { QuickSwitcher } from './QuickSwitcher'
 import { OnboardingModal } from './components/OnboardingModal'
 import { TrashPanel } from './TrashPanel'
 import { DeleteBoardDialog } from './components/DeleteBoardDialog'
@@ -53,6 +54,7 @@ export default function App() {
     const [quickCaptureOpen, setQuickCaptureOpen] = useState(false)
     const [onboardingOpen, setOnboardingOpen] = useState(false)
     const [trashOpen, setTrashOpen] = useState(false)
+    const [quickSwitcherOpen, setQuickSwitcherOpen] = useState(false)
     const [deletingBoardId, setDeletingBoardId] = useState<string | null>(null)
     const [overdueBannerVisible, setOverdueBannerVisible] = useState(false)
     const bannerShownRef = useRef(false)
@@ -153,6 +155,10 @@ export default function App() {
                 e.preventDefault()
                 setTrashOpen(prev => !prev)
             }
+            if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'p') {
+                e.preventDefault()
+                setQuickSwitcherOpen(true)
+            }
         }
         window.addEventListener('keydown', handler)
         return () => window.removeEventListener('keydown', handler)
@@ -171,6 +177,7 @@ export default function App() {
                     jumpRef={jumpRef}
                     onOpenSearch={() => setSearchOpen(true)}
                     onOpenHotkey={() => setHotkeyOpen(true)}
+                    onOpenQuickSwitcher={() => setQuickSwitcherOpen(true)}
                     onCreateBoard={(name) => handleCreateBoard(name, activeBoardId ?? undefined)}
                     onSwitchBoard={handleSwitchToChild}
                     sidebarWidth={sidebarWidth}
@@ -344,6 +351,15 @@ export default function App() {
                     />
                 )
             })()}
+            {quickSwitcherOpen && (
+                <QuickSwitcher
+                    boards={boards}
+                    activeBoardId={activeBoardId ?? ''}
+                    onSwitch={handleSwitch}
+                    onClose={() => setQuickSwitcherOpen(false)}
+                    isDark={isDark}
+                />
+            )}
             {trashOpen && (
                 <TrashPanel
                     onClose={() => setTrashOpen(false)}

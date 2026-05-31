@@ -1,0 +1,869 @@
+# Scout Astrolabe 開發路線圖 v1.2.0 → v2.0.0
+
+> 文件日期：2026-05-31
+> 基準版本：v1.1.0（commit `43c364a`）
+> 開發規模：單人開發，工作量以「人天」計
+
+---
+
+## 路線圖總覽
+
+| 版本 | 代號 | 核心方向 | 預估工作量 | 前置條件 |
+|------|------|---------|-----------|---------|
+| v1.2.0 | **Stable Core** | 技術債清除 + UX 補強 + 小功能 | 22–26 人天 | — |
+| v1.3.0 | **Intelligence** | AI 輔助功能（本機優先） | 30–36 人天 | v1.2.0 TD1+TD2 完成 |
+| v1.4.0 | **Connected** | 同步與分享 | 33–40 人天 | v1.2.0 平台抽象層 |
+| v2.0.0 | **Cosmos** | 完整智慧知識系統 | 100–130 人天 | v1.3.0 + v1.4.0 |
+
+> **排程原則**：v1.2.0 是唯一必須完整完成才能進入下一版的版本；v1.3.0 與 v1.4.0 可部分並行開發。
+
+---
+
+## 未解決技術債現況（v1.1.0 遺留）
+
+以下技術債將在 v1.2.0 全數清除，不應帶入 v1.3.0 以後：
+
+| 識別碼 | 問題 | 嚴重度 | 阻斷何種後續工作 |
+|--------|------|--------|-----------------|
+| TD1 | `App.tsx` 持有 14+ 面板開關 boolean state | 🔴 高 | 每新增一個 AI 面板都要改 App.tsx + prop drilling |
+| TD2 | `useBoardManager.ts` 約 800 行職責混雜 | 🔴 高 | AI handler、同步 handler 無位置可放 |
+| TD4 | `useBacklinks` 全量掃描 O(boards×shapes) | 🟡 中 | 語意搜尋需要背景索引，全量掃描會打架 |
+| TD5 | `stripHtml` 四處實作不一致 | 🟢 低 | AI 摘要輸入若含 HTML 實體會污染結果 |
+| TD7 | `CalendarView`/`JournalDayView` 無掛載點；`useFileStorage` 疑似廢棄 | 🟢 低 | 死代碼妨礙 Tree-shaking 和閱讀 |
+
+---
+
+## v1.2.0 — Stable Core
+
+### 版本目標
+
+在不引入新外部套件的前提下，清除既有技術債、補強現有功能的 UX 短板、新增 3–4 個高需求小功能。本版本的目標是讓程式碼庫的品質足以安全承載 v1.3.0 的 AI 整合。
+
+**預估工作量**：22–26 人天（約 4–5 週）
+**整體優先度**：🔴 最高（其他版本的前置條件）
+
+---
+
+### A 類：技術債清除（必做）
+
+#### A1 — `usePanelState` hook 提取
+**說明**：將 `App.tsx` 中 14 個面板開關 boolean state 提取為獨立 `usePanelState` hook，回傳 `{ panels, openPanel, closePanel, togglePanel }` 統一介面。`App.tsx` 只保留業務邏輯組合，不再直接持有面板 state。
+
+- **工作量**：1 人天
+- **優先度**：🔴 高
+- **依賴**：無
+- **驗收標準**：
+  - `App.tsx` 面板相關 `useState` 全部移除
+  - `BoardTabBar` 接收 `panelState` 單一 prop，不再是 25 個個別 props
+  - `tsc --noEmit` 零錯誤
+
+#### A2 — `useBoardManager` 拆分（5 個 sub-hook）
+**說明**：將約 800 行的 `useBoardManager.ts` 拆分如下：
+
+| 新 Hook | 職責 | 大約行數 |
+|---------|------|---------|
+| `useBoardCRUD` | 白板建立/重命名/刪除/排序/釘選/封存 | 150 行 |
+| `useTrash` | 軟刪除/永久刪除/清空/14 天排程 | 120 行 |
+| `useNavigation` | `navigationStack` 麵包屑、前進/後退 | 80 行 |
+| `useJournal` | Journal 白板自動建卡、週回顧觸發 | 100 行 |
+| `useAutoBackup` | 備份觸發節流、過期備份清理 | 80 行 |
+
+`useBoardManager` 改為薄包裝，組合以上 5 個 hook。
+
+- **工作量**：3 人天
+- **優先度**：🔴 高
+- **依賴**：A1（`usePanelState` 先完成，減少 prop drilling 糾纏）
+- **驗收標準**：
+  - 各 sub-hook 各自在 200 行以內
+  - 對外 API（`useBoardManager` 回傳的 handler 名稱）完全不變
+  - `useBoardManager.ts` 本身降至 80 行以內
+  - `tsc --noEmit` 零錯誤；手動測試所有白板 CRUD 操作正常
+
+#### A3 — `useBacklinks` 增量更新
+**說明**：現狀為 `useMemo([boards])` 在任意白板更新時重掃全部 snapshot。改為：
+1. 維護一個 `linkIndex: Map<boardId, Set<boardId>>` ref
+2. 當 `boards` 變更時，僅比對 `snapshot` 有改變的 boardId，增量更新該板的出連結
+3. `useMemo` 的依賴改為 `linkIndex` 快照（輕量物件比對）
+
+- **工作量**：1.5 人天
+- **優先度**：🟡 中
+- **依賴**：無
+- **驗收標準**：
+  - 50 個白板、每板 50 張卡片場景下，BacklinksPanel 開啟回應時間 < 50ms（目前 ~200ms）
+  - BacklinksPanel 的連結顯示結果與重構前一致（手動對照）
+
+#### A4 — `stripHtml` 統一
+**說明**：在 `src/utils/stringUtils.ts` 新增統一的 `stripHtml(html: string): string`（使用 `DOMParser` 的完整實作），替換 `useBacklinks.ts`、`DeleteBoardDialog.tsx` 中簡易的只替換 `&nbsp;` 版本。
+
+- **工作量**：0.5 人天
+- **優先度**：🟢 低
+- **依賴**：無
+- **驗收標準**：四處呼叫點全部改用 `stringUtils.stripHtml`，無本地定義；`tsc --noEmit` 零錯誤
+
+#### A5 — 孤兒元件清理
+**說明**：
+1. 確認 `CalendarView.tsx`、`JournalDayView.tsx` 的獨立全螢幕版本是否有觸發路徑。若無，刪除獨立包裝，保留 `ReviewCenter` 內嵌版本
+2. 確認 `useFileStorage.ts` 是否有 import 來源；若確認廢棄則刪除
+
+- **工作量**：0.5 人天
+- **優先度**：🟢 低
+- **依賴**：無
+- **驗收標準**：`git grep 'CalendarView\|JournalDayView\|useFileStorage'` 無孤立引用；Webpack bundle 大小縮小
+
+---
+
+### B 類：UX 改善
+
+#### B1 — 批次操作（多選）
+**說明**：多選卡片後右鍵選單新增：
+- **批次修改 Status**：全部設為待辦/進行中/完成
+- **批次修改 Priority**：全部設為低/中/高
+- **批次修改標籤**：附加標籤（不覆蓋現有標籤）
+- **批次移動至白板**：呼叫現有 `MoveCardModal`，對每張選取卡片執行
+- **批次刪除**：移入垃圾桶
+
+- **工作量**：2 人天
+- **優先度**：🔴 高
+- **依賴**：tldraw 多選狀態（已有 `editor.getSelectedShapes()`）
+- **驗收標準**：
+  - 選取 5 張卡片後右鍵，可見批次操作子選單
+  - 批次移動後，目標白板確認含有這 5 張卡片
+  - 批次刪除後，垃圾桶顯示對應 5 筆記錄
+
+#### B2 — 快捷鍵補全
+**說明**：補充目前缺少快捷鍵的卡片類型：
+
+| 按鍵 | 功能 |
+|------|------|
+| `S` | 新增便利貼 |
+| `K` | 新增 Kanban 看板卡片（v1.2.0 C1 完成後啟用） |
+| `Shift+N` | 新增標題卡片 |
+| `Shift+T` | 新增表格卡片 |
+
+同時更新 `HotkeyPanel` 說明頁。
+
+- **工作量**：0.5 人天
+- **優先度**：🟡 中
+- **依賴**：B1 完成後確認無快捷鍵衝突
+- **驗收標準**：`HotkeyPanel` 頁面正確顯示新快捷鍵；按下對應鍵在白板空白處確認建立對應卡片
+
+#### B3 — 搜尋面板類型篩選
+**說明**：在搜尋輸入框下方新增 chip 篩選列（全部 / 文字 / 待辦 / 連結 / 便利貼 / 表格 / …），點選後縮小搜尋範圍至該卡片類型。
+
+- **工作量**：1 人天
+- **優先度**：🟡 中
+- **依賴**：`SearchPanel` 現有索引架構（`buildSearchIndex` 已含 `type` 欄位）
+- **驗收標準**：選「待辦」後，搜尋結果僅顯示 `type === 'todo'` 的卡片；「全部」恢復全類型搜尋
+
+#### B4 — 白板卡片縮圖懸停預覽
+**說明**：在側邊欄白板清單、BoardOverview 的縮圖上，hover 時顯示 240×180px 的較大縮圖 tooltip（僅用已有 thumbnail data，無需重新渲染）。
+
+- **工作量**：0.5 人天
+- **優先度**：🟢 低
+- **依賴**：現有 `board.thumbnail`（base64 PNG）
+- **驗收標準**：hover 250ms 後出現預覽；離開後 150ms 消失；不影響側邊欄點擊切換白板功能
+
+---
+
+### C 類：新功能
+
+#### C1 — Kanban 看板卡片
+**說明**：新增 `type: 'kanban'` 卡片，在卡片內顯示三欄（待辦 / 進行中 / 完成），每欄可新增文字項目、拖曳排序、刪除。卡片尺寸預設 500×360px，可自由縮放。資料結構：
+
+```typescript
+type KanbanColumn = { id: string; title: string; items: { id: string; text: string }[] }
+// TLCardProps.kanbanColumns: KanbanColumn[]
+```
+
+- **工作量**：4 人天
+- **優先度**：🔴 高
+- **依賴**：`@dnd-kit/core`（已安裝）；A2 完成後新增 handler 較易定位
+- **驗收標準**：
+  - 可從右鍵選單、工具列建立 Kanban 卡片
+  - 三欄各可新增項目（Enter 確認）、刪除項目（× 按鈕）
+  - 欄內項目可拖曳排序
+  - 資料持久化（切換白板後回來資料不遺失）
+  - 匯出 PNG/PDF 時 Kanban 卡片正確渲染
+
+#### C2 — 連結卡片 OG Metadata 抓取
+**說明**：建立連結卡片時，透過 Electron 主程序的 `ipcMain` handler 向目標 URL 發送 HTTP 請求，解析 `og:title`、`og:image`、`og:description`（以及 `<title>` fallback），回傳後顯示在卡片上（目前只抓 YouTube 標題）。純 Web 模式（`npm run dev`）無此功能，顯示 URL 字串即可。
+
+新增 IPC 通道：`fetch-og-metadata`（input: url, output: `{ title, image, description }`）
+
+- **工作量**：2 人天
+- **優先度**：🟡 中
+- **依賴**：Electron 環境；需處理逾時（3 秒）與失敗 fallback
+- **驗收標準**：
+  - 貼入 GitHub / Medium / Twitter 等支援 OG 的 URL，卡片顯示標題與封面圖
+  - OG 圖片顯示於卡片頂部（最大高度 100px）
+  - 抓取失敗時顯示 URL 字串，不 crash
+
+#### C3 — 表格卡片強化
+**說明**：
+1. **標題行切換**：右鍵選單可開/關「標題行」，開啟時第一列以加粗樣式顯示
+2. **列拖曳排序**：列左側新增拖曳把手（`⠿`），使用 `@dnd-kit/sortable` 實作
+3. **欄數快速切換**：卡片屬性列新增欄數下拉選單（2/3/4），切換後保留資料（新欄為空、刪除欄時最右欄資料清除並確認）
+
+- **工作量**：2 人天
+- **優先度**：🟡 中
+- **依賴**：`@dnd-kit/sortable`（已安裝）
+- **驗收標準**：
+  - 標題行開關後 UI 立即反應，切換白板後持久保存
+  - 拖曳列順序後資料順序正確更新
+  - 欄數從 3 改為 2 時彈出確認對話框，確認後最右欄資料清除
+
+#### C4 — Markdown 匯入
+**說明**：支援以下兩種觸發方式建立文字卡片：
+1. **拖曳 `.md` 檔案**到白板 → 讀取內容，以 TipTap 格式轉換（標題/清單/程式碼區塊）建立文字卡片，卡片標題取 markdown 第一行 H1
+2. **貼上純文字**：若剪貼板內容以 `# ` 開頭且含有多行，偵測為 Markdown，詢問是否建立文字卡片（避免覆蓋現有純文字貼上行為）
+
+Markdown → TipTap 使用 `marked`（新增依賴，或手動解析常見語法）。
+
+- **工作量**：2 人天
+- **優先度**：🟢 低
+- **依賴**：`marked`（需新增依賴）；Electron `ipcMain` 讀檔（已有類似機制）
+- **驗收標準**：
+  - 拖入含 H1/H2/清單/程式碼的 .md 檔案，文字卡片正確呈現對應樣式
+  - 貼上一般文字時不觸發 Markdown 偵測
+
+---
+
+### v1.2.0 完成標準
+
+所有以下條件同時成立，才視為 v1.2.0 完成：
+
+1. **TypeScript 零錯誤**：`tsc --noEmit` 輸出 0 errors
+2. **ESLint 零警告**：`eslint src/ --ext .ts,.tsx` 輸出 0 warnings
+3. **App.tsx 精簡**：面板相關 `useState` 全部移除；檔案行數 ≤ 200 行
+4. **useBoardManager 拆分**：原檔降至 ≤ 80 行；5 個 sub-hook 各自 ≤ 200 行
+5. **技術債清單**：TD1–TD5、TD7 全部標記為 ✅ 已解決
+6. **新功能驗收**：C1–C4 各自通過對應驗收標準
+7. **無功能迴歸**：既有 11 種卡片類型基本操作（建立/編輯/刪除/移動/匯出）手動全部驗證通過
+
+---
+
+## v1.3.0 — Intelligence
+
+### 版本目標
+
+在「隱私優先、完全本機」的設計前提下，引入 AI 輔助功能。以 **Ollama**（本機 LLM）為主要 AI 提供者，同時支援使用者自行設定 OpenAI / Claude API key。本版本不依賴任何強制雲端服務。
+
+**預估工作量**：30–36 人天（約 6–7 週）
+**整體優先度**：🟡 中高
+**前置條件**：v1.2.0 TD1（usePanelState）+ TD2（useBoardManager 拆分）完成
+
+---
+
+### AI 架構設計（v1.3.0 基礎，必須先完成）
+
+#### AI-0 — AI Provider 抽象層
+**說明**：新增 `src/ai/` 模組，定義統一介面：
+
+```typescript
+// src/ai/types.ts
+interface AIProvider {
+  name: string
+  isAvailable(): Promise<boolean>
+  complete(prompt: string, opts?: CompleteOptions): Promise<string>
+  embed(text: string): Promise<number[]>   // 語意搜尋用
+}
+```
+
+實作三個 Provider：
+- `OllamaProvider`：呼叫 `http://localhost:11434/api/generate`
+- `OpenAIProvider`：呼叫 OpenAI API（使用者提供 key）
+- `ClaudeProvider`：呼叫 Anthropic API（使用者提供 key）
+
+`src/ai/index.ts` 導出 `getActiveProvider()`，從設定讀取選擇。
+
+- **工作量**：2 人天
+- **優先度**：🔴 高（本版本所有 AI 功能的前置）
+- **依賴**：無
+- **驗收標準**：`OllamaProvider.isAvailable()` 在 Ollama 未啟動時回傳 `false` 不 crash；三個 Provider 可互換
+
+#### AI-1 — AI 設定頁面
+**說明**：在側邊欄底部「⋯」選單新增「🤖 AI 設定」入口，開啟設定面板：
+- **Provider 選擇**：Ollama（本機）/ OpenAI / Claude / 停用
+- **Ollama**：endpoint 設定（預設 `http://localhost:11434`）、模型選擇（從 Ollama 動態抓取已安裝模型清單）
+- **OpenAI / Claude**：API Key 輸入（存入 Electron `safeStorage` 加密，不存入 IndexedDB）
+- **測試連線**按鈕（呼叫簡單的 `complete("hi")` 確認可用）
+
+- **工作量**：2 人天
+- **優先度**：🔴 高（所有 AI 功能的入口）
+- **依賴**：AI-0；Electron `safeStorage` API
+- **驗收標準**：
+  - API Key 存入後重啟 App，key 仍存在且不明文顯示
+  - 測試連線失敗時顯示具體錯誤訊息（timeout / 401 / 503 等）
+  - AI 停用時，所有 AI 相關 UI 元素隱藏
+
+---
+
+### AI 功能一覽
+
+#### AI-2 — 文字卡片 AI 輔助選單
+**說明**：在文字卡片（`type: 'text'`）的右鍵選單新增「AI 輔助 ▶」子選單：
+
+| 選項 | 動作 |
+|------|------|
+| 📄 摘要 | 將卡片全文摘要為 3–5 句，建立新的文字卡片（位置偏移 +20px） |
+| ✨ 展開 | 補充現有內容的細節，在原卡片追加段落 |
+| ✍️ 改寫（精簡） | 縮短至原文 60% 以內 |
+| 🌐 翻譯為英文 | 建立英文翻譯卡片 |
+| 🌐 翻譯為中文 | 建立中文翻譯卡片 |
+
+所有動作執行時顯示 loading spinner，完成後 toast 通知。
+
+- **工作量**：3 人天
+- **優先度**：🔴 高
+- **依賴**：AI-0、AI-1
+- **驗收標準**：
+  - 文字卡片含 200 字以上時，「摘要」建立的新卡片在 30 秒內出現
+  - AI 回應為空時顯示錯誤 toast，不建立空卡片
+
+#### AI-3 — 待辦卡片 AI 任務拆解
+**說明**：在待辦卡片右鍵選單新增「🧩 AI 拆解任務」。輸入一段描述性文字（或讀取卡片現有項目），AI 輸出 5–10 個具體子任務，以 JSON array 回傳後新增至卡片待辦清單。
+
+提示詞模板（可在 AI 設定頁自訂）：
+```
+你是一個專業的任務管理助理。請將以下目標拆解為 5–10 個具體、可執行的待辦事項（以 JSON string array 回傳）：
+{input}
+```
+
+- **工作量**：2 人天
+- **優先度**：🟡 中
+- **依賴**：AI-0、AI-1
+- **驗收標準**：輸入「準備簡報」後，AI 回傳至少 5 個具體項目並加入待辦清單；JSON 解析失敗時以逐行解析 fallback
+
+#### AI-4 — 週回顧 AI 草稿生成
+**說明**：在 `ReviewCenter` 面板新增「✨ AI 生成草稿」按鈕。讀取本週 Journal 卡片文字、已完成待辦清單、知識連結建立數作為上下文，生成週回顧草稿並填入 WeeklyReview 卡片的對應段落（完成/學習/卡住/目標/待跟進）。使用者可在 AI 填入後自行修改。
+
+- **工作量**：3 人天
+- **優先度**：🟡 中
+- **依賴**：AI-0、AI-1；需讀取本週 Journal 快照（已有 `getISOWeekKey` 工具）
+- **驗收標準**：按鈕出現時本週有日記卡片；草稿填入後，週回顧卡片各段落非空且結構正確
+
+#### AI-5 — 智慧標籤建議
+**說明**：建立或編輯文字/便利貼/Journal 卡片時，在標籤輸入框旁顯示「💡 AI 建議」按鈕。呼叫後分析卡片內容，回傳 3–5 個建議標籤（排除已有標籤），以 chip 形式顯示供使用者一鍵套用。
+
+- **工作量**：2 人天
+- **優先度**：🟢 低
+- **依賴**：AI-0、AI-1
+- **驗收標準**：建議標籤與內容相關（主觀判斷）；點擊建議 chip 後立即加入標籤欄位
+
+#### AI-6 — 語意搜尋
+**說明**：在 `SearchPanel` 新增「語意搜尋」切換鈕（預設關閉）。開啟後：
+1. 首次啟動時建立語意向量索引（`buildEmbeddingIndex`）：對所有卡片呼叫 `provider.embed()` 取得 embedding，存入記憶體 Map
+2. 搜尋時計算 query embedding，以 cosine similarity 排序結果
+3. 每次 boards 更新時增量更新索引（僅更新有變更的卡片）
+
+**注意**：僅在 Ollama provider 下支援（OpenAI embedding 需額外費用，預設不啟用）。
+
+- **工作量**：5 人天
+- **優先度**：🟡 中
+- **依賴**：AI-0、AI-1；A3（增量索引概念可複用）
+- **完成標準**：
+  - 輸入「下週會議」時能找到含「下周開會」的卡片
+  - 索引建立時顯示進度（「正在建立語意索引 23/50...」）
+  - Ollama 未啟動時，語意搜尋切換鈕顯示 disabled 狀態
+
+#### AI-7 — 圖片卡片 OCR + AI 描述
+**說明**：圖片卡片右鍵選單新增「🔍 AI 識別圖片」：
+1. **OCR**（Ollama Vision 模型，如 `llava`）：識別圖片中的文字，結果存入 `card.aiOcrText`，顯示在卡片底部可展開區域
+2. **AI 描述**：生成圖片的自然語言描述，存入 `card.aiDescription`，用於全域搜尋索引（讓圖片可被文字搜尋）
+
+- **工作量**：3 人天
+- **優先度**：🟢 低
+- **依賴**：AI-0、AI-1；需要支援 Vision 的 Ollama 模型（`llava`）
+- **驗收標準**：含文字的截圖 OCR 結果正確率 > 80%；OCR 結果存入後，`SearchPanel` 能搜尋到該圖片卡片
+
+#### AI-8 — 知識圖譜 AI 主題聚類
+**說明**：在 `KnowledgeGraph` 面板新增「🌐 AI 聚類」按鈕。分析所有白板/卡片的文字內容，以 k-means 聚類（k=5 可調），以不同顏色在圖譜中標示主題群組，並自動命名每個群組（如「工作任務」「學習筆記」）。
+
+- **工作量**：4 人天
+- **優先度**：🟢 低
+- **依賴**：AI-6（embedding 基礎架構）
+- **驗收標準**：20 個以上白板場景下，聚類結果有語意上的合理性（主觀判斷）；聚類顏色與 legend 同步
+
+---
+
+### v1.3.0 完成標準
+
+1. **AI 提供者**：Ollama / OpenAI / Claude 三種 provider 可切換，設定持久化
+2. **核心 AI 功能**：AI-2、AI-3、AI-4（高優先度）全部通過驗收
+3. **隱私保護**：API Key 以 Electron `safeStorage` 加密；AI 請求在 Ollama 模式下完全本機
+4. **降級行為**：AI 停用時，App 所有既有功能正常（無 AI 依賴的 runtime error）
+5. **TypeScript 零錯誤**：`tsc --noEmit` 零錯誤
+
+---
+
+## v1.4.0 — Connected
+
+### 版本目標
+
+為「本機優先」的應用打開對外連結的窗口：支援跨裝置同步、白板分享、跨平台（macOS/Linux），並建立平台抽象層為未來 Web 版本鋪路。
+
+**預估工作量**：33–40 人天（約 7–8 週）
+**整體優先度**：🟡 中
+**前置條件**：v1.2.0 完成（尤其 TD1+TD2）
+
+---
+
+### 平台抽象層（必做）
+
+#### P1 — `src/platform/` 抽象層
+**說明**：新增 `src/platform/` 目錄，封裝所有 Electron 依賴呼叫：
+
+```typescript
+// src/platform/fs.ts
+export async function readFile(path: string): Promise<Uint8Array>
+export async function writeFile(path: string, data: Uint8Array): Promise<void>
+export async function openInSystem(path: string): Promise<void>
+
+// src/platform/dialog.ts
+export async function showSaveDialog(opts): Promise<string | null>
+export async function showOpenDialog(opts): Promise<string[] | null>
+
+// src/platform/storage.ts
+export async function getSecureItem(key: string): Promise<string | null>
+export async function setSecureItem(key: string, value: string): Promise<void>
+```
+
+Electron 實作透過 `window.electronAPI`；Web fallback 使用 `File System Access API` 或 `localStorage`。
+
+- **工作量**：3 人天
+- **優先度**：🔴 高（本版本所有功能的前置）
+- **依賴**：無
+- **驗收標準**：現有 Electron 功能（開啟檔案、儲存匯出）全部改用 `platform/` 呼叫後行為不變；`npm run dev`（Web 模式）可編譯且不 crash
+
+---
+
+### 匯入/匯出強化
+
+#### E1 — 完整 JSON 匯入
+**說明**：目前只有 JSON 匯出，補充匯入功能。支援：
+1. 匯入 Scout Astrolabe 匯出的 JSON（單一或多個白板）
+2. 匯入前顯示預覽（含白板名稱、卡片數量、衝突白板警告）
+3. 衝突解決策略：「建立副本」（預設）/ 「覆蓋」/ 「跳過」
+
+- **工作量**：2.5 人天
+- **優先度**：🔴 高（資料可攜帶性的基礎）
+- **依賴**：P1
+- **驗收標準**：匯出後刪除白板，再匯入，白板與所有卡片完整還原；衝突時三種策略行為正確
+
+#### E2 — 靜態 HTML 匯出（可分享快照）
+**說明**：新增匯出選項「匯出為可分享 HTML」。生成一份**自包含的靜態 HTML 檔案**：
+- 嵌入所有卡片資料（JSON inline）
+- 嵌入縮圖圖片（base64）
+- 嵌入最小化的渲染 CSS
+- 允許在瀏覽器中**唯讀瀏覽**：可平移/縮放、可查看卡片內容，但不可編輯
+
+生成的 HTML 大小目標：≤ 2MB（不含大圖片）。
+
+- **工作量**：4 人天
+- **優先度**：🟡 中
+- **依賴**：P1
+- **驗收標準**：
+  - 生成的 HTML 在 Chrome/Firefox/Edge 中可開啟
+  - 含文字/待辦/表格卡片的白板，HTML 版本顯示一致
+  - 大圖片卡片自動降解析度（最長邊 800px）
+
+---
+
+### 同步功能
+
+#### S1 — 雲端備份（Google Drive / Dropbox / OneDrive）
+**說明**：在備份面板新增「雲端備份」區塊。使用者授權後，每次本機自動備份同時將 JSON 備份上傳至雲端指定資料夾。策略：
+- 備份格式與本機完全相同（BoardRecord JSON array）
+- 每個白板維持最多 30 份雲端備份（與本機同步）
+- 可手動下載雲端備份至本機還原
+
+支援的服務（用 OAuth 授權，API key 不由 App 持有）：
+- Google Drive（Google Drive API v3）
+- Dropbox（Dropbox API v2）
+
+- **工作量**：6 人天
+- **優先度**：🟡 中
+- **依賴**：P1；Electron BrowserWindow popup 處理 OAuth 流程
+- **驗收標準**：
+  - 授權後，手動觸發備份，Google Drive 對應資料夾出現備份 JSON
+  - 斷網時備份失敗，顯示錯誤 toast，本機備份不受影響
+  - 重新授權流程（token 過期）可正常完成
+
+#### S2 — 區域網路同步（LAN Sync）
+**說明**：同一 Wi-Fi 的兩台裝置間自動同步 boards。採用**主從架構**（一台作為 Host，其他為 Client），使用 mDNS 服務發現（`bonjour` / `mdns`）：
+
+1. **Host 模式**：啟動本機 HTTP server（port 12345），對外提供 `/boards` GET API
+2. **Client 模式**：透過 mDNS 發現同網路的 Host，定期（30 秒）pull boards 快照
+3. **衝突解決**：Last-write-wins（`updatedAt` 時間戳比較）
+
+初版不支援即時協作（非 CRDT），每 30 秒同步一次。
+
+- **工作量**：7 人天
+- **優先度**：🟡 中
+- **依賴**：P1；E1（JSON 匯入邏輯可複用）；需新增 `mdns` 套件
+- **驗收標準**：
+  - 兩台裝置同網路，開啟 Host 模式後，Client 30 秒內看到最新白板
+  - 離線後 Client 顯示「同步已暫停」不 crash
+  - 同時編輯同一白板，30 秒後以較新的 `updatedAt` 為準（last-write-wins）
+
+#### S3 — 唯讀分享連結（LAN）
+**說明**：在 S1/S2 的 Host HTTP server 基礎上，新增 `/share/:boardId` 路由，提供 E2 生成的靜態 HTML 快照。分享按鈕會複製局域網 URL（如 `http://192.168.1.5:12345/share/board-abc`）。
+
+- **工作量**：1.5 人天
+- **優先度**：🟢 低
+- **依賴**：E2、S2
+- **驗收標準**：複製 URL 後，在同網路手機瀏覽器可查看白板快照
+
+---
+
+### 跨平台
+
+#### X1 — macOS 支援
+**說明**：調整 Electron 設定、native API 差異，確保在 macOS 12+ 正常運作：
+- `electron-builder` 設定：新增 `mac` target（DMG + ZIP）
+- 選單列：macOS App 選單（About / Preferences / Quit 等標準項目）
+- 快捷鍵：將 `Ctrl` 改為 `Meta`（macOS Command 鍵）
+- 檔案路徑：`app.getPath('userData')` 在 macOS 為 `~/Library/Application Support/`
+- `window.electronAPI.openInSystem`：macOS 使用 `shell.openPath`（已支援，無需修改）
+
+- **工作量**：3 人天
+- **優先度**：🟡 中
+- **依賴**：P1
+- **驗收標準**：macOS 上所有卡片類型可建立/編輯；快捷鍵正常；DMG 安裝包可在 macOS 12 安裝執行
+
+#### X2 — Web 版本（PWA）
+**說明**：利用 P1 平台抽象層，將 App 發布為可在瀏覽器中執行的 PWA：
+- 資料層：`platform/storage.ts` 在 Web 版切換為 `OPFS`（Origin Private File System）或 `IndexedDB` direct
+- 檔案功能：使用 `File System Access API`（不支援時降級為下載/上傳）
+- 安裝為 PWA：manifest.json + Service Worker（離線快取靜態資源）
+- AI 功能：僅支援 OpenAI/Claude（瀏覽器無法連 localhost:11434）
+
+- **工作量**：8 人天
+- **優先度**：🟡 中
+- **依賴**：P1；所有 `window.electronAPI` 呼叫已完全移入 `platform/`
+- **驗收標準**：
+  - `npm run dev` 在 Chrome 可建立/編輯/儲存白板
+  - 刷新頁面後資料不遺失
+  - 已安裝的 PWA 在無網路時可使用（靜態資源已快取）
+
+---
+
+### v1.4.0 完成標準
+
+1. **平台抽象層**：`src/` 中無直接 `window.electronAPI` 呼叫（全部透過 `platform/`）
+2. **資料可攜性**：JSON 完整匯出入、靜態 HTML 匯出三者通過驗收
+3. **同步功能**：雲端備份（至少一個服務）或 LAN Sync 通過驗收（二選一）
+4. **跨平台**：macOS DMG 可安裝執行，核心功能正常
+5. **無迴歸**：Electron 版本既有功能全部正常
+
+---
+
+## v2.0.0 — Cosmos
+
+### 版本目標
+
+從「個人桌面白板」升級為「完整智慧知識系統」。本版本涵蓋架構級別的演進，包含外掛系統、多人協作、進階 AI 知識助理，以及移動端支援。工作量大，建議分多個 milestone 交付。
+
+**預估工作量**：100–130 人天（約 5–6 個月）
+**整體優先度**：🟡 中長期
+**前置條件**：v1.3.0 + v1.4.0 全部完成
+
+---
+
+### 里程碑規劃
+
+| Milestone | 名稱 | 核心交付 | 預估工作量 |
+|-----------|------|---------|-----------|
+| M1 | 外掛系統 | Plugin API + SDK | 20 人天 |
+| M2 | 多人協作 | CRDT 即時同步 | 28 人天 |
+| M3 | AI 知識助理 | RAG + 主動建議 | 22 人天 |
+| M4 | 行動端 | iOS/Android App | 30 人天 |
+| M5 | 自動化工作流 | 觸發-動作系統 | 20 人天 |
+| M6 | 外部整合 | REST API + Webhook | 14 人天 |
+
+---
+
+### M1 — 外掛系統（Plugin API）
+
+#### PL1 — Plugin API 設計與沙盒機制
+**說明**：定義 `ScoutPlugin` interface，允許社群開發者擴充：
+- 新卡片類型（實作 `PluginShapeUtil`，繼承 `CardShapeUtil`）
+- 新側邊欄面板（`PluginPanel` React component）
+- 新右鍵選單項目（`PluginContextMenuContributor`）
+- 新 AI 工具（`PluginAITool`，掛入 AI-2 的輔助選單）
+
+外掛以 **npm 套件**形式分發，安裝到 `userData/plugins/`，透過 Electron 動態 `require`（有限 API 沙盒，不可直接存取 IndexedDB）。
+
+- **工作量**：15 人天
+- **優先度**：🟡 中
+- **依賴**：v1.2.0 A2（拆分後的 sub-hooks 才有穩定 API）
+- **驗收標準**：
+  - 一個範例外掛（如「Pomodoro 計時器卡片」）可透過 UI 安裝/移除
+  - 外掛 crash 不影響主 App（沙盒隔離）
+  - Plugin API 文件（`docs/plugin-api.md`）完整
+
+#### PL2 — 外掛市集 UI
+**說明**：在設定頁新增「外掛市集」標籤，從 GitHub Releases 或自訂 registry URL 抓取外掛清單（JSON 格式），顯示名稱/描述/評分，支援一鍵安裝。
+
+- **工作量**：5 人天
+- **優先度**：🟢 低
+- **依賴**：PL1
+- **驗收標準**：可從 registry 下載並安裝外掛，無需手動操作檔案系統
+
+---
+
+### M2 — 多人協作（CRDT）
+
+#### CO1 — CRDT 資料層（Yjs 整合）
+**說明**：引入 `Yjs` 作為底層 CRDT 引擎，將每個 `BoardRecord.snapshot` 的 shape 資料遷移至 `Y.Map`。每個 white board 對應一個 `Y.Doc`，shape 的增刪改轉為 Yjs op。
+
+IndexedDB 持久化改用 `y-indexeddb` provider。
+
+- **工作量**：12 人天
+- **優先度**：🔴 高（本里程碑核心）
+- **依賴**：v1.4.0 P1（平台抽象層）
+- **驗收標準**：
+  - 單人使用下，Yjs 版本與現有 tldraw snapshot 版本行為完全一致
+  - Undo/redo 基於 Yjs history（行為不迴歸）
+  - 資料遷移腳本：舊版 IndexedDB schema 自動升級，資料不遺失
+
+#### CO2 — 即時協作（WebRTC/WebSocket）
+**說明**：支援多人同時編輯同一白板：
+- **WebRTC P2P**（局域網優先）：使用 `y-webrtc`，無需伺服器，適合家庭/小型團隊
+- **WebSocket 中繼**（可選）：使用 `y-websocket` + 自架 `y-websocket-server`（Docker 一鍵部署）
+
+UI：白板右上角顯示在線用戶頭像（隨機顏色），游標追蹤（顯示其他用戶游標位置與名稱）。
+
+- **工作量**：10 人天
+- **優先度**：🟡 中
+- **依賴**：CO1
+- **驗收標準**：
+  - 兩台裝置同時開啟同一白板，一人新增卡片，另一人 < 1 秒內看到
+  - 斷線重連後，離線期間的修改合併無衝突
+  - 三人同時編輯不同卡片，無資料遺失
+
+#### CO3 — 分享白板（唯讀連結 + 協作連結）
+**說明**：擴充 v1.4.0 S3，支援：
+- **唯讀連結**：URL 含 token，任何人可查看但無法編輯
+- **協作連結**：URL 含 room ID，持有連結者可加入協作（可設密碼）
+- **權限管理**：白板擁有者可撤銷連結、設定過期時間
+
+- **工作量**：6 人天
+- **優先度**：🟢 低
+- **依賴**：CO2
+- **驗收標準**：唯讀連結無法觸發任何編輯操作；協作連結密碼驗證正確
+
+---
+
+### M3 — AI 知識助理
+
+#### AI-9 — RAG 個人知識庫
+**說明**：在 v1.3.0 語意搜尋（AI-6）的基礎上，建立完整 RAG（Retrieval-Augmented Generation）流程：
+1. 所有卡片文字定期建立向量索引（本機 `hnswlib-node` 或 `faiss-node`）
+2. 新增**知識助理面板**（`Ctrl+Shift+A`）：自然語言問答界面
+3. 問題輸入後，先從向量索引找最相關的 5–10 張卡片，再以 LLM 生成回答，並附上「資料來源」卡片連結
+
+- **工作量**：10 人天
+- **優先度**：🔴 高
+- **依賴**：AI-6；向量資料庫套件（`hnswlib-node`）
+- **驗收標準**：
+  - 問「我上週做了什麼」，回答引用本週 Journal 卡片內容
+  - 每個回答下方顯示 3 個以上「參考卡片」連結，點擊可跳轉
+
+#### AI-10 — 主動建議（Proactive Insights）
+**說明**：App 在背景分析使用者的知識庫，主動推送：
+- **關聯建議**：「這張卡片與《XXX》白板有高度相關，要建立連結嗎？」
+- **遺忘提醒**（間隔重複）：識別超過 14 天未查看的重要卡片，提醒複習
+- **待辦逾期預警**：在任務中心現有逾期提醒基礎上，AI 預測「哪些待辦有逾期風險」
+
+所有建議顯示為側邊欄鈴鐺通知，可接受/忽略/停用某類別。
+
+- **工作量**：8 人天
+- **優先度**：🟡 中
+- **依賴**：AI-9；需後台排程（Electron `setInterval` 或 `node-cron`）
+- **驗收標準**：後台建議每天最多推送 3 條，不騷擾；可在設定頁關閉各類別
+
+#### AI-11 — 對話式白板建立
+**說明**：在快速捕捉面板新增「對話模式」：
+- 使用者輸入「幫我規劃下週的工作白板」
+- AI 生成白板結構提案（包含 Frame 佈局、卡片類型和初始內容）
+- 使用者確認後，一鍵建立整個白板（含所有卡片）
+
+- **工作量**：4 人天
+- **優先度**：🟢 低
+- **依賴**：AI-9；C1 Kanban 卡片（AI 可能生成 Kanban 結構）
+- **驗收標準**：輸入描述後，AI 生成的白板提案包含至少 3 種不同卡片類型；使用者確認後一鍵建立
+
+---
+
+### M4 — 行動端（iOS/Android）
+
+#### MOB1 — React Native 版本（核心功能）
+**說明**：以 React Native 重新實作行動端介面（不複用 tldraw，改用原生觸控手勢的輕量畫布）。核心功能：
+- 查看白板（縮放/平移）
+- 快速捕捉（語音/文字）
+- 待辦卡片管理
+- 推播通知（逾期提醒）
+
+資料同步透過 v2.0.0 CO2 的 Yjs 協作通道。
+
+- **工作量**：25 人天
+- **優先度**：🟡 中
+- **依賴**：CO1（Yjs 資料層）；v1.4.0 P1（平台抽象概念）
+- **驗收標準**：
+  - iOS/Android 可查看所有白板縮圖與卡片清單
+  - 快速捕捉語音後，在桌面版收件匣出現新卡片（透過 Yjs 同步）
+  - 推播通知在 App 背景時正常發送
+
+#### MOB2 — 行動端編輯（進階）
+**說明**：在 MOB1 基礎上補充行動端編輯能力：
+- 文字卡片行動端編輯（簡化工具列，支援觸控鍵盤）
+- 便利貼建立（長按白板空白區域）
+- 圖片卡片（相機/相簿匯入）
+
+- **工作量**：5 人天
+- **優先度**：🟢 低
+- **依賴**：MOB1
+- **驗收標準**：行動端新增的文字/便利貼/圖片卡片在桌面版可見
+
+---
+
+### M5 — 自動化工作流
+
+#### WF1 — 觸發-動作系統（Automations）
+**說明**：新增自動化規則引擎，支援：
+- **觸發條件**：卡片狀態改變 / 到期日到達 / 新卡片建立 / 特定標籤新增
+- **動作**：移動至指定白板 / 建立新卡片 / 發送桌面通知 / 呼叫 Webhook / 執行 AI 操作
+- 規則以視覺化 if-then 介面設定（非程式碼）
+
+- **工作量**：15 人天
+- **優先度**：🟡 中
+- **依賴**：v1.2.0 A2（useBoardManager 提供穩定的 handler API）；appEvents.ts（事件匯流排）
+- **驗收標準**：
+  - 設定「待辦卡片到期時發送通知」規則，到期後確實觸發 Electron 通知
+  - 設定「標籤 #archive 新增時移動至封存白板」，手動新增標籤後卡片移動
+
+#### WF2 — 外部 Webhook 整合
+**說明**：WF1 的動作支援呼叫外部 Webhook（如 Discord / Slack / 自訂 API），使用者在動作設定中輸入 URL 和 payload 模板（支援 `{card.title}`、`{board.name}` 等變數）。
+
+- **工作量**：5 人天
+- **優先度**：🟢 低
+- **依賴**：WF1
+- **驗收標準**：設定 Webhook 到 Discord Bot 後，卡片狀態改變時 Discord 收到通知
+
+---
+
+### M6 — 外部整合
+
+#### INT1 — REST API
+**說明**：在本機啟動 REST API server（port 可設定），提供：
+- `GET /boards`、`GET /boards/:id`：讀取白板
+- `POST /boards/:id/cards`：建立卡片
+- `PUT /boards/:id/cards/:shapeId`：更新卡片
+- Bearer token 認證（在設定頁生成 token）
+
+供第三方工具（VS Code 擴充、Alfred workflow 等）整合。
+
+- **工作量**：8 人天
+- **優先度**：🟢 低
+- **依賴**：CO1（Yjs 資料層穩定後才值得暴露 API）
+- **驗收標準**：`curl -H "Authorization: Bearer <token>" localhost:9876/boards` 回傳正確 JSON
+
+#### INT2 — 匯入外部來源
+**說明**：支援從以下來源匯入卡片：
+- Notion 頁面（透過 Notion API，使用者提供 token）
+- Obsidian vault（掃描本機 .md 檔案資料夾）
+- Roam Research JSON 格式
+
+- **工作量**：6 人天
+- **優先度**：🟢 低
+- **依賴**：E1（JSON 匯入基礎）
+- **驗收標準**：從 Obsidian vault 匯入 10 份 .md 後，文字卡片格式正確且雙向連結被識別
+
+---
+
+### v2.0.0 完成標準
+
+1. **外掛系統**：至少 1 個範例外掛可透過 UI 安裝並正常運作（M1）
+2. **多人協作**：2 人即時協作 < 1 秒延遲；斷線重連無資料遺失（M2）
+3. **AI 知識助理**：RAG 問答能引用正確來源卡片（M3）
+4. **行動端**：iOS/Android 核心功能（查看 + 快速捕捉 + 同步）通過驗收（M4）
+5. **自動化**：至少 3 種觸發條件 + 3 種動作可組合使用（M5）
+6. **無迴歸**：v1.x 的所有核心功能在 v2.0.0 下正常（全系統回歸測試）
+
+---
+
+## 功能依賴關係圖
+
+```
+v1.1.0（基準）
+│
+├─► v1.2.0 Stable Core
+│    ├─ TD1 usePanelState ──────────────────────────► AI-1 (AI 設定面板)
+│    ├─ TD2 useBoardManager 拆分 ─────────────────────► WF1 (自動化)、PL1 (外掛)
+│    ├─ TD4 useBacklinks 增量 ────────────────────────► AI-6 (語意搜尋)
+│    ├─ C1 Kanban 卡片 ───────────────────────────────► AI-11 (對話式建立)
+│    └─ P1 平台抽象層（技術準備）─────────────────────► X1、X2、CO1、MOB1
+│
+├─► v1.3.0 Intelligence（需要 TD1+TD2）
+│    ├─ AI-0 Provider 抽象 ──────────────────────────► 所有 AI 功能
+│    ├─ AI-6 語意搜尋（embedding）───────────────────► AI-9 RAG、AI-8 KG 聚類
+│    └─ AI-2/AI-3/AI-4（核心 AI 功能）
+│
+├─► v1.4.0 Connected（需要 P1）
+│    ├─ E1 JSON 匯入 ─────────────────────────────────► INT2 外部匯入
+│    ├─ E2 靜態 HTML ─────────────────────────────────► CO3 分享連結
+│    ├─ S2 LAN Sync ──────────────────────────────────► S3 唯讀分享
+│    └─ X2 Web PWA ───────────────────────────────────► MOB（概念準備）
+│
+└─► v2.0.0 Cosmos（需要 v1.3.0 + v1.4.0）
+     ├─ M1 外掛系統 ─────────────────────────────────► 社群生態
+     ├─ CO1 Yjs ──────────────────────────────────────► CO2、CO3、MOB1、INT1
+     ├─ M3 RAG ──────────────────────────────────────► AI-10、AI-11
+     └─ M4 行動端 ─────────────────────────────────────► WF2 Webhook（行動觸發）
+```
+
+---
+
+## 技術風險評估
+
+| 風險 | 影響版本 | 嚴重度 | 緩解策略 |
+|------|---------|--------|---------|
+| Ollama 使用者安裝率低 | v1.3.0 | 🟡 中 | 確保 AI 停用時 App 完整可用；Cloud AI provider 作為備選 |
+| tldraw v3 → v4 破壞性升級 | v1.2.0+ | 🟡 中 | 鎖定 `tldraw@3.x`；升級時以 worktree 分支實驗 |
+| Yjs 與 tldraw snapshot 整合複雜度 | v2.0.0 M2 | 🔴 高 | v2.0.0 M2 前建立 PoC；若複雜度過高改採 operational transform 或 snapshot merge |
+| LAN Sync Last-Write-Wins 資料遺失 | v1.4.0 S2 | 🟡 中 | 同步前自動備份；衝突時通知使用者而非靜默覆蓋 |
+| React Native 行動端工作量超標 | v2.0.0 M4 | 🔴 高 | 以「查看+捕捉」為 MVP，不含白板編輯；M4 最後排期 |
+| Plugin 沙盒安全性（惡意外掛） | v2.0.0 M1 | 🟡 中 | 外掛僅能呼叫有限 Plugin API；無直接 DB/FS 存取；外掛市集人工審核 |
+
+---
+
+## 快速參考：版本工作量彙整
+
+| 版本 | 類別 | 項目數 | 合計人天 |
+|------|------|--------|---------|
+| v1.2.0 | 技術債（A1–A5）| 5 | 6.5 |
+| | UX 改善（B1–B4）| 4 | 4 |
+| | 新功能（C1–C4）| 4 | 10 |
+| | **小計** | **13** | **~22–26** |
+| v1.3.0 | AI 架構（AI-0/AI-1）| 2 | 4 |
+| | 核心 AI（AI-2~AI-5）| 4 | 10 |
+| | 進階 AI（AI-6~AI-8）| 3 | 12 |
+| | **小計** | **9** | **~30–36** |
+| v1.4.0 | 平台層（P1）| 1 | 3 |
+| | 匯入匯出（E1/E2）| 2 | 6.5 |
+| | 同步（S1~S3）| 3 | 14.5 |
+| | 跨平台（X1/X2）| 2 | 11 |
+| | **小計** | **8** | **~33–40** |
+| v2.0.0 | M1 外掛 | 2 | 20 |
+| | M2 協作 | 3 | 28 |
+| | M3 AI 助理 | 3 | 22 |
+| | M4 行動端 | 2 | 30 |
+| | M5 自動化 | 2 | 20 |
+| | M6 整合 | 2 | 14 |
+| | **小計** | **14** | **~100–130** |
+| **總計** | | **44** | **185–232 人天** |
+
+---
+
+*路線圖由 Scout Astrolabe 開發記錄（2026-05-31）自動生成，應定期依實際開發進度更新。*

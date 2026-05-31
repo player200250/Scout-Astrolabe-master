@@ -71,6 +71,7 @@ const sections: HotkeySection[] = [
         title: '面板',
         items: [
             { keys: [MOD, 'F'], label: '搜尋卡片' },
+            { keys: [MOD, 'P'], label: '快速切換白板' },
             { keys: [MOD, 'Shift', 'O'], label: '所有白板總覽' },
             { keys: [MOD, 'Shift', 'C'], label: '復盤中心' },
             { keys: [MOD, 'Shift', 'I'], label: '跳到收件匣' },

@@ -62,6 +62,7 @@ interface WhiteboardToolsProps {
     jumpRef: React.MutableRefObject<((shapeId: string, x: number, y: number) => void) | null>
     onOpenSearch: () => void
     onOpenHotkey: () => void
+    onOpenQuickSwitcher?: () => void
     onCreateBoard: (name: string) => BoardRecord
     onSwitchBoard: (id: string) => void
     isInboxBoard: boolean
@@ -73,7 +74,7 @@ interface WhiteboardToolsProps {
     recentlyTrashedShapeIds: React.MutableRefObject<Set<string>>
 }
 
-export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSearch, onOpenHotkey, onCreateBoard, onSwitchBoard, isInboxBoard, onMoveCard, isDark, homeView, onSetHomeView, onCardTrashed, recentlyTrashedShapeIds }: WhiteboardToolsProps) {
+export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSearch, onOpenHotkey, onOpenQuickSwitcher, onCreateBoard, onSwitchBoard, isInboxBoard, onMoveCard, isDark, homeView, onSetHomeView, onCardTrashed, recentlyTrashedShapeIds }: WhiteboardToolsProps) {
     const editor = useEditor()
     const initialized = useRef(false)
     const imageInputRef = useRef<HTMLInputElement>(null)
@@ -352,6 +353,7 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
         openImageInput,
         openSearch: onOpenSearch,
         openHotkeyPanel: onOpenHotkey,
+        openQuickSwitcher: onOpenQuickSwitcher,
         onDeleteShapes: (ids) => {
             const shapes = ids
                 .map(id => editor.getShape(id as TLShapeId))

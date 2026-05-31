@@ -2,7 +2,7 @@
 // useContextMenu hook（從 ContextMenu.tsx 拆出，避免 component 與 hook/util 混在同一檔案）
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { Editor } from 'tldraw'
+import type { Editor, TLShapeId } from 'tldraw'
 import { STICKY_COLORS, STICKY_COLOR_LIST } from '../components/card-shape/type/CardShape'
 import type { CardColor, TLCardShape, StickyColor } from '../components/card-shape/type/CardShape'
 import { db } from '../db'
@@ -163,6 +163,13 @@ export function useContextMenu({
                 const isSticky = cardType === 'sticky'
                 const currentColor: CardColor = shape.props.color
 
+                const selectedIds = editor.getSelectedShapeIds()
+                const isInMultiSelect = selectedIds.includes(hitShape.id) && selectedIds.length > 1
+                const idsToOperate: TLShapeId[] = isInMultiSelect
+                    ? [...selectedIds].filter(id => editor.getShape(id)?.type === 'card')
+                    : [hitShape.id]
+                const opCount = idsToOperate.length
+
                 const items: MenuItem[] = [
                     {
                         icon: '🔍',
@@ -174,10 +181,9 @@ export function useContextMenu({
                     },
                     {
                         icon: '📋',
-                        label: '複製卡片',
+                        label: opCount > 1 ? `複製 ${opCount} 張卡片` : '複製卡片',
                         action: () => {
-                            editor.select(hitShape.id)
-                            editor.duplicateShapes([hitShape.id], { x: 20, y: 20 })
+                            editor.duplicateShapes(idsToOperate, { x: 20, y: 20 })
                         },
                     },
                 ]
@@ -221,25 +227,29 @@ export function useContextMenu({
 
                 items.push({
                     icon: '🗑️',
-                    label: '刪除卡片',
+                    label: opCount > 1 ? `刪除 ${opCount} 張卡片` : '刪除卡片',
                     danger: true,
                     divider: !isInboxBoard && !isLink && !isText,
                     action: () => {
-                        onBeforeDeleteCard?.(hitShape.id)
-                        const rawShape = editor.getShape(hitShape.id)
-                        const sanitizedData = rawShape ? {
-                            ...rawShape,
-                            props: sanitizeCardProps(rawShape.props as unknown as SnapshotShapeProps),
-                        } : rawShape
-                        saveCardToTrash(
-                            hitShape.id,
-                            sanitizedData,
-                            boardId ?? '',
-                            boardName ?? '',
-                            shape.props.type,
-                            getCardPreview(shape as unknown as { props: Record<string, unknown> }),
-                        ).then(() => onCardTrashed?.())
-                        editor.deleteShapes([hitShape.id])
+                        for (const id of idsToOperate) {
+                            onBeforeDeleteCard?.(id)
+                            const rawShape = editor.getShape(id)
+                            if (!rawShape) continue
+                            const card = rawShape as unknown as TLCardShape
+                            const sanitizedData = {
+                                ...rawShape,
+                                props: sanitizeCardProps(rawShape.props as unknown as SnapshotShapeProps),
+                            }
+                            saveCardToTrash(
+                                id,
+                                sanitizedData,
+                                boardId ?? '',
+                                boardName ?? '',
+                                card.props.type,
+                                getCardPreview(card as unknown as { props: Record<string, unknown> }),
+                            ).then(() => onCardTrashed?.())
+                        }
+                        editor.deleteShapes(idsToOperate)
                     },
                 })
 
