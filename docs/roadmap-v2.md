@@ -27,7 +27,7 @@
 |--------|------|--------|-----------------|
 | TD1 | `App.tsx` 持有 15+ 面板開關 boolean state | 🔴 高 | 每新增一個 AI 面板都要改 App.tsx + prop drilling |
 | TD2 | `useBoardManager.ts` 約 800 行職責混雜 | 🔴 高 | AI handler、同步 handler 無位置可放 |
-| TD4 | `useBacklinks` 全量掃描 O(boards×shapes) | 🟡 中 | 語意搜尋需要背景索引，全量掃描會打架 |
+| TD4 | `useBacklinks` 全量掃描 O(boards×shapes) | ✅ 完成（v1.1.1）| per-board useRef 快取；千板以上需 Dexie index（見 A3-ext） |
 | TD5 | `stripHtml` 四處實作不一致 | 🟢 低 | AI 摘要輸入若含 HTML 實體會污染結果 |
 | TD7 | `CalendarView`/`JournalDayView` 無掛載點；`useFileStorage` 疑似廢棄 | 🟢 低 | 死代碼妨礙 Tree-shaking 和閱讀 |
 
@@ -79,18 +79,24 @@
   - `useBoardManager.ts` 本身降至 80 行以內
   - `tsc --noEmit` 零錯誤；手動測試所有白板 CRUD 操作正常
 
-#### A3 — `useBacklinks` 增量更新
-**說明**：現狀為 `useMemo([boards])` 在任意白板更新時重掃全部 snapshot。改為：
-1. 維護一個 `linkIndex: Map<boardId, Set<boardId>>` ref
-2. 當 `boards` 變更時，僅比對 `snapshot` 有改變的 boardId，增量更新該板的出連結
-3. `useMemo` 的依賴改為 `linkIndex` 快照（輕量物件比對）
+#### A3 — `useBacklinks` 增量更新 ✅ 完成（commit `34b0da4`）
+**說明**：已從 `useMemo([boards])` 改為 `useRef` per-board 快取。以 `board.snapshot` reference 為 cache key，只重掃有異動的白板。實測（37 塊）：每次存檔只掃 1 塊 ≈ 0.4ms；平移時 hook 完全不執行。
 
-- **工作量**：1.5 人天
-- **優先度**：🟡 中
-- **依賴**：無
-- **驗收標準**：
-  - 50 個白板、每板 50 張卡片場景下，BacklinksPanel 開啟回應時間 < 50ms（目前 ~200ms）
-  - BacklinksPanel 的連結顯示結果與重構前一致（手動對照）
+#### A3-ext — `useBacklinks` Dexie 持久化 index（觀察中，千板以上觸發）
+**說明**：當白板數量破千後，A3 的 per-board useRef 快取有兩個瓶頸：
+1. 所有板的 snapshot 仍需常駐記憶體（1000 板 × ~100KB ≈ 100MB+）
+2. 每次存檔的 merge 步驟仍需走完所有快取
+
+改為 Dexie 持久化 index：
+- Dexie 新增 `backlinks` table：`{ shapeId, boardId, boardName, targets[], preview, x, y }`
+- `onSaveBoard` 時只針對該板做差量 upsert（不需掃其他板）
+- `useBacklinks` 改為 Dexie reactive query，不依賴 `boards` array
+- Snapshot 只保留「當前開著的板」在 memory
+- **依賴**：A2（useBoardManager 拆分），需要獨立的 save hook 才方便掛 Dexie 寫入
+
+- **工作量**：2–3 人天
+- **優先度**：🔵 觀察中（目前 ~37 塊，流暢；超過 500 塊時重新評估）
+- **觸發條件**：使用者白板數 > 500 或出現可量測的 merge 卡頓
 
 #### A4 — `stripHtml` 統一
 **說明**：在 `src/utils/stringUtils.ts` 新增統一的 `stripHtml(html: string): string`（使用 `DOMParser` 的完整實作），替換 `useBacklinks.ts`、`DeleteBoardDialog.tsx` 中簡易的只替換 `&nbsp;` 版本。
