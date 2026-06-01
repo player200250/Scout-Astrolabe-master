@@ -1,6 +1,6 @@
 // CardShapeUtil.tsx
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo, memo } from 'react'
 import { createPortal } from 'react-dom'
 export { BacklinksContext } from '../../hooks/useBacklinks'
 export { BoardsContext } from './BoardsContext'
@@ -44,14 +44,17 @@ function CardShapeComponent({ shape, editor }: { shape: TLCardShape; editor: Edi
     const isDark = useIsDarkMode()
     const p = shape.props
 
-    const [isHovered, setIsHovered] = useState(false)
     const [showTextModal, setShowTextModal] = useState(false)
+    const cardInnerRef = useRef<HTMLDivElement>(null)
 
     const isEditing = editor.getEditingShapeId() === shape.id || p.state === 'editing'
     const shouldInnerDivCaptureEvents = isEditing
     const colorStyle = CARD_COLORS[p.color ?? 'none']
     const isSticky = p.type === 'sticky'
     const stickyStyle = isSticky ? STICKY_COLORS[toStickyColor(p.color)] : null
+    // Cache the [[link]] check — avoids O(text.length) search on every render
+    const hasLinks = useMemo(() => p.type === 'text' && !!p.text?.includes('[['), [p.type, p.text])
+    const capturePointerEvents = shouldInnerDivCaptureEvents || p.type === 'image' || p.type === 'todo' || p.type === 'table' || p.type === 'color' || p.type === 'file' || hasLinks
 
     const exitEdit = () => {
         editor.updateShape({
@@ -109,9 +112,18 @@ function CardShapeComponent({ shape, editor }: { shape: TLCardShape; editor: Edi
                 }}
             >
                 <div
+                    ref={cardInnerRef}
                     className={p.color === 'dark' ? 'card-dark-bg' : undefined}
-                    onPointerEnter={() => setIsHovered(true)}
-                    onPointerLeave={() => setIsHovered(false)}
+                    onPointerEnter={() => {
+                        if (!isEditing && p.type !== 'heading' && !isSticky && cardInnerRef.current) {
+                            cardInnerRef.current.style.boxShadow = isDark
+                                ? '0 2px 8px rgba(0,0,0,0.30)'
+                                : '0 2px 8px rgba(0,0,0,0.08)'
+                        }
+                    }}
+                    onPointerLeave={() => {
+                        if (cardInnerRef.current) cardInnerRef.current.style.boxShadow = ''
+                    }}
                     onPointerDown={(e) => {
                         if (shouldInnerDivCaptureEvents) e.stopPropagation()
                     }}
@@ -123,17 +135,15 @@ function CardShapeComponent({ shape, editor }: { shape: TLCardShape; editor: Edi
                         borderRadius: 12,
                         border: (p.type === 'heading' || isSticky) ? 'none' : isEditing ? '1.5px solid #2563eb' : isDark ? '1px solid #334155' : '1px solid #f0f0f0',
                         padding: 0, boxSizing: 'border-box',
-                        pointerEvents: shouldInnerDivCaptureEvents || p.type === 'image' || p.type === 'todo' || p.type === 'table' || p.type === 'color' || p.type === 'file' || (p.type === 'text' && p.text?.includes('[[')) ? 'auto' : 'none',
-                        cursor: shouldInnerDivCaptureEvents || p.type === 'image' || p.type === 'todo' || p.type === 'table' || p.type === 'color' || p.type === 'file' || (p.type === 'text' && p.text?.includes('[[')) ? 'default' : 'grab',
+                        pointerEvents: capturePointerEvents ? 'auto' : 'none',
+                        cursor: capturePointerEvents ? 'default' : 'grab',
                         boxShadow: p.type === 'heading' ? 'none' : isSticky
                             ? isEditing
                                 ? '0 0 0 2px rgba(37,99,235,0.35), 0 2px 8px rgba(0,0,0,0.15)'
                                 : '0 2px 8px rgba(0,0,0,0.15)'
                             : isEditing
                                 ? '0 0 0 3px rgba(37,99,235,0.18), 0 4px 20px rgba(37,99,235,0.10)'
-                                : isHovered
-                                    ? isDark ? '0 2px 8px rgba(0,0,0,0.30)' : '0 2px 8px rgba(0,0,0,0.08)'
-                                    : 'none',
+                                : 'none',
                         transition: 'box-shadow 0.15s ease-in-out, border-color 0.15s ease-in-out',
                         backgroundColor: p.type === 'heading' ? 'transparent' : isSticky ? (isDark ? stickyStyle!.darkBg : stickyStyle!.bg) : p.color === 'dark' ? '#1a1a2e' : (!p.color || p.color === 'none') ? (isDark ? '#1e293b' : '#ffffff') : colorStyle.bg,
                     }}
@@ -328,6 +338,8 @@ function CardShapeComponent({ shape, editor }: { shape: TLCardShape; editor: Edi
     )
 }
 
+const MemoCardShapeComponent = memo(CardShapeComponent)
+
 export class CardShapeUtil extends ShapeUtil<TLCardShape> {
     static override type = 'card' as const
 
@@ -422,7 +434,7 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
     onPointerDown(): void { return }
 
     override component(shape: TLCardShape) {
-        return <CardShapeComponent shape={shape} editor={this.editor} />
+        return <MemoCardShapeComponent shape={shape} editor={this.editor} />
     }
 }
 

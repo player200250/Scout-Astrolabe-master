@@ -641,19 +641,20 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
         } catch { return null }
     }, [editor])
 
-    const saveDebounce = useCallback((snap: TLEditorSnapshot) => {
+    const saveDebounce = useCallback(() => {
         if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
         saveTimerRef.current = setTimeout(async () => {
+            const snap = getSnapshot(editor.store) as TLEditorSnapshot
             const thumbnail = await generateThumbnail()
             onSaveBoardRef.current(snap, thumbnail)
             saveTimerRef.current = null
         }, 500)
-    }, [generateThumbnail])
+    }, [editor, generateThumbnail])
 
     useEffect(() => {
         if (!editor) return
         const cleanup = editor.store.listen(() => {
-            saveDebounce(getSnapshot(editor.store) as TLEditorSnapshot)
+            saveDebounce()
         }, { scope: 'document' })
         return () => {
             cleanup()

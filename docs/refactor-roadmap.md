@@ -24,7 +24,7 @@
 
 ### TD1：App.tsx 承擔過多 UI 狀態（高優先）
 
-**現狀**：`App.tsx` 管理 14+ 個 boolean state（面板開關）和 4 個字串/null state，共 18+ 個 useState，全部通過 prop drilling 傳入 `BoardTabBar`（約 25 個 props）。
+**現狀**：`App.tsx` 管理 15+ 個 boolean state（面板開關）和 4 個字串/null state，共 19+ 個 useState，全部通過 prop drilling 傳入 `BoardTabBar`（約 25 個 props）。
 
 ```typescript
 // App.tsx — 14 個面板開關 state

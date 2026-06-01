@@ -21,7 +21,8 @@
 | `src/components/BoardTabBar.tsx` | 側邊欄，顯示白板清單、導航、工具圖示 |
 | `src/utils/boardDb.ts` | IndexedDB CRUD 封裝（`saveBoard`、`deleteBoard`、`loadAllBoards`） |
 | `src/utils/appEvents.ts` | 型別安全事件匯流排（`emitAppEvent` / `onAppEvent`，定義 `AppEventPayloads`） |
-| `src/utils/contextMenuUtils.tsx` | `useContextMenu` hook 及 `BUILTIN_TEMPLATES` 常數（從 ContextMenu.tsx 分離） |
+| `src/QuickSwitcher.tsx` | Ctrl+P 白板快速切換面板（搜尋、鍵盤導航、縮圖、相對時間戳） |
+| `src/utils/contextMenuUtils.tsx` | `useContextMenu` hook、`BUILTIN_TEMPLATES` 常數、`alignShapes`/`distributeShapes`（從 ContextMenu.tsx 分離） |
 | `src/utils/trashUtils.ts` | `saveCardToTrash`、`getCardPreview`（從 TrashPanel.tsx 分離） |
 | `src/utils/weeklyReviewUtils.ts` | `getISOWeekKey`、`getWeekRange`（從 WeeklyReview.tsx 分離） |
 | `src/utils/whiteboardUtils.ts` | `getExportBtnStyle`、`exportBtnStyle`（從 WhiteboardTools.tsx 分離） |

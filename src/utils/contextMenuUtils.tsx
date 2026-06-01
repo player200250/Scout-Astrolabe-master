@@ -13,6 +13,98 @@ import type { SnapshotShapeProps } from './snapshot'
 import { ContextMenuUI, SaveTemplateModal } from '../ContextMenu'
 import type { MenuItem } from '../ContextMenu'
 
+// ── Alignment helpers ───────────────────────────────────────────────────────
+
+type AlignDirection = 'left' | 'right' | 'top' | 'bottom' | 'centerX' | 'centerY'
+type DistributeAxis = 'x' | 'y'
+
+function alignShapes(editor: Editor, ids: TLShapeId[], direction: AlignDirection) {
+    const shapes: TLCardShape[] = []
+    for (const id of ids) {
+        const s = editor.getShape(id)
+        if (s?.type === 'card') shapes.push(s as unknown as TLCardShape)
+    }
+    if (shapes.length < 2) return
+
+    editor.batch(() => {
+        const updates: { id: TLShapeId; type: 'card'; x?: number; y?: number }[] = []
+        switch (direction) {
+            case 'left': {
+                const ref = Math.min(...shapes.map(s => s.x))
+                shapes.forEach(s => updates.push({ id: s.id, type: 'card', x: ref }))
+                break
+            }
+            case 'right': {
+                const ref = Math.max(...shapes.map(s => s.x + s.props.w))
+                shapes.forEach(s => updates.push({ id: s.id, type: 'card', x: ref - s.props.w }))
+                break
+            }
+            case 'top': {
+                const ref = Math.min(...shapes.map(s => s.y))
+                shapes.forEach(s => updates.push({ id: s.id, type: 'card', y: ref }))
+                break
+            }
+            case 'bottom': {
+                const ref = Math.max(...shapes.map(s => s.y + s.props.h))
+                shapes.forEach(s => updates.push({ id: s.id, type: 'card', y: ref - s.props.h }))
+                break
+            }
+            case 'centerX': {
+                const minX = Math.min(...shapes.map(s => s.x))
+                const maxX = Math.max(...shapes.map(s => s.x + s.props.w))
+                const cx = (minX + maxX) / 2
+                shapes.forEach(s => updates.push({ id: s.id, type: 'card', x: cx - s.props.w / 2 }))
+                break
+            }
+            case 'centerY': {
+                const minY = Math.min(...shapes.map(s => s.y))
+                const maxY = Math.max(...shapes.map(s => s.y + s.props.h))
+                const cy = (minY + maxY) / 2
+                shapes.forEach(s => updates.push({ id: s.id, type: 'card', y: cy - s.props.h / 2 }))
+                break
+            }
+        }
+        editor.updateShapes(updates)
+    })
+}
+
+function distributeShapes(editor: Editor, ids: TLShapeId[], axis: DistributeAxis) {
+    const shapes: TLCardShape[] = []
+    for (const id of ids) {
+        const s = editor.getShape(id)
+        if (s?.type === 'card') shapes.push(s as unknown as TLCardShape)
+    }
+    if (shapes.length < 3) return
+
+    editor.batch(() => {
+        if (axis === 'x') {
+            const sorted = [...shapes].sort((a, b) => a.x - b.x)
+            const last = sorted[sorted.length - 1]
+            const span = last.x + last.props.w - sorted[0].x
+            const totalW = sorted.reduce((sum, s) => sum + s.props.w, 0)
+            const gap = (span - totalW) / (sorted.length - 1)
+            let cursor = sorted[0].x
+            editor.updateShapes(sorted.map(s => {
+                const x = cursor
+                cursor += s.props.w + gap
+                return { id: s.id, type: 'card' as const, x }
+            }))
+        } else {
+            const sorted = [...shapes].sort((a, b) => a.y - b.y)
+            const last = sorted[sorted.length - 1]
+            const span = last.y + last.props.h - sorted[0].y
+            const totalH = sorted.reduce((sum, s) => sum + s.props.h, 0)
+            const gap = (span - totalH) / (sorted.length - 1)
+            let cursor = sorted[0].y
+            editor.updateShapes(sorted.map(s => {
+                const y = cursor
+                cursor += s.props.h + gap
+                return { id: s.id, type: 'card' as const, y }
+            }))
+        }
+    })
+}
+
 // ── Built-in templates ──────────────────────────────────────────────────────
 
 const BUILTIN_TEMPLATES: { icon: string; name: string; w: number; h: number; content: string }[] = [
@@ -187,6 +279,28 @@ export function useContextMenu({
                         },
                     },
                 ]
+
+                if (opCount > 1) {
+                    const alignSubmenu: MenuItem[] = [
+                        { icon: '⬅', label: '靠左對齊',  action: () => alignShapes(editor, idsToOperate, 'left') },
+                        { icon: '↔', label: '水平置中',  action: () => alignShapes(editor, idsToOperate, 'centerX') },
+                        { icon: '➡', label: '靠右對齊',  action: () => alignShapes(editor, idsToOperate, 'right') },
+                        { icon: '⬆', label: '靠上對齊',  action: () => alignShapes(editor, idsToOperate, 'top') },
+                        { icon: '↕', label: '垂直置中',  action: () => alignShapes(editor, idsToOperate, 'centerY') },
+                        { icon: '⬇', label: '靠下對齊',  action: () => alignShapes(editor, idsToOperate, 'bottom') },
+                        ...(opCount >= 3 ? [
+                            { icon: '↔', label: '水平均分', divider: true, action: () => distributeShapes(editor, idsToOperate, 'x') } as MenuItem,
+                            { icon: '↕', label: '垂直均分', action: () => distributeShapes(editor, idsToOperate, 'y') } as MenuItem,
+                        ] : []),
+                    ]
+                    items.push({
+                        icon: '⬛',
+                        label: '對齊',
+                        divider: true,
+                        action: () => {},
+                        submenu: alignSubmenu,
+                    })
+                }
 
                 if (isLink) {
                     items.push({

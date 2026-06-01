@@ -171,6 +171,7 @@ movingCardShapeId   // MoveCardModal（string | null）
 knowledgeGraphOpen  // KnowledgeGraph
 cardLibraryOpen     // CardLibrary
 quickCaptureOpen    // QuickCapture
+quickSwitcherOpen   // QuickSwitcher（Ctrl+P 白板快速切換）
 onboardingOpen      // OnboardingModal
 trashOpen           // TrashPanel
 deletingBoardId     // DeleteBoardDialog（string | null）
@@ -194,6 +195,7 @@ overdueBannerVisible // 逾期任務 banner
 | `Ctrl+Shift+L` | toggleCardLibrary |
 | `Ctrl+Space` | toggleQuickCapture |
 | `Ctrl+Shift+T` | toggleTrash |
+| `Ctrl+P` | openQuickSwitcher（Dashboard 模式備援，防止瀏覽器列印） |
 
 在 `useHotkeys.ts`（WhiteboardTools 層）監聽：
 
@@ -201,6 +203,7 @@ overdueBannerVisible // 逾期任務 banner
 |--------|------|
 | `Ctrl+Z` / `Ctrl+Shift+Z` / `Ctrl+Y` | undo / redo |
 | `Ctrl+F` | openSearch |
+| `Ctrl+P` | openQuickSwitcher |
 | `Ctrl+/` | openHotkeyPanel |
 | `N` | createTextCard |
 | `T` | createTodoCard |

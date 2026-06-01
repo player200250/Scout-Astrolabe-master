@@ -25,7 +25,7 @@
 
 | 識別碼 | 問題 | 嚴重度 | 阻斷何種後續工作 |
 |--------|------|--------|-----------------|
-| TD1 | `App.tsx` 持有 14+ 面板開關 boolean state | 🔴 高 | 每新增一個 AI 面板都要改 App.tsx + prop drilling |
+| TD1 | `App.tsx` 持有 15+ 面板開關 boolean state | 🔴 高 | 每新增一個 AI 面板都要改 App.tsx + prop drilling |
 | TD2 | `useBoardManager.ts` 約 800 行職責混雜 | 🔴 高 | AI handler、同步 handler 無位置可放 |
 | TD4 | `useBacklinks` 全量掃描 O(boards×shapes) | 🟡 中 | 語意搜尋需要背景索引，全量掃描會打架 |
 | TD5 | `stripHtml` 四處實作不一致 | 🟢 低 | AI 摘要輸入若含 HTML 實體會污染結果 |

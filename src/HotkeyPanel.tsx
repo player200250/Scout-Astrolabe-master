@@ -24,6 +24,7 @@ const sections: HotkeySection[] = [
         items: [
             { keys: [MOD, 'Z'], label: '復原' },
             { keys: [MOD, 'Shift', 'Z'], label: '重做' },
+            { keys: [MOD, 'Y'], label: '重做（替代）' },
             { keys: [MOD, 'A'], label: '全選' },
             { keys: [MOD, 'C'], label: '複製' },
             { keys: [MOD, 'V'], label: '貼上' },
@@ -76,6 +77,9 @@ const sections: HotkeySection[] = [
             { keys: [MOD, 'Shift', 'C'], label: '復盤中心' },
             { keys: [MOD, 'Shift', 'I'], label: '跳到收件匣' },
             { keys: [MOD, 'Shift', 'G'], label: '知識圖譜' },
+            { keys: [MOD, 'Shift', 'L'], label: '卡片庫' },
+            { keys: [MOD, 'Shift', 'T'], label: '垃圾桶' },
+            { keys: [MOD, 'Space'], label: '快速捕捉' },
             { keys: ['?'], label: '快捷鍵說明' },
             { keys: [MOD, '/'], label: '快捷鍵說明' },
         ],
