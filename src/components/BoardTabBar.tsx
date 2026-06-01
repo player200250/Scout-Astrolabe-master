@@ -55,6 +55,9 @@ interface BoardTabBarProps {
     activePanel?: string | null
     trashCount?: number
     onOpenTrash: () => void
+    onCreateFolder: (name: string) => void
+    onSetFolder: (boardId: string, folderId: string | null) => void
+    onDeleteFolder: (folderId: string) => void
 }
 
 function SortableBoardItem({ id, children }: { id: string; children: React.ReactNode }) {
@@ -78,7 +81,7 @@ function SortableBoardItem({ id, children }: { id: string; children: React.React
     )
 }
 
-export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelete, onSearch, onHotkey, onOpenOverview, onSetJournal, navigationStack, onBack, onSetParent, onSwitchToChild, collapsed, onToggleCollapse, onSetStatus, onOpenTaskCenter, onOpenFilter, onOpenReviewCenter, onOpenBackup, onGoToInbox, onOpenKnowledgeGraph, onOpenCardLibrary, isDark, onToggleTheme, onReorderBoards, inboxCardCount, onQuickCapture, overdueCount, todayCount, onOpenOnboarding, activePanel, trashCount, onOpenTrash }: BoardTabBarProps) {
+export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelete, onSearch, onHotkey, onOpenOverview, onSetJournal, navigationStack, onBack, onSetParent, onSwitchToChild, collapsed, onToggleCollapse, onSetStatus, onOpenTaskCenter, onOpenFilter, onOpenReviewCenter, onOpenBackup, onGoToInbox, onOpenKnowledgeGraph, onOpenCardLibrary, isDark, onToggleTheme, onReorderBoards, inboxCardCount, onQuickCapture, overdueCount, todayCount, onOpenOnboarding, activePanel, trashCount, onOpenTrash, onCreateFolder, onSetFolder, onDeleteFolder }: BoardTabBarProps) {
     const [hoveredId, setHoveredId] = useState<string | null>(null)
     const [renamingId, setRenamingId] = useState<string | null>(null)
     const [renameValue, setRenameValue] = useState('')
@@ -88,6 +91,9 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
     const [recentOpen, setRecentOpen] = useState(true)
     const [pinnedOpen, setPinnedOpen] = useState(true)
     const [allOpen, setAllOpen] = useState(true)
+    const [folderOpen, setFolderOpen] = useState<Record<string, boolean>>({})
+    const [selectingFolderFor, setSelectingFolderFor] = useState<string | null>(null)
+    const [folderContextMenu, setFolderContextMenu] = useState<{ folderId: string; y: number } | null>(null)
 
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { delay: 500, tolerance: 8 } })
@@ -160,6 +166,10 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                                 onMouseEnter={e => (e.currentTarget.style.background = hoverBg)}
                                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                             >+</button>
+                            <button onClick={() => { const name = prompt('資料夾名稱：'); if (name?.trim()) onCreateFolder(name.trim()) }} title="新增資料夾" style={{ width: 28, height: 28, borderRadius: 8, border: '1px dashed var(--border-mid)', background: 'transparent', cursor: 'pointer', fontSize: 13, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+                                onMouseEnter={e => (e.currentTarget.style.background = hoverBg)}
+                                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                            >📁</button>
                             <button onClick={onOpenOverview} title="所有白板 (Ctrl+Shift+O)" style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border-light)', background: 'transparent', cursor: 'pointer', fontSize: 14, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
                                 onMouseEnter={e => (e.currentTarget.style.background = hoverBg)}
                                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
@@ -283,11 +293,13 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                     const STALE_MS = 14 * 86400000
 
                     const topLevel = boards.filter(b => !b.parentId)
-                    const pinnedBoards   = topLevel.filter(b => b.status === 'pinned' && !b.isHome && !b.isInbox)
-                    const activeBoards   = topLevel.filter(b => b.status !== 'pinned' && b.status !== 'archived' && !b.isHome && !b.isInbox)
-                    const archivedBoards = topLevel.filter(b => b.status === 'archived' && !b.isInbox)
+                    const folders = topLevel.filter(b => b.isFolder)
+                    const realBoards = topLevel.filter(b => !b.isFolder)
+                    const pinnedBoards   = realBoards.filter(b => !b.folderId && b.status === 'pinned' && !b.isHome && !b.isInbox)
+                    const archivedBoards = realBoards.filter(b => !b.folderId && b.status === 'archived' && !b.isInbox)
+                    const unfolderedBoards = realBoards.filter(b => !b.folderId && b.status !== 'pinned' && b.status !== 'archived' && !b.isHome && !b.isInbox)
 
-                    const recentBoards = topLevel
+                    const recentBoards = realBoards
                         .filter(b => b.id !== activeBoardId && !b.isHome && !b.isInbox && b.status !== 'archived' && b.status !== 'pinned' && b.lastVisitedAt)
                         .sort((a, b) => (b.lastVisitedAt ?? 0) - (a.lastVisitedAt ?? 0))
                         .slice(0, 5)
@@ -409,7 +421,7 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                     if (collapsed) {
                         return (
                             <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '6px 0', scrollbarWidth: 'none', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                {topLevel.filter(b => !b.isHome && !b.isInbox).map(board => {
+                                {topLevel.filter(b => !b.isHome && !b.isInbox && !b.isFolder).map(board => {
                                     const isActive = activeBoardId === board.id
                                     return (
                                         <div
@@ -437,14 +449,15 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                         )
                     }
 
-                    const sortableActiveBoards = activeBoards
-                        .filter(b => !b.isHome)
+                    const sortableUnfolderedBoards = unfolderedBoards
                         .sort((a, b) => {
                             if (a.sortOrder != null && b.sortOrder != null) return a.sortOrder - b.sortOrder
                             if (a.sortOrder != null) return -1
                             if (b.sortOrder != null) return 1
                             return 0
                         })
+
+                    const isFolderExpanded = (fid: string) => folderOpen[fid] !== false
 
                     return (
                         <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '6px 6px', scrollbarWidth: 'none', display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -464,14 +477,64 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                                 </>
                             )}
 
-                            {sortableActiveBoards.length > 0 && (
+                            {folders.length > 0 && (
                                 <>
                                     <div style={{ height: 1, background: 'var(--border-light)', margin: '4px 4px' }} />
-                                    <CollapsibleHeader label="所有白板" open={allOpen} onToggle={() => setAllOpen(v => !v)} />
+                                    {folders.map(folder => {
+                                        const isOpen = isFolderExpanded(folder.id)
+                                        const folderBoards = realBoards.filter(b => b.folderId === folder.id)
+                                        return (
+                                            <React.Fragment key={folder.id}>
+                                                <div
+                                                    style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 8px 3px', cursor: 'pointer', userSelect: 'none' }}
+                                                    onClick={() => setFolderOpen(prev => ({ ...prev, [folder.id]: !isOpen }))}
+                                                    onContextMenu={e => {
+                                                        e.preventDefault(); e.stopPropagation()
+                                                        const MENU_H = 120
+                                                        const rect = e.currentTarget.getBoundingClientRect()
+                                                        const y = rect.bottom + 2 + MENU_H > window.innerHeight ? Math.max(8, rect.top - MENU_H) : rect.bottom + 2
+                                                        setFolderContextMenu({ folderId: folder.id, y })
+                                                    }}
+                                                >
+                                                    <span style={{ fontSize: 8, color: 'var(--text-muted)', transition: 'transform 0.15s', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block', flexShrink: 0 }}>▶</span>
+                                                    {renamingId === folder.id ? (
+                                                        <input
+                                                            autoFocus value={renameValue}
+                                                            onChange={e => setRenameValue(e.target.value)}
+                                                            onBlur={() => { if (renameValue.trim()) onRename(folder.id, renameValue.trim()); setRenamingId(null) }}
+                                                            onKeyDown={e => { if (e.key === 'Enter') { if (renameValue.trim()) onRename(folder.id, renameValue.trim()); setRenamingId(null) } if (e.key === 'Escape') setRenamingId(null); e.stopPropagation() }}
+                                                            onClick={e => e.stopPropagation()}
+                                                            style={{ flex: 1, border: 'none', borderBottom: `1px solid ${isDark ? '#94a3b8' : '#333'}`, outline: 'none', fontSize: 10, background: 'transparent', padding: '1px 0', color: 'var(--text-primary)', fontWeight: 700, letterSpacing: '0.7px' }}
+                                                        />
+                                                    ) : (
+                                                        <span
+                                                            onDoubleClick={e => { e.stopPropagation(); setRenamingId(folder.id); setRenameValue(folder.name) }}
+                                                            style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.7px', textTransform: 'uppercase', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                                                        >
+                                                            📁 {folder.name}
+                                                            {folderBoards.length > 0 && <span style={{ marginLeft: 4, opacity: 0.6, fontWeight: 400 }}>({folderBoards.length})</span>}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                {isOpen && folderBoards.map(b => (
+                                                    <div key={b.id} style={{ paddingLeft: 10 }}>
+                                                        {renderBoardCard(b)}
+                                                    </div>
+                                                ))}
+                                            </React.Fragment>
+                                        )
+                                    })}
+                                </>
+                            )}
+
+                            {sortableUnfolderedBoards.length > 0 && (
+                                <>
+                                    <div style={{ height: 1, background: 'var(--border-light)', margin: '4px 4px' }} />
+                                    <CollapsibleHeader label="未分類" open={allOpen} onToggle={() => setAllOpen(v => !v)} />
                                     {allOpen && (
                                         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                                            <SortableContext items={sortableActiveBoards.map(b => b.id)} strategy={verticalListSortingStrategy}>
-                                                {sortableActiveBoards.map(b => (
+                                            <SortableContext items={sortableUnfolderedBoards.map(b => b.id)} strategy={verticalListSortingStrategy}>
+                                                {sortableUnfolderedBoards.map(b => (
                                                     <SortableBoardItem key={b.id} id={b.id}>
                                                         {renderBoardCard(b)}
                                                     </SortableBoardItem>
@@ -574,6 +637,24 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                             >
                                 📂 設為子板...
                             </div>
+                            <div
+                                onClick={() => { setSelectingFolderFor(contextMenu.boardId); setContextMenu(null) }}
+                                style={{ padding: '7px 14px', cursor: 'pointer', fontSize: 13, color: menuText }}
+                                onMouseEnter={e => (e.currentTarget.style.background = menuItemHover)}
+                                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                            >
+                                {targetBoard.folderId ? '📁 變更資料夾...' : '📁 移入資料夾...'}
+                            </div>
+                            {targetBoard.folderId && (
+                                <div
+                                    onClick={() => { onSetFolder(contextMenu.boardId, null); setContextMenu(null) }}
+                                    style={{ padding: '7px 14px', cursor: 'pointer', fontSize: 13, color: menuText }}
+                                    onMouseEnter={e => (e.currentTarget.style.background = menuItemHover)}
+                                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                                >
+                                    ↩ 移出資料夾
+                                </div>
+                            )}
                             <div style={{ height: 1, background: menuDivider, margin: '4px 0' }} />
                             <div
                                 onClick={() => { onDelete(contextMenu.boardId); setContextMenu(null) }}
@@ -626,6 +707,60 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                                     </>
                                 )
                             })()}
+                        </div>
+                    </>
+                )
+            })()}
+
+            {/* 資料夾右鍵選單 */}
+            {folderContextMenu && (() => {
+                const folder = boards.find(b => b.id === folderContextMenu.folderId)
+                if (!folder) return null
+                const menuBg      = isDark ? '#1e293b' : '#ffffff'
+                const menuShadow  = isDark ? '0 4px 20px rgba(0,0,0,0.5)' : '0 4px 20px rgba(0,0,0,0.12)'
+                const menuBorderC = isDark ? '#334155' : 'rgba(0,0,0,0.08)'
+                const menuItemHover = isDark ? '#334155' : '#f5f5f5'
+                const menuText    = isDark ? '#e2e8f0' : '#1a1a1a'
+                const menuMuted   = isDark ? '#64748b' : '#999'
+                const menuDivider = isDark ? '#334155' : '#f0f0f0'
+                const deleteHover = isDark ? '#3f1f1f' : '#fff5f5'
+                return (
+                    <>
+                        <div style={{ position: 'fixed', inset: 0, zIndex: Z_CLICK_AWAY }} onClick={() => setFolderContextMenu(null)} />
+                        <div style={{ position: 'fixed', right: sidebarWidth, top: folderContextMenu.y, background: menuBg, borderRadius: 10, padding: '4px 0', boxShadow: menuShadow, border: `1px solid ${menuBorderC}`, zIndex: Z_MODAL, minWidth: 160 }}>
+                            <div style={{ padding: '4px 12px 6px', fontSize: 11, color: menuMuted, borderBottom: `1px solid ${menuDivider}`, marginBottom: 4 }}>{folder.name}</div>
+                            <div onClick={() => { setRenamingId(folder.id); setRenameValue(folder.name); setFolderContextMenu(null) }} style={{ padding: '7px 14px', cursor: 'pointer', fontSize: 13, color: menuText }} onMouseEnter={e => (e.currentTarget.style.background = menuItemHover)} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>✎ 重新命名</div>
+                            <div style={{ height: 1, background: menuDivider, margin: '4px 0' }} />
+                            <div onClick={() => { onDeleteFolder(folderContextMenu.folderId); setFolderContextMenu(null) }} style={{ padding: '7px 14px', cursor: 'pointer', fontSize: 13, color: '#e03131' }} onMouseEnter={e => (e.currentTarget.style.background = deleteHover)} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>🗑️ ��除資料夾</div>
+                        </div>
+                    </>
+                )
+            })()}
+
+            {/* 移入資料夾 dialog */}
+            {selectingFolderFor && (() => {
+                const target = boards.find(b => b.id === selectingFolderFor)
+                const folderList = boards.filter(b => b.isFolder && !b.deletedAt)
+                const dialogBg = isDark ? '#1e293b' : 'white'
+                const hoverBgD = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)'
+                return (
+                    <>
+                        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: Z_MODAL_BACKDROP }} onClick={() => setSelectingFolderFor(null)} />
+                        <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', background: dialogBg, borderRadius: 14, padding: 20, boxShadow: '0 8px 40px rgba(0,0,0,0.3)', zIndex: Z_MODAL, minWidth: 280, border: `1px solid var(--border-light)` }}>
+                            <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 4, color: 'var(--text-primary)' }}>移入資料夾</div>
+                            <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16 }}>將「{target?.name}」移入哪個資料夾？</div>
+                            {folderList.length === 0 ? (
+                                <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 12 }}>尚無資料夾。請先在側邊欄頂部點擊 📁 建立資料夾。</div>
+                            ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
+                                    {folderList.map(folder => (
+                                        <div key={folder.id} onClick={() => { onSetFolder(selectingFolderFor, folder.id); setSelectingFolderFor(null) }} style={{ padding: '8px 12px', borderRadius: 8, cursor: 'pointer', border: `1px solid var(--border-light)`, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-primary)' }} onMouseEnter={e => (e.currentTarget.style.background = hoverBgD)} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                                            📁 {folder.name}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                            <button onClick={() => setSelectingFolderFor(null)} style={{ width: '100%', padding: '8px', borderRadius: 8, border: `1px solid var(--border-light)`, cursor: 'pointer', fontSize: 13, background: 'transparent', color: 'var(--text-primary)' }}>取消</button>
                         </div>
                     </>
                 )

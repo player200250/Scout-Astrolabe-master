@@ -16,6 +16,8 @@ export interface BoardRecord {
     lastVisitedAt?: number
     sortOrder?: number
     deletedAt?: number
+    folderId?: string | null
+    isFolder?: boolean
 }
 
 export interface DeletedCardRecord {
@@ -55,6 +57,7 @@ db.version(7)
     .upgrade(tx => tx.table('deletedCards').toCollection().modify(record => {
         if (!('shapeId' in record)) record.shapeId = ''
     }))
+db.version(8).stores({ snapshots: 'id', boards: 'id, deletedAt, folderId', backups: 'id, timestamp', templates: 'id, createdAt', deletedCards: 'id, deletedAt, boardId, shapeId' })
 
 export const MAX_BACKUPS = 30
 

@@ -36,6 +36,7 @@ export default function App() {
         handleMoveCardToBoard, handleCreateBoard,
         handleToggleCollapse, handleGoToInbox, handleReorderBoards,
         handleAddCardToInbox, recentlyTrashedShapeIds,
+        handleCreateFolder, handleSetFolder, handleDeleteFolder,
     } = useBoardManager()
 
     const [isDark, setIsDark] = useState(() => {
@@ -231,6 +232,9 @@ export default function App() {
                 activePanel={activePanel}
                 trashCount={trashCount}
                 onOpenTrash={() => setTrashOpen(true)}
+                onCreateFolder={handleCreateFolder}
+                onSetFolder={handleSetFolder}
+                onDeleteFolder={handleDeleteFolder}
             />
 
             {movingCardShapeId && (

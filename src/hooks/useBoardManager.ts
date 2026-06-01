@@ -590,6 +590,32 @@ export function useBoardManager() {
         emitAppEvent('quick-capture-card', { text, x: maxX, y: 100, shapeId: newShapeId })
     }, [boards])
 
+    const handleCreateFolder = useCallback((name: string): BoardRecord => {
+        const folderName = uniqueName(name, boards)
+        const folder: BoardRecord = { id: generateId(), name: folderName, snapshot: null, thumbnail: null, updatedAt: Date.now(), isFolder: true }
+        saveBoard(folder)
+        setBoards(prev => [...prev, folder])
+        return folder
+    }, [uniqueName, boards])
+
+    const handleSetFolder = useCallback((boardId: string, folderId: string | null) => {
+        const board = boards.find(b => b.id === boardId)
+        if (!board) return
+        const updated = { ...board, folderId: folderId ?? null }
+        saveBoard(updated)
+        setBoards(prev => prev.map(b => b.id === boardId ? updated : b))
+    }, [boards])
+
+    const handleDeleteFolder = useCallback((folderId: string) => {
+        const toMove = boards.filter(b => b.folderId === folderId)
+        toMove.forEach(b => saveBoard({ ...b, folderId: null }))
+        deleteBoard(folderId)
+        setBoards(prev => prev
+            .filter(b => b.id !== folderId)
+            .map(b => b.folderId === folderId ? { ...b, folderId: null } : b)
+        )
+    }, [boards])
+
     const handleReorderBoards = useCallback((activeId: string, overId: string) => {
         const sortable = boards.filter(b => !b.isHome && !b.isInbox && !b.parentId && b.status !== 'archived' && b.status !== 'pinned')
         const oldIndex = sortable.findIndex(b => b.id === activeId)
@@ -644,5 +670,8 @@ export function useBoardManager() {
         handleReorderBoards,
         handleAddCardToInbox,
         recentlyTrashedShapeIds,
+        handleCreateFolder,
+        handleSetFolder,
+        handleDeleteFolder,
     }
 }
