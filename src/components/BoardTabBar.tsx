@@ -94,6 +94,8 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
     const [folderOpen, setFolderOpen] = useState<Record<string, boolean>>({})
     const [selectingFolderFor, setSelectingFolderFor] = useState<string | null>(null)
     const [folderContextMenu, setFolderContextMenu] = useState<{ folderId: string; y: number } | null>(null)
+    const [creatingFolder, setCreatingFolder] = useState(false)
+    const [newFolderName, setNewFolderName] = useState('')
 
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { delay: 500, tolerance: 8 } })
@@ -166,7 +168,7 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                                 onMouseEnter={e => (e.currentTarget.style.background = hoverBg)}
                                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                             >+</button>
-                            <button onClick={() => { const name = prompt('資料夾名稱：'); if (name?.trim()) onCreateFolder(name.trim()) }} title="新增資料夾" style={{ width: 28, height: 28, borderRadius: 8, border: '1px dashed var(--border-mid)', background: 'transparent', cursor: 'pointer', fontSize: 13, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+                            <button onClick={() => { setNewFolderName(''); setCreatingFolder(true) }} title="新增資料夾" style={{ width: 28, height: 28, borderRadius: 8, border: '1px dashed var(--border-mid)', background: 'transparent', cursor: 'pointer', fontSize: 13, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
                                 onMouseEnter={e => (e.currentTarget.style.background = hoverBg)}
                                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                             >📁</button>
@@ -731,7 +733,7 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                             <div style={{ padding: '4px 12px 6px', fontSize: 11, color: menuMuted, borderBottom: `1px solid ${menuDivider}`, marginBottom: 4 }}>{folder.name}</div>
                             <div onClick={() => { setRenamingId(folder.id); setRenameValue(folder.name); setFolderContextMenu(null) }} style={{ padding: '7px 14px', cursor: 'pointer', fontSize: 13, color: menuText }} onMouseEnter={e => (e.currentTarget.style.background = menuItemHover)} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>✎ 重新命名</div>
                             <div style={{ height: 1, background: menuDivider, margin: '4px 0' }} />
-                            <div onClick={() => { onDeleteFolder(folderContextMenu.folderId); setFolderContextMenu(null) }} style={{ padding: '7px 14px', cursor: 'pointer', fontSize: 13, color: '#e03131' }} onMouseEnter={e => (e.currentTarget.style.background = deleteHover)} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>🗑️ ��除資料夾</div>
+                            <div onClick={() => { onDeleteFolder(folderContextMenu.folderId); setFolderContextMenu(null) }} style={{ padding: '7px 14px', cursor: 'pointer', fontSize: 13, color: '#e03131' }} onMouseEnter={e => (e.currentTarget.style.background = deleteHover)} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>🗑️ 刪除資料夾</div>
                         </div>
                     </>
                 )
@@ -761,6 +763,36 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                                 </div>
                             )}
                             <button onClick={() => setSelectingFolderFor(null)} style={{ width: '100%', padding: '8px', borderRadius: 8, border: `1px solid var(--border-light)`, cursor: 'pointer', fontSize: 13, background: 'transparent', color: 'var(--text-primary)' }}>取消</button>
+                        </div>
+                    </>
+                )
+            })()}
+
+            {/* 建立資料夾 dialog */}
+            {creatingFolder && (() => {
+                const dialogBg = isDark ? '#1e293b' : 'white'
+                const commit = () => {
+                    if (newFolderName.trim()) onCreateFolder(newFolderName.trim())
+                    setCreatingFolder(false)
+                    setNewFolderName('')
+                }
+                return (
+                    <>
+                        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: Z_MODAL_BACKDROP }} onClick={() => setCreatingFolder(false)} />
+                        <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', background: dialogBg, borderRadius: 14, padding: 20, boxShadow: '0 8px 40px rgba(0,0,0,0.3)', zIndex: Z_MODAL, minWidth: 280, border: `1px solid var(--border-light)` }}>
+                            <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 12, color: 'var(--text-primary)' }}>新增資料夾</div>
+                            <input
+                                autoFocus
+                                value={newFolderName}
+                                onChange={e => setNewFolderName(e.target.value)}
+                                onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setCreatingFolder(false); e.stopPropagation() }}
+                                placeholder="資料夾名稱"
+                                style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: `1px solid var(--border-light)`, fontSize: 14, background: 'transparent', color: 'var(--text-primary)', outline: 'none', boxSizing: 'border-box', marginBottom: 12 }}
+                            />
+                            <div style={{ display: 'flex', gap: 8 }}>
+                                <button onClick={commit} disabled={!newFolderName.trim()} style={{ flex: 1, padding: '8px', borderRadius: 8, border: 'none', cursor: newFolderName.trim() ? 'pointer' : 'not-allowed', fontSize: 13, background: newFolderName.trim() ? '#2563eb' : 'var(--border-light)', color: newFolderName.trim() ? 'white' : 'var(--text-muted)', fontWeight: 600 }}>建立</button>
+                                <button onClick={() => setCreatingFolder(false)} style={{ flex: 1, padding: '8px', borderRadius: 8, border: `1px solid var(--border-light)`, cursor: 'pointer', fontSize: 13, background: 'transparent', color: 'var(--text-primary)' }}>取消</button>
+                            </div>
                         </div>
                     </>
                 )
