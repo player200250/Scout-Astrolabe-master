@@ -172,6 +172,7 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                                 onMouseEnter={e => (e.currentTarget.style.background = hoverBg)}
                                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                             >📁</button>
+                            <div style={{ width: 1, height: 16, background: 'var(--border-light)', alignSelf: 'center', flexShrink: 0 }} />
                             <button onClick={onOpenOverview} title="所有白板 (Ctrl+Shift+O)" style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border-light)', background: 'transparent', cursor: 'pointer', fontSize: 14, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
                                 onMouseEnter={e => (e.currentTarget.style.background = hoverBg)}
                                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
@@ -488,7 +489,7 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                                         return (
                                             <React.Fragment key={folder.id}>
                                                 <div
-                                                    style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 8px 3px', cursor: 'pointer', userSelect: 'none' }}
+                                                    style={{ display: 'flex', alignItems: 'center', gap: 5, width: '100%', padding: '7px 10px 3px', cursor: 'pointer', userSelect: 'none' }}
                                                     onClick={() => setFolderOpen(prev => ({ ...prev, [folder.id]: !isOpen }))}
                                                     onContextMenu={e => {
                                                         e.preventDefault(); e.stopPropagation()
@@ -506,23 +507,22 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                                                             onBlur={() => { if (renameValue.trim()) onRename(folder.id, renameValue.trim()); setRenamingId(null) }}
                                                             onKeyDown={e => { if (e.key === 'Enter') { if (renameValue.trim()) onRename(folder.id, renameValue.trim()); setRenamingId(null) } if (e.key === 'Escape') setRenamingId(null); e.stopPropagation() }}
                                                             onClick={e => e.stopPropagation()}
-                                                            style={{ flex: 1, border: 'none', borderBottom: `1px solid ${isDark ? '#94a3b8' : '#333'}`, outline: 'none', fontSize: 10, background: 'transparent', padding: '1px 0', color: 'var(--text-primary)', fontWeight: 700, letterSpacing: '0.7px' }}
+                                                            style={{ flex: 1, border: 'none', borderBottom: `1px solid ${isDark ? '#94a3b8' : '#333'}`, outline: 'none', fontSize: 10, background: 'transparent', padding: '1px 0', color: 'var(--text-primary)', fontWeight: 700, letterSpacing: '0.7px', textTransform: 'uppercase' }}
                                                         />
                                                     ) : (
                                                         <span
                                                             onDoubleClick={e => { e.stopPropagation(); setRenamingId(folder.id); setRenameValue(folder.name) }}
-                                                            style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.7px', textTransform: 'uppercase', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                                                            style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.7px', textTransform: 'uppercase', userSelect: 'none', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
                                                         >
-                                                            📁 {folder.name}
-                                                            {folderBoards.length > 0 && <span style={{ marginLeft: 4, opacity: 0.6, fontWeight: 400 }}>({folderBoards.length})</span>}
+                                                            📁 {folder.name}{folderBoards.length > 0 ? ` (${folderBoards.length})` : ''}
                                                         </span>
                                                     )}
                                                 </div>
-                                                {isOpen && folderBoards.map(b => (
-                                                    <div key={b.id} style={{ paddingLeft: 10 }}>
-                                                        {renderBoardCard(b)}
+                                                {isOpen && folderBoards.length > 0 && (
+                                                    <div style={{ borderLeft: `2px solid ${isDark ? '#334155' : '#e5e7eb'}`, marginLeft: 14, paddingLeft: 2 }}>
+                                                        {folderBoards.map(b => renderBoardCard(b))}
                                                     </div>
-                                                ))}
+                                                )}
                                             </React.Fragment>
                                         )
                                     })}
