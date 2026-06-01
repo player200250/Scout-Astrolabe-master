@@ -1,5 +1,5 @@
 // src/hooks/useBacklinks.ts
-import { useMemo, createContext } from 'react'
+import { useRef, createContext } from 'react'
 import type { TLEditorSnapshot } from 'tldraw'
 import { getSnapshotStore } from '../utils/snapshot'
 
@@ -69,45 +69,83 @@ export function extractCardName(html: string): string | null {
 }
 
 /* ---------------------------------------------------------------
-   主 Hook
+   主 Hook（增量更新：只重掃 snapshot 有異動的白板）
 --------------------------------------------------------------- */
-export function useBacklinks(boards: BoardRecord[]): Omit<BacklinksContextValue, 'boardNames'> {
-    return useMemo(() => {
-        const forwardLinks = new Map<string, string[]>()
-        const backlinks = new Map<string, BacklinkEntry[]>()
+type BoardCache = {
+    snapshot: TLEditorSnapshot | null
+    name: string
+    forwardLinks: Map<string, string[]>
+    backlinks: Map<string, BacklinkEntry[]>
+}
 
-        for (const board of boards) {
-            if (!board.snapshot) continue
-            const store = getSnapshotStore(board.snapshot)
+function scanBoard(board: BoardRecord): Pick<BoardCache, 'forwardLinks' | 'backlinks'> {
+    const forwardLinks = new Map<string, string[]>()
+    const backlinks = new Map<string, BacklinkEntry[]>()
+    if (!board.snapshot) return { forwardLinks, backlinks }
 
-            for (const shape of Object.values(store)) {
-                if (shape.typeName !== 'shape' || shape.type !== 'card') continue
-                const ptype = shape.props?.type
-                if (ptype !== 'text' && ptype !== 'journal') continue
-                const html = shape.props?.text ?? ''
-                if (!html) continue
+    const store = getSnapshotStore(board.snapshot)
+    for (const shape of Object.values(store)) {
+        if (shape.typeName !== 'shape' || shape.type !== 'card') continue
+        const ptype = shape.props?.type
+        if (ptype !== 'text' && ptype !== 'journal') continue
+        const html = shape.props?.text ?? ''
+        if (!html) continue
 
-                const links = extractLinks(html)
-                if (links.length === 0) continue
+        const links = extractLinks(html)
+        if (links.length === 0) continue
 
-                forwardLinks.set(shape.id, links)
-
-                const preview = stripHtml(html).slice(0, 80)
-                for (const name of links) {
-                    const key = name.toLowerCase()
-                    if (!backlinks.has(key)) backlinks.set(key, [])
-                    backlinks.get(key)!.push({
-                        boardId: board.id,
-                        boardName: board.name,
-                        shapeId: shape.id,
-                        preview,
-                        x: shape.x ?? 0,
-                        y: shape.y ?? 0,
-                    })
-                }
-            }
+        forwardLinks.set(shape.id, links)
+        const preview = stripHtml(html).slice(0, 80)
+        for (const name of links) {
+            const key = name.toLowerCase()
+            if (!backlinks.has(key)) backlinks.set(key, [])
+            backlinks.get(key)!.push({
+                boardId: board.id,
+                boardName: board.name,
+                shapeId: shape.id,
+                preview,
+                x: shape.x ?? 0,
+                y: shape.y ?? 0,
+            })
         }
+    }
+    return { forwardLinks, backlinks }
+}
 
-        return { forwardLinks, backlinks }
-    }, [boards])
+export function useBacklinks(boards: BoardRecord[]): Omit<BacklinksContextValue, 'boardNames'> {
+    const cacheRef = useRef<Map<string, BoardCache>>(new Map())
+    const resultRef = useRef<Omit<BacklinksContextValue, 'boardNames'> | null>(null)
+
+    const currentIds = new Set(boards.map(b => b.id))
+    const removedIds = [...cacheRef.current.keys()].filter(id => !currentIds.has(id))
+    const changedBoards = boards.filter(b => {
+        const c = cacheRef.current.get(b.id)
+        return !c || c.snapshot !== b.snapshot || c.name !== b.name
+    })
+
+    if (changedBoards.length === 0 && removedIds.length === 0 && resultRef.current) {
+        return resultRef.current
+    }
+
+    for (const id of removedIds) cacheRef.current.delete(id)
+
+    for (const board of changedBoards) {
+        const { forwardLinks, backlinks } = scanBoard(board)
+        cacheRef.current.set(board.id, { snapshot: board.snapshot, name: board.name, forwardLinks, backlinks })
+    }
+
+    // Merge all per-board caches into final Maps
+    const mergedForward = new Map<string, string[]>()
+    const mergedBack = new Map<string, BacklinkEntry[]>()
+    for (const { forwardLinks, backlinks } of cacheRef.current.values()) {
+        for (const [k, v] of forwardLinks) mergedForward.set(k, v)
+        for (const [k, vs] of backlinks) {
+            const arr = mergedBack.get(k)
+            if (arr) arr.push(...vs)
+            else mergedBack.set(k, [...vs])
+        }
+    }
+
+    resultRef.current = { forwardLinks: mergedForward, backlinks: mergedBack }
+    return resultRef.current
 }
