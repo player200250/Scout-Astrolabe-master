@@ -35,7 +35,7 @@ function nodeToMarkdown(node: Node): string {
     }
 }
 
-function htmlToMarkdown(html: string): string {
+export function htmlToMarkdown(html: string): string {
     if (!html) return ''
     const doc = new DOMParser().parseFromString(html, 'text/html')
     return nodeToMarkdown(doc.body).trim()
@@ -47,7 +47,7 @@ function stripHtml(html: string): string {
     return doc.body.textContent ?? ''
 }
 
-function cardToMarkdown(props: TLCardProps): string | null {
+export function cardToMarkdown(props: TLCardProps): string | null {
     switch (props.type) {
         case 'text': {
             const md = htmlToMarkdown(props.text)

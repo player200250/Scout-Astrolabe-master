@@ -8,6 +8,8 @@
     "dev": "cross-env NODE_OPTIONS=--max-http-header-size=131072 vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "preview": "vite preview",
     "electron-dev": "concurrently \"npm run dev\" \"electron --icu-data-dir=node_modules/electron/dist .\"",
     "build:win": "node scripts/prepare-cache.mjs && vite build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --windows"
@@ -51,9 +53,11 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
     "globals": "^16.3.0",
+    "jsdom": "^29.1.1",
     "typescript": "~5.8.3",
     "typescript-eslint": "^8.39.1",
-    "vite": "^7.1.2"
+    "vite": "^7.1.2",
+    "vitest": "^3.2.6"
   },
   "build": {
     "appId": "com.player200250.scout-astrolabe",
