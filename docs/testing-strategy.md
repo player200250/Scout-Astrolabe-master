@@ -2,11 +2,11 @@
 
 ## 目的
 
-說明 Scout Astrolabe 目前的測試現況、已識別的高風險脆弱點、手動測試重點區域，以及未來引入自動化測試的建議方向。
+說明 Scout Astrolabe 目前的測試現況、已識別的高風險脆弱點、手動測試重點區域，以及未來擴大自動化測試的建議方向。
 
 ## 適用範圍
 
-整個 `src/` 目錄（目前無自動化測試檔案）。
+整個 `src/` 目錄。單元測試已導入（Vitest），覆蓋純函式工具與 `useBoardManager` hook 的部分 handler；尚無整合（fake-indexeddb）與 E2E（Playwright）測試。
 
 ## 相關檔案
 
@@ -21,20 +21,38 @@
 
 ## 目前測試現況
 
-**目前無任何自動化測試。** 掃描 `src/` 目錄未發現任何 `.test.ts`、`.test.tsx`、`.spec.ts`、`.spec.tsx` 檔案，亦無 Vitest、Jest、Playwright、Cypress 等測試框架設定。
+**單元測試已導入（Vitest 3.2.6），目前 8 檔 79 案例全綠。** 設定寫在 `vite.config.ts` 的 `test` 區塊；指令 `npm test`（`vitest run`）、`npm run test:watch`。已裝 `jsdom`、`@testing-library/react`、`@testing-library/dom`，純函式測試跑 node 環境、需要 DOM 的單檔以 `// @vitest-environment jsdom` 切換。
+
+已覆蓋的測試檔：
+
+| 檔案 | 案例 | 重點 |
+|------|------|------|
+| `utils/weeklyReviewUtils.test.ts` | 9 | `getISOWeekKey`、`getWeekRange`（含 ISO 8601 年界邊界）|
+| `utils/trashUtils.test.ts` | 14 | `getCardPreview`（HTML 剝除/截斷/fallback）|
+| `utils/snapshot.test.ts` | 6 | `sanitizeCardProps`（含 reference 相等、無副作用）|
+| `utils/colorSwatchUtils.test.ts` | 5 | `getContrastColor` |
+| `utils/date.test.ts` | 10 | `toDateStr`/`formatDueDate`/`formatRelativeDate`（fake timers 凍結時間）|
+| `utils/appEvents.test.ts` | 5 | `emitAppEvent`/`onAppEvent`（jsdom + `vi.fn()` 間諜）|
+| `utils/exportMarkdown.test.ts` | 15 | `htmlToMarkdown`/`cardToMarkdown`（jsdom）|
+| `hooks/useBoardManager.test.ts` | 15 | 建立/重新命名/切換/資料夾歸屬/軟刪/永久刪（`vi.mock` 換掉 Dexie 層，`renderHook`+`act`）|
+
+`useBoardManager` 測試以 `vi.hoisted` 建立鏈式 Dexie 替身，`vi.mock('../utils/boardDb')` 與 `vi.mock('../db')` 換掉 DB 層，hook 在純記憶體裡跑。
 
 開發驗證目前依賴：
-1. **TypeScript 型別檢查**（`npx tsc --noEmit`）— 唯一有記錄的自動化驗證
-2. **手動操作測試**（開發者本地驗證）
-3. **代碼審查**（BUGS.md 中的全面驗證報告，2026-05-07）
+1. **單元測試**（`npm test`）— 純函式 + `useBoardManager` 部分 handler
+2. **TypeScript 型別檢查**（`npx tsc --noEmit`）
+3. **手動操作測試**（開發者本地驗證，見下方重點清單）
+4. **代碼審查**（BUGS.md 中的全面驗證報告，2026-05-07）
+
+尚未覆蓋：`useBoardManager` 其餘 handler（`handleSetParent`/`handleSoftDeleteBoardWithInboxMove`/`handleMoveCardToBoard` 等較複雜的 snapshot 操作路徑）、Dexie schema 升級、Ctrl+Z 與垃圾桶的多板同步（屬 E2E 範疇）。
 
 ---
 
 ## 高風險脆弱點（測試優先度排序）
 
-以下區域在代碼審查中發現了多個 bug，邏輯複雜，建議優先引入測試覆蓋。
+以下區域在代碼審查中發現了多個 bug，邏輯複雜，建議優先引入測試覆蓋。標註 ✅ 者已有單元測試覆蓋（至少部分）。
 
-### 1. `useBoardManager` 非同步操作序列（最高優先）
+### 1. `useBoardManager` 非同步操作序列（最高優先）🟡 部分覆蓋
 
 **脆弱原因**：多個 async handler 有精確的操作順序依賴（await → setState → await），順序錯誤會造成 UI 與 DB 不一致。
 
@@ -45,7 +63,9 @@
 
 **建議測試**：mock Dexie + 測試 async 序列；驗證 `setBoards` 在正確時機被呼叫。
 
-### 2. `snapshot.ts` 工具函式（高優先）
+**現況**：`useBoardManager.test.ts` 已覆蓋建立/重新命名/切換/資料夾歸屬，以及 `handleSoftDeleteBoard`、`handlePermanentDeleteBoard` 兩個 async handler（含孤兒收養）。`handleSoftDeleteBoardWithInboxMove`、`handleMoveCardToBoard` 等涉及 snapshot 搬卡的路徑尚未覆蓋。
+
+### 2. `snapshot.ts` 工具函式（高優先）🟡 部分覆蓋
 
 **脆弱原因**：操作不透明的 tldraw `TLEditorSnapshot` 格式，型別為 opaque，必須手動 cast。
 
@@ -54,7 +74,7 @@
 - M6：存入垃圾桶前未 sanitize，導致還原失敗
 
 **建議測試**：純函式，無副作用，最適合單元測試。測試案例：
-- `sanitizeCardProps` 補齊所有缺失欄位
+- ✅ `sanitizeCardProps` 補齊所有缺失欄位（`snapshot.test.ts` 已覆蓋）
 - `sanitizeSnapshot` 處理含 frame/arrow 的 snapshot
 - `toMutableSnapshot` 確保 document/store 結構完整
 - `getCardShapes` 正確過濾非 card shape
@@ -77,11 +97,13 @@
 
 **建議測試**：建立含舊版 schema 資料的測試用 DB，升級後驗證 index 完整性。
 
-### 5. `exportMarkdown.ts` 轉換邏輯（低優先）
+### 5. `exportMarkdown.ts` 轉換邏輯（低優先）✅ 已覆蓋
 
 **脆弱原因**：`htmlToMarkdown` 的 DOMParser 遞迴轉換，邊緣案例多（空節點、巢狀清單、特殊字元）。
 
 **建議測試**：snapshot 測試，固定輸入 HTML → 驗證輸出 Markdown 字串不變。
+
+**現況**：`exportMarkdown.test.ts` 15 案例已覆蓋 `htmlToMarkdown`/`cardToMarkdown`（為可測性把兩函式改為 `export function`，邏輯未動）。
 
 ---
 
@@ -119,42 +141,25 @@
 
 ---
 
-## 未來自動化測試建議
+## 自動化測試藍圖
 
-### 建議工具組合
+### 工具組合
 
-| 測試層級 | 建議工具 | 適用範圍 |
-|---------|---------|---------|
-| 單元測試 | Vitest | `snapshot.ts`、`exportMarkdown.ts`、純函式工具 |
-| 整合測試 | Vitest + fake-indexeddb | `useBoardManager` hooks、DB 操作 |
-| E2E 測試 | Playwright | 完整使用者流程（刪除/還原/切板） |
+| 測試層級 | 工具 | 適用範圍 | 狀態 |
+|---------|---------|---------|------|
+| 單元測試 | Vitest | 純函式工具、`useBoardManager` handler（`vi.mock` 換掉 Dexie）| ✅ 已導入 |
+| 整合測試 | Vitest + fake-indexeddb | 真實 Dexie schema、`db.ts` 升級邏輯 | ⬜ 未開始 |
+| E2E 測試 | Playwright | 完整使用者流程（刪除/還原/切板/Ctrl+Z）| ⬜ 未開始 |
 
-### 引入順序建議
+### 後續引入順序建議
 
-1. **先安裝 Vitest**（與 Vite 整合，零設定）
-2. 從 `snapshot.ts` 開始寫單元測試（最小副作用，高覆蓋效益）
-3. 用 `fake-indexeddb` mock Dexie，測試 `useBoardManager` 的 async handlers
-4. 最後引入 Playwright e2e（成本最高，但可捕捉 Ctrl+Z 同步等整合問題）
+1. ✅ ~~安裝 Vitest，從純函式開始寫單元測試~~（已完成）
+2. ✅ ~~用 `vi.mock` 替換 Dexie，測試 `useBoardManager` 的 async handlers~~（進行中：建立/刪除/切換/資料夾已覆蓋，搬卡路徑待補）
+3. 補完 `useBoardManager` 剩餘 handler，特別是 `handleSoftDeleteBoardWithInboxMove`、`handleMoveCardToBoard`、`handleSaveJournal` 等 snapshot 操作
+4. 引入 `fake-indexeddb` 跑真實 Dexie，測試 schema 升級（如 L5 的 `shapeId` index）
+5. 最後引入 Playwright e2e（成本最高，但可捕捉 Ctrl+Z 同步等整合問題）
 
-### Vitest 設定起步
-
-```typescript
-// vitest.config.ts
-import { defineConfig } from 'vitest/config'
-
-export default defineConfig({
-    test: {
-        environment: 'jsdom',   // 模擬瀏覽器環境（DOMParser、CustomEvent）
-        globals: true,
-    }
-})
-```
-
-```bash
-npm install -D vitest @vitest/ui jsdom
-```
-
-### fake-indexeddb 用於 Dexie 測試
+### fake-indexeddb 用於 Dexie 測試（待引入）
 
 ```typescript
 // 測試檔案範例
@@ -172,7 +177,7 @@ test('deletedCards shapeId index 存在', async () => {
 
 ## 維護注意事項
 
-- TypeScript 零錯誤（`tsc --noEmit`）是目前唯一的 CI gate，不等同於功能正確性。修改任何 async handler 前，應先更新手動測試清單。
+- 目前無 CI pipeline；提交前的本地 gate 是 `npm test`（單元測試）＋ `tsc --noEmit`（型別）。兩者皆綠仍不等同於功能正確性，修改任何 async handler 前應一併更新手動測試清單。修改 `useBoardManager` 既有 handler 時，先確認 `useBoardManager.test.ts` 仍綠（部分安全網）。
 - `WhiteboardTools.tsx` 與 tldraw editor 深度耦合，e2e 測試難以 mock。若要測試 Ctrl+Z 同步，建議直接用 Playwright 驅動完整 Electron 應用。
 - `useBoardManager` 的 `useCallback` dependencies 複雜，引入整合測試時需特別確認 stale closure 場景（空板、只有 inbox 等邊緣狀態）。
 
