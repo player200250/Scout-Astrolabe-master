@@ -1,0 +1,35 @@
+name: CI
+
+# 在推上 main、以及任何對 main 的 PR 時自動跑檢查。
+# 這是專案的「閘門」：lint、型別檢查、單元測試任一失敗就紅燈。
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      # CI 只跑 lint / tsc / vitest，不需要 Electron 執行檔，跳過下載以加速。
+      ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: 安裝依賴（依 lockfile 還原）
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: 型別檢查
+        run: npx tsc -b
+
+      - name: 單元測試
+        run: npm test
