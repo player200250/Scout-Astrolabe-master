@@ -3,9 +3,10 @@
 //
 // useBoardManager 依賴 Dexie 資料庫，測試時用「替身（mock）」把整個 DB 層換掉，
 // 讓 hook 在純記憶體裡跑，不碰真正的 IndexedDB。
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 import type { BoardRecord } from '../db'
+import { onAppEvent, type AppEventName, type AppEventPayloads } from '../utils/appEvents'
 
 // ── 1. 建立所有替身 ───────────────────────────────────────────────────────
 // vi.hoisted：因為 vi.mock 會被提升到檔案最上方執行，裡面用到的變數
@@ -283,4 +284,331 @@ describe('useBoardManager — 刪除白板', () => {
             expect.objectContaining({ id: 'c1', parentId: null }),
         )
     })
+})
+
+/* ===============================================================
+   以下為第三批：導航 / 快照變更 / 排序 / 欄位 / 垃圾桶 handler
+=============================================================== */
+
+// 小工具：把 records 包成 hook 看得懂的 snapshot 形狀（getSnapshotStore 只讀 document.store）。
+function snapWith(records: Record<string, Record<string, unknown>>): BoardRecord['snapshot'] {
+    return { document: { store: records } } as unknown as BoardRecord['snapshot']
+}
+// 一張 card shape record。
+function cardRec(id: string, props: Record<string, unknown>, x = 0, y = 0): Record<string, unknown> {
+    return { typeName: 'shape', type: 'card', id, x, y, index: 'a1', parentId: 'page:page', props }
+}
+// 讀回 board snapshot 裡的 store，方便斷言。
+function storeOf(board: BoardRecord | undefined): Record<string, Record<string, unknown>> {
+    return ((board?.snapshot as unknown as { document?: { store?: Record<string, Record<string, unknown>> } })?.document?.store) ?? {}
+}
+// 捕捉某個 app event：回傳 { calls, off }，記得測試結束 off()。
+function captureEvent<K extends AppEventName>(name: K) {
+    const calls: AppEventPayloads[K][] = []
+    const off = onAppEvent(name, ((d: AppEventPayloads[K]) => calls.push(d)) as never)
+    return { calls, off }
+}
+
+describe('useBoardManager — 導航', () => {
+    it('handleNew 建立「白板 N」、設為 active、navigationStack 重置成新板', async () => {
+        const { result } = await setup() // 初始 0 塊
+        act(() => { result.current.handleNew() })
+
+        const created = result.current.boards.at(-1)!
+        expect(created.name).toBe('白板 1') // boards.length(0)+1
+        expect(result.current.activeBoardId).toBe(created.id)
+        expect(result.current.navigationStack).toEqual([created.id])
+        expect(mocks.saveBoard).toHaveBeenCalledWith(expect.objectContaining({ id: created.id }))
+    })
+
+    it('handleSwitchToChild 把子板推進 navigationStack 並記錄 lastVisitedAt', async () => {
+        mocks.loadAllBoards.mockResolvedValue([
+            board({ id: 'b1', name: '父' }),
+            board({ id: 'c1', name: '子' }),
+        ])
+        const { result } = await setup()
+        expect(result.current.navigationStack).toEqual(['b1'])
+
+        act(() => { result.current.handleSwitchToChild('c1') })
+
+        expect(result.current.activeBoardId).toBe('c1')
+        expect(result.current.navigationStack).toEqual(['b1', 'c1'])
+        expect(mocks.saveBoard).toHaveBeenCalledWith(
+            expect.objectContaining({ id: 'c1', lastVisitedAt: expect.any(Number) }),
+        )
+    })
+
+    it('handleSwitchToChild 切到 stack 中已存在的板，會截斷到該層（不重複堆疊）', async () => {
+        mocks.loadAllBoards.mockResolvedValue([
+            board({ id: 'b1', name: '父' }),
+            board({ id: 'c1', name: '子' }),
+        ])
+        const { result } = await setup()
+        act(() => { result.current.handleSwitchToChild('c1') }) // [b1, c1]
+        act(() => { result.current.handleSwitchToChild('b1') }) // b1 已在 idx0 → 截斷成 [b1]
+
+        expect(result.current.navigationStack).toEqual(['b1'])
+        expect(result.current.activeBoardId).toBe('b1')
+    })
+
+    it('handleBack 退回上一層；只剩一層時為無操作', async () => {
+        mocks.loadAllBoards.mockResolvedValue([
+            board({ id: 'b1', name: '父' }),
+            board({ id: 'c1', name: '子' }),
+        ])
+        const { result } = await setup()
+        act(() => { result.current.handleSwitchToChild('c1') }) // [b1, c1]
+
+        act(() => { result.current.handleBack() })
+        expect(result.current.navigationStack).toEqual(['b1'])
+        expect(result.current.activeBoardId).toBe('b1')
+
+        // 已在根層，再 back 不變
+        act(() => { result.current.handleBack() })
+        expect(result.current.navigationStack).toEqual(['b1'])
+    })
+
+    it('handleSetParent 設定 parentId，切到父板並於 400ms 後發出 create-board-card-on 事件', async () => {
+        mocks.loadAllBoards.mockResolvedValue([
+            board({ id: 'p1', name: '父板' }),
+            board({ id: 'c1', name: '子板' }),
+        ])
+        const { result } = await setup() // setup 用真 timers 等載入完成
+
+        const cap = captureEvent('create-board-card-on')
+        vi.useFakeTimers() // 載入完才切假時鐘
+        act(() => { result.current.handleSetParent('c1', 'p1') })
+
+        // 立即效果：寫 parentId、切到父板、navStack 重置
+        expect(mocks.saveBoard).toHaveBeenCalledWith(expect.objectContaining({ id: 'c1', parentId: 'p1' }))
+        expect(result.current.activeBoardId).toBe('p1')
+        expect(result.current.navigationStack).toEqual(['p1'])
+        // 事件還沒發（藏在 400ms setTimeout 裡）
+        expect(cap.calls).toHaveLength(0)
+
+        act(() => { vi.advanceTimersByTime(400) })
+        expect(cap.calls).toEqual([
+            { targetBoardId: 'p1', linkedBoardId: 'c1', boardName: '子板' },
+        ])
+
+        vi.useRealTimers()
+        cap.off()
+    })
+
+    it('handleSetParent 傳 null 解除歸屬：active 是該板時重置 navigationStack', async () => {
+        mocks.loadAllBoards.mockResolvedValue([board({ id: 'b1', name: '板', parentId: 'old' })])
+        const { result } = await setup() // active = b1
+
+        act(() => { result.current.handleSetParent('b1', null) })
+
+        expect(mocks.saveBoard).toHaveBeenCalledWith(expect.objectContaining({ id: 'b1', parentId: null }))
+        expect(result.current.navigationStack).toEqual(['b1'])
+    })
+})
+
+describe('useBoardManager — 快照變更', () => {
+    it('handleAddCardToInbox 在 Inbox 追加文字卡並發出 quick-capture-card 事件', async () => {
+        mocks.loadAllBoards.mockResolvedValue([
+            board({ id: 'inbox', name: 'Inbox', isInbox: true }), // snapshot 預設 null
+        ])
+        const { result } = await setup()
+        const cap = captureEvent('quick-capture-card')
+
+        act(() => { result.current.handleAddCardToInbox('待辦一則') })
+
+        const inbox = result.current.boards.find(b => b.isInbox)
+        const cards = Object.values(storeOf(inbox)).filter(r => r.typeName === 'shape' && r.type === 'card')
+        expect(cards).toHaveLength(1)
+        expect((cards[0].props as { text?: string }).text).toBe('待辦一則')
+        expect(mocks.saveBoard).toHaveBeenCalledWith(expect.objectContaining({ id: 'inbox' }))
+        expect(cap.calls[0]).toMatchObject({ text: '待辦一則' })
+
+        cap.off()
+    })
+
+    it('沒有 Inbox 白板時 handleAddCardToInbox 為無操作', async () => {
+        mocks.loadAllBoards.mockResolvedValue([board({ id: 'b1', name: '一般板' })])
+        const { result } = await setup()
+        mocks.saveBoard.mockClear()
+
+        act(() => { result.current.handleAddCardToInbox('x') })
+        expect(mocks.saveBoard).not.toHaveBeenCalled()
+    })
+
+    it('handleSaveJournal 在空白板新建 journal 卡（帶 journalDate 與內文）', async () => {
+        mocks.loadAllBoards.mockResolvedValue([board({ id: 'j1', name: '日誌' })]) // snapshot null
+        const { result } = await setup()
+
+        act(() => { result.current.handleSaveJournal('j1', '2026-06-09', '<p>今日</p>', null) })
+
+        const j1 = result.current.boards.find(b => b.id === 'j1')
+        const cards = Object.values(storeOf(j1)).filter(r => r.type === 'card')
+        expect(cards).toHaveLength(1)
+        expect(cards[0].props).toMatchObject({ type: 'journal', journalDate: '2026-06-09', text: '<p>今日</p>' })
+    })
+
+    it('handleSaveJournal 指定既有 shapeId 時，只更新該卡內文', async () => {
+        mocks.loadAllBoards.mockResolvedValue([
+            board({
+                id: 'j1', name: '日誌',
+                snapshot: snapWith({ 'shape:e': cardRec('shape:e', { type: 'journal', text: '舊內容' }) }),
+            }),
+        ])
+        const { result } = await setup()
+
+        act(() => { result.current.handleSaveJournal('j1', '2026-06-09', '新內容', 'shape:e') })
+
+        const j1 = result.current.boards.find(b => b.id === 'j1')
+        expect((storeOf(j1)['shape:e'].props as { text?: string }).text).toBe('新內容')
+        // 沒有多建卡片
+        expect(Object.values(storeOf(j1)).filter(r => r.type === 'card')).toHaveLength(1)
+    })
+
+    it('handleMoveCardToBoard 把卡片從 Inbox 移到目標板，並發出 delete-shape-from-editor', async () => {
+        mocks.loadAllBoards.mockResolvedValue([
+            board({
+                id: 'inbox', name: 'Inbox', isInbox: true,
+                snapshot: snapWith({ 'shape:x': cardRec('shape:x', { type: 'text', text: '卡片' }) }),
+            }),
+            board({ id: 't1', name: '目標板' }),
+        ])
+        const { result } = await setup()
+        const cap = captureEvent('delete-shape-from-editor')
+
+        act(() => { result.current.handleMoveCardToBoard('shape:x', 't1') })
+
+        // Inbox 不再有該卡，目標板多了該卡
+        const inbox = result.current.boards.find(b => b.isInbox)
+        const target = result.current.boards.find(b => b.id === 't1')
+        expect(storeOf(inbox)['shape:x']).toBeUndefined()
+        expect(storeOf(target)['shape:x']).toBeDefined()
+        expect(cap.calls).toEqual([{ shapeId: 'shape:x' }])
+
+        cap.off()
+    })
+
+    it('Inbox 中找不到該 shape 時 handleMoveCardToBoard 為無操作', async () => {
+        mocks.loadAllBoards.mockResolvedValue([
+            board({ id: 'inbox', name: 'Inbox', isInbox: true, snapshot: snapWith({}) }),
+            board({ id: 't1', name: '目標板' }),
+        ])
+        const { result } = await setup()
+        mocks.saveBoard.mockClear()
+
+        act(() => { result.current.handleMoveCardToBoard('shape:none', 't1') })
+        expect(mocks.saveBoard).not.toHaveBeenCalled()
+    })
+})
+
+describe('useBoardManager — 排序', () => {
+    it('handleReorderBoards 把 active 拖到 over 的位置並重寫 sortOrder', async () => {
+        mocks.loadAllBoards.mockResolvedValue([
+            board({ id: 'b1', name: '一' }),
+            board({ id: 'b2', name: '二' }),
+            board({ id: 'b3', name: '三' }),
+        ])
+        const { result } = await setup()
+        mocks.saveBoard.mockClear()
+
+        act(() => { result.current.handleReorderBoards('b1', 'b3') }) // b1 移到 b3 位置
+
+        expect(result.current.boards.map(b => b.id)).toEqual(['b2', 'b3', 'b1'])
+        // 每塊都帶上對應 sortOrder 並寫回
+        expect(result.current.boards.map(b => b.sortOrder)).toEqual([0, 1, 2])
+        expect(mocks.saveBoard).toHaveBeenCalledTimes(3)
+    })
+
+    it('handleReorderBoards 對不存在的 id 為無操作', async () => {
+        mocks.loadAllBoards.mockResolvedValue([board({ id: 'b1', name: '一' })])
+        const { result } = await setup()
+        mocks.saveBoard.mockClear()
+
+        act(() => { result.current.handleReorderBoards('b1', '不存在') })
+        expect(mocks.saveBoard).not.toHaveBeenCalled()
+    })
+})
+
+describe('useBoardManager — 欄位更新', () => {
+    it('handleSetStatus 更新 status 並寫入 DB', async () => {
+        mocks.loadAllBoards.mockResolvedValue([board({ id: 'b1', name: '板' })])
+        const { result } = await setup()
+
+        act(() => { result.current.handleSetStatus('b1', 'pinned') })
+
+        expect(result.current.boards[0].status).toBe('pinned')
+        expect(mocks.saveBoard).toHaveBeenCalledWith(expect.objectContaining({ id: 'b1', status: 'pinned' }))
+    })
+
+    it('handleSetJournal 標記白板為日誌板並寫入 DB', async () => {
+        mocks.loadAllBoards.mockResolvedValue([board({ id: 'b1', name: '板' })])
+        const { result } = await setup()
+
+        act(() => { result.current.handleSetJournal('b1', true) })
+
+        expect(result.current.boards[0].isJournal).toBe(true)
+        expect(mocks.saveBoard).toHaveBeenCalledWith(expect.objectContaining({ id: 'b1', isJournal: true }))
+    })
+})
+
+describe('useBoardManager — 垃圾桶', () => {
+    // 取回 hook 內部用的 Dexie table 替身（db.table 永遠回同一個 tableApi）
+    const tbl = () => mocks.db.table('boards') as unknown as {
+        get: ReturnType<typeof vi.fn>
+        update: ReturnType<typeof vi.fn>
+        toArray: ReturnType<typeof vi.fn>
+    }
+
+    it('handleEmptyTrash 真刪所有已軟刪白板、清空 deletedCards、trashCount 歸零', async () => {
+        const { result } = await setup()
+        // 模擬垃圾桶裡有兩塊已刪白板
+        tbl().toArray.mockResolvedValueOnce([
+            board({ id: 'd1', name: 'x', deletedAt: 1 }),
+            board({ id: 'd2', name: 'y', deletedAt: 1 }),
+        ])
+
+        await act(async () => { await result.current.handleEmptyTrash() })
+
+        expect(mocks.deleteBoard).toHaveBeenCalledWith('d1')
+        expect(mocks.deleteBoard).toHaveBeenCalledWith('d2')
+        expect(result.current.trashCount).toBe(0)
+    })
+
+    it('handleRestoreBoard 還原存在的白板：清掉 deletedAt 並放回清單', async () => {
+        const { result } = await setup()
+        tbl().get.mockResolvedValueOnce(board({ id: 'r1', name: '還原板', deletedAt: 123 }))
+        tbl().update.mockResolvedValueOnce(1) // Dexie update 回 1 = 成功
+
+        await act(async () => { await result.current.handleRestoreBoard('r1') })
+
+        const restored = result.current.boards.find(b => b.id === 'r1')
+        expect(restored).toBeDefined()
+        expect(restored?.deletedAt).toBeUndefined()
+    })
+
+    it('handleRestoreBoard 找不到記錄時為無操作', async () => {
+        const { result } = await setup()
+        tbl().get.mockResolvedValueOnce(undefined)
+
+        await act(async () => { await result.current.handleRestoreBoard('missing') })
+        expect(result.current.boards.find(b => b.id === 'missing')).toBeUndefined()
+    })
+
+    it('handleRestoreBoard DB 更新回 0（失敗）時跳警告且不放回清單', async () => {
+        const alertSpy = vi.fn()
+        vi.stubGlobal('alert', alertSpy)
+        const { result } = await setup()
+        tbl().get.mockResolvedValueOnce(board({ id: 'r1', name: '還原板', deletedAt: 123 }))
+        tbl().update.mockResolvedValueOnce(0) // 更新 0 筆 = 失敗
+
+        await act(async () => { await result.current.handleRestoreBoard('r1') })
+
+        expect(alertSpy).toHaveBeenCalled()
+        expect(result.current.boards.find(b => b.id === 'r1')).toBeUndefined()
+        vi.unstubAllGlobals()
+    })
+})
+
+afterEach(() => {
+    vi.useRealTimers()
+    vi.unstubAllGlobals()
 })
