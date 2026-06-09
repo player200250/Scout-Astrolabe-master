@@ -159,6 +159,8 @@ interface TableRow {
 - 雙擊 / 點擊右上角 ⛶ 按鈕 → `preview: true` → 全螢幕 Modal（Portal 到 body）
 - `pointerEvents: 'auto'` 以便接收 hover 事件（顯示 ⛶ 按鈕）
 - 壓縮邏輯在 `WhiteboardTools.compressImage()`：有透明度保 PNG，否則轉 JPEG 0.8 品質，5 秒 timeout
+- **批次上傳**：插入圖片的 file picker（`imageInputRef`）帶 `multiple`，可一次選多張。每張各自讀取＋`compressImage`，依索引算格狀座標排列（每行 4 張、gap 20，整塊置中於目前視窗的 `editor.getViewportPageBounds()` 中心）。位置由索引決定，故各檔非同步壓縮完成順序不一也不會重疊；單張時退化為置中。卡片預設 `w: 280, h: 200`。
+  - 已知小限制：一整行 4 張寬約 1180px，在較窄視窗下最左欄可能略被左側垂直工具列遮住（可平移畫布；2026-06-09 實機驗證確認）。
 
 ### heading
 
