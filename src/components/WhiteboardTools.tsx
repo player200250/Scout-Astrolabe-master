@@ -749,16 +749,33 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
                     onChange={e => { const f = e.target.files?.[0]; if (f) importJSON(f, d => loadSnapshot(editor.store, sanitizeSnapshot(d.snapshot!))); e.target.value = '' }}
                 />
             </div>
-            <input ref={imageInputRef} type="file" accept="image/*" style={{ display: 'none' }}
+            <input ref={imageInputRef} type="file" accept="image/*" multiple style={{ display: 'none' }}
                 onChange={e => {
-                    const file = e.target.files?.[0]; if (!file) return
-                    const reader = new FileReader()
-                    reader.onload = async () => {
-                        const compressed = await compressImage(reader.result as string)
-                        createImageCard(compressed)
-                    }
-                    reader.readAsDataURL(file)
+                    const files = Array.from(e.target.files ?? [])
                     e.target.value = ''
+                    if (files.length === 0) return
+
+                    // 多張時格狀排列（每行 4 張），整塊置中於目前視窗。
+                    // 位置依索引算出，所以即使各檔壓縮完成順序不一，排列也不會重疊。
+                    const COLS = 4, GAP = 20, CARD_W = 280, CARD_H = 200
+                    const cols = Math.min(files.length, COLS)
+                    const rows = Math.ceil(files.length / COLS)
+                    const totalW = cols * CARD_W + (cols - 1) * GAP
+                    const totalH = rows * CARD_H + (rows - 1) * GAP
+                    const vp = editor.getViewportPageBounds()
+                    const startX = vp.x + vp.w / 2 - totalW / 2
+                    const startY = vp.y + vp.h / 2 - totalH / 2
+
+                    files.forEach((file, i) => {
+                        const x = startX + (i % COLS) * (CARD_W + GAP)
+                        const y = startY + Math.floor(i / COLS) * (CARD_H + GAP)
+                        const reader = new FileReader()
+                        reader.onload = async () => {
+                            const compressed = await compressImage(reader.result as string)
+                            editor.createShape({ type: 'card', x, y, props: { type: 'image', text: '', image: compressed, todos: [], url: '', state: 'idle', w: CARD_W, h: CARD_H } })
+                        }
+                        reader.readAsDataURL(file)
+                    })
                 }}
             />
             <div style={{ pointerEvents: 'auto' }}>{menuElement}</div>
