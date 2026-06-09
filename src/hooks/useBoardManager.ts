@@ -1,58 +1,16 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import type { TLEditorSnapshot } from 'tldraw'
-import { db, saveAutoBackup, type BoardRecord } from '../db'
+import { db, type BoardRecord } from '../db'
 import type { DeletedCardRecord } from '../db'
 import { getISOWeekKey } from '../utils/weeklyReviewUtils'
 import { loadAllBoards, saveBoard, deleteBoard, generateId } from '../utils/boardDb'
-import { INBOX_BOARD_ID, BACKUP_THROTTLE_MS, JUMP_DELAY_MS } from '../constants'
+import { INBOX_BOARD_ID, JUMP_DELAY_MS } from '../constants'
 import { emitAppEvent, onAppEvent } from '../utils/appEvents'
 import {
     getSnapshotStore, withUpdatedStore, toMutableSnapshot, toTLEditorSnapshot,
-    sanitizeSnapshot, sanitizeCardProps,
 } from '../utils/snapshot'
-
-function cleanupOrphanBoardCards(snapshot: TLEditorSnapshot, deletedBoardId: string): TLEditorSnapshot {
-    const store = getSnapshotStore(snapshot)
-    const orphanIds = Object.keys(store).filter(sid => {
-        const s = store[sid]
-        return s.typeName === 'shape' && s.type === 'card' && s.props?.type === 'board' && s.props?.linkedBoardId === deletedBoardId
-    })
-    if (orphanIds.length === 0) return snapshot
-    const newStore = { ...store }
-    orphanIds.forEach(sid => { delete newStore[sid] })
-    return withUpdatedStore(snapshot, newStore)
-}
-
-async function sanitizeBoards(boards: BoardRecord[]): Promise<BoardRecord[]> {
-    const out: BoardRecord[] = []
-    for (const board of boards) {
-        if (!board.snapshot) { out.push(board); continue }
-
-        // Fix document:document and page records missing required fields
-        let snapshot = sanitizeSnapshot(board.snapshot)
-        let dirty = JSON.stringify(snapshot) !== JSON.stringify(board.snapshot)
-
-        const store = getSnapshotStore(snapshot)
-        const newStore = { ...store }
-        for (const record of Object.values(store)) {
-            if (record.typeName !== 'shape' || record.type !== 'card' || !record.props) continue
-            const fixed = sanitizeCardProps(record.props)
-            if (fixed !== record.props) {
-                newStore[record.id] = { ...record, props: fixed }
-                dirty = true
-            }
-        }
-        if (dirty) {
-            snapshot = withUpdatedStore(snapshot, newStore)
-            const updated = { ...board, snapshot }
-            await saveBoard(updated)
-            out.push(updated)
-        } else {
-            out.push(board)
-        }
-    }
-    return out
-}
+import { cleanupOrphanBoardCards, sanitizeBoards } from '../utils/boardSanitize'
+import { useAutoBackup } from './useAutoBackup'
 
 const TRASH_EXPIRE_MS = 14 * 86400000
 
@@ -66,8 +24,9 @@ export function useBoardManager() {
     })
     const [trashCount, setTrashCount] = useState(0)
     const jumpRef = useRef<((shapeId: string, x: number, y: number) => void) | null>(null)
-    const lastBackupRef = useRef<number>(0)
     const recentlyTrashedShapeIds = useRef<Set<string>>(new Set())
+
+    const { triggerAutoBackup } = useAutoBackup(boards)
 
     const refreshTrashCount = useCallback(async () => {
         const deletedBoardCount = await db.table('boards').where('deletedAt').above(0).count()
@@ -82,23 +41,6 @@ export function useBoardManager() {
             return next
         })
     }, [])
-
-    const triggerAutoBackup = useCallback((currentBoards: BoardRecord[]) => {
-        const now = Date.now()
-        if (now - lastBackupRef.current < BACKUP_THROTTLE_MS) return
-        lastBackupRef.current = now
-        saveAutoBackup(currentBoards).catch(console.error)
-    }, [])
-
-    useEffect(() => {
-        const handler = () => {
-            if (document.visibilityState === 'hidden' && boards.length > 0) {
-                saveAutoBackup(boards).catch(console.error)
-            }
-        }
-        document.addEventListener('visibilitychange', handler)
-        return () => document.removeEventListener('visibilitychange', handler)
-    }, [boards])
 
     useEffect(() => {
         navigator.storage?.persist?.().then(granted => {
