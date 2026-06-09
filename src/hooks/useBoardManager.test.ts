@@ -7,6 +7,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 import type { BoardRecord } from '../db'
 import { onAppEvent, type AppEventName, type AppEventPayloads } from '../utils/appEvents'
+import { getISOWeekKey } from '../utils/weeklyReviewUtils'
 
 // ── 1. 建立所有替身 ───────────────────────────────────────────────────────
 // vi.hoisted：因為 vi.mock 會被提升到檔案最上方執行，裡面用到的變數
@@ -605,6 +606,151 @@ describe('useBoardManager — 垃圾桶', () => {
         expect(alertSpy).toHaveBeenCalled()
         expect(result.current.boards.find(b => b.id === 'r1')).toBeUndefined()
         vi.unstubAllGlobals()
+    })
+})
+
+describe('useBoardManager — 跳轉', () => {
+    it('handleJump 在同一塊白板上直接呼叫 jumpRef（不切板、不延遲）', async () => {
+        mocks.loadAllBoards.mockResolvedValue([board({ id: 'b1', name: '板' })])
+        const { result } = await setup()
+        const jumpSpy = vi.fn()
+        result.current.jumpRef.current = jumpSpy
+
+        act(() => { result.current.handleJump('b1', 'shape:a', 10, 20) })
+
+        expect(jumpSpy).toHaveBeenCalledWith('shape:a', 10, 20)
+        expect(result.current.activeBoardId).toBe('b1')
+    })
+
+    it('handleJump 跨白板時先切板，延遲 400ms 後才跳轉', async () => {
+        mocks.loadAllBoards.mockResolvedValue([
+            board({ id: 'b1', name: '一' }),
+            board({ id: 'b2', name: '二' }),
+        ])
+        const { result } = await setup()
+        const jumpSpy = vi.fn()
+        result.current.jumpRef.current = jumpSpy
+
+        vi.useFakeTimers()
+        act(() => { result.current.handleJump('b2', 'shape:x', 1, 2) })
+
+        expect(result.current.activeBoardId).toBe('b2') // 立即切板
+        expect(jumpSpy).not.toHaveBeenCalled()          // 跳轉還在計時器裡
+
+        act(() => { vi.advanceTimersByTime(400) })
+        expect(jumpSpy).toHaveBeenCalledWith('shape:x', 1, 2)
+
+        vi.useRealTimers()
+    })
+})
+
+describe('useBoardManager — 本週日誌卡', () => {
+    it('handleGoToWeeklyCard 切到日誌板並於 400ms 後跳到本週卡片', async () => {
+        const weekKey = getISOWeekKey(new Date())
+        mocks.loadAllBoards.mockResolvedValue([
+            board({ id: 'b1', name: '一般板' }), // active 落在這裡
+            board({
+                id: 'j1', name: '日誌', isJournal: true,
+                snapshot: snapWith({
+                    'shape:wk': cardRec('shape:wk', { type: 'journal', journalDate: weekKey }, 30, 40),
+                }),
+            }),
+        ])
+        const { result } = await setup()
+        const jumpSpy = vi.fn()
+        result.current.jumpRef.current = jumpSpy
+
+        vi.useFakeTimers()
+        act(() => { result.current.handleGoToWeeklyCard() })
+
+        expect(result.current.activeBoardId).toBe('j1')
+        expect(result.current.navigationStack).toEqual(['j1'])
+        expect(jumpSpy).not.toHaveBeenCalled()
+
+        act(() => { vi.advanceTimersByTime(400) })
+        expect(jumpSpy).toHaveBeenCalledWith('shape:wk', 30, 40)
+
+        vi.useRealTimers()
+    })
+
+    it('沒有日誌板時 handleGoToWeeklyCard 為無操作', async () => {
+        mocks.loadAllBoards.mockResolvedValue([board({ id: 'b1', name: '板' })])
+        const { result } = await setup()
+
+        act(() => { result.current.handleGoToWeeklyCard() })
+        expect(result.current.activeBoardId).toBe('b1') // 不變
+    })
+})
+
+describe('useBoardManager — 全量還原（備份重灌）', () => {
+    it('handleRestore 清空 DB、灌入備份白板、active 落到第一塊', async () => {
+        const { result } = await setup()
+        const tbl = mocks.db.table('boards')
+        const backup = [board({ id: 'r1', name: '備份一' }), board({ id: 'r2', name: '備份二' })]
+
+        await act(async () => { await result.current.handleRestore(backup) })
+
+        expect(tbl.clear).toHaveBeenCalled()
+        expect(tbl.put).toHaveBeenCalledTimes(2)
+        expect(result.current.boards.map(b => b.id)).toEqual(['r1', 'r2'])
+        expect(result.current.activeBoardId).toBe('r1')
+        expect(result.current.navigationStack).toEqual(['r1'])
+    })
+})
+
+describe('useBoardManager — 軟刪並搬卡進 Inbox', () => {
+    it('moveToInbox=true：把卡片複製進 Inbox 後軟刪原白板', async () => {
+        mocks.loadAllBoards.mockResolvedValue([
+            board({
+                id: 'src', name: '來源', // active 落在這裡
+                snapshot: snapWith({
+                    'shape:a': cardRec('shape:a', { type: 'text', text: 'A' }, 0, 0),
+                    'shape:b': cardRec('shape:b', { type: 'text', text: 'B' }, 0, 0),
+                }),
+            }),
+            board({ id: 'inbox', name: 'Inbox', isInbox: true }),
+        ])
+        const { result } = await setup()
+
+        await act(async () => { await result.current.handleSoftDeleteBoardWithInboxMove('src', true) })
+
+        // 原白板被軟刪（標 deletedAt、移出清單，但非真刪）
+        expect(mocks.saveBoard).toHaveBeenCalledWith(expect.objectContaining({ id: 'src', deletedAt: expect.any(Number) }))
+        expect(mocks.deleteBoard).not.toHaveBeenCalled()
+        expect(result.current.boards.find(b => b.id === 'src')).toBeUndefined()
+        expect(result.current.activeBoardId).toBe('inbox') // active 落到剩下的板
+
+        // 兩張卡都進了 Inbox
+        const inbox = result.current.boards.find(b => b.isInbox)
+        const cards = Object.values(storeOf(inbox)).filter(r => r.type === 'card')
+        expect(cards).toHaveLength(2)
+    })
+
+    it('moveToInbox=false：只軟刪、不動 Inbox', async () => {
+        mocks.loadAllBoards.mockResolvedValue([
+            board({
+                id: 'src', name: '來源',
+                snapshot: snapWith({ 'shape:a': cardRec('shape:a', { type: 'text', text: 'A' }) }),
+            }),
+            board({ id: 'inbox', name: 'Inbox', isInbox: true }),
+        ])
+        const { result } = await setup()
+
+        await act(async () => { await result.current.handleSoftDeleteBoardWithInboxMove('src', false) })
+
+        expect(result.current.boards.find(b => b.id === 'src')).toBeUndefined()
+        // Inbox 仍是空的（沒被塞卡）
+        const inbox = result.current.boards.find(b => b.isInbox)
+        expect(Object.values(storeOf(inbox)).filter(r => r.type === 'card')).toHaveLength(0)
+    })
+
+    it('找不到白板時 handleSoftDeleteBoardWithInboxMove 為無操作', async () => {
+        mocks.loadAllBoards.mockResolvedValue([board({ id: 'b1', name: '板' })])
+        const { result } = await setup()
+        mocks.saveBoard.mockClear()
+
+        await act(async () => { await result.current.handleSoftDeleteBoardWithInboxMove('不存在', true) })
+        expect(mocks.saveBoard).not.toHaveBeenCalled()
     })
 })
 
