@@ -38,7 +38,25 @@
       "Bash(node -e \"const fs = require\\('fs'\\); const main = fs.readFileSync\\('main.js','utf8'\\); console.log\\('filesDir:', main.includes\\('filesDir'\\)\\); console.log\\('select-and-copy-file:', main.includes\\('select-and-copy-file'\\)\\); console.log\\('open-file:', main.includes\\(\\\\\"'open-file'\\\\\"\\)\\); console.log\\('delete-file:', main.includes\\(\\\\\"'delete-file'\\\\\"\\)\\); const preload = fs.readFileSync\\('preload.js','utf8'\\); console.log\\('preload selectAndCopyFile:', preload.includes\\('selectAndCopyFile'\\)\\);\")",
       "Bash(node -e ' *)",
       "Bash(node *)",
-      "PowerShell(cd \"C:\\\\Users\\\\win11\\\\Desktop\\\\Scout-Astrolabe-master\"; Get-ChildItem release\\\\ -Recurse -Depth 0 | Select-Object Name, @{N='Size';E={if\\($_.PSIsContainer\\){'<dir>'}else{'{0:N1} MB' -f \\($_.Length/1MB\\)}}})"
+      "PowerShell(cd \"C:\\\\Users\\\\win11\\\\Desktop\\\\Scout-Astrolabe-master\"; Get-ChildItem release\\\\ -Recurse -Depth 0 | Select-Object Name, @{N='Size';E={if\\($_.PSIsContainer\\){'<dir>'}else{'{0:N1} MB' -f \\($_.Length/1MB\\)}}})",
+      "Bash(echo \"started pid $!\")",
+      "Bash(grep -Hm1 ^description: 'C:\\\\Users\\\\win11\\\\Desktop\\\\Scout-Astrolabe-master/.claude/skills/*/SKILL.md')",
+      "Bash(curl -s http://localhost:5174 -o /dev/null -w \"%{http_code}\")",
+      "Bash(curl -s http://localhost:5173 -o /dev/null -w \"%{http_code}\")",
+      "PowerShell(npm install *)",
+      "PowerShell(npm test *)",
+      "PowerShell(npx vitest run src/hooks/useBoardManager.test.ts)",
+      "Bash(npx vitest *)",
+      "Bash(npm test *)",
+      "Bash(xargs wc -l)",
+      "Bash(echo \"EXIT tsc: $?\")",
+      "Bash(gh run *)",
+      "Bash(xargs '-I{}' sh -c 'f=\"src/utils/{}\"; printf \"%5d  %s\\\\n\" \"$\\(wc -l < \"$f\"\\)\" \"{}\"')",
+      "Bash(xargs -I{} sh -c 'printf \"%5d  %s\\\\n\" \"$\\(wc -l < \"{}\"\\)\" \"{}\"')",
+      "Bash(xargs -I{} sh -c 'printf \"%4d  %s\\\\n\" \"$\\(wc -l < \"{}\"\\)\" \"{}\"')",
+      "Bash(sort -t/ -k2)",
+      "Bash(awk '/^### [BC] 類|^#### [BC][0-9]/{p=1} /^## v1.3.0/{p=0} p' docs/roadmap-v2.md)",
+      "Bash(grep \"node_modules/playwright$\")"
     ]
   }
 }
