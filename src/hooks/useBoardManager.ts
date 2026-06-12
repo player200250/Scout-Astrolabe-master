@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react'
-import type { TLEditorSnapshot } from 'tldraw'
 import { db, type BoardRecord } from '../db'
 import type { DeletedCardRecord } from '../db'
 import { getISOWeekKey } from '../utils/weeklyReviewUtils'
@@ -14,6 +13,7 @@ import { useAutoBackup } from './useAutoBackup'
 import { useSidebar } from './useSidebar'
 import { useTrash } from './useTrash'
 import { useNavigation } from './useNavigation'
+import { useBoardCRUD, uniqueName } from './useBoardCRUD'
 
 const TRASH_EXPIRE_MS = 14 * 86400000
 
@@ -33,6 +33,10 @@ export function useBoardManager() {
         navigationStack, setNavigationStack, jumpRef,
         handleBack, handleJump, handleGoToInbox,
     } = useNavigation({ activeBoardId, setActiveBoardId })
+    const {
+        handleSaveBoard, handleCreateBoard, handleRename,
+        handleSetStatus, handleReorderBoards,
+    } = useBoardCRUD({ boards, setBoards, activeBoardId })
 
     useEffect(() => {
         navigator.storage?.persist?.().then(granted => {
@@ -64,31 +68,6 @@ export function useBoardManager() {
             refreshTrashCount()
         })
     }, [])
-
-    const handleSaveBoard = useCallback((snapshot: TLEditorSnapshot, thumbnail: string | null) => {
-        if (!activeBoardId) return
-        const board = boards.find(b => b.id === activeBoardId)
-        if (!board) return
-        const updated = { ...board, snapshot, thumbnail, updatedAt: Date.now() }
-        saveBoard(updated).catch(err => console.error('[handleSaveBoard] DB 寫入失敗', err))
-        setBoards(prev => prev.map(b => b.id === activeBoardId ? updated : b))
-    }, [activeBoardId, boards])
-
-    const uniqueName = useCallback((base: string, currentBoards: BoardRecord[]): string => {
-        const existing = new Set(currentBoards.map(b => b.name))
-        if (!existing.has(base)) return base
-        let n = 2
-        while (existing.has(`${base} (${n})`)) n++
-        return `${base} (${n})`
-    }, [])
-
-    const handleCreateBoard = useCallback((name: string, parentId?: string): BoardRecord => {
-        const safeName = uniqueName(name, boards)
-        const newBoard: BoardRecord = { id: generateId(), name: safeName, snapshot: null, thumbnail: null, updatedAt: Date.now(), parentId: parentId ?? null }
-        saveBoard(newBoard)
-        setBoards(prev => [...prev, newBoard])
-        return newBoard
-    }, [uniqueName, boards])
 
     const handleSwitch = useCallback((id: string) => {
         if (id !== activeBoardId) {
@@ -143,14 +122,6 @@ export function useBoardManager() {
         setBoards(prev => [...prev, newBoard])
         setActiveBoardId(newBoard.id)
         setNavigationStack([newBoard.id])
-    }, [uniqueName, boards])
-
-    const handleRename = useCallback((id: string, name: string) => {
-        const board = boards.find(b => b.id === id)
-        if (!board) return
-        const updated = { ...board, name }
-        saveBoard(updated)
-        setBoards(prev => prev.map(b => b.id === id ? updated : b))
     }, [boards])
 
     const handlePermanentDeleteBoard = useCallback(async (id: string) => {
@@ -263,14 +234,6 @@ export function useBoardManager() {
         const board = boards.find(b => b.id === boardId)
         if (!board) return
         const updated = { ...board, isJournal }
-        saveBoard(updated)
-        setBoards(prev => prev.map(b => b.id === boardId ? updated : b))
-    }, [boards])
-
-    const handleSetStatus = useCallback((boardId: string, status: 'active' | 'archived' | 'pinned') => {
-        const board = boards.find(b => b.id === boardId)
-        if (!board) return
-        const updated = { ...board, status }
         saveBoard(updated)
         setBoards(prev => prev.map(b => b.id === boardId ? updated : b))
     }, [boards])
@@ -455,7 +418,7 @@ export function useBoardManager() {
         saveBoard(folder)
         setBoards(prev => [...prev, folder])
         return folder
-    }, [uniqueName, boards])
+    }, [boards])
 
     const handleSetFolder = useCallback((boardId: string, folderId: string | null) => {
         const board = boards.find(b => b.id === boardId)
@@ -473,24 +436,6 @@ export function useBoardManager() {
             .filter(b => b.id !== folderId)
             .map(b => b.folderId === folderId ? { ...b, folderId: null } : b)
         )
-    }, [boards])
-
-    const handleReorderBoards = useCallback((activeId: string, overId: string) => {
-        const sortable = boards.filter(b => !b.isHome && !b.isInbox && !b.parentId && b.status !== 'archived' && b.status !== 'pinned')
-        const oldIndex = sortable.findIndex(b => b.id === activeId)
-        const newIndex = sortable.findIndex(b => b.id === overId)
-        if (oldIndex === -1 || newIndex === -1) return
-
-        const reordered = [...sortable]
-        const [moved] = reordered.splice(oldIndex, 1)
-        reordered.splice(newIndex, 0, moved)
-
-        const reorderedWithOrder = reordered.map((b, i) => ({ ...b, sortOrder: i }))
-        reorderedWithOrder.forEach(b => saveBoard(b))
-
-        const sortableIds = new Set(sortable.map(b => b.id))
-        const others = boards.filter(b => !sortableIds.has(b.id))
-        setBoards([...others, ...reorderedWithOrder])
     }, [boards])
 
     return {
