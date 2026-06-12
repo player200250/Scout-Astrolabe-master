@@ -1,10 +1,10 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import type { TLEditorSnapshot } from 'tldraw'
 import { db, type BoardRecord } from '../db'
 import type { DeletedCardRecord } from '../db'
 import { getISOWeekKey } from '../utils/weeklyReviewUtils'
 import { loadAllBoards, saveBoard, deleteBoard, generateId } from '../utils/boardDb'
-import { INBOX_BOARD_ID, JUMP_DELAY_MS } from '../constants'
+import { JUMP_DELAY_MS } from '../constants'
 import { emitAppEvent } from '../utils/appEvents'
 import {
     getSnapshotStore, withUpdatedStore, toMutableSnapshot, toTLEditorSnapshot,
@@ -13,6 +13,7 @@ import { cleanupOrphanBoardCards, sanitizeBoards } from '../utils/boardSanitize'
 import { useAutoBackup } from './useAutoBackup'
 import { useSidebar } from './useSidebar'
 import { useTrash } from './useTrash'
+import { useNavigation } from './useNavigation'
 
 const TRASH_EXPIRE_MS = 14 * 86400000
 
@@ -20,8 +21,6 @@ export function useBoardManager() {
     const [boards, setBoards] = useState<BoardRecord[]>([])
     const [activeBoardId, setActiveBoardId] = useState<string | null>(null)
     const [loading, setLoading] = useState(true)
-    const [navigationStack, setNavigationStack] = useState<string[]>([])
-    const jumpRef = useRef<((shapeId: string, x: number, y: number) => void) | null>(null)
 
     const { triggerAutoBackup } = useAutoBackup(boards)
     const { sidebarCollapsed, handleToggleCollapse } = useSidebar()
@@ -30,6 +29,10 @@ export function useBoardManager() {
         handleSoftDeleteBoard, handleDelete, handleRestoreBoard,
         handleEmptyTrash, handleCardTrashed,
     } = useTrash({ boards, setBoards, activeBoardId, setActiveBoardId })
+    const {
+        navigationStack, setNavigationStack, jumpRef,
+        handleBack, handleJump, handleGoToInbox,
+    } = useNavigation({ activeBoardId, setActiveBoardId })
 
     useEffect(() => {
         navigator.storage?.persist?.().then(granted => {
@@ -132,15 +135,6 @@ export function useBoardManager() {
         }
         if (activeBoardId === boardId && parentId === null) setNavigationStack([boardId])
     }, [activeBoardId, boards])
-
-    const handleBack = useCallback(() => {
-        setNavigationStack(prev => {
-            if (prev.length <= 1) return prev
-            const newStack = prev.slice(0, -1)
-            setActiveBoardId(newStack[newStack.length - 1])
-            return newStack
-        })
-    }, [])
 
     const handleNew = useCallback(() => {
         const name = uniqueName(`白板 ${boards.length + 1}`, boards)
@@ -264,15 +258,6 @@ export function useBoardManager() {
 
         await refreshTrashCount()
     }, [boards, activeBoardId, refreshTrashCount])
-
-    const handleJump = useCallback((boardId: string, shapeId: string, x: number, y: number) => {
-        if (boardId !== activeBoardId) {
-            setActiveBoardId(boardId)
-            setTimeout(() => jumpRef.current?.(shapeId, x, y), JUMP_DELAY_MS)
-        } else {
-            jumpRef.current?.(shapeId, x, y)
-        }
-    }, [activeBoardId])
 
     const handleSetJournal = useCallback((boardId: string, isJournal: boolean) => {
         const board = boards.find(b => b.id === boardId)
@@ -416,11 +401,6 @@ export function useBoardManager() {
 
         emitAppEvent('delete-shape-from-editor', { shapeId })
     }, [boards])
-
-    const handleGoToInbox = useCallback(() => {
-        setActiveBoardId(INBOX_BOARD_ID)
-        setNavigationStack([INBOX_BOARD_ID])
-    }, [])
 
     const handleAddCardToInbox = useCallback((text: string) => {
         const inboxBoard = boards.find(b => b.isInbox)
