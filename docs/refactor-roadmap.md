@@ -50,26 +50,30 @@ const [deletingBoardId, setDeletingBoardId] = useState<string | null>(null)
 
 ---
 
-### TD2：useBoardManager 職責過多（高優先）
+### TD2：useBoardManager 職責過多（高優先）— 🔄 大部分已解決
 
-**現狀**：`useBoardManager.ts` 約 800 行，包含：
-- 白板 CRUD（8 個 handler）
-- 導航（6 個 handler）
-- 收件匣（2 個 handler）
-- 垃圾桶（5 個 handler）
-- Journal（3 個 handler）
-- 備份觸發邏輯
-- 啟動時 sanitizeBoards、14 天清除、過期備份清理
-- `navigationStack` 麵包屑管理
+**原始現狀**：`useBoardManager.ts` 約 800 行（2026-06-07 起逐步降至 677），單一 hook 承擔白板 CRUD、導航、收件匣、垃圾桶、Journal、備份、啟動清理、麵包屑等職責，`useCallback` 依賴陣列複雜，維護時難以定位。
 
-單一 hook 承擔的職責過多，`useCallback` 依賴陣列複雜，維護時難以定位。
+**採用策略**：增量法「方案 B（抽純函式＋低風險 hook）→ 方案 A（領域子 hook）」。核心安全網＝43 個 useBoardManager 測試全走公開 API，回傳物件形狀＋行為不變即綠燈。每步 `tsc --noEmit` + `npm test` 全綠才 commit 一個檢查點。**已排除方案 C（useReducer）**：副作用密度高（saveBoard/emitAppEvent/setTimeout/alert 不能進 reducer），報酬低風險高。
 
-**建議重構**：拆分為：
-- `useBoardCRUD`：白板建立/更新/刪除
-- `useTrash`：垃圾桶（軟刪、永久刪、清空、14 天）
-- `useNavigation`：navigationStack 管理
-- `useJournal`：Journal 相關 handler
-- `useAutoBackup`：備份觸發與節流
+**進度**（2026-06-12，`useBoardManager` 677 → **412 行**，−39%）：
+
+| 階段 | 產出 | commit | 狀態 |
+|------|------|--------|------|
+| 一（方案 B） | `utils/boardSanitize.ts`、`hooks/useAutoBackup.ts` | `260ecac` | ✅ |
+| 二·1 | `hooks/useSidebar.ts` | `7bea304` | ✅ |
+| 二·2 | `hooks/useTrash.ts` | `7354abc` | ✅ |
+| 二·3 | `hooks/useNavigation.ts` | `1ad54d6` | ✅ |
+| 二·4 | `hooks/useBoardCRUD.ts`（含模組層 `uniqueName`） | `6f87cb9` | ✅ |
+| 二·5 | `hooks/useFolder.ts` | `ec25d56` | ✅ |
+| 二·6 | `utils/snapshotCards.ts`（消除 4 處 snapshot 樣板重複，+10 測試） | `15df140` | ✅ |
+| 二·7 | `hooks/useJournal.ts`、`hooks/useInboxCards.ts` | — | ⬜ 待辦 |
+
+**剩餘**：`handleSetJournal`/`handleSaveJournal`（→ `useJournal`）、`handleAddCardToInbox`/`handleMoveCardToBoard`（→ `useInboxCards`）。snapshot 樣板已抽出，這兩塊現可乾淨拆。
+
+**設計原則**：子 hook 以「單一 `state` 物件」傳遞共用 core state（boards/setBoards/activeBoardId/setActiveBoardId 等）。**跨領域 handler 一律留在 `useBoardManager` 合成層**，由它組合各子 hook 的原子動作——目前留下 6 個：`handleSetParent`、`handlePermanentDeleteBoard`、`handleSoftDeleteBoardWithInboxMove`、`handleNew`、`handleSwitch`、`handleGoToWeeklyCard`。
+
+> 註：本次拆分屬「整理收納＋消重複」，提升可讀/可測/可維護性，但未解開「`boards` 大陣列＋全量 `setBoards`、人人依賴」這根最粗的耦合線——那需動 Dexie reactive query（見 TD4 觀察與下方 React Query 段），屬大手術，暫不在範圍。
 
 ---
 
@@ -173,7 +177,7 @@ const [deletingBoardId, setDeletingBoardId] = useState<string | null>(null)
 | 優先度 | 技術債 | 狀態 | 建議時機 |
 |--------|--------|------|---------|
 | 🔴 高 | TD1：App.tsx 面板狀態 | 未解決 | 新增第 15 個面板前 |
-| 🔴 高 | TD2：useBoardManager 拆分 | 未解決 | 新增任何跨領域 handler 前 |
+| 🔴 高 | TD2：useBoardManager 拆分 | 🔄 大部分完成（677→412 行，剩 useJournal/useInboxCards） | 新增任何跨領域 handler 前 |
 | ✅ 完成 | TD3：CustomEvent 型別安全 | 已解決 `c7661c8` | — |
 | 🟡 中 | TD4：useBacklinks 增量更新 | 未解決 | 白板數量超過 50 時 |
 | 🟢 低 | TD5：stripHtml 統一 | 未解決 | 下一次修改相關邏輯時 |

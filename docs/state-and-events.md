@@ -31,10 +31,30 @@ sidebarCollapsed: boolean       // 持久化至 localStorage('sidebar-collapsed'
 trashCount: number              // 垃圾桶卡片 + 白板總數
 
 // Refs（不觸發 re-render）
-jumpRef                         // 當前 editor 的跳轉函式
-lastBackupRef                   // 上次備份時間（throttle 用）
-recentlyTrashedShapeIds         // 提升至此的 Set，防切板後 Ctrl+Z 同步失效
+jumpRef                         // 當前 editor 的跳轉函式（現居 useNavigation）
+lastBackupRef                   // 上次備份時間（throttle 用，現居 useAutoBackup）
+recentlyTrashedShapeIds         // 防切板後 Ctrl+Z 同步失效的 Set（現居 useTrash）
 ```
+
+---
+
+## Hook 組成（TD2 重構後，2026-06）
+
+`useBoardManager` 自 2026-06 起由「合成層」變薄，state 與單一領域 handler 下放至領域子 hook；**對外回傳的物件形狀與所有 `handleXxx` 公開 API 完全不變**（下方 Handler 清單即此公開 API，呼叫端 App.tsx 無感）。共用 core state（`boards`/`setBoards`/`activeBoardId`/`setActiveBoardId` 等）以單一 `state` 物件傳入各子 hook。
+
+| 子 hook / util | 持有 state | 領域 handler |
+|----------------|-----------|--------------|
+| `useSidebar` | `sidebarCollapsed` | `handleToggleCollapse` |
+| `useTrash` | `trashCount`、`recentlyTrashedShapeIds` | `refreshTrashCount`、`handleSoftDeleteBoard`、`handleDelete`、`handleRestoreBoard`、`handleEmptyTrash`、`handleCardTrashed` |
+| `useNavigation` | `navigationStack`、`jumpRef` | `handleBack`、`handleJump`、`handleGoToInbox` |
+| `useBoardCRUD` | —（讀 core） | `handleSaveBoard`、`handleCreateBoard`、`handleRename`、`handleSetStatus`、`handleReorderBoards`；模組層匯出純函式 `uniqueName` |
+| `useFolder` | —（讀 core） | `handleCreateFolder`、`handleSetFolder`、`handleDeleteFolder` |
+| `useAutoBackup` | `lastBackupRef` | `triggerAutoBackup` + visibilitychange 自動備份 |
+| `utils/snapshotCards` | —（純函式） | `ensurePageScaffold`、`nextAppendX`、`lastShapeIndex`（消除 4 處 snapshot 樣板重複） |
+| `utils/boardSanitize` | —（純函式） | `cleanupOrphanBoardCards`、`sanitizeBoards` |
+| **合成層 `useBoardManager`** | `boards`、`activeBoardId`、`loading` | **跨領域 handler**：`handleSetParent`、`handlePermanentDeleteBoard`、`handleSoftDeleteBoardWithInboxMove`、`handleNew`、`handleSwitch`、`handleSwitchToChild`、`handleGoToWeeklyCard`、`handleRestore`；啟動載入 effect |
+
+> 待辦：`handleSetJournal`/`handleSaveJournal` → `useJournal`、`handleAddCardToInbox`/`handleMoveCardToBoard` → `useInboxCards`。詳見 `docs/refactor-roadmap.md` TD2。
 
 ---
 
@@ -233,7 +253,7 @@ overdueBannerVisible // 逾期任務 banner
   → editor.clearHistory()（防止 Ctrl+Z 再次還原）
 ```
 
-`recentlyTrashedShapeIds` 是 ref（不是 state），提升到 `useBoardManager` 後在切板時不會重置。
+`recentlyTrashedShapeIds` 是 ref（不是 state），居於 `useTrash`（經 `useBoardManager` 回傳），在切板時不會重置。
 
 ---
 
