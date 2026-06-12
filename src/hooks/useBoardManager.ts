@@ -11,6 +11,7 @@ import {
 } from '../utils/snapshot'
 import { cleanupOrphanBoardCards, sanitizeBoards } from '../utils/boardSanitize'
 import { useAutoBackup } from './useAutoBackup'
+import { useSidebar } from './useSidebar'
 
 const TRASH_EXPIRE_MS = 14 * 86400000
 
@@ -19,27 +20,17 @@ export function useBoardManager() {
     const [activeBoardId, setActiveBoardId] = useState<string | null>(null)
     const [loading, setLoading] = useState(true)
     const [navigationStack, setNavigationStack] = useState<string[]>([])
-    const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
-        try { return localStorage.getItem('sidebar-collapsed') === 'true' } catch { return false }
-    })
     const [trashCount, setTrashCount] = useState(0)
     const jumpRef = useRef<((shapeId: string, x: number, y: number) => void) | null>(null)
     const recentlyTrashedShapeIds = useRef<Set<string>>(new Set())
 
     const { triggerAutoBackup } = useAutoBackup(boards)
+    const { sidebarCollapsed, handleToggleCollapse } = useSidebar()
 
     const refreshTrashCount = useCallback(async () => {
         const deletedBoardCount = await db.table('boards').where('deletedAt').above(0).count()
         const deletedCardCount = await db.table('deletedCards').count()
         setTrashCount(deletedBoardCount + deletedCardCount)
-    }, [])
-
-    const handleToggleCollapse = useCallback(() => {
-        setSidebarCollapsed(prev => {
-            const next = !prev
-            try { localStorage.setItem('sidebar-collapsed', String(next)) } catch { /* empty */ }
-            return next
-        })
     }, [])
 
     useEffect(() => {
