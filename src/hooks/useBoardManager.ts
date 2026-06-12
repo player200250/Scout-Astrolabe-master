@@ -14,6 +14,7 @@ import { useSidebar } from './useSidebar'
 import { useTrash } from './useTrash'
 import { useNavigation } from './useNavigation'
 import { useBoardCRUD, uniqueName } from './useBoardCRUD'
+import { useFolder } from './useFolder'
 
 const TRASH_EXPIRE_MS = 14 * 86400000
 
@@ -37,6 +38,9 @@ export function useBoardManager() {
         handleSaveBoard, handleCreateBoard, handleRename,
         handleSetStatus, handleReorderBoards,
     } = useBoardCRUD({ boards, setBoards, activeBoardId })
+    const {
+        handleCreateFolder, handleSetFolder, handleDeleteFolder,
+    } = useFolder({ boards, setBoards })
 
     useEffect(() => {
         navigator.storage?.persist?.().then(granted => {
@@ -410,32 +414,6 @@ export function useBoardManager() {
         setBoards(prev => prev.map(b => b.id === inboxBoard.id ? updated : b))
 
         emitAppEvent('quick-capture-card', { text, x: maxX, y: 100, shapeId: newShapeId })
-    }, [boards])
-
-    const handleCreateFolder = useCallback((name: string): BoardRecord => {
-        const folderName = uniqueName(name, boards)
-        const folder: BoardRecord = { id: generateId(), name: folderName, snapshot: null, thumbnail: null, updatedAt: Date.now(), isFolder: true }
-        saveBoard(folder)
-        setBoards(prev => [...prev, folder])
-        return folder
-    }, [boards])
-
-    const handleSetFolder = useCallback((boardId: string, folderId: string | null) => {
-        const board = boards.find(b => b.id === boardId)
-        if (!board) return
-        const updated = { ...board, folderId: folderId ?? null }
-        saveBoard(updated)
-        setBoards(prev => prev.map(b => b.id === boardId ? updated : b))
-    }, [boards])
-
-    const handleDeleteFolder = useCallback((folderId: string) => {
-        const toMove = boards.filter(b => b.folderId === folderId)
-        toMove.forEach(b => saveBoard({ ...b, folderId: null }))
-        deleteBoard(folderId)
-        setBoards(prev => prev
-            .filter(b => b.id !== folderId)
-            .map(b => b.folderId === folderId ? { ...b, folderId: null } : b)
-        )
     }, [boards])
 
     return {
