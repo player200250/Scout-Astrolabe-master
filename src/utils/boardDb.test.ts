@@ -13,7 +13,7 @@ const mocks = vi.hoisted(() => {
         toArray: vi.fn(async () => [] as BoardRecord[]),
         put: vi.fn(async () => undefined),
         delete: vi.fn(async () => undefined),
-        get: vi.fn(async () => undefined),
+        get: vi.fn(async (): Promise<unknown> => undefined),
     }
     return { tableApi, db: { table: vi.fn(() => tableApi) } }
 })

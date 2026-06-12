@@ -33,7 +33,7 @@ const mocks = vi.hoisted(() => {
         saveBoard: vi.fn(async () => undefined),
         deleteBoard: vi.fn(async () => undefined),
         generateId: vi.fn(() => 'id_x'),
-        db: { table: vi.fn(() => tableApi) },
+        db: { table: vi.fn((_name: string) => tableApi) },
         saveAutoBackup: vi.fn(async () => undefined),
     }
 })
