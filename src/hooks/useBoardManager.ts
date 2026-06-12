@@ -6,7 +6,7 @@ import { loadAllBoards, saveBoard, deleteBoard, generateId } from '../utils/boar
 import { JUMP_DELAY_MS } from '../constants'
 import { emitAppEvent } from '../utils/appEvents'
 import {
-    getSnapshotStore, withUpdatedStore, toMutableSnapshot, toTLEditorSnapshot,
+    getSnapshotStore, toMutableSnapshot, toTLEditorSnapshot,
 } from '../utils/snapshot'
 import { cleanupOrphanBoardCards, sanitizeBoards } from '../utils/boardSanitize'
 import { ensurePageScaffold, nextAppendX, lastShapeIndex } from '../utils/snapshotCards'
@@ -16,6 +16,8 @@ import { useTrash } from './useTrash'
 import { useNavigation } from './useNavigation'
 import { useBoardCRUD, uniqueName } from './useBoardCRUD'
 import { useFolder } from './useFolder'
+import { useJournal } from './useJournal'
+import { useInboxCards } from './useInboxCards'
 
 const TRASH_EXPIRE_MS = 14 * 86400000
 
@@ -42,6 +44,8 @@ export function useBoardManager() {
     const {
         handleCreateFolder, handleSetFolder, handleDeleteFolder,
     } = useFolder({ boards, setBoards })
+    const { handleSetJournal, handleSaveJournal } = useJournal({ boards, setBoards })
+    const { handleAddCardToInbox, handleMoveCardToBoard } = useInboxCards({ boards, setBoards })
 
     useEffect(() => {
         navigator.storage?.persist?.().then(granted => {
@@ -222,14 +226,6 @@ export function useBoardManager() {
         await refreshTrashCount()
     }, [boards, activeBoardId, refreshTrashCount])
 
-    const handleSetJournal = useCallback((boardId: string, isJournal: boolean) => {
-        const board = boards.find(b => b.id === boardId)
-        if (!board) return
-        const updated = { ...board, isJournal }
-        saveBoard(updated)
-        setBoards(prev => prev.map(b => b.id === boardId ? updated : b))
-    }, [boards])
-
     const handleRestore = useCallback(async (restoredBoards: BoardRecord[]) => {
         await db.table('boards').clear()
         await Promise.all(restoredBoards.map(b => db.table('boards').put(b)))
@@ -263,111 +259,6 @@ export function useBoardManager() {
             jumpRef.current?.(cardId, cardX, cardY)
         }
     }, [boards, activeBoardId, jumpRef])
-
-    const handleSaveJournal = useCallback((boardId: string, dateStr: string, html: string, shapeId: string | null) => {
-        if (!boardId) return
-        const board = boards.find(b => b.id === boardId)
-        if (!board) return
-
-        const snap = toMutableSnapshot(board.snapshot)
-        const store = snap.document.store
-
-        if (shapeId && store[shapeId]) {
-            const rec = store[shapeId]
-            if (rec.props) { rec.props['text'] = html } else { rec.props = { text: html } }
-        } else {
-            const pageId = ensurePageScaffold(store)
-            const newIndex = lastShapeIndex(store) + 'V'
-            const newShapeId = `shape:jd_${dateStr.replace(/-/g, '')}_${Math.random().toString(36).slice(2, 7)}`
-            const maxX = nextAppendX(store)
-            store[newShapeId] = {
-                typeName: 'shape', id: newShapeId, type: 'card',
-                x: maxX, y: 100, rotation: 0, index: newIndex,
-                parentId: pageId, isLocked: false, opacity: 1, meta: {},
-                props: {
-                    type: 'journal', text: html,
-                    image: null, todos: [], url: '',
-                    linkEmbedUrl: null, journalDate: dateStr,
-                    state: 'idle', preview: '', color: 'yellow', w: 280, h: 380,
-                    cardStatus: 'none', priority: 'none', tags: [],
-                },
-            }
-        }
-        const updated = { ...board, snapshot: toTLEditorSnapshot(snap), updatedAt: Date.now() }
-        saveBoard(updated)
-        setBoards(prev => prev.map(b => b.id === boardId ? updated : b))
-    }, [boards])
-
-    const handleMoveCardToBoard = useCallback((shapeId: string, targetBoardId: string) => {
-        const inboxBoard = boards.find(b => b.isInbox)
-        if (!inboxBoard?.snapshot) return
-        const srcStore = getSnapshotStore(inboxBoard.snapshot)
-        const shape = srcStore[shapeId]
-        if (!shape) return
-
-        // Compute updated inbox (shape removed)
-        const newInboxStore = { ...srcStore }
-        delete newInboxStore[shapeId]
-        const updatedInbox: BoardRecord = {
-            ...inboxBoard,
-            snapshot: withUpdatedStore(inboxBoard.snapshot, newInboxStore),
-            updatedAt: Date.now(),
-        }
-        saveBoard(updatedInbox)
-
-        // Compute updated target (shape inserted)
-        const targetBoard = boards.find(b => b.id === targetBoardId)
-        let updatedTarget: BoardRecord | null = null
-        if (targetBoard) {
-            const snap = toMutableSnapshot(targetBoard.snapshot)
-            const st = snap.document.store
-            const pageId = ensurePageScaffold(st)
-            const maxX = nextAppendX(st)
-            st[shapeId] = { ...structuredClone(shape), parentId: pageId, x: maxX, y: 100 }
-            updatedTarget = { ...targetBoard, snapshot: toTLEditorSnapshot(snap), updatedAt: Date.now() }
-            saveBoard(updatedTarget)
-        }
-
-        setBoards(prev => prev.map(b => {
-            if (b.id === inboxBoard.id) return updatedInbox
-            if (updatedTarget && b.id === targetBoardId) return updatedTarget
-            return b
-        }))
-
-        emitAppEvent('delete-shape-from-editor', { shapeId })
-    }, [boards])
-
-    const handleAddCardToInbox = useCallback((text: string) => {
-        const inboxBoard = boards.find(b => b.isInbox)
-        if (!inboxBoard) return
-
-        const snap = toMutableSnapshot(inboxBoard.snapshot)
-        const store = snap.document.store
-
-        const pageId = ensurePageScaffold(store)
-        const newIndex = lastShapeIndex(store) + 'V'
-        const maxX = nextAppendX(store)
-
-        const newShapeId = `shape:qc_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
-        store[newShapeId] = {
-            typeName: 'shape', id: newShapeId, type: 'card',
-            x: maxX, y: 100, rotation: 0, index: newIndex,
-            parentId: pageId, isLocked: false, opacity: 1, meta: {},
-            props: {
-                type: 'text', text,
-                image: null, todos: [], url: '',
-                linkEmbedUrl: null, journalDate: null,
-                state: 'idle', color: 'none', w: 240, h: 180,
-                cardStatus: 'none', priority: 'none', tags: [],
-            },
-        }
-
-        const updated = { ...inboxBoard, snapshot: toTLEditorSnapshot(snap), updatedAt: Date.now() }
-        saveBoard(updated)
-        setBoards(prev => prev.map(b => b.id === inboxBoard.id ? updated : b))
-
-        emitAppEvent('quick-capture-card', { text, x: maxX, y: 100, shapeId: newShapeId })
-    }, [boards])
 
     return {
         boards,
