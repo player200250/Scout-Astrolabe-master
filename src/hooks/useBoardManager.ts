@@ -5,13 +5,14 @@ import type { DeletedCardRecord } from '../db'
 import { getISOWeekKey } from '../utils/weeklyReviewUtils'
 import { loadAllBoards, saveBoard, deleteBoard, generateId } from '../utils/boardDb'
 import { INBOX_BOARD_ID, JUMP_DELAY_MS } from '../constants'
-import { emitAppEvent, onAppEvent } from '../utils/appEvents'
+import { emitAppEvent } from '../utils/appEvents'
 import {
     getSnapshotStore, withUpdatedStore, toMutableSnapshot, toTLEditorSnapshot,
 } from '../utils/snapshot'
 import { cleanupOrphanBoardCards, sanitizeBoards } from '../utils/boardSanitize'
 import { useAutoBackup } from './useAutoBackup'
 import { useSidebar } from './useSidebar'
+import { useTrash } from './useTrash'
 
 const TRASH_EXPIRE_MS = 14 * 86400000
 
@@ -20,18 +21,15 @@ export function useBoardManager() {
     const [activeBoardId, setActiveBoardId] = useState<string | null>(null)
     const [loading, setLoading] = useState(true)
     const [navigationStack, setNavigationStack] = useState<string[]>([])
-    const [trashCount, setTrashCount] = useState(0)
     const jumpRef = useRef<((shapeId: string, x: number, y: number) => void) | null>(null)
-    const recentlyTrashedShapeIds = useRef<Set<string>>(new Set())
 
     const { triggerAutoBackup } = useAutoBackup(boards)
     const { sidebarCollapsed, handleToggleCollapse } = useSidebar()
-
-    const refreshTrashCount = useCallback(async () => {
-        const deletedBoardCount = await db.table('boards').where('deletedAt').above(0).count()
-        const deletedCardCount = await db.table('deletedCards').count()
-        setTrashCount(deletedBoardCount + deletedCardCount)
-    }, [])
+    const {
+        trashCount, recentlyTrashedShapeIds, refreshTrashCount,
+        handleSoftDeleteBoard, handleDelete, handleRestoreBoard,
+        handleEmptyTrash, handleCardTrashed,
+    } = useTrash({ boards, setBoards, activeBoardId, setActiveBoardId })
 
     useEffect(() => {
         navigator.storage?.persist?.().then(granted => {
@@ -193,17 +191,6 @@ export function useBoardManager() {
         refreshTrashCount()
     }, [activeBoardId, boards, refreshTrashCount])
 
-    const handleSoftDeleteBoard = useCallback(async (id: string) => {
-        const board = boards.find(b => b.id === id)
-        if (!board) return
-        const updated = { ...board, deletedAt: Date.now() }
-        await saveBoard(updated)
-        const next = boards.filter(b => b.id !== id)
-        if (activeBoardId === id) setActiveBoardId(next[0]?.id ?? null)
-        setBoards(next)
-        await refreshTrashCount()
-    }, [activeBoardId, boards, refreshTrashCount])
-
     const handleSoftDeleteBoardWithInboxMove = useCallback(async (boardId: string, moveToInbox: boolean) => {
         const board = boards.find(b => b.id === boardId)
         if (!board) return
@@ -277,47 +264,6 @@ export function useBoardManager() {
 
         await refreshTrashCount()
     }, [boards, activeBoardId, refreshTrashCount])
-
-    const handleDelete = useCallback((id: string) => {
-        handleSoftDeleteBoard(id)
-    }, [handleSoftDeleteBoard])
-
-    const handleRestoreBoard = useCallback(async (id: string) => {
-        const record: BoardRecord | undefined = await db.table('boards').get(id)
-        if (!record) return
-        const restored = { ...record, deletedAt: undefined }
-        // Dexie doesn't remove the field on put; explicitly delete via update
-        const updated = await db.table('boards').update(id, { deletedAt: undefined })
-        if (updated === 0) {
-            alert('還原失敗，請重試。')
-            return
-        }
-        setBoards(prev => [...prev, restored])
-        refreshTrashCount()
-    }, [refreshTrashCount])
-
-    const handleEmptyTrash = useCallback(async () => {
-        const deletedBoards: BoardRecord[] = await db.table('boards').where('deletedAt').above(0).toArray()
-        for (const b of deletedBoards) {
-            await deleteBoard(b.id)
-            // Also clean up orphan board-card references
-            boards.forEach(active => {
-                if (!active.snapshot) return
-                const newSnap = cleanupOrphanBoardCards(active.snapshot, b.id)
-                if (newSnap !== active.snapshot) saveBoard({ ...active, snapshot: newSnap })
-            })
-        }
-        await db.table('deletedCards').clear()
-        setTrashCount(0)
-    }, [boards])
-
-    const handleCardTrashed = useCallback(() => {
-        refreshTrashCount()
-    }, [refreshTrashCount])
-
-    useEffect(() => {
-        return onAppEvent('trash-count-changed', () => { refreshTrashCount() })
-    }, [refreshTrashCount])
 
     const handleJump = useCallback((boardId: string, shapeId: string, x: number, y: number) => {
         if (boardId !== activeBoardId) {
