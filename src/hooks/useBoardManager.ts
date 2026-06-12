@@ -9,6 +9,7 @@ import {
     getSnapshotStore, withUpdatedStore, toMutableSnapshot, toTLEditorSnapshot,
 } from '../utils/snapshot'
 import { cleanupOrphanBoardCards, sanitizeBoards } from '../utils/boardSanitize'
+import { ensurePageScaffold, nextAppendX, lastShapeIndex } from '../utils/snapshotCards'
 import { useAutoBackup } from './useAutoBackup'
 import { useSidebar } from './useSidebar'
 import { useTrash } from './useTrash'
@@ -178,22 +179,9 @@ export function useBoardManager() {
                     const snap = toMutableSnapshot(inboxBoard.snapshot)
                     const st = snap.document.store
 
-                    if (!st['document:document']) {
-                        st['document:document'] = { typeName: 'document', id: 'document:document', gridSize: 10, name: '', meta: {} }
-                    }
-                    const pageRec = Object.values(st).find(r => r.typeName === 'page')
-                    const pageId = pageRec?.id ?? 'page:page'
-                    if (!st[pageId]) st[pageId] = { typeName: 'page', id: pageId, name: '', index: 'a1', meta: {} }
-
-                    const existingShapes = Object.values(st).filter(r => r.typeName === 'shape')
-                    const existingIndices = existingShapes
-                        .map(r => r.index)
-                        .filter((idx): idx is string => idx !== undefined)
-                        .sort()
-                    let lastIndex = existingIndices[existingIndices.length - 1] ?? 'a0'
-                    let offsetX = existingShapes.length > 0
-                        ? Math.max(...existingShapes.map(s => (s.x ?? 0) + (s.props?.w ?? 240))) + 40
-                        : 100
+                    const pageId = ensurePageScaffold(st)
+                    let lastIndex = lastShapeIndex(st)
+                    let offsetX = nextAppendX(st)
 
                     for (const shape of cardShapes) {
                         lastIndex = lastIndex + 'V'
@@ -288,26 +276,10 @@ export function useBoardManager() {
             const rec = store[shapeId]
             if (rec.props) { rec.props['text'] = html } else { rec.props = { text: html } }
         } else {
-            if (!store['document:document']) {
-                store['document:document'] = { typeName: 'document', id: 'document:document', gridSize: 10, name: '', meta: {} }
-            }
-            const pageRecord = Object.values(store).find(r => r.typeName === 'page')
-            const pageId = pageRecord?.id ?? 'page:page'
-            if (!store[pageId]) {
-                store[pageId] = { typeName: 'page', id: pageId, name: '', index: 'a1', meta: {} }
-            }
-
-            const existingIndices = Object.values(store)
-                .filter(r => r.typeName === 'shape')
-                .map(r => r.index)
-                .filter((idx): idx is string => idx !== undefined)
-                .sort()
-            const newIndex = (existingIndices[existingIndices.length - 1] ?? 'a0') + 'V'
+            const pageId = ensurePageScaffold(store)
+            const newIndex = lastShapeIndex(store) + 'V'
             const newShapeId = `shape:jd_${dateStr.replace(/-/g, '')}_${Math.random().toString(36).slice(2, 7)}`
-            const allShapes = Object.values(store).filter(r => r.typeName === 'shape')
-            const maxX = allShapes.length > 0
-                ? Math.max(...allShapes.map(s => (s.x ?? 0) + (s.props?.w ?? 240))) + 40
-                : 100
+            const maxX = nextAppendX(store)
             store[newShapeId] = {
                 typeName: 'shape', id: newShapeId, type: 'card',
                 x: maxX, y: 100, rotation: 0, index: newIndex,
@@ -349,12 +321,8 @@ export function useBoardManager() {
         if (targetBoard) {
             const snap = toMutableSnapshot(targetBoard.snapshot)
             const st = snap.document.store
-            if (!st['document:document']) st['document:document'] = { typeName: 'document', id: 'document:document', gridSize: 10, name: '', meta: {} }
-            const pageRec = Object.values(st).find(r => r.typeName === 'page')
-            const pageId = pageRec?.id ?? 'page:page'
-            if (!st[pageId]) st[pageId] = { typeName: 'page', id: pageId, name: '', index: 'a1', meta: {} }
-            const existingShapes = Object.values(st).filter(r => r.typeName === 'shape')
-            const maxX = existingShapes.length > 0 ? Math.max(...existingShapes.map(s => (s.x ?? 0) + (s.props?.w ?? 240))) + 40 : 100
+            const pageId = ensurePageScaffold(st)
+            const maxX = nextAppendX(st)
             st[shapeId] = { ...structuredClone(shape), parentId: pageId, x: maxX, y: 100 }
             updatedTarget = { ...targetBoard, snapshot: toTLEditorSnapshot(snap), updatedAt: Date.now() }
             saveBoard(updatedTarget)
@@ -376,24 +344,9 @@ export function useBoardManager() {
         const snap = toMutableSnapshot(inboxBoard.snapshot)
         const store = snap.document.store
 
-        if (!store['document:document']) {
-            store['document:document'] = { typeName: 'document', id: 'document:document', gridSize: 10, name: '', meta: {} }
-        }
-        const pageRecord = Object.values(store).find(r => r.typeName === 'page')
-        const pageId = pageRecord?.id ?? 'page:page'
-        if (!store[pageId]) {
-            store[pageId] = { typeName: 'page', id: pageId, name: '', index: 'a1', meta: {} }
-        }
-
-        const existingShapes = Object.values(store).filter(r => r.typeName === 'shape')
-        const existingIndices = existingShapes
-            .map(r => r.index)
-            .filter((idx): idx is string => idx !== undefined)
-            .sort()
-        const newIndex = (existingIndices[existingIndices.length - 1] ?? 'a0') + 'V'
-        const maxX = existingShapes.length > 0
-            ? Math.max(...existingShapes.map(s => (s.x ?? 0) + (s.props?.w ?? 240))) + 40
-            : 100
+        const pageId = ensurePageScaffold(store)
+        const newIndex = lastShapeIndex(store) + 'V'
+        const maxX = nextAppendX(store)
 
         const newShapeId = `shape:qc_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
         store[newShapeId] = {
