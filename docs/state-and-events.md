@@ -49,12 +49,14 @@ recentlyTrashedShapeIds         // 防切板後 Ctrl+Z 同步失效的 Set（現
 | `useNavigation` | `navigationStack`、`jumpRef` | `handleBack`、`handleJump`、`handleGoToInbox` |
 | `useBoardCRUD` | —（讀 core） | `handleSaveBoard`、`handleCreateBoard`、`handleRename`、`handleSetStatus`、`handleReorderBoards`；模組層匯出純函式 `uniqueName` |
 | `useFolder` | —（讀 core） | `handleCreateFolder`、`handleSetFolder`、`handleDeleteFolder` |
+| `useJournal` | —（讀 core） | `handleSetJournal`、`handleSaveJournal` |
+| `useInboxCards` | —（讀 core） | `handleAddCardToInbox`、`handleMoveCardToBoard` |
 | `useAutoBackup` | `lastBackupRef` | `triggerAutoBackup` + visibilitychange 自動備份 |
 | `utils/snapshotCards` | —（純函式） | `ensurePageScaffold`、`nextAppendX`、`lastShapeIndex`（消除 4 處 snapshot 樣板重複） |
 | `utils/boardSanitize` | —（純函式） | `cleanupOrphanBoardCards`、`sanitizeBoards` |
 | **合成層 `useBoardManager`** | `boards`、`activeBoardId`、`loading` | **跨領域 handler**：`handleSetParent`、`handlePermanentDeleteBoard`、`handleSoftDeleteBoardWithInboxMove`、`handleNew`、`handleSwitch`、`handleSwitchToChild`、`handleGoToWeeklyCard`、`handleRestore`；啟動載入 effect |
 
-> 待辦：`handleSetJournal`/`handleSaveJournal` → `useJournal`、`handleAddCardToInbox`/`handleMoveCardToBoard` → `useInboxCards`。詳見 `docs/refactor-roadmap.md` TD2。
+> TD2 已於 2026-06-12 完成（`useBoardManager` 677→303 行）。詳見 `docs/refactor-roadmap.md` TD2。
 
 ---
 

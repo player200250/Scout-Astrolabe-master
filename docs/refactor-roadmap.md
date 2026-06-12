@@ -13,7 +13,7 @@
 | 檔案 | 技術債說明 |
 |------|-----------|
 | `src/App.tsx` | 14+ boolean state、prop drilling、無路由層 |
-| `src/hooks/useBoardManager.ts` | ~800 行、職責過多、handler 相互依賴 |
+| `src/hooks/useBoardManager.ts` | ✅ TD2 已拆分（677→303 行，職責下放至 8 hook + 2 util，合成層僅留跨領域 handler） |
 | `src/components/WhiteboardTools.tsx` | 10+ useEffect 事件橋接、緊耦合 tldraw |
 | `src/hooks/useBacklinks.ts` | 全量掃描效能、無索引快取 |
 | `src/SearchPanel.tsx` | 全量掃描、無防抖、無分頁 |
@@ -50,13 +50,13 @@ const [deletingBoardId, setDeletingBoardId] = useState<string | null>(null)
 
 ---
 
-### TD2：useBoardManager 職責過多（高優先）— 🔄 大部分已解決
+### ~~TD2：useBoardManager 職責過多（高優先）~~ ✅ 已解決（2026-06-12）
 
 **原始現狀**：`useBoardManager.ts` 約 800 行（2026-06-07 起逐步降至 677），單一 hook 承擔白板 CRUD、導航、收件匣、垃圾桶、Journal、備份、啟動清理、麵包屑等職責，`useCallback` 依賴陣列複雜，維護時難以定位。
 
 **採用策略**：增量法「方案 B（抽純函式＋低風險 hook）→ 方案 A（領域子 hook）」。核心安全網＝43 個 useBoardManager 測試全走公開 API，回傳物件形狀＋行為不變即綠燈。每步 `tsc --noEmit` + `npm test` 全綠才 commit 一個檢查點。**已排除方案 C（useReducer）**：副作用密度高（saveBoard/emitAppEvent/setTimeout/alert 不能進 reducer），報酬低風險高。
 
-**進度**（2026-06-12，`useBoardManager` 677 → **412 行**，−39%）：
+**進度**（2026-06-12 完成，`useBoardManager` 677 → **303 行**，−55%）：
 
 | 階段 | 產出 | commit | 狀態 |
 |------|------|--------|------|
@@ -67,9 +67,9 @@ const [deletingBoardId, setDeletingBoardId] = useState<string | null>(null)
 | 二·4 | `hooks/useBoardCRUD.ts`（含模組層 `uniqueName`） | `6f87cb9` | ✅ |
 | 二·5 | `hooks/useFolder.ts` | `ec25d56` | ✅ |
 | 二·6 | `utils/snapshotCards.ts`（消除 4 處 snapshot 樣板重複，+10 測試） | `15df140` | ✅ |
-| 二·7 | `hooks/useJournal.ts`、`hooks/useInboxCards.ts` | — | ⬜ 待辦 |
+| 二·7 | `hooks/useJournal.ts`、`hooks/useInboxCards.ts` | `783386d` | ✅ |
 
-**剩餘**：`handleSetJournal`/`handleSaveJournal`（→ `useJournal`）、`handleAddCardToInbox`/`handleMoveCardToBoard`（→ `useInboxCards`）。snapshot 樣板已抽出，這兩塊現可乾淨拆。
+**合成層 `useBoardManager` 最終只剩**：跨領域 handler（`handleSetParent`、`handlePermanentDeleteBoard`、`handleSoftDeleteBoardWithInboxMove`、`handleNew`、`handleSwitch`、`handleSwitchToChild`、`handleGoToWeeklyCard`、`handleRestore`）＋ 啟動載入 effect ＋ core state（boards/activeBoardId/loading）。
 
 **設計原則**：子 hook 以「單一 `state` 物件」傳遞共用 core state（boards/setBoards/activeBoardId/setActiveBoardId 等）。**跨領域 handler 一律留在 `useBoardManager` 合成層**，由它組合各子 hook 的原子動作——目前留下 6 個：`handleSetParent`、`handlePermanentDeleteBoard`、`handleSoftDeleteBoardWithInboxMove`、`handleNew`、`handleSwitch`、`handleGoToWeeklyCard`。
 
@@ -177,7 +177,7 @@ const [deletingBoardId, setDeletingBoardId] = useState<string | null>(null)
 | 優先度 | 技術債 | 狀態 | 建議時機 |
 |--------|--------|------|---------|
 | 🔴 高 | TD1：App.tsx 面板狀態 | 未解決 | 新增第 15 個面板前 |
-| 🔴 高 | TD2：useBoardManager 拆分 | 🔄 大部分完成（677→412 行，剩 useJournal/useInboxCards） | 新增任何跨領域 handler 前 |
+| ✅ 完成 | TD2：useBoardManager 拆分 | 已解決（677→303 行，commit `783386d`） | — |
 | ✅ 完成 | TD3：CustomEvent 型別安全 | 已解決 `c7661c8` | — |
 | 🟡 中 | TD4：useBacklinks 增量更新 | 未解決 | 白板數量超過 50 時 |
 | 🟢 低 | TD5：stripHtml 統一 | 未解決 | 下一次修改相關邏輯時 |
