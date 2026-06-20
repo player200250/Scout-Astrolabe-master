@@ -430,8 +430,7 @@ Scout-Astrolabe-master/
 │   │   └── OnboardingModal.tsx          # 新手導覽
 │   ├── hooks/
 │   │   ├── useBoardManager.ts           # 白板狀態管理
-│   │   ├── useBacklinks.ts              # 雙向連結解析
-│   │   └── useFileStorage.ts            # 檔案儲存
+│   │   └── useBacklinks.ts              # 雙向連結解析
 │   ├── utils/
 │   │   ├── boardDb.ts                   # IndexedDB CRUD
 │   │   ├── boardExport.ts               # PNG / PDF 匯出

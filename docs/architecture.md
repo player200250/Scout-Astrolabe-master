@@ -168,8 +168,8 @@ tldraw 預設雙擊 shape 進入編輯模式；此處覆蓋後，雙擊行為完
 
 ## 待確認
 
-- `CalendarView.tsx`、`JournalDayView.tsx` 在目前 `App.tsx` 中無獨立渲染點（功能透過 `ReviewCenter` 提供），獨立元件是否廢棄待確認。
-- `src/hooks/useFileStorage.ts` 未在任何 tsx 中 import，功能待確認是否廢棄。
+- ~~`CalendarView.tsx`、`JournalDayView.tsx` 獨立元件是否廢棄待確認。~~ 已確認廢棄並刪除 standalone 包裝（2026-06-20，TD7）；`CalendarContent`/`JournalDayContent` 內嵌版保留。
+- ~~`src/hooks/useFileStorage.ts` 未在任何 tsx 中 import。~~ 已確認廢棄並刪除（2026-06-20，TD7）。
 
 ## 外部參考
 

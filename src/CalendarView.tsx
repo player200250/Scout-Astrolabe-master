@@ -1,5 +1,5 @@
 // src/CalendarView.tsx
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import React from 'react'
 import type { BoardRecord } from './db'
 import { toDateStr as dateStr } from './utils/date'
@@ -221,44 +221,6 @@ export function CalendarContent({ boards, onJumpToBoard, onOpenJournalDay, isDar
                     ))}
                 </Section>
             </div>
-        </div>
-    )
-}
-
-/* ------------------------------------------------------------------ CalendarView (standalone full-screen) */
-interface CalendarViewProps {
-    boards: BoardRecord[]
-    onClose: () => void
-    onJumpToBoard: (boardId: string) => void
-    onOpenJournalDay: (date: Date) => void
-    isDark: boolean
-}
-
-export function CalendarView({ boards, onClose, onJumpToBoard, onOpenJournalDay, isDark }: CalendarViewProps) {
-    useEffect(() => {
-        const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-        window.addEventListener('keydown', h)
-        return () => window.removeEventListener('keydown', h)
-    }, [onClose])
-
-    const outerBg    = isDark ? 'rgba(15,23,42,0.98)' : 'rgba(245,245,243,0.97)'
-    const headerBg   = isDark ? 'rgba(30,41,59,0.95)' : 'rgba(255,255,255,0.85)'
-    const borderCol  = isDark ? '#334155' : '#e8e8e6'
-    const titleColor = isDark ? '#e2e8f0' : '#1a1a1a'
-    const btnBorder  = isDark ? '#334155' : '#e0e0de'
-
-    return (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 20000, background: outerBg, backdropFilter: 'blur(12px)', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ display: 'flex', alignItems: 'center', padding: '14px 24px', borderBottom: `1px solid ${borderCol}`, background: headerBg, flexShrink: 0, gap: 12 }}>
-                <span style={{ fontSize: 15, fontWeight: 600, color: titleColor }}>🗓️ 月曆</span>
-                <div style={{ flex: 1 }} />
-                <button onClick={onClose} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${btnBorder}`, background: 'transparent', cursor: 'pointer', fontSize: 14, color: '#888', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>✕</button>
-            </div>
-            <CalendarContent
-                boards={boards} isDark={isDark}
-                onJumpToBoard={id => { onJumpToBoard(id); onClose() }}
-                onOpenJournalDay={date => { onOpenJournalDay(date); onClose() }}
-            />
         </div>
     )
 }

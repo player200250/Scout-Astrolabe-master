@@ -198,25 +198,3 @@ export function JournalDayContent({ date, boards, onSaveJournal, onDateChange, o
         </>
     )
 }
-
-/* ------------------------------------------------------------------ JournalDayView (standalone full-screen) */
-interface JournalDayViewProps {
-    date: Date
-    boards: BoardRecord[]
-    onClose: () => void
-    onSaveJournal: (boardId: string, dateStr: string, html: string, shapeId: string | null) => void
-    onDateChange: (date: Date) => void
-    isDark: boolean
-}
-
-export function JournalDayView({ date, boards, onClose, onSaveJournal, onDateChange, isDark }: JournalDayViewProps) {
-    return (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 20000, background: isDark ? '#1e293b' : 'white', display: 'flex', flexDirection: 'column' }}>
-            <JournalDayContent
-                date={date} boards={boards}
-                onSaveJournal={onSaveJournal} onDateChange={onDateChange}
-                onClose={onClose} isDark={isDark}
-            />
-        </div>
-    )
-}

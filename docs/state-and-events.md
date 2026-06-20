@@ -267,7 +267,7 @@ overdueBannerVisible // 逾期任務 banner
 
 ## 待確認
 
-- `CalendarView.tsx` 和 `JournalDayView.tsx` 無渲染點，是否透過事件觸發或已廢棄？
+- ~~`CalendarView.tsx` 和 `JournalDayView.tsx` 無渲染點，是否已廢棄？~~ standalone 版已確認廢棄並刪除（2026-06-20，TD7）；嵌入版 `*Content` 保留。
 - `handleSetStatus('archived')` 的封存白板是否在 `BoardTabBar` 中隱藏？未見對應的過濾邏輯。
 
 ## 外部參考

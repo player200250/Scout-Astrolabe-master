@@ -12,8 +12,8 @@
 
 | 檔案 | 說明 |
 |------|------|
-| `src/JournalDayView.tsx` | 單日日記沉浸式編輯器（獨立全螢幕 + 可嵌入） |
-| `src/CalendarView.tsx` | 月曆視圖（獨立全螢幕 + 可嵌入） |
+| `src/JournalDayView.tsx` | 單日日記沉浸式編輯器（`JournalDayContent`，嵌入 `ReviewCenter`） |
+| `src/CalendarView.tsx` | 月曆視圖（`CalendarContent`，嵌入 `ReviewCenter`） |
 | `src/WeeklyReview.tsx` | 週回顧統計（獨立側邊板 + 可嵌入） |
 | `src/ReviewCenter.tsx` | 三合一復盤中心（月曆 + 日記 + 週回顧） |
 | `src/hooks/useBoardManager.ts` | `handleSaveJournal`、`handleGoToWeeklyCard`、`handleSetJournal` |
@@ -139,14 +139,13 @@ export function getISOWeekKey(date: Date): string {
 
 ## JournalDayView 沉浸式編輯器
 
-### 兩個型態
+### 型態
 
 | 型態 | 元件 | 用途 |
 |------|------|------|
-| 全螢幕 | `JournalDayView` | 從側邊欄 Journal 圖示直接開啟 |
 | 嵌入 | `JournalDayContent` | 嵌入於 `ReviewCenter` 的「今日日記」tab |
 
-`JournalDayView` 是薄包裝（`position: fixed, inset: 0`），直接渲染 `JournalDayContent`。
+> 註：原本另有 standalone 全螢幕薄包裝 `JournalDayView`，2026-06-20 確認無觸發路徑後刪除（TD7），現只保留嵌入版 `JournalDayContent`。
 
 ### 自動儲存（debounce 900ms）
 
@@ -189,12 +188,13 @@ function defaultTemplate(ds: string): string {
 
 ## CalendarView 月曆視圖
 
-### 兩個型態
+### 型態
 
 | 型態 | 元件 |
 |------|------|
-| 全螢幕 | `CalendarView`（含標題列）|
 | 嵌入 | `CalendarContent`（嵌入 ReviewCenter）|
+
+> 註：原 standalone 全螢幕版 `CalendarView`（含標題列）2026-06-20 確認無引用後刪除（TD7），現只保留嵌入版 `CalendarContent`。
 
 ### 月曆格資料建立（`buildMonthEvents`）
 
