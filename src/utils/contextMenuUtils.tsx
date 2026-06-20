@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Editor, TLShapeId } from 'tldraw'
 import { STICKY_COLORS, STICKY_COLOR_LIST } from '../components/card-shape/type/CardShape'
-import type { CardColor, TLCardShape, StickyColor } from '../components/card-shape/type/CardShape'
+import type { CardColor, TLCardShape, StickyColor, CardStatusType, PriorityType } from '../components/card-shape/type/CardShape'
 import { db } from '../db'
 import type { TemplateRecord } from '../db'
 import { saveCardToTrash, getCardPreview } from './trashUtils'
@@ -102,6 +102,20 @@ function distributeShapes(editor: Editor, ids: TLShapeId[], axis: DistributeAxis
                 return { id: s.id, type: 'card' as const, y }
             }))
         }
+    })
+}
+
+// ── Batch card-prop helpers ─────────────────────────────────────────────────
+
+function setBatchStatus(editor: Editor, ids: TLShapeId[], cardStatus: CardStatusType) {
+    editor.batch(() => {
+        editor.updateShapes(ids.map(id => ({ id, type: 'card' as const, props: { cardStatus } })))
+    })
+}
+
+function setBatchPriority(editor: Editor, ids: TLShapeId[], priority: PriorityType) {
+    editor.batch(() => {
+        editor.updateShapes(ids.map(id => ({ id, type: 'card' as const, props: { priority } })))
     })
 }
 
@@ -299,6 +313,33 @@ export function useContextMenu({
                         divider: true,
                         action: () => {},
                         submenu: alignSubmenu,
+                    })
+
+                    const statusSubmenu: MenuItem[] = [
+                        { icon: '📋', label: '待辦',   action: () => setBatchStatus(editor, idsToOperate, 'todo') },
+                        { icon: '🔵', label: '進行中', action: () => setBatchStatus(editor, idsToOperate, 'in-progress') },
+                        { icon: '✅', label: '完成',   action: () => setBatchStatus(editor, idsToOperate, 'done') },
+                        { icon: '⬜', label: '清除狀態', divider: true, action: () => setBatchStatus(editor, idsToOperate, 'none') },
+                    ]
+                    items.push({
+                        icon: '🏷',
+                        label: `批次設定狀態（${opCount}）`,
+                        divider: true,
+                        action: () => {},
+                        submenu: statusSubmenu,
+                    })
+
+                    const prioritySubmenu: MenuItem[] = [
+                        { icon: '🔴', label: '高', action: () => setBatchPriority(editor, idsToOperate, 'high') },
+                        { icon: '🟠', label: '中', action: () => setBatchPriority(editor, idsToOperate, 'medium') },
+                        { icon: '🟡', label: '低', action: () => setBatchPriority(editor, idsToOperate, 'low') },
+                        { icon: '—', label: '清除優先級', divider: true, action: () => setBatchPriority(editor, idsToOperate, 'none') },
+                    ]
+                    items.push({
+                        icon: '⚑',
+                        label: `批次設定優先級（${opCount}）`,
+                        action: () => {},
+                        submenu: prioritySubmenu,
                     })
                 }
 
