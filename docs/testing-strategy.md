@@ -21,7 +21,7 @@
 
 ## 目前測試現況
 
-**單元測試已導入（Vitest 3.2.6），目前 22 檔 228 案例全綠。** 設定寫在 `vite.config.ts` 的 `test` 區塊（`include: src/**/*.{test,spec}.{ts,tsx}`）；指令 `npm test`（`vitest run`）、`npm run test:watch`。已裝 `jsdom`、`@testing-library/react`、`@testing-library/dom`（未裝 `@testing-library/jest-dom`，斷言用 `.toBeTruthy()`/`.toBeNull()`）。純函式測試跑 node 環境、需要 DOM 的單檔以 `// @vitest-environment jsdom` 切換。
+**單元測試已導入（Vitest 3.2.6），目前 22 檔 230 案例全綠。** 設定寫在 `vite.config.ts` 的 `test` 區塊（`include: src/**/*.{test,spec}.{ts,tsx}`）；指令 `npm test`（`vitest run`）、`npm run test:watch`。已裝 `jsdom`、`@testing-library/react`、`@testing-library/dom`（未裝 `@testing-library/jest-dom`，斷言用 `.toBeTruthy()`/`.toBeNull()`）。純函式測試跑 node 環境、需要 DOM 的單檔以 `// @vitest-environment jsdom` 切換。
 
 已覆蓋的測試檔：
 
@@ -46,7 +46,7 @@
 
 | 檔案 | 案例 | 重點 |
 |------|------|------|
-| `hooks/useBoardManager.test.ts` | 43 | **全 handler 覆蓋**：建立/重新命名/切換/導航/資料夾/軟刪/永久刪/搬卡進 Inbox/跳轉/排序/垃圾桶/還原（`vi.mock` 換掉 Dexie 層，`renderHook`+`act`）|
+| `hooks/useBoardManager.test.ts` | 45 | **全 handler 覆蓋**：建立/重新命名/切換/導航/資料夾/軟刪/永久刪/搬卡（單卡 Inbox＋泛化來源批次＋移到自己無操作）/跳轉/排序/垃圾桶/還原（`vi.mock` 換掉 Dexie 層，`renderHook`+`act`）|
 | `hooks/useBacklinks.test.ts` | 20 | `extractCardName` + 掃描 + 增量更新（快取命中回同 reference、snapshot 換新重掃、刪板/改名）|
 
 **元件（@testing-library/react，jsdom）**

@@ -29,7 +29,7 @@
 | 群組 | 內容 | 數量 | 性質 |
 |------|------|------|------|
 | A. 面板開關 | search / hotkey / overview / taskCenter / filter / reviewCenter / backupPanel / knowledgeGraph / cardLibrary / quickCapture / onboarding / trash / quickSwitcher | 13 boolean | 純 open/close/toggle |
-| B. 實體目標 modal | `movingCardShapeId`、`deletingBoardId` | 2 `string\|null` | 開啟時帶 id |
+| B. 實體目標 modal | `movingCardShapeIds`（`string[]\|null`，批次移動）、`deletingBoardId`（`string\|null`） | 2 | 開啟時帶 id |
 | C. 主題 | `isDark` + `toggleTheme` + `data-theme` effect + localStorage | 1 + effect | 自成一格 |
 | D. 逾期橫幅 | `overdueBannerVisible` + `bannerShownRef` + 計時 effect | 1 + ref + effect | UI 回饋 |
 

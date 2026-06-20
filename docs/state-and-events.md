@@ -50,7 +50,7 @@ recentlyTrashedShapeIds         // 防切板後 Ctrl+Z 同步失效的 Set（現
 | `useBoardCRUD` | —（讀 core） | `handleSaveBoard`、`handleCreateBoard`、`handleRename`、`handleSetStatus`、`handleReorderBoards`；模組層匯出純函式 `uniqueName` |
 | `useFolder` | —（讀 core） | `handleCreateFolder`、`handleSetFolder`、`handleDeleteFolder` |
 | `useJournal` | —（讀 core） | `handleSetJournal`、`handleSaveJournal` |
-| `useInboxCards` | —（讀 core） | `handleAddCardToInbox`、`handleMoveCardToBoard` |
+| `useInboxCards` | —（讀 core） | `handleAddCardToInbox`、`handleMoveCardsToBoard`（多 id，可指定來源板）、`handleMoveCardToBoard`（單卡委派） |
 | `useAutoBackup` | `lastBackupRef` | `triggerAutoBackup` + visibilitychange 自動備份 |
 | `utils/snapshotCards` | —（純函式） | `ensurePageScaffold`、`nextAppendX`、`lastShapeIndex`（消除 4 處 snapshot 樣板重複） |
 | `utils/boardSanitize` | —（純函式） | `cleanupOrphanBoardCards`、`sanitizeBoards` |
@@ -92,7 +92,8 @@ recentlyTrashedShapeIds         // 防切板後 Ctrl+Z 同步失效的 Set（現
 | Handler | 說明 | 非同步 |
 |---------|------|--------|
 | `handleAddCardToInbox(text)` | 建立文字卡片到收件匣 snapshot | 否 |
-| `handleMoveCardToBoard(shapeId, targetBoardId)` | 從收件匣移動卡片到目標白板 | 否 |
+| `handleMoveCardsToBoard(shapeIds, targetBoardId, sourceBoardId?)` | 從來源板（省略＝收件匣）批次移動卡片到目標白板，水平排開附加 | 否 |
+| `handleMoveCardToBoard(shapeId, targetBoardId)` | 單卡版，委派給 `handleMoveCardsToBoard`（來源預設收件匣） | 否 |
 
 ### 特殊白板
 
@@ -162,7 +163,7 @@ recentlyTrashedShapeIds         // 防切板後 Ctrl+Z 同步失效的 Set（現
 | `jump-to-card` | `BacklinksPanel.tsx`、`SearchPanel.tsx` | `WhiteboardTools` useEffect | `{ boardId?: string; shapeId?: string; x?: number; y?: number; targetName?: string }` |
 | `create-board-card-on` | `useBoardManager.handleSetParent()` | `WhiteboardTools` useEffect | `{ targetBoardId: string; linkedBoardId: string; boardName: string }` |
 | `cleanup-orphan-board-cards` | `useBoardManager.handlePermanentDeleteBoard()` | `WhiteboardTools` useEffect | `{ deletedBoardId: string }` |
-| `delete-shape-from-editor` | `useBoardManager.handleMoveCardToBoard()` | `WhiteboardTools` useEffect | `{ shapeId: string }` |
+| `delete-shape-from-editor` | `useBoardManager.handleMoveCardsToBoard()`（逐張） | `WhiteboardTools` useEffect | `{ shapeId: string }` |
 | `permanent-delete-shape` | `TrashPanel.handlePermanentDeleteCard()` | `WhiteboardTools` useEffect | `{ shapeId: string; boardId: string }` |
 | `restore-deleted-card` | `TrashPanel.handleRestoreCard()` | `WhiteboardTools` useEffect | `DeletedCardRecord` |
 | `quick-capture-card` | `useBoardManager.handleAddCardToInbox()` | `WhiteboardTools` useEffect（僅 isInboxBoard） | `{ text: string; x: number; y: number; shapeId: string }` |
@@ -189,7 +190,7 @@ taskCenterOpen      // TaskCenter
 filterOpen          // FilterPanel
 reviewCenterOpen    // ReviewCenter
 backupPanelOpen     // BackupPanel
-movingCardShapeId   // MoveCardModal（string | null）
+movingCardShapeIds  // MoveCardModal（string[] | null，支援多選批次移動）
 knowledgeGraphOpen  // KnowledgeGraph
 cardLibraryOpen     // CardLibrary
 quickCaptureOpen    // QuickCapture

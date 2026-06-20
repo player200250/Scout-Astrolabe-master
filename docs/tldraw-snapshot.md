@@ -143,7 +143,7 @@ const CARD_PROP_DEFAULTS = {
 | 操作 | 函式 | 說明 |
 |------|------|------|
 | 快速捕捉到收件匣 | `handleAddCardToInbox` | 直接在 inbox snapshot 插入 shape |
-| 跨白板移動卡片 | `handleMoveCardToBoard` | 從 inbox 刪除，插入目標白板 |
+| 跨白板移動卡片 | `handleMoveCardsToBoard` | 從來源板（省略＝inbox）批次刪除，水平排開插入目標白板 |
 | 軟刪白板時移卡片到收件匣 | `handleSoftDeleteBoardWithInboxMove` | 複製全部 card shapes 到 inbox |
 | Journal 建立 | `handleSaveJournal` | 在 journal 白板插入新 shape |
 | 清理孤兒 board card | `cleanupOrphanBoardCards` | 刪除指向已刪白板的 board type card |
