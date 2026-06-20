@@ -10,7 +10,7 @@ import type { TemplateRecord } from '../db'
 import { saveCardToTrash, getCardPreview } from './trashUtils'
 import { sanitizeCardProps } from './snapshot'
 import type { SnapshotShapeProps } from './snapshot'
-import { ContextMenuUI, SaveTemplateModal } from '../ContextMenu'
+import { ContextMenuUI, SaveTemplateModal, BatchAddTagModal } from '../ContextMenu'
 import type { MenuItem } from '../ContextMenu'
 
 // ── Alignment helpers ───────────────────────────────────────────────────────
@@ -119,6 +119,20 @@ function setBatchPriority(editor: Editor, ids: TLShapeId[], priority: PriorityTy
     })
 }
 
+/** 為每張卡片附加標籤（去重，不覆蓋既有標籤；已有該標籤的卡片跳過） */
+function addBatchTag(editor: Editor, ids: TLShapeId[], tag: string) {
+    editor.batch(() => {
+        const updates = ids.flatMap(id => {
+            const s = editor.getShape(id)
+            if (s?.type !== 'card') return []
+            const existing = (s as unknown as TLCardShape).props.tags ?? []
+            if (existing.includes(tag)) return []
+            return [{ id, type: 'card' as const, props: { tags: [...existing, tag] } }]
+        })
+        if (updates.length) editor.updateShapes(updates)
+    })
+}
+
 // ── Built-in templates ──────────────────────────────────────────────────────
 
 const BUILTIN_TEMPLATES: { icon: string; name: string; w: number; h: number; content: string }[] = [
@@ -210,6 +224,7 @@ export function useContextMenu({
     onBeforeDeleteCard,
 }: UseContextMenuOptions) {
     const [saveTemplateState, setSaveTemplateState] = useState<{ defaultName: string; cardContent: string } | null>(null)
+    const [batchTagState, setBatchTagState] = useState<{ ids: TLShapeId[] } | null>(null)
 
     const [menu, setMenu] = useState<{
         x: number; y: number; items: MenuItem[]
@@ -322,7 +337,7 @@ export function useContextMenu({
                         { icon: '⬜', label: '清除狀態', divider: true, action: () => setBatchStatus(editor, idsToOperate, 'none') },
                     ]
                     items.push({
-                        icon: '🏷',
+                        icon: '📊',
                         label: `批次設定狀態（${opCount}）`,
                         divider: true,
                         action: () => {},
@@ -340,6 +355,15 @@ export function useContextMenu({
                         label: `批次設定優先級（${opCount}）`,
                         action: () => {},
                         submenu: prioritySubmenu,
+                    })
+
+                    items.push({
+                        icon: '🏷',
+                        label: `批次附加標籤（${opCount}）`,
+                        action: () => {
+                            setMenu(null)
+                            setBatchTagState({ ids: idsToOperate })
+                        },
                     })
                 }
 
@@ -549,6 +573,17 @@ export function useContextMenu({
                     cardContent={saveTemplateState.cardContent}
                     onConfirm={handleSaveTemplate}
                     onClose={() => setSaveTemplateState(null)}
+                    isDark={isDark ?? false}
+                />
+            )}
+            {batchTagState && editor && (
+                <BatchAddTagModal
+                    count={batchTagState.ids.length}
+                    onConfirm={(tag) => {
+                        addBatchTag(editor, batchTagState.ids, tag)
+                        setBatchTagState(null)
+                    }}
+                    onClose={() => setBatchTagState(null)}
                     isDark={isDark ?? false}
                 />
             )}

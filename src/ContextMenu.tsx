@@ -305,3 +305,67 @@ export function SaveTemplateModal({ defaultName, cardContent, onConfirm, onClose
     )
 }
 
+// ── BatchAddTagModal ─────────────────────────────────────────────────────────
+
+export interface BatchAddTagModalProps {
+    count: number
+    onConfirm: (tag: string) => void
+    onClose: () => void
+    isDark: boolean
+}
+
+export function BatchAddTagModal({ count, onConfirm, onClose, isDark }: BatchAddTagModalProps) {
+    const [tag, setTag] = useState('')
+    const inputRef = useRef<HTMLInputElement>(null)
+
+    useEffect(() => {
+        setTimeout(() => inputRef.current?.focus(), 0)
+        const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+        window.addEventListener('keydown', onKey)
+        return () => window.removeEventListener('keydown', onKey)
+    }, [onClose])
+
+    const handleConfirm = () => { const t = tag.trim(); if (t) onConfirm(t) }
+
+    const bg = isDark ? '#1e293b' : '#fff'
+    const text = isDark ? '#e2e8f0' : '#1a1a1a'
+    const border = isDark ? '1px solid #475569' : '1px solid #e0e0e0'
+
+    return (
+        <div
+            style={{ position: 'fixed', inset: 0, zIndex: Z_ABOVE_MODAL, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.35)' }}
+            onMouseDown={onClose}
+        >
+            <div
+                style={{ background: bg, borderRadius: 14, padding: '22px 26px', minWidth: 320, boxShadow: '0 12px 40px rgba(0,0,0,0.25)', pointerEvents: 'auto' }}
+                onMouseDown={(e) => e.stopPropagation()}
+            >
+                <div style={{ fontWeight: 600, fontSize: 15, color: text, marginBottom: 14 }}>🏷 為 {count} 張卡片附加標籤</div>
+                <input
+                    ref={inputRef}
+                    value={tag}
+                    onChange={(e) => setTag(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleConfirm(); if (e.key === 'Escape') onClose() }}
+                    placeholder="標籤名稱（附加，不覆蓋既有標籤）"
+                    style={{
+                        width: '100%', boxSizing: 'border-box',
+                        padding: '9px 13px', borderRadius: 9, fontSize: 14,
+                        border, background: isDark ? '#0f172a' : '#f9f9f9',
+                        color: text, outline: 'none',
+                    }}
+                />
+                <div style={{ display: 'flex', gap: 8, marginTop: 16, justifyContent: 'flex-end' }}>
+                    <button
+                        onClick={onClose}
+                        style={{ padding: '7px 18px', borderRadius: 8, border, background: 'transparent', color: text, cursor: 'pointer', fontSize: 13 }}
+                    >取消</button>
+                    <button
+                        onClick={handleConfirm}
+                        style={{ padding: '7px 18px', borderRadius: 8, border: 'none', background: '#3b82f6', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}
+                    >附加</button>
+                </div>
+            </div>
+        </div>
+    )
+}
+
