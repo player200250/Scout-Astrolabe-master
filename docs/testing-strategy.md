@@ -21,7 +21,7 @@
 
 ## 目前測試現況
 
-**單元測試已導入（Vitest 3.2.6），目前 21 檔 221 案例全綠。** 設定寫在 `vite.config.ts` 的 `test` 區塊（`include: src/**/*.{test,spec}.{ts,tsx}`）；指令 `npm test`（`vitest run`）、`npm run test:watch`。已裝 `jsdom`、`@testing-library/react`、`@testing-library/dom`（未裝 `@testing-library/jest-dom`，斷言用 `.toBeTruthy()`/`.toBeNull()`）。純函式測試跑 node 環境、需要 DOM 的單檔以 `// @vitest-environment jsdom` 切換。
+**單元測試已導入（Vitest 3.2.6），目前 22 檔 228 案例全綠。** 設定寫在 `vite.config.ts` 的 `test` 區塊（`include: src/**/*.{test,spec}.{ts,tsx}`）；指令 `npm test`（`vitest run`）、`npm run test:watch`。已裝 `jsdom`、`@testing-library/react`、`@testing-library/dom`（未裝 `@testing-library/jest-dom`，斷言用 `.toBeTruthy()`/`.toBeNull()`）。純函式測試跑 node 環境、需要 DOM 的單檔以 `// @vitest-environment jsdom` 切換。
 
 已覆蓋的測試檔：
 
@@ -39,6 +39,7 @@
 | `utils/boardExport.test.ts` | 3 | `exportJSON`/`importJSON`（Blob/FileReader/URL 副作用替身）|
 | `utils/boardDb.test.ts` | 11 | `generateId`/`isRasterThumbnail` + `loadAllBoards` 四分支（注入 home/inbox、SVG 縮圖遷移、排序）|
 | `utils/snapshotCards.test.ts` | 10 | `ensurePageScaffold`/`nextAppendX`/`lastShapeIndex`（空 store、不覆蓋既有 page/document、缺 x/w 預設、忽略非 shape）|
+| `utils/stringUtils.test.ts` | 7 | `stripHtml`（區塊邊界插空格、行內不插、具名/數值 entity 解碼、collapse/trim、`[[wiki]]` 保留）|
 | `components/card-shape/utils/embedUtils.test.ts` | 14 | `getEmbedData`（YouTube/Bilibili/Vimeo/一般網域/邊界）|
 
 **Hooks**

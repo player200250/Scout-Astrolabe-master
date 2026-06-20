@@ -336,7 +336,7 @@ const CARD_PROP_DEFAULTS: Record<string, unknown> = {
 
 - 新增 `CardType` 時需更新：`CardShape.ts`、`CardShapeUtil.onDoubleClick()`、`CardContent.tsx`（分派邏輯）、`snapshot.ts CARD_PROP_DEFAULTS`、`TrashPanel.getCardPreview()`、`DeleteBoardDialog.getTypeIcon()`、`CardLibrary.tsx`（TYPE_ICON、TYPE_LABEL、ALL_TYPES）、`TIdrawToolPanel.tsx`（工具列按鈕）、`ContextMenu.tsx`（右鍵選單）。
 - 自訂 Frame 外觀由 `CustomFrameShapeUtil.tsx` 實作（extends `FrameShapeUtil`），在 `Whiteboard.tsx` 的 `shapeUtils` 陣列中取代預設 FrameShapeUtil。
-- `text` 欄位存 HTML，在搜尋（`SearchPanel`）、backlinks（`useBacklinks`）等地方都需要 strip HTML。各處有各自的 `stripHtml` 實作，目前未統一。
+- `text` 欄位存 HTML，在搜尋（`SearchPanel`）、backlinks（`useBacklinks`）等地方都需要 strip HTML。已統一到 `src/utils/stringUtils.ts` 的 `stripHtml`（2026-06-20，TD5），各處 import 使用。
 - `preview` 欄位只有 image 類型使用，其他類型的值應為 `false`，但 `CARD_PROP_DEFAULTS` 中設為 `false` 而非 `undefined`。
 
 ## 待確認

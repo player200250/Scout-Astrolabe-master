@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import type { TLEditorSnapshot } from 'tldraw'
 import { Z_MODAL_BACKDROP, Z_MODAL } from './constants'
+import { stripHtml } from './utils/stringUtils'
 
 // ── 資料型別 ────────────────────────────────────────────────────────────────
 
@@ -79,18 +80,6 @@ function toCardShapes(snapshot: TLEditorSnapshot | null): SearchShape[] {
     return Object.values(store)
         .filter((record): record is SearchShape => typeof record === 'object' && record !== null)
         .filter(shape => shape.typeName === 'shape' && shape.type === 'card')
-}
-
-function stripHtml(html: string): string {
-    return html
-        .replace(/<[^>]*>/g, ' ')
-        .replace(/&nbsp;/g, ' ')
-        .replace(/&amp;/g, '&')
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/&quot;/g, '"')
-        .replace(/\s+/g, ' ')
-        .trim()
 }
 
 // ── 索引建立（純函式，由 useMemo 快取）─────────────────────────────────────

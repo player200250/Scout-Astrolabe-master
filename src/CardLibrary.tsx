@@ -3,6 +3,7 @@ import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import type { BoardRecord } from './db'
 import { getCardShapes } from './utils/snapshot'
+import { stripHtml } from './utils/stringUtils'
 
 /* ─── Types ─── */
 type LibCardType = 'text' | 'todo' | 'link' | 'journal' | 'heading' | 'sticky' | 'table' | 'color' | 'file'
@@ -65,10 +66,6 @@ const SORT_OPTIONS: { key: SortKey; label: string }[] = [
 const BOARD_DOT_COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f97316', '#eab308', '#84cc16', '#14b8a6', '#06b6d4', '#3b82f6']
 
 /* ─── Helpers ─── */
-function stripHtml(html: string): string {
-    return html.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim()
-}
-
 function timeAgo(ts: number): string {
     const diff = Date.now() - ts
     const d = Math.floor(diff / 86400000)

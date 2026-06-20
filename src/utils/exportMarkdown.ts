@@ -1,5 +1,6 @@
 import type { TLShape } from 'tldraw'
 import type { TLCardShape, TLCardProps } from '../components/card-shape/type/CardShape'
+import { stripHtml } from './stringUtils'
 
 function nodeToMarkdown(node: Node): string {
     if (node.nodeType === Node.TEXT_NODE) return node.textContent ?? ''
@@ -39,12 +40,6 @@ export function htmlToMarkdown(html: string): string {
     if (!html) return ''
     const doc = new DOMParser().parseFromString(html, 'text/html')
     return nodeToMarkdown(doc.body).trim()
-}
-
-function stripHtml(html: string): string {
-    if (!html) return ''
-    const doc = new DOMParser().parseFromString(html, 'text/html')
-    return doc.body.textContent ?? ''
 }
 
 export function cardToMarkdown(props: TLCardProps): string | null {

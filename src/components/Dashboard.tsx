@@ -3,6 +3,7 @@ import type { BoardRecord } from '../db'
 import type { HomeView } from './Whiteboard'
 import { getCardShapes } from '../utils/snapshot'
 import { getTodayStr, formatRelativeDate, toDateStr } from '../utils/date'
+import { stripHtml } from '../utils/stringUtils'
 
 interface DashboardProps {
     boards: BoardRecord[]
@@ -36,10 +37,6 @@ function getISOWeekNumber(date: Date): number {
     d.setUTCDate(d.getUTCDate() + 4 - dayNum)
     const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
     return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
-}
-
-function stripHtml(html: string): string {
-    return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').trim()
 }
 
 function getGreeting(): string {

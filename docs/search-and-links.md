@@ -72,7 +72,7 @@ function searchFromIndex(index: SearchIndex[], query: string): SearchResult[]
 
 ### 注意
 
-`SearchPanel` 的 `stripHtml` 實作處理 HTML entities（`&amp;`、`&lt;` 等），與 `useBacklinks`、`DeleteBoardDialog` 的版本略有差異（WO3，待決策是否統一到 `src/utils/stringUtils.ts`）。
+各處的 `stripHtml` 已統一到 `src/utils/stringUtils.ts`（2026-06-20，TD5/WO3）：以 `DOMParser` 解碼所有 HTML entity，並只在區塊邊界插空格（行內標籤不插，避免 CJK 被誤拆）。`SearchPanel` 等 7 處皆 import 此單一實作。
 
 ---
 

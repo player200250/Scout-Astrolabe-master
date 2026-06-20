@@ -2,6 +2,7 @@
 import { useRef, createContext } from 'react'
 import type { TLEditorSnapshot } from 'tldraw'
 import { getSnapshotStore } from '../utils/snapshot'
+import { stripHtml } from '../utils/stringUtils'
 
 /* ---------------------------------------------------------------
    型別
@@ -41,10 +42,6 @@ export const BacklinksContext = createContext<BacklinksContextValue>({
 /* ---------------------------------------------------------------
    工具函式
 --------------------------------------------------------------- */
-function stripHtml(html: string): string {
-    return html.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim()
-}
-
 /** 從 HTML 擷取 [[xxx]] 裡的 xxx，去重後回傳 */
 function extractLinks(html: string): string[] {
     const text = stripHtml(html)

@@ -4,6 +4,7 @@ import type { BoardRecord } from '../db'
 import { getCardShapes } from '../utils/snapshot'
 import type { SnapshotCardShape } from '../utils/snapshot'
 import { Z_MODAL_BACKDROP, Z_MODAL } from '../constants'
+import { stripHtml } from '../utils/stringUtils'
 
 interface DeleteBoardDialogProps {
     board: BoardRecord
@@ -11,10 +12,6 @@ interface DeleteBoardDialogProps {
     onConfirm: (moveToInbox: boolean) => void
     onCancel: () => void
     isDark: boolean
-}
-
-function stripHtml(html: string): string {
-    return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim()
 }
 
 function getTypeIcon(type: string | undefined): string {

@@ -3,6 +3,7 @@ import { useState, useMemo, useEffect } from 'react'
 import type { BoardRecord } from './db'
 import { getCardShapes } from './utils/snapshot'
 import { Z_PANEL } from './constants'
+import { stripHtml } from './utils/stringUtils'
 
 type CardStatusType = 'none' | 'todo' | 'in-progress' | 'done'
 type PriorityType   = 'none' | 'low'  | 'medium'      | 'high'
@@ -41,10 +42,6 @@ const PRIORITY_CONFIG: Record<PriorityType, { label: string; color: string }> = 
     low:    { label: '低', color: '#ca8a04' },
     medium: { label: '中', color: '#ea580c' },
     high:   { label: '高', color: '#dc2626' },
-}
-
-function stripHtml(html: string): string {
-    return html.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim()
 }
 
 function parseCardStatus(value: unknown): CardStatusType {
