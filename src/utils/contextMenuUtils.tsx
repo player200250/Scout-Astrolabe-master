@@ -195,7 +195,7 @@ export interface UseContextMenuOptions {
     // Required — always passed from WhiteboardTools
     createTextCardWithContent: (x: number, y: number, content: string, w?: number, h?: number) => void
     isInboxBoard?: boolean
-    onMoveCard?: (shapeId: string) => void
+    onMoveCard?: (shapeIds: string[]) => void
     isDark?: boolean
     boardId?: string
     boardName?: string
@@ -398,9 +398,9 @@ export function useContextMenu({
                 if (isInboxBoard && onMoveCard) {
                     items.push({
                         icon: '📦',
-                        label: '移到白板...',
+                        label: opCount > 1 ? `移動 ${opCount} 張到白板...` : '移到白板...',
                         divider: true,
-                        action: () => onMoveCard(hitShape.id),
+                        action: () => onMoveCard(idsToOperate),
                     })
                 }
 

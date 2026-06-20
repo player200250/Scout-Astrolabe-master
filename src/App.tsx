@@ -33,7 +33,7 @@ export default function App() {
         handleEmptyTrash, handleCardTrashed,
         handleJump, handleSetJournal, handleSetStatus,
         handleRestore, handleGoToWeeklyCard, handleSaveJournal,
-        handleMoveCardToBoard, handleCreateBoard,
+        handleMoveCardsToBoard, handleCreateBoard,
         handleToggleCollapse, handleGoToInbox, handleReorderBoards,
         handleAddCardToInbox, recentlyTrashedShapeIds,
         handleCreateFolder, handleSetFolder, handleDeleteFolder,
@@ -49,7 +49,7 @@ export default function App() {
     const [filterOpen, setFilterOpen] = useState(false)
     const [reviewCenterOpen, setReviewCenterOpen] = useState(false)
     const [backupPanelOpen, setBackupPanelOpen] = useState(false)
-    const [movingCardShapeId, setMovingCardShapeId] = useState<string | null>(null)
+    const [movingCardShapeIds, setMovingCardShapeIds] = useState<string[] | null>(null)
     const [knowledgeGraphOpen, setKnowledgeGraphOpen] = useState(false)
     const [cardLibraryOpen, setCardLibraryOpen] = useState(false)
     const [quickCaptureOpen, setQuickCaptureOpen] = useState(false)
@@ -183,7 +183,7 @@ export default function App() {
                     onSwitchBoard={handleSwitchToChild}
                     sidebarWidth={sidebarWidth}
                     isInboxBoard={activeBoardId === INBOX_BOARD_ID}
-                    onMoveCard={shapeId => setMovingCardShapeId(shapeId)}
+                    onMoveCard={shapeIds => setMovingCardShapeIds(shapeIds)}
                     isDark={isDark}
                     onOpenTaskCenter={() => setTaskCenterOpen(true)}
                     onOpenReviewCenter={() => setReviewCenterOpen(true)}
@@ -237,11 +237,11 @@ export default function App() {
                 onDeleteFolder={handleDeleteFolder}
             />
 
-            {movingCardShapeId && (
+            {movingCardShapeIds && (
                 <MoveCardModal
                     boards={boards}
-                    onSelect={targetBoardId => { handleMoveCardToBoard(movingCardShapeId, targetBoardId); setMovingCardShapeId(null) }}
-                    onClose={() => setMovingCardShapeId(null)}
+                    onSelect={targetBoardId => { handleMoveCardsToBoard(movingCardShapeIds, targetBoardId); setMovingCardShapeIds(null) }}
+                    onClose={() => setMovingCardShapeIds(null)}
                     isDark={isDark}
                 />
             )}

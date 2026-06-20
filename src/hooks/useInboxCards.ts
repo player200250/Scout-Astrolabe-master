@@ -16,21 +16,28 @@ export interface InboxCardsSharedState {
  * 收件匣卡片領域：快速建立文字卡至收件匣、把收件匣卡片移動到目標白板。
  * - handleAddCardToInbox：更新 inbox snapshot（供非 inbox 板算 inboxCardCount）＋ 發 quick-capture-card
  *   事件（供 inbox 板 editor 即時顯示）。
- * - handleMoveCardToBoard：從 inbox 移除 shape、插入目標白板末尾，發 delete-shape-from-editor 事件。
+ * - handleMoveCardsToBoard：從 inbox 移除一或多張 shape、依序附加至目標白板末尾（水平排開
+ *   避免重疊），逐張發 delete-shape-from-editor 事件。
+ * - handleMoveCardToBoard：單卡版，委派給 handleMoveCardsToBoard（保留既有 API）。
  */
 export function useInboxCards(state: InboxCardsSharedState) {
     const { boards, setBoards } = state
 
-    const handleMoveCardToBoard = useCallback((shapeId: string, targetBoardId: string) => {
+    const handleMoveCardsToBoard = useCallback((shapeIds: string[], targetBoardId: string) => {
         const inboxBoard = boards.find(b => b.isInbox)
         if (!inboxBoard?.snapshot) return
         const srcStore = getSnapshotStore(inboxBoard.snapshot)
-        const shape = srcStore[shapeId]
-        if (!shape) return
 
-        // Compute updated inbox (shape removed)
+        // 只搬仍存在於 inbox 的 shape
+        const moving = shapeIds.flatMap(id => {
+            const shape = srcStore[id]
+            return shape ? [{ id, shape }] : []
+        })
+        if (moving.length === 0) return
+
+        // Compute updated inbox (shapes removed)
         const newInboxStore = { ...srcStore }
-        delete newInboxStore[shapeId]
+        for (const { id } of moving) delete newInboxStore[id]
         const updatedInbox: BoardRecord = {
             ...inboxBoard,
             snapshot: withUpdatedStore(inboxBoard.snapshot, newInboxStore),
@@ -38,15 +45,19 @@ export function useInboxCards(state: InboxCardsSharedState) {
         }
         saveBoard(updatedInbox)
 
-        // Compute updated target (shape inserted)
+        // Compute updated target (shapes appended, laid out horizontally)
         const targetBoard = boards.find(b => b.id === targetBoardId)
         let updatedTarget: BoardRecord | null = null
         if (targetBoard) {
             const snap = toMutableSnapshot(targetBoard.snapshot)
             const st = snap.document.store
             const pageId = ensurePageScaffold(st)
-            const maxX = nextAppendX(st)
-            st[shapeId] = { ...structuredClone(shape), parentId: pageId, x: maxX, y: 100 }
+            let x = nextAppendX(st)
+            for (const { id, shape } of moving) {
+                st[id] = { ...structuredClone(shape), parentId: pageId, x, y: 100 }
+                const w = (shape as { props?: { w?: number } }).props?.w ?? 240
+                x += w + 40
+            }
             updatedTarget = { ...targetBoard, snapshot: toTLEditorSnapshot(snap), updatedAt: Date.now() }
             saveBoard(updatedTarget)
         }
@@ -57,8 +68,13 @@ export function useInboxCards(state: InboxCardsSharedState) {
             return b
         }))
 
-        emitAppEvent('delete-shape-from-editor', { shapeId })
+        for (const { id } of moving) emitAppEvent('delete-shape-from-editor', { shapeId: id })
     }, [boards, setBoards])
+
+    const handleMoveCardToBoard = useCallback(
+        (shapeId: string, targetBoardId: string) => handleMoveCardsToBoard([shapeId], targetBoardId),
+        [handleMoveCardsToBoard],
+    )
 
     const handleAddCardToInbox = useCallback((text: string) => {
         const inboxBoard = boards.find(b => b.isInbox)
@@ -95,5 +111,6 @@ export function useInboxCards(state: InboxCardsSharedState) {
     return {
         handleAddCardToInbox,
         handleMoveCardToBoard,
+        handleMoveCardsToBoard,
     }
 }

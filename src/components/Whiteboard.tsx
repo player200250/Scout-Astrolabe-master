@@ -40,7 +40,7 @@ interface WhiteboardProps {
     onSwitchBoard: (id: string) => void
     sidebarWidth: number
     isInboxBoard: boolean
-    onMoveCard: (shapeId: string) => void
+    onMoveCard: (shapeIds: string[]) => void
     isDark: boolean
     onOpenTaskCenter: () => void
     onOpenReviewCenter: () => void

@@ -45,7 +45,7 @@ export function useBoardManager() {
         handleCreateFolder, handleSetFolder, handleDeleteFolder,
     } = useFolder({ boards, setBoards })
     const { handleSetJournal, handleSaveJournal } = useJournal({ boards, setBoards })
-    const { handleAddCardToInbox, handleMoveCardToBoard } = useInboxCards({ boards, setBoards })
+    const { handleAddCardToInbox, handleMoveCardToBoard, handleMoveCardsToBoard } = useInboxCards({ boards, setBoards })
 
     useEffect(() => {
         navigator.storage?.persist?.().then(granted => {
@@ -291,6 +291,7 @@ export function useBoardManager() {
         handleGoToWeeklyCard,
         handleSaveJournal,
         handleMoveCardToBoard,
+        handleMoveCardsToBoard,
         handleToggleCollapse,
         handleGoToInbox,
         handleReorderBoards,

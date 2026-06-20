@@ -66,7 +66,7 @@ interface WhiteboardToolsProps {
     onCreateBoard: (name: string) => BoardRecord
     onSwitchBoard: (id: string) => void
     isInboxBoard: boolean
-    onMoveCard: (shapeId: string) => void
+    onMoveCard: (shapeIds: string[]) => void
     isDark: boolean
     homeView?: HomeView
     onSetHomeView?: (v: HomeView) => void
