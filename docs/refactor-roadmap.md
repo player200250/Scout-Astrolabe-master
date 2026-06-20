@@ -22,31 +22,36 @@
 
 ## 技術債清單
 
-### TD1：App.tsx 承擔過多 UI 狀態（高優先）
+### TD1：App.tsx 承擔過多 UI 狀態（高優先，盤點完成 2026-06-20，尚未動工）
 
-**現狀**：`App.tsx` 管理 15+ 個 boolean state（面板開關）和 4 個字串/null state，共 19+ 個 useState，全部通過 prop drilling 傳入 `BoardTabBar`（約 25 個 props）。
+**現狀**（2026-06-20 核實，App.tsx 404 行，17 個 useState + 1 ref）：
 
-```typescript
-// App.tsx — 14 個面板開關 state
-const [searchOpen, setSearchOpen] = useState(false)
-const [hotkeyOpen, setHotkeyOpen] = useState(false)
-const [overviewOpen, setOverviewOpen] = useState(false)
-const [taskCenterOpen, setTaskCenterOpen] = useState(false)
-const [filterOpen, setFilterOpen] = useState(false)
-const [reviewCenterOpen, setReviewCenterOpen] = useState(false)
-const [backupPanelOpen, setBackupPanelOpen] = useState(false)
-const [movingCardShapeId, setMovingCardShapeId] = useState<string | null>(null)
-const [knowledgeGraphOpen, setKnowledgeGraphOpen] = useState(false)
-const [cardLibraryOpen, setCardLibraryOpen] = useState(false)
-const [quickCaptureOpen, setQuickCaptureOpen] = useState(false)
-const [onboardingOpen, setOnboardingOpen] = useState(false)
-const [trashOpen, setTrashOpen] = useState(false)
-const [deletingBoardId, setDeletingBoardId] = useState<string | null>(null)
-```
+| 群組 | 內容 | 數量 | 性質 |
+|------|------|------|------|
+| A. 面板開關 | search / hotkey / overview / taskCenter / filter / reviewCenter / backupPanel / knowledgeGraph / cardLibrary / quickCapture / onboarding / trash / quickSwitcher | 13 boolean | 純 open/close/toggle |
+| B. 實體目標 modal | `movingCardShapeId`、`deletingBoardId` | 2 `string\|null` | 開啟時帶 id |
+| C. 主題 | `isDark` + `toggleTheme` + `data-theme` effect + localStorage | 1 + effect | 自成一格 |
+| D. 逾期橫幅 | `overdueBannerVisible` + `bannerShownRef` + 計時 effect | 1 + ref + effect | UI 回饋 |
 
-**影響**：新增功能每次都要修改 `App.tsx` 和 `BoardTabBar` 的介面。
+衍生值（非 state，計算自 `boards`）：`overdueCount/todayCount`、`inboxCardCount`、`activePanel`、`sidebarWidth`、`activeBoard`。
+Effects 共 4 個：onboarding 首開、逾期橫幅計時、`data-theme` 套用、全域鍵盤快捷鍵（toggle 7 面板 + goToInbox）。
 
-**建議重構**：將面板狀態提取到 `usePanelState` hook 或使用 `useReducer`；長遠可引入 Zustand/Jotai 等輕量狀態管理。
+**影響**：新增功能每次都要修改 `App.tsx` 和 `BoardTabBar` 的介面。Prop drilling 現況——`BoardTabBar` 收約 40 個 props（其中約 20 個是 `onOpenXxx`），`Whiteboard` 另收約 10 個 `onOpenXxx`。
+
+**建議拆分（沿用 TD2 增量法，低→高風險；prop 介面先不動）**：
+
+| 步驟 | 產出 | 內容 | 風險 |
+|------|------|------|------|
+| 1 | `hooks/useTheme.ts` | `isDark` + `toggleTheme` + localStorage + `data-theme` effect | 🟢 最低，完全獨立 |
+| 2 | `hooks/useOverdueStats.ts` | `overdueCount/todayCount` memo（純算 boards） | 🟢 純函式 |
+| 3 | `hooks/usePanelState.ts` | A 群 13 boolean + B 群 2 modal，統一 open/close/toggle API | 🟡 核心，動最多處 |
+| 4 | `hooks/useGlobalHotkeys.ts` | keydown effect，依賴步驟 3 的 setter | 🟡 依賴 3 |
+
+逾期橫幅（D 群）可併入 `usePanelState` 或留在 App。**Prop drilling 收斂（BoardTabBar 40 props → 收成 `panels` 物件或 Context）屬第二階段大手術，TD1 一期不做。**
+
+**⚠️ 安全網缺口**：App.tsx 目前零測試覆蓋（子元件雖有 7 個 test，但 App 組裝層無守護）。動工前需先決定：補 App 冒煙測試（需 mock 回傳 40+ 值的 `useBoardManager`）／靠 `tsc --noEmit` + `npm run build` + 手動點過面板／各新 hook 寫 `renderHook` 單元測試。
+
+**觸發時機（重要）**：純面板開關目前 **13 個**，離原訂觸發點「新增第 15 個面板前」尚有 2 個緩衝。2026-06-20 評估結論為**現在先不動**——觸發條件是「痛了才動」，目前無正在開發的新面板逼改 App.tsx/BoardTabBar，且 TD2 剛收尾、App.tsx 是其主要消費端，預先重構等於在剛變動的介面上再疊風險。**建議讓重構跟著功能走**：下次新增面板，或開始做圖片集體上傳（會新增 modal）時，順手帶 `usePanelState`，把風險攤提進功能開發。最低風險的 `useTheme` + `useOverdueStats` 完全獨立，若要清雜訊可單獨先抽，但仍屬預先重構。
 
 ---
 
@@ -85,32 +90,26 @@ const [deletingBoardId, setDeletingBoardId] = useState<string | null>(null)
 
 ---
 
-### TD4：useBacklinks 全量掃描（中優先）
+### ~~TD4：useBacklinks 全量掃描（中優先）~~ ✅ 已解決（commit `34b0da4`）
 
-**現狀**：`useBacklinks` 的 `useMemo([boards])` 在任何白板更新時重新掃描所有 snapshot，時間複雜度 O(boards × shapes)。
+**原始現狀**：`useBacklinks` 的 `useMemo([boards])` 在任何白板更新時重新掃描所有 snapshot，時間複雜度 O(boards × shapes)。
 
-**現況效能評估**：20 個白板、每板 50 張卡片 = 1000 次掃描，現代 JS 引擎下約 5–20ms，目前可接受。但白板數量增加後（100+ 板）會明顯延遲。
+**解決方案**：改為 `useRef` per-board 快取，以 `board.snapshot` reference 為 cache key，只重掃有異動的白板。實測（37 塊）：每次存檔只掃 1 塊 ≈ 0.4ms（舊 ~15ms，約 37× 加速）；平移時 hook 完全不執行。
 
-**建議重構**：
-1. 改為增量更新：只在特定 boardId 的 snapshot 改變時重新掃描該板
-2. 或移入 Web Worker（不阻塞主執行緒）
+**待觀察（A3-ext）**：白板數破千後，per-board useRef 快取仍有 snapshot 常駐記憶體與 O(N) merge 兩個瓶頸，屆時改 Dexie 持久化 index（觸發條件：白板數 > 500，見 roadmap-v2 A3-ext）。
 
 ---
 
-### TD5：stripHtml 多個不一致的實作（低優先）
+### ~~TD5：stripHtml 多個不一致的實作（低優先）~~ ✅ 已解決（2026-06-20）
 
-**現狀**（WO3）：`SearchPanel.tsx`（已改用索引）、`useBacklinks.ts`、`DeleteBoardDialog.tsx`、`exportMarkdown.ts` 各自有略有差異的 `stripHtml`：
+**原始現狀**（WO3）：實際盤點發現 **7 處** 各自為政的 `stripHtml`（比原記 4 處多）：`SearchPanel.tsx`、`useBacklinks.ts`、`DeleteBoardDialog.tsx`、`exportMarkdown.ts`、`CardLibrary.tsx`、`FilterPanel.tsx`、`Dashboard.tsx`。差異：標籤換空格 vs 空字串、entity 處理範圍不一（有的只處理 `&nbsp;`）、是否 collapse/trim 不一。
 
-| 檔案 | 差異點 |
-|------|--------|
-| `SearchPanel.tsx` | 已改為 `buildSearchIndex` 時預處理，stripHtml 僅執行一次 |
-| `useBacklinks.ts` | 只處理 `&nbsp;` |
-| `DeleteBoardDialog.tsx` | 只處理 `&nbsp;` |
-| `exportMarkdown.ts` | 使用 `DOMParser`（最完整） |
+**解決方案**：統一到 `src/utils/stringUtils.ts` 的單一 `stripHtml`，7 處全部改 import、移除本地定義。統一版取各版超集並修正一個共同缺陷：
+1. **只在區塊邊界**（`</p>`、`</div>`、`</li>`、`</h1-6>`、`<br>` 等）插空格保留詞界，行內格式（`<strong>`、`<em>`、`<a>`）不插空格——修掉舊「全標籤換空格」版把 `<strong>粗</strong>體` 拆成 `粗 體` 的 bug（對 CJK 與搜尋比對尤其重要）
+2. 以 `DOMParser` 移除其餘標籤並解碼所有 HTML entity（含數值 entity，比手寫 regex 完整）
+3. 折疊連續空白 + trim
 
-**影響**：反向連結和預覽的 HTML 剝除結果可能不一致（空白、特殊字元處理差異）。
-
-**建議重構**：統一到 `src/utils/stringUtils.ts` 導出，各處 import 使用。
+新增 `src/utils/stringUtils.test.ts`（7 案例）。`npm run build` 與 228 測試全綠。
 
 ---
 
@@ -125,13 +124,11 @@ const [deletingBoardId, setDeletingBoardId] = useState<string | null>(null)
 
 ---
 
-### TD7：CalendarView / JournalDayView 無掛載點（低優先）
+### ~~TD7：CalendarView / JournalDayView 無掛載點 + useFileStorage 廢棄（低優先）~~ ✅ 已解決（2026-06-20）
 
-**現狀**（WO2）：`CalendarView.tsx` 和 `JournalDayView.tsx` 各自有獨立的全螢幕元件（`CalendarView`、`JournalDayView`），但 `App.tsx` 中只有 `ReviewCenter` 嵌入版本。獨立版本目前沒有被 `App.tsx` 渲染。
+**原始現狀**（WO2）：`CalendarView.tsx`、`JournalDayView.tsx` 各有獨立全螢幕元件（`CalendarView`、`JournalDayView`），但無任何 JSX/import 引用——`ReviewCenter` 只用內嵌的 `CalendarContent`/`JournalDayContent`。另 `src/hooks/useFileStorage.ts` 無任何源碼 import。
 
-**現況**：功能透過 `ReviewCenter` 完整提供，獨立元件是舊架構的殘留（或為未來分離出 ReviewCenter 的準備）。
-
-**建議**：若確認不需要，刪除 `CalendarView` 和 `JournalDayView` 的獨立全螢幕包裝；或保留但在 README 說明用途。
+**解決方案**：確認三者皆為孤兒後刪除——移除兩個 standalone 全螢幕包裝（保留 `CalendarContent`/`JournalDayContent` 與共用子元件 Section/AgendaRow/Tag/EmptyNote）、整檔刪除 `useFileStorage.ts`、清掉 `CalendarView.tsx` 因此變未用的 `useEffect` import。`git grep` 確認無孤立引用，`tsc -b` 零錯誤。
 
 ---
 
@@ -176,13 +173,13 @@ const [deletingBoardId, setDeletingBoardId] = useState<string | null>(null)
 
 | 優先度 | 技術債 | 狀態 | 建議時機 |
 |--------|--------|------|---------|
-| 🔴 高 | TD1：App.tsx 面板狀態 | 未解決 | 新增第 15 個面板前 |
+| 🔴 高 | TD1：App.tsx 面板狀態 | 已盤點未動工（2026-06-20） | 新增第 15 個面板前（目前 13 個，先不動，讓重構跟功能走） |
 | ✅ 完成 | TD2：useBoardManager 拆分 | 已解決（677→303 行，commit `783386d`） | — |
 | ✅ 完成 | TD3：CustomEvent 型別安全 | 已解決 `c7661c8` | — |
-| 🟡 中 | TD4：useBacklinks 增量更新 | 未解決 | 白板數量超過 50 時 |
-| 🟢 低 | TD5：stripHtml 統一 | 未解決 | 下一次修改相關邏輯時 |
+| ✅ 完成 | TD4：useBacklinks 增量更新 | 已解決 `34b0da4`（千板以上觀察 A3-ext） | — |
+| ✅ 完成 | TD5：stripHtml 統一 | 已解決（2026-06-20，7 處 → `utils/stringUtils.ts`） | — |
 | ✅ 完成 | TD6：SearchPanel 防抖＋索引 | 已解決 `ff38071` | — |
-| 🟢 低 | TD7：CalendarView 獨立元件 | 未解決 | 功能需求確認後清理 |
+| ✅ 完成 | TD7：孤兒元件清理 | 已解決（2026-06-20，刪 CalendarView/JournalDayView standalone + useFileStorage） | — |
 
 ---
 
@@ -246,7 +243,7 @@ export async function saveDocument(data: string): Promise<void> {
 ## 待確認
 
 - `src/components/card-shape/BoardsContext.ts` 的現有用途和覆蓋範圍？（目前未詳讀，待確認是否已有 Context 傳遞 boards）
-- `CalendarView` 和 `JournalDayView` 的獨立全螢幕版本是否有計畫的觸發路徑（如特定鍵盤快捷鍵）？
+- ~~`CalendarView` 和 `JournalDayView` 的獨立全螢幕版本是否有計畫的觸發路徑？~~ 已確認無觸發路徑，TD7 已刪除（2026-06-20）。
 
 ## 外部參考
 

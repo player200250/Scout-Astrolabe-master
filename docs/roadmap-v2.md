@@ -28,8 +28,8 @@
 | TD1 | `App.tsx` 持有 15+ 面板開關 boolean state | 🔴 高 | 每新增一個 AI 面板都要改 App.tsx + prop drilling |
 | TD2 | `useBoardManager.ts` 約 800 行職責混雜 | 🔴 高 | AI handler、同步 handler 無位置可放 |
 | TD4 | `useBacklinks` 全量掃描 O(boards×shapes) | ✅ 完成（v1.1.1）| per-board useRef 快取；千板以上需 Dexie index（見 A3-ext） |
-| TD5 | `stripHtml` 四處實作不一致 | 🟢 低 | AI 摘要輸入若含 HTML 實體會污染結果 |
-| TD7 | `CalendarView`/`JournalDayView` 無掛載點；`useFileStorage` 疑似廢棄 | 🟢 低 | 死代碼妨礙 Tree-shaking 和閱讀 |
+| TD5 | `stripHtml` 七處實作不一致 | ✅ 完成（2026-06-20）| 統一至 `utils/stringUtils.ts`，修正行內標籤誤插空格的 CJK bug |
+| TD7 | `CalendarView`/`JournalDayView` 無掛載點；`useFileStorage` 疑似廢棄 | ✅ 完成（2026-06-20）| 三者皆孤兒，已刪除 |
 
 ---
 
@@ -98,23 +98,24 @@
 - **優先度**：🔵 觀察中（目前 ~37 塊，流暢；超過 500 塊時重新評估）
 - **觸發條件**：使用者白板數 > 500 或出現可量測的 merge 卡頓
 
-#### A4 — `stripHtml` 統一
-**說明**：在 `src/utils/stringUtils.ts` 新增統一的 `stripHtml(html: string): string`（使用 `DOMParser` 的完整實作），替換 `useBacklinks.ts`、`DeleteBoardDialog.tsx` 中簡易的只替換 `&nbsp;` 版本。
+#### A4 — `stripHtml` 統一 ✅ 完成（2026-06-20）
+**說明**：在 `src/utils/stringUtils.ts` 新增統一的 `stripHtml`。盤點發現實為 **7 處** 本地實作（`SearchPanel`、`useBacklinks`、`DeleteBoardDialog`、`exportMarkdown`、`CardLibrary`、`FilterPanel`、`Dashboard`），全部改 import、移除本地定義。統一版以 `DOMParser` 解碼所有 entity，並修正舊版共同缺陷——只在區塊邊界插空格，行內標籤（`<strong>`/`<em>`/`<a>`）不插，避免 `<strong>粗</strong>體`→`粗 體` 的 CJK／搜尋 bug。新增 `stringUtils.test.ts`（7 案例）。
 
-- **工作量**：0.5 人天
+- **工作量**：0.5 人天（實際）
 - **優先度**：🟢 低
 - **依賴**：無
-- **驗收標準**：四處呼叫點全部改用 `stringUtils.stripHtml`，無本地定義；`tsc --noEmit` 零錯誤
+- **驗收標準**：✅ 7 處呼叫點全部改用 `stringUtils.stripHtml`，無本地定義；`npm run build` 與 228 測試全綠
 
-#### A5 — 孤兒元件清理
+#### A5 — 孤兒元件清理 ✅ 完成（2026-06-20）
 **說明**：
-1. 確認 `CalendarView.tsx`、`JournalDayView.tsx` 的獨立全螢幕版本是否有觸發路徑。若無，刪除獨立包裝，保留 `ReviewCenter` 內嵌版本
-2. 確認 `useFileStorage.ts` 是否有 import 來源；若確認廢棄則刪除
+1. ✅ 確認 `CalendarView`/`JournalDayView` standalone 全螢幕版無任何 JSX/import 引用（`ReviewCenter` 只用內嵌 `CalendarContent`/`JournalDayContent`），刪除兩個 standalone 包裝，保留 Content 版與共用子元件
+2. ✅ 確認 `useFileStorage.ts` 無源碼 import，整檔刪除
+3. ✅ 清掉 `CalendarView.tsx` 因此變未用的 `useEffect` import
 
-- **工作量**：0.5 人天
+- **工作量**：0.5 人天（實際）
 - **優先度**：🟢 低
 - **依賴**：無
-- **驗收標準**：`git grep 'CalendarView\|JournalDayView\|useFileStorage'` 無孤立引用；Webpack bundle 大小縮小
+- **驗收標準**：✅ 無孤立引用；`tsc -b` 零錯誤；228 測試全綠
 
 ---
 

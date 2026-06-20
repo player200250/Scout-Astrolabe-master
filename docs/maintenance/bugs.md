@@ -47,19 +47,16 @@
 - 影響：這三個欄位目前恆為 undefined
 - 待確認：是否為廢棄的計劃功能，或有外部填充邏輯尚未找到
 
-### WO2：CalendarView / JournalDayView 無掛載點
+### ~~WO2：CalendarView / JournalDayView 無掛載點~~ ✅ 已解決（2026-06-20）
 
 - 位置：`src/CalendarView.tsx`、`src/JournalDayView.tsx`
-- 現象：兩個元件存在但 `App.tsx` 中無條件渲染
-- 影響：功能無法使用
-- 待確認：是否透過 CustomEvent 或其他方式觸發，或已廢棄
+- 現象：standalone 全螢幕版存在但無任何引用（`ReviewCenter` 只用內嵌 `*Content`）
+- 結論：確認為孤兒，已刪除 standalone 包裝（保留 Content 版）；連同孤兒 `useFileStorage.ts` 一併刪除（roadmap-v2 A5 / TD7）
 
-### WO3：stripHtml 函式有多個不同實作
+### ~~WO3：stripHtml 函式有多個不同實作~~ ✅ 已解決（2026-06-20）
 
-- 位置：`useBacklinks.ts`、`DeleteBoardDialog.tsx`、其他搜尋元件
-- 現象：各處各自定義 `stripHtml`，細節略有不同
-- 影響：HTML 剝除結果可能不一致（空白處理等）
-- 待決策：是否需要統一到 `utils/` 中
+- 位置：實為 7 處（`SearchPanel`、`useBacklinks`、`DeleteBoardDialog`、`exportMarkdown`、`CardLibrary`、`FilterPanel`、`Dashboard`）
+- 結論：統一至 `src/utils/stringUtils.ts`，修正行內標籤誤插空格的 CJK bug（roadmap-v2 A4 / TD5）
 
 ---
 
