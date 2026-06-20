@@ -395,7 +395,7 @@ export function useContextMenu({
                     })
                 }
 
-                if (isInboxBoard && onMoveCard) {
+                if (onMoveCard) {
                     items.push({
                         icon: '📦',
                         label: opCount > 1 ? `移動 ${opCount} 張到白板...` : '移到白板...',

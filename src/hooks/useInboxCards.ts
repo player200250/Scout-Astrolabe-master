@@ -16,34 +16,38 @@ export interface InboxCardsSharedState {
  * 收件匣卡片領域：快速建立文字卡至收件匣、把收件匣卡片移動到目標白板。
  * - handleAddCardToInbox：更新 inbox snapshot（供非 inbox 板算 inboxCardCount）＋ 發 quick-capture-card
  *   事件（供 inbox 板 editor 即時顯示）。
- * - handleMoveCardsToBoard：從 inbox 移除一或多張 shape、依序附加至目標白板末尾（水平排開
- *   避免重疊），逐張發 delete-shape-from-editor 事件。
- * - handleMoveCardToBoard：單卡版，委派給 handleMoveCardsToBoard（保留既有 API）。
+ * - handleMoveCardsToBoard：從來源板（sourceBoardId，省略則預設收件匣）移除一或多張 shape、
+ *   依序附加至目標白板末尾（水平排開避免重疊），逐張發 delete-shape-from-editor 事件。
+ *   來源板即當前 active editor 顯示的板，故可泛用於任意白板（非僅收件匣）。
+ * - handleMoveCardToBoard：單卡版，委派給 handleMoveCardsToBoard（保留既有 API、預設 inbox 來源）。
  */
 export function useInboxCards(state: InboxCardsSharedState) {
     const { boards, setBoards } = state
 
-    const handleMoveCardsToBoard = useCallback((shapeIds: string[], targetBoardId: string) => {
-        const inboxBoard = boards.find(b => b.isInbox)
-        if (!inboxBoard?.snapshot) return
-        const srcStore = getSnapshotStore(inboxBoard.snapshot)
+    const handleMoveCardsToBoard = useCallback((shapeIds: string[], targetBoardId: string, sourceBoardId?: string) => {
+        // 來源板：指定則用指定的，否則預設收件匣（單卡委派與舊行為）
+        const sourceBoard = sourceBoardId
+            ? boards.find(b => b.id === sourceBoardId)
+            : boards.find(b => b.isInbox)
+        if (!sourceBoard?.snapshot || sourceBoard.id === targetBoardId) return
+        const srcStore = getSnapshotStore(sourceBoard.snapshot)
 
-        // 只搬仍存在於 inbox 的 shape
+        // 只搬仍存在於來源板的 shape
         const moving = shapeIds.flatMap(id => {
             const shape = srcStore[id]
             return shape ? [{ id, shape }] : []
         })
         if (moving.length === 0) return
 
-        // Compute updated inbox (shapes removed)
-        const newInboxStore = { ...srcStore }
-        for (const { id } of moving) delete newInboxStore[id]
-        const updatedInbox: BoardRecord = {
-            ...inboxBoard,
-            snapshot: withUpdatedStore(inboxBoard.snapshot, newInboxStore),
+        // Compute updated source (shapes removed)
+        const newSourceStore = { ...srcStore }
+        for (const { id } of moving) delete newSourceStore[id]
+        const updatedSource: BoardRecord = {
+            ...sourceBoard,
+            snapshot: withUpdatedStore(sourceBoard.snapshot, newSourceStore),
             updatedAt: Date.now(),
         }
-        saveBoard(updatedInbox)
+        saveBoard(updatedSource)
 
         // Compute updated target (shapes appended, laid out horizontally)
         const targetBoard = boards.find(b => b.id === targetBoardId)
@@ -63,11 +67,12 @@ export function useInboxCards(state: InboxCardsSharedState) {
         }
 
         setBoards(prev => prev.map(b => {
-            if (b.id === inboxBoard.id) return updatedInbox
+            if (b.id === updatedSource.id) return updatedSource
             if (updatedTarget && b.id === targetBoardId) return updatedTarget
             return b
         }))
 
+        // 來源板就是當前 active editor 顯示的板，逐張通知 editor 即時移除
         for (const { id } of moving) emitAppEvent('delete-shape-from-editor', { shapeId: id })
     }, [boards, setBoards])
 

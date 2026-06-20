@@ -8,10 +8,12 @@ interface MoveCardModalProps {
     onSelect: (targetBoardId: string) => void
     onClose: () => void
     isDark: boolean
+    /** 排除的板（通常是來源板，避免移到自己） */
+    excludeBoardId?: string
 }
 
-export function MoveCardModal({ boards, onSelect, onClose, isDark }: MoveCardModalProps) {
-    const targets = boards.filter(b => !b.isHome && !b.isInbox && b.status !== 'archived')
+export function MoveCardModal({ boards, onSelect, onClose, isDark, excludeBoardId }: MoveCardModalProps) {
+    const targets = boards.filter(b => !b.isHome && !b.isInbox && b.status !== 'archived' && b.id !== excludeBoardId)
 
     const bg = isDark ? '#1e293b' : 'white'
     const textColor = isDark ? '#e2e8f0' : '#1a1a1a'

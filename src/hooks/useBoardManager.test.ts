@@ -499,6 +499,47 @@ describe('useBoardManager — 快照變更', () => {
         act(() => { result.current.handleMoveCardToBoard('shape:none', 't1') })
         expect(mocks.saveBoard).not.toHaveBeenCalled()
     })
+
+    it('handleMoveCardsToBoard 從任意板批次移動多張卡片到目標板（泛化來源）', async () => {
+        mocks.loadAllBoards.mockResolvedValue([
+            board({
+                id: 'src', name: '來源板',
+                snapshot: snapWith({
+                    'shape:a': cardRec('shape:a', { type: 'text', text: 'A' }),
+                    'shape:b': cardRec('shape:b', { type: 'text', text: 'B' }),
+                }),
+            }),
+            board({ id: 't1', name: '目標板' }),
+        ])
+        const { result } = await setup()
+        const cap = captureEvent('delete-shape-from-editor')
+
+        act(() => { result.current.handleMoveCardsToBoard(['shape:a', 'shape:b'], 't1', 'src') })
+
+        const src = result.current.boards.find(b => b.id === 'src')
+        const target = result.current.boards.find(b => b.id === 't1')
+        expect(storeOf(src)['shape:a']).toBeUndefined()
+        expect(storeOf(src)['shape:b']).toBeUndefined()
+        expect(storeOf(target)['shape:a']).toBeDefined()
+        expect(storeOf(target)['shape:b']).toBeDefined()
+        expect(cap.calls).toEqual([{ shapeId: 'shape:a' }, { shapeId: 'shape:b' }])
+
+        cap.off()
+    })
+
+    it('handleMoveCardsToBoard 移到來源板自己時為無操作', async () => {
+        mocks.loadAllBoards.mockResolvedValue([
+            board({
+                id: 'src', name: '來源板',
+                snapshot: snapWith({ 'shape:a': cardRec('shape:a', { type: 'text', text: 'A' }) }),
+            }),
+        ])
+        const { result } = await setup()
+        mocks.saveBoard.mockClear()
+
+        act(() => { result.current.handleMoveCardsToBoard(['shape:a'], 'src', 'src') })
+        expect(mocks.saveBoard).not.toHaveBeenCalled()
+    })
 })
 
 describe('useBoardManager — 排序', () => {

@@ -240,7 +240,8 @@ export default function App() {
             {movingCardShapeIds && (
                 <MoveCardModal
                     boards={boards}
-                    onSelect={targetBoardId => { handleMoveCardsToBoard(movingCardShapeIds, targetBoardId); setMovingCardShapeIds(null) }}
+                    excludeBoardId={activeBoardId ?? undefined}
+                    onSelect={targetBoardId => { handleMoveCardsToBoard(movingCardShapeIds, targetBoardId, activeBoardId ?? undefined); setMovingCardShapeIds(null) }}
                     onClose={() => setMovingCardShapeIds(null)}
                     isDark={isDark}
                 />
