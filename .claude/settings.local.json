@@ -78,7 +78,9 @@
       "PowerShell(npx tsc --noEmit; \"tsc: $?\")",
       "PowerShell(npx eslint src/hooks/useBoardCRUD.ts src/components/WhiteboardTools.tsx src/components/Whiteboard.tsx src/constants.ts 2>&1 | Select-Object -Last 15; \"eslint exit: $LASTEXITCODE\")",
       "PowerShell(npx tsc --noEmit 2>&1 | Select-Object -First 20; \"tsc: $?\")",
-      "PowerShell(npm *)"
+      "PowerShell(npm *)",
+      "PowerShell(git log origin/main..main --oneline | Measure-Object | Select-Object -ExpandProperty Count | ForEach-Object { \"本機 main 領先 origin/main $_ 個 commit\" }; echo \"--- 領先的 commit ---\"; git log origin/main..main --oneline)",
+      "PowerShell(git push *)"
     ]
   }
 }
