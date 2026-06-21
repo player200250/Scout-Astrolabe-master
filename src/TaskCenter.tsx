@@ -106,13 +106,21 @@ function TaskItemRow({ item, todayStr, weekStr, onJump, isDark }: TaskItemRowPro
                 }}>
                     {item.todoText}
                 </div>
-                <div style={{ fontSize: 11, color: '#bbb', marginTop: 1, display: 'flex', gap: 5, alignItems: 'center', overflow: 'hidden' }}>
-                    <span style={{ flexShrink: 0 }}>{item.boardName}</span>
+                <div style={{ fontSize: 11, color: '#bbb', marginTop: 2, display: 'flex', gap: 6, alignItems: 'center', overflow: 'hidden' }}>
+                    <span
+                        title={item.boardName}
+                        style={{
+                            flexShrink: 0, maxWidth: 140,
+                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                            fontSize: 10, lineHeight: 1.5,
+                            color: isDark ? '#93c5fd' : '#2563eb',
+                            background: isDark ? 'rgba(59,130,246,0.14)' : '#eff6ff',
+                            border: `1px solid ${isDark ? 'rgba(59,130,246,0.30)' : '#dbeafe'}`,
+                            borderRadius: 4, padding: '1px 6px',
+                        }}
+                    >🗂 {item.boardName}</span>
                     {item.cardTitle && (
-                        <>
-                            <span style={{ color: isDark ? '#475569' : '#e0e0e0', flexShrink: 0 }}>·</span>
-                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.cardTitle}</span>
-                        </>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.cardTitle}</span>
                     )}
                 </div>
             </div>
