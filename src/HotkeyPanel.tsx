@@ -37,7 +37,10 @@ const sections: HotkeySection[] = [
         title: '新增卡片',
         items: [
             { keys: ['N'], label: '新增文字卡片' },
+            { keys: ['Shift', 'N'], label: '新增標題卡片' },
             { keys: ['T'], label: '新增待辦清單' },
+            { keys: ['Shift', 'T'], label: '新增表格卡片' },
+            { keys: ['S'], label: '新增便利貼' },
             { keys: ['L'], label: '新增連結卡片' },
             { keys: ['I'], label: '新增圖片卡片' },
         ],

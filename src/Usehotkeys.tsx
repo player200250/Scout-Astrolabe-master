@@ -8,6 +8,9 @@ export interface HotkeyActions {
     createTextCard: () => void
     createTodoCard: () => void
     createLinkCard: () => void
+    createStickyCard?: () => void
+    createHeadingCard?: () => void
+    createTableCard?: () => void
     openImageInput: () => void
     openSearch: () => void
     openHotkeyPanel: () => void
@@ -131,11 +134,13 @@ export function useHotkeys(editor: Editor | null, actions: HotkeyActions) {
                 // 新增卡片
                 case 'n':
                 case 'N':
-                    actions.createTextCard()
+                    if (e.shiftKey) actions.createHeadingCard?.()
+                    else actions.createTextCard()
                     return
                 case 't':
                 case 'T':
-                    actions.createTodoCard()
+                    if (e.shiftKey) actions.createTableCard?.()
+                    else actions.createTodoCard()
                     return
                 case 'l':
                 case 'L':
@@ -144,6 +149,10 @@ export function useHotkeys(editor: Editor | null, actions: HotkeyActions) {
                 case 'i':
                 case 'I':
                     actions.openImageInput()
+                    return
+                case 's':
+                case 'S':
+                    actions.createStickyCard?.()
                     return
 
                 // 刪除
