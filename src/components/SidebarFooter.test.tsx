@@ -8,12 +8,9 @@ afterEach(cleanup)
 
 function renderFooter(over: Partial<Parameters<typeof SidebarFooter>[0]> = {}) {
     const props = {
-        onOpenFilter: vi.fn(),
-        onOpenBackup: vi.fn(),
-        onHotkey: vi.fn(),
+        onOpenPanel: vi.fn(),
         isDark: false,
         onToggleTheme: vi.fn(),
-        onOpenOnboarding: vi.fn(),
         ...over,
     }
     render(<SidebarFooter {...props} />)
@@ -21,14 +18,14 @@ function renderFooter(over: Partial<Parameters<typeof SidebarFooter>[0]> = {}) {
 }
 
 describe('SidebarFooter', () => {
-    it('三個工具列按鈕分別接到對應回呼', () => {
+    it('三個工具列按鈕分別以對應面板名稱呼叫 onOpenPanel', () => {
         const p = renderFooter()
         fireEvent.click(screen.getByTitle('篩選卡片'))
         fireEvent.click(screen.getByTitle('自動備份'))
         fireEvent.click(screen.getByTitle('快捷鍵'))
-        expect(p.onOpenFilter).toHaveBeenCalledTimes(1)
-        expect(p.onOpenBackup).toHaveBeenCalledTimes(1)
-        expect(p.onHotkey).toHaveBeenCalledTimes(1)
+        expect(p.onOpenPanel).toHaveBeenNthCalledWith(1, 'filter')
+        expect(p.onOpenPanel).toHaveBeenNthCalledWith(2, 'backup')
+        expect(p.onOpenPanel).toHaveBeenNthCalledWith(3, 'hotkey')
     })
 
     it('亮色模式時主題鈕顯示 🌙、點擊呼叫 onToggleTheme', () => {
@@ -46,7 +43,7 @@ describe('SidebarFooter', () => {
         expect(item).toBeTruthy()
 
         fireEvent.click(item)
-        expect(p.onOpenOnboarding).toHaveBeenCalledTimes(1)
+        expect(p.onOpenPanel).toHaveBeenCalledWith('onboarding')
         // 點完後選單收起
         expect(screen.queryByText('📖 使用導覽')).toBeNull()
     })

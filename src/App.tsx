@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useBoardManager } from './hooks/useBoardManager'
+import { usePanelState } from './hooks/usePanelState'
 import { Whiteboard } from './components/Whiteboard'
 import { BoardTabBar } from './components/BoardTabBar'
 import { BoardOverview } from './components/BoardOverview'
@@ -42,22 +43,9 @@ export default function App() {
     const [isDark, setIsDark] = useState(() => {
         try { return localStorage.getItem('theme') === 'dark' } catch { return false }
     })
-    const [searchOpen, setSearchOpen] = useState(false)
-    const [hotkeyOpen, setHotkeyOpen] = useState(false)
-    const [overviewOpen, setOverviewOpen] = useState(false)
-    const [taskCenterOpen, setTaskCenterOpen] = useState(false)
-    const [filterOpen, setFilterOpen] = useState(false)
-    const [reviewCenterOpen, setReviewCenterOpen] = useState(false)
-    const [backupPanelOpen, setBackupPanelOpen] = useState(false)
+    const { panels, openPanel, closePanel, togglePanel } = usePanelState()
     const [movingCardShapeIds, setMovingCardShapeIds] = useState<string[] | null>(null)
-    const [knowledgeGraphOpen, setKnowledgeGraphOpen] = useState(false)
-    const [cardLibraryOpen, setCardLibraryOpen] = useState(false)
-    const [quickCaptureOpen, setQuickCaptureOpen] = useState(false)
-    const [onboardingOpen, setOnboardingOpen] = useState(false)
-    const [trashOpen, setTrashOpen] = useState(false)
-    const [quickSwitcherOpen, setQuickSwitcherOpen] = useState(false)
     const [deletingBoardId, setDeletingBoardId] = useState<string | null>(null)
-    const [overdueBannerVisible, setOverdueBannerVisible] = useState(false)
     const bannerShownRef = useRef(false)
 
     const { overdueCount, todayCount } = useMemo(() => {
@@ -81,19 +69,19 @@ export default function App() {
         if (loading) return
         try {
             if (localStorage.getItem('onboarding-completed') !== 'true') {
-                setOnboardingOpen(true)
+                openPanel('onboarding')
             }
         } catch { /* empty */ }
-    }, [loading])
+    }, [loading, openPanel])
 
     useEffect(() => {
         if (loading || bannerShownRef.current) return
         bannerShownRef.current = true
         if (overdueCount === 0) return
-        const t1 = setTimeout(() => setOverdueBannerVisible(true), 300)
-        const t2 = setTimeout(() => setOverdueBannerVisible(false), 5300)
+        const t1 = setTimeout(() => openPanel('overdueBanner'), 300)
+        const t2 = setTimeout(() => closePanel('overdueBanner'), 5300)
         return () => { clearTimeout(t1); clearTimeout(t2) }
-    }, [loading, overdueCount])
+    }, [loading, overdueCount, openPanel, closePanel])
 
     const handleDeleteWithConfirm = useCallback((id: string) => {
         setDeletingBoardId(id)
@@ -114,10 +102,10 @@ export default function App() {
     const sidebarWidth = sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_WIDTH
     const activeBoard = boards.find(b => b.id === activeBoardId) ?? null
 
-    const activePanel = cardLibraryOpen ? 'cardLibrary'
-        : taskCenterOpen ? 'taskCenter'
-        : reviewCenterOpen ? 'reviewCenter'
-        : knowledgeGraphOpen ? 'knowledgeGraph'
+    const activePanel = panels.cardLibrary ? 'cardLibrary'
+        : panels.taskCenter ? 'taskCenter'
+        : panels.reviewCenter ? 'reviewCenter'
+        : panels.knowledgeGraph ? 'knowledgeGraph'
         : null
 
     const inboxCardCount = useMemo(() => {
@@ -130,11 +118,11 @@ export default function App() {
         const handler = (e: KeyboardEvent) => {
             if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'o') {
                 e.preventDefault()
-                setOverviewOpen(prev => !prev)
+                togglePanel('overview')
             }
             if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'c') {
                 e.preventDefault()
-                setReviewCenterOpen(prev => !prev)
+                togglePanel('reviewCenter')
             }
             if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'i') {
                 e.preventDefault()
@@ -142,28 +130,28 @@ export default function App() {
             }
             if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'g') {
                 e.preventDefault()
-                setKnowledgeGraphOpen(prev => !prev)
+                togglePanel('knowledgeGraph')
             }
             if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'l') {
                 e.preventDefault()
-                setCardLibraryOpen(prev => !prev)
+                togglePanel('cardLibrary')
             }
             if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key === ' ') {
                 e.preventDefault()
-                setQuickCaptureOpen(prev => !prev)
+                togglePanel('quickCapture')
             }
             if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 't') {
                 e.preventDefault()
-                setTrashOpen(prev => !prev)
+                togglePanel('trash')
             }
             if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'p') {
                 e.preventDefault()
-                setQuickSwitcherOpen(true)
+                openPanel('quickSwitcher')
             }
         }
         window.addEventListener('keydown', handler)
         return () => window.removeEventListener('keydown', handler)
-    }, [handleGoToInbox])
+    }, [handleGoToInbox, togglePanel, openPanel])
 
     if (loading) return <div style={{ height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>Loading...</div>
 
@@ -176,21 +164,21 @@ export default function App() {
                     boards={boards}
                     onSaveBoard={handleSaveBoard}
                     jumpRef={jumpRef}
-                    onOpenSearch={() => setSearchOpen(true)}
-                    onOpenHotkey={() => setHotkeyOpen(true)}
-                    onOpenQuickSwitcher={() => setQuickSwitcherOpen(true)}
+                    onOpenSearch={() => openPanel('search')}
+                    onOpenHotkey={() => openPanel('hotkey')}
+                    onOpenQuickSwitcher={() => openPanel('quickSwitcher')}
                     onCreateBoard={(name) => handleCreateBoard(name, activeBoardId ?? undefined)}
                     onSwitchBoard={handleSwitchToChild}
                     sidebarWidth={sidebarWidth}
                     isInboxBoard={activeBoardId === INBOX_BOARD_ID}
                     onMoveCard={shapeIds => setMovingCardShapeIds(shapeIds)}
                     isDark={isDark}
-                    onOpenTaskCenter={() => setTaskCenterOpen(true)}
-                    onOpenReviewCenter={() => setReviewCenterOpen(true)}
-                    onOpenKnowledgeGraph={() => setKnowledgeGraphOpen(true)}
-                    onOpenCardLibrary={() => setCardLibraryOpen(true)}
-                    onOpenOverview={() => setOverviewOpen(true)}
-                    onQuickCapture={() => setQuickCaptureOpen(true)}
+                    onOpenTaskCenter={() => openPanel('taskCenter')}
+                    onOpenReviewCenter={() => openPanel('reviewCenter')}
+                    onOpenKnowledgeGraph={() => openPanel('knowledgeGraph')}
+                    onOpenCardLibrary={() => openPanel('cardLibrary')}
+                    onOpenOverview={() => openPanel('overview')}
+                    onQuickCapture={() => openPanel('quickCapture')}
                     onCardTrashed={handleCardTrashed}
                     recentlyTrashedShapeIds={recentlyTrashedShapeIds}
                 />
@@ -203,9 +191,7 @@ export default function App() {
                 onNew={handleNew}
                 onRename={handleRename}
                 onDelete={handleDeleteWithConfirm}
-                onSearch={() => setSearchOpen(true)}
-                onHotkey={() => setHotkeyOpen(true)}
-                onOpenOverview={() => setOverviewOpen(true)}
+                onOpenPanel={openPanel}
                 onSetJournal={handleSetJournal}
                 navigationStack={navigationStack}
                 onBack={handleBack}
@@ -214,24 +200,15 @@ export default function App() {
                 collapsed={sidebarCollapsed}
                 onToggleCollapse={handleToggleCollapse}
                 onSetStatus={handleSetStatus}
-                onOpenTaskCenter={() => setTaskCenterOpen(true)}
-                onOpenFilter={() => setFilterOpen(true)}
-                onOpenReviewCenter={() => setReviewCenterOpen(true)}
-                onOpenBackup={() => setBackupPanelOpen(true)}
                 onGoToInbox={handleGoToInbox}
-                onOpenKnowledgeGraph={() => setKnowledgeGraphOpen(true)}
-                onOpenCardLibrary={() => setCardLibraryOpen(true)}
                 isDark={isDark}
                 onToggleTheme={toggleTheme}
                 onReorderBoards={handleReorderBoards}
                 inboxCardCount={inboxCardCount}
-                onQuickCapture={() => setQuickCaptureOpen(true)}
                 overdueCount={overdueCount}
                 todayCount={todayCount}
-                onOpenOnboarding={() => setOnboardingOpen(true)}
                 activePanel={activePanel}
                 trashCount={trashCount}
-                onOpenTrash={() => setTrashOpen(true)}
                 onCreateFolder={handleCreateFolder}
                 onSetFolder={handleSetFolder}
                 onDeleteFolder={handleDeleteFolder}
@@ -247,40 +224,40 @@ export default function App() {
                 />
             )}
 
-            {searchOpen && (
+            {panels.search && (
                 <SearchPanel
                     boards={boards}
-                    onJump={(boardId, shapeId, x, y) => { setSearchOpen(false); handleJump(boardId, shapeId, x, y) }}
-                    onClose={() => setSearchOpen(false)}
+                    onJump={(boardId, shapeId, x, y) => { closePanel('search'); handleJump(boardId, shapeId, x, y) }}
+                    onClose={() => closePanel('search')}
                     isDark={isDark}
                 />
             )}
-            {hotkeyOpen && <HotkeyPanel onClose={() => setHotkeyOpen(false)} />}
-            {taskCenterOpen && (
+            {panels.hotkey && <HotkeyPanel onClose={() => closePanel('hotkey')} />}
+            {panels.taskCenter && (
                 <TaskCenter
                     boards={boards}
-                    onJump={(boardId, shapeId, x, y) => { setTaskCenterOpen(false); handleJump(boardId, shapeId, x, y) }}
-                    onClose={() => setTaskCenterOpen(false)}
+                    onJump={(boardId, shapeId, x, y) => { closePanel('taskCenter'); handleJump(boardId, shapeId, x, y) }}
+                    onClose={() => closePanel('taskCenter')}
                     isDark={isDark}
                 />
             )}
-            {filterOpen && (
+            {panels.filter && (
                 <FilterPanel
                     boards={boards}
-                    onJump={(boardId, shapeId, x, y) => { setFilterOpen(false); handleJump(boardId, shapeId, x, y) }}
-                    onClose={() => setFilterOpen(false)}
+                    onJump={(boardId, shapeId, x, y) => { closePanel('filter'); handleJump(boardId, shapeId, x, y) }}
+                    onClose={() => closePanel('filter')}
                     isDark={isDark}
                 />
             )}
-            {backupPanelOpen && (
+            {panels.backup && (
                 <BackupPanel
                     sidebarWidth={sidebarWidth}
-                    onClose={() => setBackupPanelOpen(false)}
-                    onRestore={async (restoredBoards) => { await handleRestore(restoredBoards); setBackupPanelOpen(false) }}
+                    onClose={() => closePanel('backup')}
+                    onRestore={async (restoredBoards) => { await handleRestore(restoredBoards); closePanel('backup') }}
                     isDark={isDark}
                 />
             )}
-            {overviewOpen && (
+            {panels.overview && (
                 <BoardOverview
                     boards={boards}
                     activeBoardId={activeBoardId ?? ''}
@@ -289,53 +266,53 @@ export default function App() {
                     onRename={handleRename}
                     onDelete={handleDeleteWithConfirm}
                     onSetStatus={handleSetStatus}
-                    onClose={() => setOverviewOpen(false)}
+                    onClose={() => closePanel('overview')}
                     isDark={isDark}
                 />
             )}
-            {reviewCenterOpen && (
+            {panels.reviewCenter && (
                 <ReviewCenter
                     boards={boards}
-                    onClose={() => setReviewCenterOpen(false)}
+                    onClose={() => closePanel('reviewCenter')}
                     onJumpToBoard={handleSwitch}
                     onSaveJournal={handleSaveJournal}
-                    onGoToWeeklyCard={() => { setReviewCenterOpen(false); handleGoToWeeklyCard() }}
+                    onGoToWeeklyCard={() => { closePanel('reviewCenter'); handleGoToWeeklyCard() }}
                     isDark={isDark}
                 />
             )}
-            {knowledgeGraphOpen && (
+            {panels.knowledgeGraph && (
                 <KnowledgeGraph
                     boards={boards}
-                    onClose={() => setKnowledgeGraphOpen(false)}
+                    onClose={() => closePanel('knowledgeGraph')}
                     onJumpToCard={(boardId, shapeId) => {
-                        setKnowledgeGraphOpen(false)
+                        closePanel('knowledgeGraph')
                         handleSwitch(boardId)
                         setTimeout(() => jumpRef.current?.(shapeId, 0, 0), JUMP_DELAY_MS)
                     }}
                     onSwitchBoard={boardId => {
-                        setKnowledgeGraphOpen(false)
+                        closePanel('knowledgeGraph')
                         handleSwitch(boardId)
                     }}
                 />
             )}
-            {cardLibraryOpen && (
+            {panels.cardLibrary && (
                 <CardLibrary
                     boards={boards}
-                    onJump={(boardId, shapeId, x, y) => { setCardLibraryOpen(false); handleJump(boardId, shapeId, x, y) }}
-                    onClose={() => setCardLibraryOpen(false)}
+                    onJump={(boardId, shapeId, x, y) => { closePanel('cardLibrary'); handleJump(boardId, shapeId, x, y) }}
+                    onClose={() => closePanel('cardLibrary')}
                     isDark={isDark}
                 />
             )}
-            {quickCaptureOpen && (
+            {panels.quickCapture && (
                 <QuickCapture
-                    onSave={text => { handleAddCardToInbox(text); setQuickCaptureOpen(false) }}
-                    onClose={() => setQuickCaptureOpen(false)}
+                    onSave={text => { handleAddCardToInbox(text); closePanel('quickCapture') }}
+                    onClose={() => closePanel('quickCapture')}
                     isDark={isDark}
                 />
             )}
-            {onboardingOpen && (
+            {panels.onboarding && (
                 <OnboardingModal
-                    onClose={() => setOnboardingOpen(false)}
+                    onClose={() => closePanel('onboarding')}
                     isDark={isDark}
                 />
             )}
@@ -356,18 +333,18 @@ export default function App() {
                     />
                 )
             })()}
-            {quickSwitcherOpen && (
+            {panels.quickSwitcher && (
                 <QuickSwitcher
                     boards={boards}
                     activeBoardId={activeBoardId ?? ''}
                     onSwitch={handleSwitch}
-                    onClose={() => setQuickSwitcherOpen(false)}
+                    onClose={() => closePanel('quickSwitcher')}
                     isDark={isDark}
                 />
             )}
-            {trashOpen && (
+            {panels.trash && (
                 <TrashPanel
-                    onClose={() => setTrashOpen(false)}
+                    onClose={() => closePanel('trash')}
                     onRestoreBoard={handleRestoreBoard}
                     onPermanentDeleteBoard={handlePermanentDeleteBoard}
                     onEmptyTrash={handleEmptyTrash}
@@ -375,7 +352,7 @@ export default function App() {
                     isDark={isDark}
                 />
             )}
-            {overdueBannerVisible && (
+            {panels.overdueBanner && (
                 <div style={{
                     position: 'fixed', bottom: 24, left: 24, zIndex: Z_MODAL_BACKDROP,
                     background: isDark ? '#1e293b' : 'white',
@@ -390,11 +367,11 @@ export default function App() {
                     </div>
                     <div style={{ display: 'flex', gap: 8 }}>
                         <button
-                            onClick={() => { setOverdueBannerVisible(false); setTaskCenterOpen(true) }}
+                            onClick={() => { closePanel('overdueBanner'); openPanel('taskCenter') }}
                             style={{ flex: 1, padding: '6px 0', borderRadius: 7, border: 'none', background: '#dc2626', color: 'white', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
                         >查看任務中心</button>
                         <button
-                            onClick={() => setOverdueBannerVisible(false)}
+                            onClick={() => closePanel('overdueBanner')}
                             style={{ flex: 1, padding: '6px 0', borderRadius: 7, border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}`, background: 'transparent', color: isDark ? '#94a3b8' : '#64748b', cursor: 'pointer', fontSize: 12 }}
                         >稍後再說</button>
                     </div>

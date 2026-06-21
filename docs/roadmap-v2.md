@@ -25,7 +25,7 @@
 
 | 識別碼 | 問題 | 嚴重度 | 阻斷何種後續工作 |
 |--------|------|--------|-----------------|
-| TD1 | `App.tsx` 持有 15+ 面板開關 boolean state | 🔴 高 | 每新增一個 AI 面板都要改 App.tsx + prop drilling |
+| TD1 | `App.tsx` 持有 15+ 面板開關 boolean state | ✅ 完成（2026-06-21）| 已提取 `usePanelState`，App.tsx 不再直接持有面板 state（見 A1） |
 | TD2 | `useBoardManager.ts` 約 800 行職責混雜 | 🔴 高 | AI handler、同步 handler 無位置可放 |
 | TD4 | `useBacklinks` 全量掃描 O(boards×shapes) | ✅ 完成（v1.1.1）| per-board useRef 快取；千板以上需 Dexie index（見 A3-ext） |
 | TD5 | `stripHtml` 七處實作不一致 | ✅ 完成（2026-06-20）| 統一至 `utils/stringUtils.ts`，修正行內標籤誤插空格的 CJK bug |
@@ -46,16 +46,18 @@
 
 ### A 類：技術債清除（必做）
 
-#### A1 — `usePanelState` hook 提取
-**說明**：將 `App.tsx` 中 14 個面板開關 boolean state 提取為獨立 `usePanelState` hook，回傳 `{ panels, openPanel, closePanel, togglePanel }` 統一介面。`App.tsx` 只保留業務邏輯組合，不再直接持有面板 state。
+#### A1 — `usePanelState` hook 提取 ✅ 完成（2026-06-21）
+**說明**：將 `App.tsx` 中 14 個面板開關 boolean state 提取為獨立 `usePanelState` hook，回傳 `{ panels, openPanel, closePanel, togglePanel }` 統一介面。`App.tsx` 只保留業務邏輯組合，不再直接持有面板 state。`PanelName` union（search/hotkey/overview/taskCenter/filter/reviewCenter/backup/knowledgeGraph/cardLibrary/quickCapture/onboarding/trash/quickSwitcher/overdueBanner）集中管理，之後新增面板只需加一個名字。
 
-- **工作量**：1 人天
+- **工作量**：1 人天（實際 0.5）
 - **優先度**：🔴 高
 - **依賴**：無
 - **驗收標準**：
-  - `App.tsx` 面板相關 `useState` 全部移除
-  - `BoardTabBar` 接收 `panelState` 單一 prop，不再是 25 個個別 props
-  - `tsc --noEmit` 零錯誤
+  - ✅ `App.tsx` 14 個面板 `useState` 全部移除（僅留 `isDark` 主題與 `movingCardShapeIds`/`deletingBoardId` 帶 payload 的 modal state）
+  - ✅ `BoardTabBar` 的 12 個面板開啟 callback 合併為單一 `onOpenPanel(name)` prop；`SidebarFooter` 同步（6→3 props）
+  - ✅ `tsc --noEmit` 零錯誤、ESLint 零警告
+  - ✅ 新增 `usePanelState.test.ts`（7 案例：初始關閉、open/close/toggle 隔離、相同狀態回傳同參考），全專案 241 測試全綠
+  - 備註：App.tsx 行數降至 365；≤200 行目標待 A2（useBoardManager 拆分）後達成
 
 #### A2 — `useBoardManager` 拆分（5 個 sub-hook）
 **說明**：將約 800 行的 `useBoardManager.ts` 拆分如下：

@@ -6,6 +6,7 @@ import {
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import type { BoardRecord } from '../db'
+import type { PanelName } from '../hooks/usePanelState'
 import { isRasterThumbnail } from '../utils/boardDb'
 import { SidebarFooter } from './SidebarFooter'
 import { SIDEBAR_WIDTH, SIDEBAR_COLLAPSED_WIDTH, INBOX_BOARD_ID, Z_MODAL_BACKDROP, Z_MODAL, Z_CLICK_AWAY } from '../constants'
@@ -26,9 +27,7 @@ interface BoardTabBarProps {
     onNew: () => void
     onRename: (id: string, name: string) => void
     onDelete: (id: string) => void
-    onSearch: () => void
-    onHotkey: () => void
-    onOpenOverview: () => void
+    onOpenPanel: (name: PanelName) => void
     onSetJournal: (boardId: string, isJournal: boolean) => void
     navigationStack: string[]
     onBack: () => void
@@ -37,24 +36,15 @@ interface BoardTabBarProps {
     collapsed: boolean
     onToggleCollapse: () => void
     onSetStatus: (boardId: string, status: 'active' | 'archived' | 'pinned') => void
-    onOpenTaskCenter: () => void
-    onOpenFilter: () => void
-    onOpenReviewCenter: () => void
-    onOpenBackup: () => void
     onGoToInbox: () => void
-    onOpenKnowledgeGraph: () => void
-    onOpenCardLibrary: () => void
     isDark: boolean
     onToggleTheme: () => void
     onReorderBoards: (activeId: string, overId: string) => void
     inboxCardCount: number
-    onQuickCapture: () => void
     overdueCount: number
     todayCount: number
-    onOpenOnboarding: () => void
     activePanel?: string | null
     trashCount?: number
-    onOpenTrash: () => void
     onCreateFolder: (name: string) => void
     onSetFolder: (boardId: string, folderId: string | null) => void
     onDeleteFolder: (folderId: string) => void
@@ -81,7 +71,7 @@ function SortableBoardItem({ id, children }: { id: string; children: React.React
     )
 }
 
-export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelete, onSearch, onHotkey, onOpenOverview, onSetJournal, navigationStack, onBack, onSetParent, onSwitchToChild, collapsed, onToggleCollapse, onSetStatus, onOpenTaskCenter, onOpenFilter, onOpenReviewCenter, onOpenBackup, onGoToInbox, onOpenKnowledgeGraph, onOpenCardLibrary, isDark, onToggleTheme, onReorderBoards, inboxCardCount, onQuickCapture, overdueCount, todayCount, onOpenOnboarding, activePanel, trashCount, onOpenTrash, onCreateFolder, onSetFolder, onDeleteFolder }: BoardTabBarProps) {
+export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelete, onOpenPanel, onSetJournal, navigationStack, onBack, onSetParent, onSwitchToChild, collapsed, onToggleCollapse, onSetStatus, onGoToInbox, isDark, onToggleTheme, onReorderBoards, inboxCardCount, overdueCount, todayCount, activePanel, trashCount, onCreateFolder, onSetFolder, onDeleteFolder }: BoardTabBarProps) {
     const [hoveredId, setHoveredId] = useState<string | null>(null)
     const [renamingId, setRenamingId] = useState<string | null>(null)
     const [renameValue, setRenameValue] = useState('')
@@ -173,15 +163,15 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                             >📁</button>
                             <div style={{ width: 1, height: 16, background: 'var(--border-light)', alignSelf: 'center', flexShrink: 0 }} />
-                            <button onClick={onOpenOverview} title="所有白板 (Ctrl+Shift+O)" style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border-light)', background: 'transparent', cursor: 'pointer', fontSize: 14, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+                            <button onClick={() => onOpenPanel('overview')} title="所有白板 (Ctrl+Shift+O)" style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border-light)', background: 'transparent', cursor: 'pointer', fontSize: 14, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
                                 onMouseEnter={e => (e.currentTarget.style.background = hoverBg)}
                                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                             >⊞</button>
-                            <button onClick={onSearch} title="搜尋卡片 (Ctrl+F)" style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border-light)', background: 'transparent', cursor: 'pointer', fontSize: 14, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+                            <button onClick={() => onOpenPanel('search')} title="搜尋卡片 (Ctrl+F)" style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border-light)', background: 'transparent', cursor: 'pointer', fontSize: 14, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
                                 onMouseEnter={e => (e.currentTarget.style.background = hoverBg)}
                                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                             >🔍</button>
-                            <button onClick={onQuickCapture} title="快速新增到收件匣 (Ctrl+Space)" style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border-light)', background: 'transparent', cursor: 'pointer', fontSize: 14, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+                            <button onClick={() => onOpenPanel('quickCapture')} title="快速新增到收件匣 (Ctrl+Space)" style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border-light)', background: 'transparent', cursor: 'pointer', fontSize: 14, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
                                 onMouseEnter={e => (e.currentTarget.style.background = hoverBg)}
                                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                             >✏️</button>
@@ -195,11 +185,11 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                     const navItems: NavItemDef[] = [
                         { icon: '🏠', label: '主頁', title: '主頁', onClick: () => { if (hBoard) onSwitch(hBoard.id) }, isActive: hBoard ? activeBoardId === hBoard.id : false },
                         { icon: '📥', label: '收件匣', title: '收件匣 (Ctrl+Shift+I)', onClick: onGoToInbox, isActive: activeBoardId === INBOX_BOARD_ID, badge: inboxCardCount > 0 ? { count: inboxCardCount, color: '#ef4444' } : undefined },
-                        { icon: '🗂️', label: '卡片庫', title: '卡片庫 (Ctrl+Shift+L)', onClick: onOpenCardLibrary, isActive: activePanel === 'cardLibrary' },
-                        { icon: '✅', label: '任務中心', title: '任務中心', onClick: onOpenTaskCenter, isActive: activePanel === 'taskCenter', badge: (overdueCount > 0 || todayCount > 0) ? { count: overdueCount > 0 ? overdueCount : todayCount, color: overdueCount > 0 ? '#ef4444' : '#f97316' } : undefined },
-                        { icon: '📔', label: '復盤中心', title: '復盤中心 (Ctrl+Shift+C)', onClick: onOpenReviewCenter, isActive: activePanel === 'reviewCenter' },
-                        { icon: '🕸️', label: '知識圖譜', title: '知識圖譜 (Ctrl+Shift+G)', onClick: onOpenKnowledgeGraph, isActive: activePanel === 'knowledgeGraph' },
-                        { icon: '🗑️', label: '垃圾桶', title: '垃圾桶 (Ctrl+Shift+T)', onClick: onOpenTrash, isActive: false, badge: (trashCount ?? 0) > 0 ? { count: trashCount!, color: '#94a3b8' } : undefined },
+                        { icon: '🗂️', label: '卡片庫', title: '卡片庫 (Ctrl+Shift+L)', onClick: () => onOpenPanel('cardLibrary'), isActive: activePanel === 'cardLibrary' },
+                        { icon: '✅', label: '任務中心', title: '任務中心', onClick: () => onOpenPanel('taskCenter'), isActive: activePanel === 'taskCenter', badge: (overdueCount > 0 || todayCount > 0) ? { count: overdueCount > 0 ? overdueCount : todayCount, color: overdueCount > 0 ? '#ef4444' : '#f97316' } : undefined },
+                        { icon: '📔', label: '復盤中心', title: '復盤中心 (Ctrl+Shift+C)', onClick: () => onOpenPanel('reviewCenter'), isActive: activePanel === 'reviewCenter' },
+                        { icon: '🕸️', label: '知識圖譜', title: '知識圖譜 (Ctrl+Shift+G)', onClick: () => onOpenPanel('knowledgeGraph'), isActive: activePanel === 'knowledgeGraph' },
+                        { icon: '🗑️', label: '垃圾桶', title: '垃圾桶 (Ctrl+Shift+T)', onClick: () => onOpenPanel('trash'), isActive: false, badge: (trashCount ?? 0) > 0 ? { count: trashCount!, color: '#94a3b8' } : undefined },
                     ]
                     if (collapsed) {
                         return (
@@ -560,12 +550,9 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
 
                 {!collapsed && (
                     <SidebarFooter
-                        onOpenFilter={onOpenFilter}
-                        onOpenBackup={onOpenBackup}
-                        onHotkey={onHotkey}
+                        onOpenPanel={onOpenPanel}
                         isDark={isDark}
                         onToggleTheme={onToggleTheme}
-                        onOpenOnboarding={onOpenOnboarding}
                     />
                 )}
             </div>
