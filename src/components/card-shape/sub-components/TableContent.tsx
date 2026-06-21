@@ -16,6 +16,8 @@ export function TableContent({ shape }: TableContentProps) {
     const isDark = useIsDarkMode()
     const p = shape.props
     const cols = p.tableCols ?? 3
+    // 未設視為開啟（向後相容：既有表格維持首列標題樣式）
+    const headerRow = p.tableHeaderRow ?? true
     const tableData = useMemo(() => p.tableData ?? [] as TableRow[], [p.tableData])
 
     const [editingCell, setEditingCell] = useState<{ rowIdx: number; colIdx: number } | null>(null)
@@ -116,7 +118,7 @@ export function TableContent({ shape }: TableContentProps) {
                 <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
                     <tbody>
                         {tableData.map((row, rowIdx) => {
-                            const isHeader = rowIdx === 0
+                            const isHeader = headerRow && rowIdx === 0
                             const isOdd = rowIdx % 2 === 1
                             const rowBg = isHeader ? headerBg : isOdd ? oddRowBg : (isDark ? 'transparent' : '#ffffff')
 

@@ -282,6 +282,7 @@ export function useContextMenu({
                 const isLink = cardType === 'link'
                 const isText = cardType === 'text'
                 const isSticky = cardType === 'sticky'
+                const isTable = cardType === 'table'
                 const currentColor: CardColor = shape.props.color
 
                 const selectedIds = editor.getSelectedShapeIds()
@@ -376,6 +377,22 @@ export function useContextMenu({
                             editor.updateShape({
                                 id: hitShape.id, type: 'card',
                                 props: { state: 'editing', linkEmbedUrl: null },
+                            })
+                        },
+                    })
+                }
+
+                // 表格卡片：標題列開關（未設視為開啟）
+                if (isTable) {
+                    const headerOn = shape.props.tableHeaderRow ?? true
+                    items.push({
+                        icon: headerOn ? '☑' : '☐',
+                        label: headerOn ? '關閉標題列' : '開啟標題列',
+                        divider: true,
+                        action: () => {
+                            editor.updateShape({
+                                id: hitShape.id, type: 'card',
+                                props: { tableHeaderRow: !headerOn },
                             })
                         },
                     })

@@ -99,6 +99,8 @@ export interface TLCardProps {
     // ---- Table ----
     tableData?: TableRow[]
     tableCols?: number
+    // 標題列開關：true（或未設，向後相容）時第一列以標題樣式顯示
+    tableHeaderRow?: boolean
 
     // ---- Color Swatch ----
     swatches?: ColorSwatch[]
