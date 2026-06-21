@@ -133,6 +133,29 @@ function addBatchTag(editor: Editor, ids: TLShapeId[], tag: string) {
     })
 }
 
+// ── Table helpers ───────────────────────────────────────────────────────────
+
+function tableCellId() {
+    return `cell_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
+}
+
+/** 設定表格欄數：增欄補空格、減欄截斷（資料遺失由呼叫端先確認）。 */
+function setTableColumns(editor: Editor, shapeId: TLShapeId, newCols: number) {
+    const shape = editor.getShape(shapeId) as unknown as TLCardShape | undefined
+    if (!shape || shape.props.type !== 'table') return
+    const rows = shape.props.tableData ?? []
+    const newRows = rows.map(row => {
+        const cells = row.cells
+        if (newCols > cells.length) {
+            const add = Array.from({ length: newCols - cells.length }, () => ({ id: tableCellId(), content: '' }))
+            return { ...row, cells: [...cells, ...add] }
+        }
+        if (newCols < cells.length) return { ...row, cells: cells.slice(0, newCols) }
+        return row
+    })
+    editor.updateShape({ id: shapeId, type: 'card', props: { tableData: newRows, tableCols: newCols } })
+}
+
 // ── Built-in templates ──────────────────────────────────────────────────────
 
 const BUILTIN_TEMPLATES: { icon: string; name: string; w: number; h: number; content: string }[] = [
@@ -382,7 +405,7 @@ export function useContextMenu({
                     })
                 }
 
-                // 表格卡片：標題列開關（未設視為開啟）
+                // 表格卡片：標題列開關（未設視為開啟）+ 欄數切換
                 if (isTable) {
                     const headerOn = shape.props.tableHeaderRow ?? true
                     items.push({
@@ -396,6 +419,21 @@ export function useContextMenu({
                             })
                         },
                     })
+
+                    const curCols = shape.props.tableCols ?? 3
+                    const colSubmenu: MenuItem[] = ([2, 3, 4] as const).map(n => ({
+                        icon: n === curCols ? '●' : '○',
+                        label: `${n} 欄`,
+                        action: () => {
+                            if (n < curCols) {
+                                const rows = shape.props.tableData ?? []
+                                const willLose = rows.some(r => r.cells.slice(n).some(c => c.content.trim() !== ''))
+                                if (willLose && !window.confirm(`縮減為 ${n} 欄會刪除最右側欄位的資料，確定嗎？`)) return
+                            }
+                            setTableColumns(editor, hitShape.id, n)
+                        },
+                    }))
+                    items.push({ icon: '▦', label: '欄數', submenu: colSubmenu })
                 }
 
                 // 存為模板：僅限純文字卡片
