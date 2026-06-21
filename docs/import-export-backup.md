@@ -177,16 +177,21 @@ lastBackupRef.current = now
 ### 備份上限與清理
 
 ```typescript
-// saveAutoBackup（示意）
-const MAX_BACKUPS = 30
-const existing = await db.table('backups').orderBy('timestamp').reverse().toArray()
-if (existing.length >= MAX_BACKUPS) {
-    const toDelete = existing.slice(MAX_BACKUPS - 1)
-    await db.table('backups').bulkDelete(toDelete.map(b => b.id))
+// db.ts
+export const MAX_BACKUPS = 5   // 2026-06-21 由 30 降為 5
+
+// trimBackups()：只比對 timestamp 鍵、不載入 blob（記憶體成本低）
+export async function trimBackups(): Promise<number> {
+    const keys = await db.table('backups').orderBy('timestamp').primaryKeys()
+    if (keys.length <= MAX_BACKUPS) return 0
+    const toDelete = keys.slice(0, keys.length - MAX_BACKUPS)
+    await db.table('backups').bulkDelete(toDelete)
+    return toDelete.length
 }
+// saveAutoBackup 寫入後呼叫 trimBackups；useBoardManager 啟動載入後也呼叫一次
 ```
 
-超過 30 筆時刪除最舊的備份，確保 DB 不無限成長。
+超過 5 筆時刪除最舊的備份。**為何由 30 降為 5**：每份備份是整個 vault 的完整複製（含 base64 圖片），保留 30 份會把 IndexedDB 撐到數 GB 並造成 renderer OOM 白屏（見 `maintenance/bugs.md` P1-OOM）。
 
 ### `BackupRecord` 結構
 
@@ -199,7 +204,7 @@ interface BackupRecord {
 }
 ```
 
-備份儲存的是所有白板的完整資料，包括 tldraw snapshot JSON（base64 圖片 + shapes）。**備份體積可能很大**，視白板數量與圖片數量而定。
+備份儲存的是所有白板的完整資料，包括 tldraw snapshot JSON（base64 圖片 + shapes）。**備份體積可能很大**，視白板數量與圖片數量而定——這也是 `MAX_BACKUPS` 由 30 降為 5 的原因（含圖片 vault ×30 會撐爆 IndexedDB／記憶體）。治本方向見 `maintenance/bugs.md` 的 **TD-IMG**（image 卡改存檔、不再 base64 內嵌）。
 
 ---
 
@@ -207,7 +212,7 @@ interface BackupRecord {
 
 ### `BackupPanel.tsx` 功能
 
-- **載入清單**：mount 時呼叫 `db.table('backups').orderBy('timestamp').reverse().toArray()`，顯示最多 30 筆，每筆顯示日期、時間、白板數量
+- **載入清單**：mount 時呼叫 `db.table('backups').orderBy('timestamp').reverse().toArray()`，顯示最多 5 筆，每筆顯示日期、時間、白板數量。注意：此處 `toArray()` 會載入所有備份的完整 boards（含圖片），備份很多/很大時開啟此面板本身也可能造成記憶體壓力
 - **還原**：確認後呼叫 `onRestore(backup.boards)`
 - **刪除單筆**：呼叫 `deleteBackup(id)` + 更新本地 state
 

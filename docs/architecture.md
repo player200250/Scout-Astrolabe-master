@@ -12,11 +12,12 @@
 
 | 檔案 | 職責 |
 |------|------|
-| `src/main.tsx` | React 進入點，以 `StrictMode` 掛載 `<App />` |
-| `src/App.tsx` | 根元件，持有所有 panel 開關狀態，組合所有頂層 UI |
-| `src/hooks/useBoardManager.ts` | 白板狀態機，所有白板 CRUD 集中於此 |
-| `src/components/Whiteboard.tsx` | 單一白板的 tldraw 容器元件（以 ErrorBoundary 包覆） |
-| `src/components/ErrorBoundary.tsx` | React Error Boundary，包覆 Whiteboard 防止 crash 擴散 |
+| `src/main.tsx` | React 進入點；`StrictMode` + **根節點 `ErrorBoundary`** 包覆 `<App />`（2026-06-21），並掛 全域 `error`/`unhandledrejection` 浮層，避免無聲白屏 |
+| `src/App.tsx` | 根元件，組合頂層 UI；panel 開關狀態已抽至 `hooks/usePanelState.ts`（A1），另留 `movingCardShapeIds`/`deletingBoardId`/`isDark` |
+| `src/hooks/usePanelState.ts` | 14 個面板開關集中管理（`panels`/`openPanel`/`closePanel`/`togglePanel`）|
+| `src/hooks/useBoardManager.ts` | 白板狀態機；已拆為 8 個領域 sub-hook 的合成層（對外 API 不變）|
+| `src/components/Whiteboard.tsx` | 單一白板的 tldraw 容器元件（內層另以 ErrorBoundary 包覆）|
+| `src/components/ErrorBoundary.tsx` | React Error Boundary；同時用於根節點（main.tsx）與 Whiteboard 內層 |
 | `src/components/WhiteboardTools.tsx` | tldraw `useEditor()` 工具集，card 建立、儲存、匯出、事件橋接 |
 | `src/components/BoardTabBar.tsx` | 側邊欄，顯示白板清單、導航、工具圖示 |
 | `src/utils/boardDb.ts` | IndexedDB CRUD 封裝（`saveBoard`、`deleteBoard`、`loadAllBoards`） |

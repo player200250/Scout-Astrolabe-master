@@ -79,9 +79,10 @@ interface TLCardProps {
     // ── Sticky ──
     stickyColor?: StickyColor       // 'yellow' | 'blue' | 'green' | 'pink' | 'purple'
 
-    // ── Table ──
-    tableColumns?: number           // 2 | 3 | 4
-    tableRows?: TableRow[]
+    // ── Table ──（實際欄位名，2026-06-21 校正）
+    tableData?: TableRow[]
+    tableCols?: number              // 欄數 2 | 3 | 4，預設 3
+    tableHeaderRow?: boolean        // 標題列開關；未設視為 true（首列以標題樣式顯示）
 
     // ── Color Swatch ──
     mainColor?: string              // HEX 字串，主色
@@ -110,7 +111,12 @@ type StickyColor = 'yellow' | 'blue' | 'green' | 'pink' | 'purple'
 
 interface TableRow {
     id: string
-    cells: string[]   // 長度等於 tableColumns
+    cells: TableCell[]   // 長度等於 tableCols
+}
+
+interface TableCell {
+    id: string
+    content: string
 }
 ```
 
@@ -186,10 +192,12 @@ interface TableRow {
 
 ### table
 
-- `tableColumns` 決定欄數（2 / 3 / 4），預設 `2`
-- `tableRows` 陣列存每列資料，每列有 `cells[]`（長度等於 `tableColumns`）
-- 雙擊任意儲存格進入編輯，Tab 鍵移至下一格，Enter 新增列
-- 行高固定，欄寬平均分配
+- `tableCols` 決定欄數（2 / 3 / 4），預設 `3`
+- `tableData` 陣列存每列資料，每列有 `cells: TableCell[]`（長度等於 `tableCols`）
+- `tableHeaderRow`（未設＝開啟）：開啟時首列以標題樣式顯示（`TableContent.tsx`）
+- 選取卡片後點儲存格進入編輯，Tab／Enter 在格間移動，底部「+ 新增列」
+- **C3 互動（2026-06-21）**：右鍵選單可「開/關標題列」、切換「欄數 2/3/4」（減欄且有資料先 `window.confirm`）；列左側 hover 顯示 `⠿` 拖曳把手可重排列順（`@dnd-kit/sortable`）
+- 行高固定，欄寬平均分配（`tableLayout: fixed`）
 - 最後一列可按 Delete 鍵刪除（空列）
 
 ### color

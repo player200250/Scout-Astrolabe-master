@@ -13,7 +13,7 @@
 | 檔案 | 狀態職責 |
 |------|---------|
 | `useBoardManager.ts` | 白板 CRUD、垃圾桶、收件匣、備份、導航 |
-| `App.tsx` | Panel 開關狀態（searchOpen 等 10+ 個 boolean） |
+| `App.tsx` + `hooks/usePanelState.ts` | 14 個面板開關集中於 `usePanelState`（`panels`/`openPanel`/`closePanel`/`togglePanel`）；App.tsx 另留 `movingCardShapeIds`/`deletingBoardId`/`isDark` |
 | `WhiteboardTools.tsx` | tldraw editor 操作、事件橋接、自動儲存 |
 | `CardShapeUtil.tsx` | 卡片內部狀態（hover、showTextModal、isEditing） |
 
@@ -179,29 +179,27 @@ recentlyTrashedShapeIds         // 防切板後 Ctrl+Z 同步失效的 Set（現
 
 ---
 
-## App.tsx Panel 狀態
+## App.tsx Panel 狀態（2026-06-21 起改用 `usePanelState`，A1/TD1）
+
+14 個面板開關不再是 App.tsx 內的個別 boolean `useState`，而是集中於 **`src/hooks/usePanelState.ts`**：
 
 ```typescript
-// 面板開關（boolean state）
-searchOpen          // SearchPanel
-hotkeyOpen          // HotkeyPanel
-overviewOpen        // BoardOverview
-taskCenterOpen      // TaskCenter
-filterOpen          // FilterPanel
-reviewCenterOpen    // ReviewCenter
-backupPanelOpen     // BackupPanel
-movingCardShapeIds  // MoveCardModal（string[] | null，支援多選批次移動）
-knowledgeGraphOpen  // KnowledgeGraph
-cardLibraryOpen     // CardLibrary
-quickCaptureOpen    // QuickCapture
-quickSwitcherOpen   // QuickSwitcher（Ctrl+P 白板快速切換）
-onboardingOpen      // OnboardingModal
-trashOpen           // TrashPanel
-deletingBoardId     // DeleteBoardDialog（string | null）
-overdueBannerVisible // 逾期任務 banner
+// usePanelState 回傳 { panels, openPanel, closePanel, togglePanel }
+type PanelName =
+  | 'search' | 'hotkey' | 'overview' | 'taskCenter' | 'filter'
+  | 'reviewCenter' | 'backup' | 'knowledgeGraph' | 'cardLibrary'
+  | 'quickCapture' | 'onboarding' | 'trash' | 'quickSwitcher' | 'overdueBanner'
+// 用法：panels.search（讀）、openPanel('search')、closePanel('search')、togglePanel('overview')
 ```
 
-**互斥規則**：`activePanel` 計算欄位（`cardLibraryOpen ? 'cardLibrary' : taskCenterOpen ? 'taskCenter' : ...`）傳給 `BoardTabBar` 用於側邊欄圖示 active 狀態，但多個面板在技術上可同時開啟（無強制互斥），視覺上可能重疊。
+App.tsx 僅另外保留兩個帶 payload 的 modal state（非單純開關）與主題：
+- `movingCardShapeIds`（`string[] | null`，MoveCardModal，支援多選批次移動）
+- `deletingBoardId`（`string | null`，DeleteBoardDialog）
+- `isDark`（主題）
+
+`BoardTabBar` 的 12 個面板開啟 callback 已合併為單一 `onOpenPanel(name)` prop；`SidebarFooter` 同步。
+
+**互斥規則**：`activePanel` 計算欄位（`panels.cardLibrary ? 'cardLibrary' : panels.taskCenter ? 'taskCenter' : ...`）傳給 `BoardTabBar` 用於側邊欄圖示 active 狀態，但多個面板在技術上可同時開啟（無強制互斥），視覺上可能重疊。
 
 ---
 
@@ -262,7 +260,7 @@ overdueBannerVisible // 逾期任務 banner
 
 ## 維護注意事項
 
-- 新增 Panel 時，在 `App.tsx` 加 boolean state、在對應快捷鍵 useEffect 加 toggle，並確認多面板同時開啟的視覺行為。
+- 新增 Panel 時，在 `usePanelState.ts` 的 `PanelName` union + `PANEL_NAMES` 加一個名字即可（不再加 boolean state）；在對應快捷鍵 useEffect 加 `togglePanel('name')`，渲染處用 `panels.name`，並確認多面板同時開啟的視覺行為。
 - 新增事件時：①在 `src/utils/appEvents.ts` 的 `AppEventPayloads` 新增事件名稱與 payload 型別，②在本文件的清單表格補充，③接收方使用 `onAppEvent` 訂閱並在 cleanup 呼叫回傳的 `off()` 函式。
 - `handleSoftDeleteBoardWithInboxMove` 用函式式 `setBoards(prev => ...)` 同時應用兩個更新，若未來需要拆分，需注意 stale closure 問題（見 [tldraw-snapshot.md](tldraw-snapshot.md)）。
 

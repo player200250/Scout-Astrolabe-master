@@ -149,7 +149,9 @@ interface BackupRecord {
 }
 ```
 
-- 最多保留 **30** 份（`MAX_BACKUPS = 30`，`db.ts`）。
+- 最多保留 **5** 份（`MAX_BACKUPS = 5`，`db.ts`；2026-06-21 由 30 降為 5）。
+  - **為何降為 5**：每份備份是「所有白板的完整 snapshot（含 base64 圖片）」的複製；保留 30 份等於把整個 vault 複製 30 次，含圖片的 vault 會把 IndexedDB 撐到數 GB，並在備份寫入時造成記憶體尖峰導致 renderer OOM 白屏（見 `maintenance/bugs.md` P1-OOM）。
+  - `trimBackups()`（`db.ts`）以 `primaryKeys()` + `bulkDelete` 清理超量備份（只比對 key、不載入 blob），`useBoardManager` 啟動載入後即呼叫一次。
 - 觸發時機：切換白板、App 進入背景（`visibilitychange`），但有 5 分鐘的 throttle（`BACKUP_THROTTLE_MS`）。
 - 還原時清空全部 boards 再重寫（`db.table('boards').clear()` + `put` all）。
 

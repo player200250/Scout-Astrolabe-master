@@ -21,7 +21,7 @@
 
 ## 目前測試現況
 
-**單元測試已導入（Vitest 3.2.6），目前 22 檔 230 案例全綠。** 設定寫在 `vite.config.ts` 的 `test` 區塊（`include: src/**/*.{test,spec}.{ts,tsx}`）；指令 `npm test`（`vitest run`）、`npm run test:watch`。已裝 `jsdom`、`@testing-library/react`、`@testing-library/dom`（未裝 `@testing-library/jest-dom`，斷言用 `.toBeTruthy()`/`.toBeNull()`）。純函式測試跑 node 環境、需要 DOM 的單檔以 `// @vitest-environment jsdom` 切換。
+**單元測試已導入（Vitest 3.2.6），目前 24 檔 241 案例全綠（2026-06-21）。** 較前次新增 `hooks/usePanelState.test.ts`（7）、`Usehotkeys.test.tsx`（4）。 設定寫在 `vite.config.ts` 的 `test` 區塊（`include: src/**/*.{test,spec}.{ts,tsx}`）；指令 `npm test`（`vitest run`）、`npm run test:watch`。已裝 `jsdom`、`@testing-library/react`、`@testing-library/dom`（未裝 `@testing-library/jest-dom`，斷言用 `.toBeTruthy()`/`.toBeNull()`）。純函式測試跑 node 環境、需要 DOM 的單檔以 `// @vitest-environment jsdom` 切換。
 
 已覆蓋的測試檔：
 

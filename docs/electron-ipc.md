@@ -173,15 +173,26 @@ win.webContents.setWindowOpenHandler(({ url }) => {
 ## 開發 vs 封裝模式
 
 ```javascript
-// main.js
-if (process.env.NODE_ENV === 'development' || !app.isPackaged) {
-    win.loadURL('http://localhost:5173')   // Vite dev server
+// main.js（2026-06-21 校正）
+const prodTest = process.env.ELECTRON_PROD_TEST === '1';
+if (app.isPackaged || prodTest) {
+    win.loadFile(path.join(__dirname, 'dist/index.html'));  // file:// 載入正式 dist
+    if (prodTest) win.webContents.openDevTools();           // 診斷用；正式安裝版不開
 } else {
-    win.loadFile(path.join(__dirname, 'dist/index.html'))
+    win.loadURL('http://localhost:5173');                   // Vite dev server
+    win.webContents.openDevTools();
 }
 ```
 
 封裝版本載入 `dist/index.html`（相對路徑），因此 `vite.config.ts` 必須設定 `base: './'`。
+
+### 診斷與 OOM 止血（2026-06-21）
+
+排查「大型 vault 白屏」時於 `main.js` 加入：
+
+- **`ELECTRON_PROD_TEST=1`**：不打包整個安裝程式，即以 `file://` 載入正式 `dist`（重現只在安裝版/正式建置才發生的問題，例如與 dev origin 不同的 IndexedDB 資料）。用法：`set ELECTRON_PROD_TEST=1 && npx electron --icu-data-dir=node_modules/electron/dist .`
+- **renderer 診斷掛鉤**：`console-message`（轉發 renderer console 到主程序終端，相容 Electron 35+ 單一 event 物件簽名）、`render-process-gone`（攔截 renderer 崩潰，`reason:'oom'` 即記憶體耗盡）、`did-fail-load`。
+- **V8 heap 上限**：`app.commandLine.appendSwitch('js-flags', '--max-old-space-size=4096')` —— 大型 vault 把所有 snapshot 載入記憶體時的止血（治本見 `maintenance/bugs.md` TD-IMG）。
 
 ---
 
