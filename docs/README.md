@@ -24,12 +24,14 @@
 | [data-safety.md](data-safety.md) | IndexedDB 限制、備份策略、sanitize 防護、已知風險 |
 | [refactor-roadmap.md](refactor-roadmap.md) | 技術債清單、重構優先順序、架構演進建議 |
 | [roadmap-v2.md](roadmap-v2.md) | v1.2.0–v2.0.0 開發路線圖（功能清單、工作量、依賴關係） |
+| [roadmap-mobile.md](roadmap-mobile.md) | 行動端（PWA）與雲端同步路線圖（階段、技術、風險）— 自用定位 |
 | [product-analysis.md](product-analysis.md) | 產品定位、檔案/功能高層分析（與 architecture.md 部分重疊，待整併） |
 | [adr/0001-use-electron.md](adr/0001-use-electron.md) | ADR：選用 Electron 作為桌面應用框架 |
 | [adr/0002-use-tldraw.md](adr/0002-use-tldraw.md) | ADR：選用 tldraw 作為無限白板引擎 |
 | [adr/0003-use-dexie-indexeddb.md](adr/0003-use-dexie-indexeddb.md) | ADR：選用 Dexie.js + IndexedDB 作為本地資料庫 |
 | [adr/0004-store-rich-text-as-html.md](adr/0004-store-rich-text-as-html.md) | ADR：以 HTML 字串儲存富文字內容 |
-| [adr/0005-local-first-product-direction.md](adr/0005-local-first-product-direction.md) | ADR：本地優先（Local-First）的產品方向 |
+| [adr/0005-local-first-product-direction.md](adr/0005-local-first-product-direction.md) | ADR：本地優先（Local-First）的產品方向（已由 0006 修正）|
+| [adr/0006-cloud-sync-and-mobile.md](adr/0006-cloud-sync-and-mobile.md) | ADR：選擇性雲端同步與行動端 PWA（修正 0005）|
 | [maintenance/bugs.md](maintenance/bugs.md) | Bug 追蹤索引（詳細內容見根目錄 BUGS.md） |
 
 ---

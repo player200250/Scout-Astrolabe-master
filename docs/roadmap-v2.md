@@ -203,18 +203,17 @@ type KanbanColumn = { id: string; title: string; items: { id: string; text: stri
   - 資料持久化（切換白板後回來資料不遺失）
   - 匯出 PNG/PDF 時 Kanban 卡片正確渲染
 
-#### C2 — 連結卡片 OG Metadata 抓取
-**說明**：建立連結卡片時，透過 Electron 主程序的 `ipcMain` handler 向目標 URL 發送 HTTP 請求，解析 `og:title`、`og:image`、`og:description`（以及 `<title>` fallback），回傳後顯示在卡片上（目前只抓 YouTube 標題）。純 Web 模式（`npm run dev`）無此功能，顯示 URL 字串即可。
+#### C2 — 連結卡片 OG Metadata 抓取 ✅ 完成（盤點發現已實作，2026-06-21）
+**說明**：建立連結卡片時，透過 Electron 主程序解析 `og:title`/`og:description`/`og:image`（`twitter:image` 與 `<title>` fallback）並顯示於卡片。
 
-新增 IPC 通道：`fetch-og-metadata`（input: url, output: `{ title, image, description }`）
+**現況盤點**：完整鏈路**早已存在**，原描述「目前只抓 YouTube 標題」已過時：
+- `main.js:103` IPC handler `get-link-preview`（以 `net.fetch` 抓取，regex 解析 og/meta tag）
+- `preload.js:11` 暴露 `getLinkPreview`
+- `embedUtils.ts:92` 一般 URL fallback 呼叫
+- `LinkContent.tsx:214` 渲染 `<img src={p.image}>` 封面圖
 
-- **工作量**：2 人天
-- **優先度**：🟡 中
-- **依賴**：Electron 環境；需處理逾時（3 秒）與失敗 fallback
-- **驗收標準**：
-  - 貼入 GitHub / Medium / Twitter 等支援 OG 的 URL，卡片顯示標題與封面圖
-  - OG 圖片顯示於卡片頂部（最大高度 100px）
-  - 抓取失敗時顯示 URL 字串，不 crash
+- **優先度**：✅ 已完成（剩可選細節：逾時上限、og:image 卡內高度上限可再核對）
+- **驗收標準**：✅ 貼入支援 OG 的 URL 顯示標題與封面圖；✅ 抓取失敗 fallback 不 crash
 
 #### C3 — 表格卡片強化
 **說明**：
@@ -429,6 +428,8 @@ interface AIProvider {
 ### 平台抽象層（必做）
 
 #### P1 — `src/platform/` 抽象層
+> 🔀 **2026-06-21 併入行動端計畫**：此項即 [roadmap-mobile.md](roadmap-mobile.md) 的 **S0(a)**，為手機 PWA 編譯的前置。以行動端路線圖為準。
+
 **說明**：新增 `src/platform/` 目錄，封裝所有 Electron 依賴呼叫：
 
 ```typescript
@@ -490,6 +491,8 @@ Electron 實作透過 `window.electronAPI`；Web fallback 使用 `File System Ac
 ### 同步功能
 
 #### S1 — 雲端備份（Google Drive / Dropbox / OneDrive）
+> 🔀 **2026-06-21 部分重疊**：[roadmap-mobile.md](roadmap-mobile.md) 的雲端同步（Supabase）已涵蓋「資料上雲」核心；此項可後續整併，非獨立優先。
+
 **說明**：在備份面板新增「雲端備份」區塊。使用者授權後，每次本機自動備份同時將 JSON 備份上傳至雲端指定資料夾。策略：
 - 備份格式與本機完全相同（BoardRecord JSON array）
 - 每個白板維持最多 30 份雲端備份（與本機同步）
@@ -508,6 +511,8 @@ Electron 實作透過 `window.electronAPI`；Web fallback 使用 `File System Ac
   - 重新授權流程（token 過期）可正常完成
 
 #### S2 — 區域網路同步（LAN Sync）
+> ❌ **2026-06-21 廢棄**：核心需求是「人在外面用手機」，LAN Sync 僅在同一 Wi-Fi 有效，外網場景無效。由 [roadmap-mobile.md](roadmap-mobile.md) 的雲端同步取代。
+
 **說明**：同一 Wi-Fi 的兩台裝置間自動同步 boards。採用**主從架構**（一台作為 Host，其他為 Client），使用 mDNS 服務發現（`bonjour` / `mdns`）：
 
 1. **Host 模式**：啟動本機 HTTP server（port 12345），對外提供 `/boards` GET API
@@ -550,6 +555,8 @@ Electron 實作透過 `window.electronAPI`；Web fallback 使用 `File System Ac
 - **驗收標準**：macOS 上所有卡片類型可建立/編輯；快捷鍵正常；DMG 安裝包可在 macOS 12 安裝執行
 
 #### X2 — Web 版本（PWA）
+> 🔀 **2026-06-21 併入行動端計畫**：PWA 即手機端載體，見 [roadmap-mobile.md](roadmap-mobile.md) S0–S3。但定位調整為**「看全部 + 簡單編輯，不含畫布」**——手機不跑 tldraw，僅以清單渲染卡片。下方原「完整畫布 Web 版」描述僅供桌面瀏覽器情境參考。
+
 **說明**：利用 P1 平台抽象層，將 App 發布為可在瀏覽器中執行的 PWA：
 - 資料層：`platform/storage.ts` 在 Web 版切換為 `OPFS`（Origin Private File System）或 `IndexedDB` direct
 - 檔案功能：使用 `File System Access API`（不支援時降級為下載/上傳）
@@ -715,6 +722,8 @@ UI：白板右上角顯示在線用戶頭像（隨機顏色），游標追蹤（
 ---
 
 ### M4 — 行動端（iOS/Android）
+
+> ❌ **2026-06-21 取消（自用定位）**：自用不需原生全功能客戶端。行動端改以 **PWA「看全部 + 簡單編輯」** 滿足，見 [roadmap-mobile.md](roadmap-mobile.md)。下方 React Native 規劃保留供未來「若要商業化原生體驗」時參考，非現行計畫。
 
 #### MOB1 — React Native 版本（核心功能）
 **說明**：以 React Native 重新實作行動端介面（不複用 tldraw，改用原生觸控手勢的輕量畫布）。核心功能：
