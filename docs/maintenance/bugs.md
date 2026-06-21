@@ -22,7 +22,8 @@
 | Medium | 0 | 全部修復或列為設計決策（M1–M11） |
 | Low | 0 | 全部修復（L1–L5） |
 | 設計決策 | 1 | M9：軟刪白板時不逐一歸檔內部卡片 |
-| 新發現待追蹤 | 0 | — |
+| 已修（部分）| 1 | P1-OOM：備份堆積導致 renderer OOM 白屏（備份已修，圖片治本待辦）|
+| 待辦（已記錄，之後處理）| 1 | TD-IMG：image 卡 base64 內嵌 snapshot，記憶體/體積過重 |
 
 ---
 
@@ -35,6 +36,38 @@
 **決策**：目前行為為預期設計。使用者需還原整個白板才能取回其中的卡片。若需個別還原，未來可考慮在刪除白板時批次寫入 `deletedCards`。
 
 **影響**：使用 `DeleteBoardDialog` 的「將卡片移到收件匣」選項可在刪板前先搶救卡片。
+
+---
+
+## 效能 / 記憶體問題
+
+### P1-OOM：大型 vault 啟動白屏（renderer OOM）— 備份部分已修（2026-06-21）
+
+**現象**：開啟沒多久整個螢幕白色、無限重載。`render-process-gone` 顯示 `reason:'oom'`（整個 renderer 程序被殺，非 JS 例外，故 ErrorBoundary 抓不到）。
+
+**診斷**：使用者 466 張卡、IndexedDB 達 2.7GB；`http_localhost.indexeddb.blob` 3.1GB、`.leveldb` 僅 1MB；blob 為多份 ~63MB 等大檔。現用資料其實只 ~63MB，元兇是 `saveAutoBackup` 每份備份複製「全 vault 含 base64 圖片」且保留 30 份（`MAX_BACKUPS=30`）。使用者機器僅 7.9GB RAM。
+
+**已修（commit cf105dc）**：
+- `MAX_BACKUPS` 30→5；新增 `trimBackups()`（只刪 key 不載 blob）；`useBoardManager` 啟動載入後、render 前先 trim
+- `main.js` 拉高 V8 heap（`--max-old-space-size=4096`）止血
+- 縮圖改大板跳過/小板節流（commit f9673bc）；根節點 ErrorBoundary + 全域錯誤浮層（commit c33e84c）
+
+**現況**：使用者另把卡片分散到子白板，單板負載降低後暫時不再白屏（治標）。
+
+**備註**：IndexedDB blob 延遲回收，trim 後磁碟空間不會立即釋放。
+
+---
+
+### TD-IMG：image 卡 base64 內嵌 snapshot（待辦，之後處理）
+
+**問題**：`image` 卡把圖片以 base64 存在 board snapshot 內 → 載入/渲染/備份都吃滿記憶體與體積；是 P1-OOM 的深層病根。`file` 卡已採「存檔案、只存路徑」（`storedName`，見 `files/` 目錄），image 卡尚未。
+
+**治本方向**：image 卡比照 file 卡改存檔案、卡片只存路徑；需寫 base64→檔案的資料遷移、改 `ImageContent` 渲染。屬中等工程。
+
+**決策（2026-06-21）**：**先記錄、之後處理**。自用情境下先以「分散到子白板 + 備份降量」過渡；待白屏復發或管理變麻煩再做。
+
+**狀態**：待辦
+**最後更新**：2026-06-21
 
 ---
 
