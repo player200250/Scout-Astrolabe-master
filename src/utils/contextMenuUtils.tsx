@@ -433,7 +433,7 @@ export function useContextMenu({
                             setTableColumns(editor, hitShape.id, n)
                         },
                     }))
-                    items.push({ icon: '▦', label: '欄數', submenu: colSubmenu })
+                    items.push({ icon: '▦', label: '欄數', action: () => {}, submenu: colSubmenu })
                 }
 
                 // 存為模板：僅限純文字卡片

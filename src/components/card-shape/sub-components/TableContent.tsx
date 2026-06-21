@@ -1,6 +1,13 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
+import type { ReactNode } from 'react'
 import { useIsDarkMode } from '@tldraw/editor'
 import { useEditor } from 'tldraw'
+import {
+    DndContext, closestCenter, PointerSensor, useSensor, useSensors,
+    type DragEndEvent,
+} from '@dnd-kit/core'
+import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import type { TLCardShape, TableRow } from '../type/CardShape'
 
 interface TableContentProps {
@@ -9,6 +16,40 @@ interface TableContentProps {
 
 function genId() {
     return `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
+}
+
+type SortableReturn = ReturnType<typeof useSortable>
+interface RowHandle {
+    setActivatorNodeRef: SortableReturn['setActivatorNodeRef']
+    listeners: SortableReturn['listeners']
+    attributes: SortableReturn['attributes']
+}
+
+/**
+ * 可排序的表格列。用 render-prop 讓 cell JSX 留在原本的 closure 裡（不必把十多個
+ * handler/state 當 props 傳）。transform 套在 <tr>，拖曳把手套 activator listeners。
+ */
+function SortableRow({ id, onMouseEnter, onMouseLeave, children }: {
+    id: string
+    onMouseEnter?: () => void
+    onMouseLeave?: () => void
+    children: (handle: RowHandle) => ReactNode
+}) {
+    const { setNodeRef, setActivatorNodeRef, listeners, attributes, transform, transition, isDragging } = useSortable({ id })
+    return (
+        <tr
+            ref={setNodeRef}
+            onMouseEnter={onMouseEnter}
+            onMouseLeave={onMouseLeave}
+            style={{
+                transform: CSS.Transform.toString(transform),
+                transition,
+                opacity: isDragging ? 0.5 : 1,
+            }}
+        >
+            {children({ setActivatorNodeRef, listeners, attributes })}
+        </tr>
+    )
 }
 
 export function TableContent({ shape }: TableContentProps) {
@@ -106,6 +147,21 @@ export function TableContent({ shape }: TableContentProps) {
         editor.updateShape({ id: shape.id, type: 'card', props: { tableData: newData, h: newH } })
     }, [editor, shape.id, tableData, cols])
 
+    // distance 約束：純點擊（進格編輯）不會誤觸發拖曳
+    const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }))
+
+    const handleRowDragEnd = useCallback((e: DragEndEvent) => {
+        const { active, over } = e
+        if (!over || active.id === over.id) return
+        const oldIndex = tableData.findIndex(r => r.id === active.id)
+        const newIndex = tableData.findIndex(r => r.id === over.id)
+        if (oldIndex < 0 || newIndex < 0) return
+        const newData = [...tableData]
+        const [moved] = newData.splice(oldIndex, 1)
+        newData.splice(newIndex, 0, moved)
+        editor.updateShape({ id: shape.id, type: 'card', props: { tableData: newData } })
+    }, [editor, shape.id, tableData])
+
     const borderColor = isDark ? '#334155' : '#e8e8e8'
     const headerBg = isDark ? '#334155' : '#f5f5f5'
     const oddRowBg = isDark ? '#1e293b' : '#fafafa'
@@ -115,101 +171,127 @@ export function TableContent({ shape }: TableContentProps) {
     return (
         <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
-                    <tbody>
-                        {tableData.map((row, rowIdx) => {
-                            const isHeader = headerRow && rowIdx === 0
-                            const isOdd = rowIdx % 2 === 1
-                            const rowBg = isHeader ? headerBg : isOdd ? oddRowBg : (isDark ? 'transparent' : '#ffffff')
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleRowDragEnd}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+                        <tbody>
+                            <SortableContext items={tableData.map(r => r.id)} strategy={verticalListSortingStrategy}>
+                                {tableData.map((row, rowIdx) => {
+                                    const isHeader = headerRow && rowIdx === 0
+                                    const isOdd = rowIdx % 2 === 1
+                                    const rowBg = isHeader ? headerBg : isOdd ? oddRowBg : (isDark ? 'transparent' : '#ffffff')
+                                    const showRowControls = hoveredRow === rowIdx && tableData.length > 1
 
-                            return (
-                                <tr
-                                    key={row.id}
-                                    onMouseEnter={() => setHoveredRow(rowIdx)}
-                                    onMouseLeave={() => setHoveredRow(null)}
-                                >
-                                    {row.cells.map((cell, colIdx) => {
-                                        const isEditing = editingCell?.rowIdx === rowIdx && editingCell?.colIdx === colIdx
-                                        return (
-                                            <td
-                                                key={cell.id}
-                                                onPointerDown={(e) => {
-                                                    if (!editor.getSelectedShapeIds().includes(shape.id)) return
-                                                    e.stopPropagation()
-                                                    enterCell(rowIdx, colIdx)
-                                                }}
-                                                style={{
-                                                    background: rowBg,
-                                                    border: `1px solid ${borderColor}`,
-                                                    padding: 0,
-                                                    position: 'relative',
-                                                    height: isHeader ? 40 : 36,
-                                                    cursor: 'text',
-                                                }}
-                                            >
-                                                {isEditing ? (
-                                                    <input
-                                                        ref={inputRef}
-                                                        value={cell.content}
-                                                        onChange={(e) => updateCell(rowIdx, colIdx, e.target.value)}
-                                                        onKeyDown={(e) => handleKeyDown(e, rowIdx, colIdx)}
-                                                        onBlur={handleCellBlur}
-                                                        onPointerDown={(e) => e.stopPropagation()}
-                                                        style={{
-                                                            position: 'absolute', inset: 0,
-                                                            width: '100%', height: '100%',
-                                                            border: 'none',
-                                                            outline: `2px solid #3b82f6`,
-                                                            outlineOffset: -2,
-                                                            background: isDark ? '#1e3a5f' : '#eff6ff',
-                                                            padding: '0 12px',
-                                                            fontSize: 13,
-                                                            fontWeight: isHeader ? 500 : 400,
-                                                            color: textColor,
-                                                            boxSizing: 'border-box',
-                                                            fontFamily: 'inherit',
+                                    return (
+                                        <SortableRow
+                                            key={row.id}
+                                            id={row.id}
+                                            onMouseEnter={() => setHoveredRow(rowIdx)}
+                                            onMouseLeave={() => setHoveredRow(null)}
+                                        >
+                                            {(handle) => row.cells.map((cell, colIdx) => {
+                                                const isEditing = editingCell?.rowIdx === rowIdx && editingCell?.colIdx === colIdx
+                                                return (
+                                                    <td
+                                                        key={cell.id}
+                                                        onPointerDown={(e) => {
+                                                            if (!editor.getSelectedShapeIds().includes(shape.id)) return
+                                                            e.stopPropagation()
+                                                            enterCell(rowIdx, colIdx)
                                                         }}
-                                                    />
-                                                ) : (
-                                                    <div style={{
-                                                        padding: '0 12px',
-                                                        fontSize: 13,
-                                                        fontWeight: isHeader ? 500 : 400,
-                                                        color: textColor,
-                                                        height: '100%',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        overflow: 'hidden',
-                                                        textOverflow: 'ellipsis',
-                                                        whiteSpace: 'nowrap',
-                                                        userSelect: 'none',
-                                                    }}>
-                                                        {cell.content}
-                                                    </div>
-                                                )}
-                                                {colIdx === cols - 1 && hoveredRow === rowIdx && tableData.length > 1 && (
-                                                    <button
-                                                        onPointerDown={(e) => { e.stopPropagation(); deleteRow(rowIdx) }}
                                                         style={{
-                                                            position: 'absolute', right: 4,
-                                                            top: '50%', transform: 'translateY(-50%)',
-                                                            background: 'none', border: 'none',
-                                                            cursor: 'pointer', color: '#ef4444',
-                                                            padding: '0 2px', fontSize: 16, lineHeight: 1,
-                                                            display: 'flex', alignItems: 'center',
+                                                            background: rowBg,
+                                                            border: `1px solid ${borderColor}`,
+                                                            padding: 0,
+                                                            position: 'relative',
+                                                            height: isHeader ? 40 : 36,
+                                                            cursor: 'text',
                                                         }}
                                                     >
-                                                        ×
-                                                    </button>
-                                                )}
-                                            </td>
-                                        )
-                                    })}
-                                </tr>
-                            )
-                        })}
-                    </tbody>
-                </table>
+                                                        {isEditing ? (
+                                                            <input
+                                                                ref={inputRef}
+                                                                value={cell.content}
+                                                                onChange={(e) => updateCell(rowIdx, colIdx, e.target.value)}
+                                                                onKeyDown={(e) => handleKeyDown(e, rowIdx, colIdx)}
+                                                                onBlur={handleCellBlur}
+                                                                onPointerDown={(e) => e.stopPropagation()}
+                                                                style={{
+                                                                    position: 'absolute', inset: 0,
+                                                                    width: '100%', height: '100%',
+                                                                    border: 'none',
+                                                                    outline: `2px solid #3b82f6`,
+                                                                    outlineOffset: -2,
+                                                                    background: isDark ? '#1e3a5f' : '#eff6ff',
+                                                                    padding: '0 12px',
+                                                                    fontSize: 13,
+                                                                    fontWeight: isHeader ? 500 : 400,
+                                                                    color: textColor,
+                                                                    boxSizing: 'border-box',
+                                                                    fontFamily: 'inherit',
+                                                                }}
+                                                            />
+                                                        ) : (
+                                                            <div style={{
+                                                                padding: colIdx === 0 ? '0 12px 0 18px' : '0 12px',
+                                                                fontSize: 13,
+                                                                fontWeight: isHeader ? 500 : 400,
+                                                                color: textColor,
+                                                                height: '100%',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                overflow: 'hidden',
+                                                                textOverflow: 'ellipsis',
+                                                                whiteSpace: 'nowrap',
+                                                                userSelect: 'none',
+                                                            }}>
+                                                                {cell.content}
+                                                            </div>
+                                                        )}
+                                                        {colIdx === 0 && showRowControls && (
+                                                            <button
+                                                                ref={handle.setActivatorNodeRef}
+                                                                {...handle.attributes}
+                                                                {...handle.listeners}
+                                                                onPointerDown={(e) => { e.stopPropagation(); handle.listeners?.onPointerDown?.(e) }}
+                                                                title="拖曳排序"
+                                                                style={{
+                                                                    position: 'absolute', left: 1,
+                                                                    top: '50%', transform: 'translateY(-50%)',
+                                                                    background: 'none', border: 'none',
+                                                                    cursor: 'grab', color: mutedColor,
+                                                                    padding: '0 1px', fontSize: 13, lineHeight: 1,
+                                                                    display: 'flex', alignItems: 'center',
+                                                                    touchAction: 'none',
+                                                                }}
+                                                            >
+                                                                ⠿
+                                                            </button>
+                                                        )}
+                                                        {colIdx === cols - 1 && showRowControls && (
+                                                            <button
+                                                                onPointerDown={(e) => { e.stopPropagation(); deleteRow(rowIdx) }}
+                                                                style={{
+                                                                    position: 'absolute', right: 4,
+                                                                    top: '50%', transform: 'translateY(-50%)',
+                                                                    background: 'none', border: 'none',
+                                                                    cursor: 'pointer', color: '#ef4444',
+                                                                    padding: '0 2px', fontSize: 16, lineHeight: 1,
+                                                                    display: 'flex', alignItems: 'center',
+                                                                }}
+                                                            >
+                                                                ×
+                                                            </button>
+                                                        )}
+                                                    </td>
+                                                )
+                                            })}
+                                        </SortableRow>
+                                    )
+                                })}
+                            </SortableContext>
+                        </tbody>
+                    </table>
+                </DndContext>
             </div>
 
             {/* Add row footer */}

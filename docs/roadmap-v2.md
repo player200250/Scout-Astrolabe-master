@@ -218,7 +218,7 @@ type KanbanColumn = { id: string; title: string; items: { id: string; text: stri
 #### C3 — 表格卡片強化
 **說明**：
 1. ✅ **標題行切換（C3-1，2026-06-21）**：右鍵選單「開啟/關閉標題列」切換 `tableHeaderRow`（未設視為開啟，向後相容）；開啟時第一列以標題樣式顯示。順手修掉原本「首列硬編碼為標題、無法關閉」的瑕疵。
-2. **列拖曳排序**：列左側新增拖曳把手（`⠿`），使用 `@dnd-kit/sortable` 實作
+2. ✅ **列拖曳排序（C3-3，2026-06-21）**：列左側 hover 顯示拖曳把手（`⠿`），`@dnd-kit/sortable`（`SortableRow` render-prop + `DndContext`/`SortableContext`）；放開後重排 `tableData`。把手 `onPointerDown` stopPropagation 與 tldraw 隔離。注意：tldraw 縮放 ≠ 1 時拖曳位移視覺會略偏（dnd-kit 平移未隨畫布縮放），近 100% 縮放正常。
 3. ✅ **欄數快速切換（C3-2，2026-06-21）**：右鍵「欄數」子選單（2/3/4），增欄補空格、減欄截斷最右欄；減欄且該欄有資料時 `window.confirm` 確認後才清除。（實作於右鍵選單而非屬性列，與 C3-1 一致）
 
 - **工作量**：2 人天
