@@ -31,7 +31,7 @@ function ThemeSync({ isDark }: { isDark: boolean }) {
 interface WhiteboardProps {
     board: BoardRecord
     boards: BoardRecord[]
-    onSaveBoard: (snapshot: TLEditorSnapshot, thumbnail: string | null) => void
+    onSaveBoard: (snapshot: TLEditorSnapshot, thumbnail?: string | null) => void
     jumpRef: React.MutableRefObject<((shapeId: string, x: number, y: number) => void) | null>
     onOpenSearch: () => void
     onOpenHotkey: () => void

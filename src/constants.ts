@@ -10,6 +10,12 @@ export const JUMP_DELAY_MS = 400
 // 儲存成功狀態的顯示時間
 export const SAVE_STATUS_RESET_MS = 400
 
+// 白板縮圖產生（exportToBlob 整板 PNG，成本隨卡片數成長）：
+// 超過此卡片數的白板跳過縮圖，避免高頻存檔時凍結/白屏
+export const THUMBNAIL_SHAPE_LIMIT = 150
+// 小板縮圖最短重產間隔（不跟著每次 500ms 存檔跑）
+export const THUMBNAIL_MIN_INTERVAL_MS = 15000
+
 // Z-index 層級規範
 // 100   : 白板內部浮動 UI（工具列按鈕選單）
 // 9999  : 白板匯出選單

@@ -16,7 +16,7 @@ import { getEmbedData, fetchLinkMeta } from './card-shape/utils/embedUtils'
 import { saveCardToTrash, getCardPreview } from '../utils/trashUtils'
 import { sanitizeSnapshot, sanitizeCardProps } from '../utils/snapshot'
 import type { SnapshotShapeProps } from '../utils/snapshot'
-import { JUMP_DELAY_MS, Z_TOOL_SUBMENU } from '../constants'
+import { JUMP_DELAY_MS, Z_TOOL_SUBMENU, THUMBNAIL_SHAPE_LIMIT, THUMBNAIL_MIN_INTERVAL_MS } from '../constants'
 import { emitAppEvent, onAppEvent } from '../utils/appEvents'
 import { getExportBtnStyle } from '../utils/whiteboardUtils'
 
@@ -58,7 +58,7 @@ async function compressImage(dataUrl: string): Promise<string> {
 interface WhiteboardToolsProps {
     board: BoardRecord
     boards: BoardRecord[]
-    onSaveBoard: (snapshot: TLEditorSnapshot, thumbnail: string | null) => void
+    onSaveBoard: (snapshot: TLEditorSnapshot, thumbnail?: string | null) => void
     jumpRef: React.MutableRefObject<((shapeId: string, x: number, y: number) => void) | null>
     onOpenSearch: () => void
     onOpenHotkey: () => void
@@ -644,11 +644,22 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
         } catch { return null }
     }, [editor])
 
+    // 縮圖很貴（exportToBlob 把整板所有 shape 渲染成 PNG），不應跟著每次編輯跑。
+    // 大板直接跳過（避免凍結/白屏），小板最多每 THUMBNAIL_MIN_INTERVAL_MS 產一次。
+    // 存 snapshot（資料安全）照舊每 500ms；thumbnail 傳 undefined＝保留現有。
+    const lastThumbnailAtRef = useRef(0)
+
     const saveDebounce = useCallback(() => {
         if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
         saveTimerRef.current = setTimeout(async () => {
             const snap = getSnapshot(editor.store) as TLEditorSnapshot
-            const thumbnail = await generateThumbnail()
+            const shapeCount = editor.getCurrentPageShapeIds().size
+            let thumbnail: string | null | undefined = undefined
+            if (shapeCount <= THUMBNAIL_SHAPE_LIMIT &&
+                Date.now() - lastThumbnailAtRef.current > THUMBNAIL_MIN_INTERVAL_MS) {
+                thumbnail = await generateThumbnail()
+                lastThumbnailAtRef.current = Date.now()
+            }
             onSaveBoardRef.current(snap, thumbnail)
             saveTimerRef.current = null
         }, 500)

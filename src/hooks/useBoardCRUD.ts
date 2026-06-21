@@ -28,11 +28,14 @@ export interface BoardCRUDSharedState {
 export function useBoardCRUD(state: BoardCRUDSharedState) {
     const { boards, setBoards, activeBoardId } = state
 
-    const handleSaveBoard = useCallback((snapshot: TLEditorSnapshot, thumbnail: string | null) => {
+    // thumbnail 傳 undefined＝保留現有縮圖（用於高頻存檔時不重產昂貴的整板 PNG）；
+    // 傳 string/null＝明確覆蓋。
+    const handleSaveBoard = useCallback((snapshot: TLEditorSnapshot, thumbnail?: string | null) => {
         if (!activeBoardId) return
         const board = boards.find(b => b.id === activeBoardId)
         if (!board) return
-        const updated = { ...board, snapshot, thumbnail, updatedAt: Date.now() }
+        const nextThumbnail = thumbnail === undefined ? board.thumbnail : thumbnail
+        const updated = { ...board, snapshot, thumbnail: nextThumbnail, updatedAt: Date.now() }
         saveBoard(updated).catch(err => console.error('[handleSaveBoard] DB 寫入失敗', err))
         setBoards(prev => prev.map(b => b.id === activeBoardId ? updated : b))
     }, [activeBoardId, boards, setBoards])
