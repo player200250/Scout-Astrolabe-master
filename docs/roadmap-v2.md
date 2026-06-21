@@ -156,14 +156,14 @@
 | `S` | 新增便利貼 | ✅ |
 | `Shift+N` | 新增標題卡片 | ✅ |
 | `Shift+T` | 新增表格卡片 | ✅ |
-| `K` | 新增 Kanban 看板卡片 | ⏸ 待 C1 完成後啟用 |
+| `K` | 新增 Kanban 看板卡片 | ❌ 取消（C1 已跳過）|
 
 實作：`HotkeyActions` 新增三個 optional handler；`Usehotkeys.tsx` 非修飾鍵分支以 `e.shiftKey` 將 `N`/`T` 分流（`Shift+N`→標題、`Shift+T`→表格），新增 `S`→便利貼；`WhiteboardTools` 將既有 `createStickyCard/createHeadingCard/createTableCard` 接入 `useHotkeys`。`HotkeyPanel`「新增卡片」段同步顯示。新增 `Usehotkeys.test.tsx`（4 案例：分流、input 內不觸發），全專案 234 測試全綠。
 
 - **工作量**：0.5 人天（實際）
 - **優先度**：🟡 中
 - **依賴**：B1 完成後確認無快捷鍵衝突（已確認 `S`/`Shift+N`/`Shift+T` 與工具/面板鍵無衝突）
-- **驗收標準**：✅ `HotkeyPanel` 顯示新快捷鍵；✅ 按鍵分派經單元測試驗證；`K` 因 Kanban（C1）未實作暫緩
+- **驗收標準**：✅ `HotkeyPanel` 顯示新快捷鍵；✅ 按鍵分派經單元測試驗證；`K`（Kanban）因 C1 已跳過而取消
 
 #### B3 — 搜尋面板類型篩選
 **說明**：在搜尋輸入框下方新增 chip 篩選列（全部 / 文字 / 待辦 / 連結 / 便利貼 / 表格 / …），點選後縮小搜尋範圍至該卡片類型。
@@ -185,7 +185,14 @@
 
 ### C 類：新功能
 
-#### C1 — Kanban 看板卡片
+#### C1 — Kanban 看板卡片 ❌ 跳過（2026-06-21）
+> **決定：不做。** 理由：
+> 1. **與既有功能互補但邊際價值低**：Kanban 是「階段視角」（按 `cardStatus` 分欄），而 App 已有 TaskCenter（死線視角）+ 卡片狀態徽章 + 右鍵批次改狀態。自用情境下「拖動換階段」的手感增益不足以justify一個新型別。
+> 2. **避免型別膨脹**：現有 11 種卡片型別已偏多；新增 `kanban` 型別會在匯出/搜尋/批次/sanitize/記憶體全面增加維護面。參考 Heptabase（萬用卡+區塊）與 Milanote（容器組合）的「少型別」哲學——**優先用組合（如 frame）而非新型別**。
+> 3. **真實需求已被滿足**：追問後發現使用者要的其實是「TaskCenter 看得出任務來源白板」，已以來源白板 chip 解決（commit 833ed90），與 Kanban 無關。
+>
+> 若未來確有「階段看板」需求，正解是「按 `cardStatus` 分組的視圖」或「frame + 現有卡片」組合，而非新增卡片型別。以下原規劃保留供參。
+
 **說明**：新增 `type: 'kanban'` 卡片，在卡片內顯示三欄（待辦 / 進行中 / 完成），每欄可新增文字項目、拖曳排序、刪除。卡片尺寸預設 500×360px，可自由縮放。資料結構：
 
 ```typescript
@@ -249,12 +256,12 @@ Markdown → TipTap 使用 `marked`（新增依賴，或手動解析常見語法
 
 所有以下條件同時成立，才視為 v1.2.0 完成：
 
-1. **TypeScript 零錯誤**：`tsc --noEmit` 輸出 0 errors
-2. **ESLint 零警告**：`eslint src/ --ext .ts,.tsx` 輸出 0 warnings
-3. **App.tsx 精簡**：面板相關 `useState` 全部移除；檔案行數 ≤ 200 行
-4. **useBoardManager 拆分**：原檔降至 ≤ 80 行；5 個 sub-hook 各自 ≤ 200 行
+1. **TypeScript 零錯誤**：以 `npm run build`（`tsc -b`）驗證 0 errors（注意：`npx tsc --noEmit` 有盲點會漏抓）
+2. **ESLint 零警告**：`eslint src/ --ext .ts,.tsx` 輸出 0 warnings（目前仍有數個 exhaustive-deps，多為刻意）
+3. **App.tsx 精簡**：面板相關 `useState` 全部移除（✅ A1）；檔案行數 ≤ 200 行（未達，現 365；A2 已結案不強求）
+4. **useBoardManager 拆分**：✅ 已拆 8 sub-hook（A2 結案，主檔行數目標調整為現實標準）
 5. **技術債清單**：TD1–TD5、TD7 全部標記為 ✅ 已解決
-6. **新功能驗收**：C1–C4 各自通過對應驗收標準
+6. **新功能驗收**：C2 ✅（盤點已實作）、C3 ✅（三項完成）、**C1 ❌ 跳過**、C4 ⬜ 可做可不做（🟢 低）
 7. **無功能迴歸**：既有 11 種卡片類型基本操作（建立/編輯/刪除/移動/匯出）手動全部驗證通過
 
 ---
