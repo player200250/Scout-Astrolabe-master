@@ -35,6 +35,7 @@ const mocks = vi.hoisted(() => {
         generateId: vi.fn(() => 'id_x'),
         db: { table: vi.fn((_name: string) => tableApi) },
         saveAutoBackup: vi.fn(async () => undefined),
+        trimBackups: vi.fn(async () => 0),
     }
 })
 
@@ -48,6 +49,7 @@ vi.mock('../utils/boardDb', () => ({
 vi.mock('../db', () => ({
     db: mocks.db,
     saveAutoBackup: mocks.saveAutoBackup,
+    trimBackups: mocks.trimBackups,
 }))
 
 // 替身設定完才能 import hook（import 時 hook 內部就會抓到替身版的 boardDb/db）

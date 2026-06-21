@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { db, type BoardRecord } from '../db'
+import { db, trimBackups, type BoardRecord } from '../db'
 import type { DeletedCardRecord } from '../db'
 import { getISOWeekKey } from '../utils/weeklyReviewUtils'
 import { loadAllBoards, saveBoard, deleteBoard, generateId } from '../utils/boardDb'
@@ -52,6 +52,13 @@ export function useBoardManager() {
             if (!granted) console.warn('[Storage] 持久化未授權，資料可能被清除')
         })
         loadAllBoards().then(async loaded => {
+            // 啟動即清理超量自動備份（每份備份含全 vault base64 圖片，30 份會撐到數 GB）。
+            // 只刪 key、不載 blob，記憶體成本低；放在 render 前先回收。
+            try {
+                const trimmed = await trimBackups()
+                if (trimmed > 0) console.log(`[backup] 已清理 ${trimmed} 份超量備份`)
+            } catch (err) { console.error('[backup] trimBackups 失敗', err) }
+
             // Auto-cleanup expired trash items
             const cutoff = Date.now() - TRASH_EXPIRE_MS
             const expiredBoards = loaded.filter(b => b.deletedAt && b.deletedAt < cutoff)

@@ -12,6 +12,11 @@ const __dirname = dirname(__filename);
 
 app.setPath('userData', path.join(app.getPath('appData'), 'Scout-Astrolabe'));
 
+// 大型 vault（數百張卡、含 base64 圖片）會把所有 snapshot 載入記憶體，
+// 預設 V8 heap 上限不足會導致 renderer OOM 崩潰（白屏）。先拉高上限止血。
+// 治本仍需延遲載入 snapshot / 將圖片移出 base64。
+app.commandLine.appendSwitch('js-flags', '--max-old-space-size=4096');
+
 const store = new Store();
 
 function createWindow() {

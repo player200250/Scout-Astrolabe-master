@@ -59,17 +59,25 @@ db.version(7)
     }))
 db.version(8).stores({ snapshots: 'id', boards: 'id, deletedAt, folderId', backups: 'id, timestamp', templates: 'id, createdAt', deletedCards: 'id, deletedAt, boardId, shapeId' })
 
-export const MAX_BACKUPS = 30
+// 每份備份都是「全部白板的完整 snapshot（含 base64 圖片）」的複製。
+// 原本保留 30 份 → 一個含圖片的 vault 會被複製 30 次，輕易把 IndexedDB 撐到數 GB、
+// 並在備份寫入時造成記憶體尖峰導致 renderer OOM。降到 5 份。
+export const MAX_BACKUPS = 5
+
+/** 刪除超過 MAX_BACKUPS 的舊備份。只比對 timestamp 鍵、不載入 blob，記憶體成本低。 */
+export async function trimBackups(): Promise<number> {
+    const keys = await db.table('backups').orderBy('timestamp').primaryKeys()
+    if (keys.length <= MAX_BACKUPS) return 0
+    const toDelete = keys.slice(0, keys.length - MAX_BACKUPS)
+    await db.table('backups').bulkDelete(toDelete)
+    return toDelete.length
+}
 
 export async function saveAutoBackup(boards: BoardRecord[]): Promise<void> {
     const now = Date.now()
     const record: BackupRecord = { id: `backup_${now}`, timestamp: now, boardCount: boards.length, boards }
     await db.table('backups').put(record)
-    const all: BackupRecord[] = await db.table('backups').orderBy('timestamp').toArray()
-    if (all.length > MAX_BACKUPS) {
-        const toDelete = all.slice(0, all.length - MAX_BACKUPS)
-        await Promise.all(toDelete.map(b => db.table('backups').delete(b.id)))
-    }
+    await trimBackups()
 }
 
 export async function loadBackups(): Promise<BackupRecord[]> {
