@@ -35,8 +35,29 @@ function createWindow() {
     return { action: 'allow' };
   });
 
-  if (app.isPackaged) {
+  // 診斷：把 renderer 的 console 轉發到主程序終端，並攔截崩潰/載入失敗，
+  // 方便排查白屏（renderer 程序崩潰時 React 邊界與全域監聽都無能為力）。
+  // 注意：Electron 35+ 的 console-message 改為單一 event 物件，這裡相容兩種簽名。
+  win.webContents.on('console-message', (e, level, message, line, sourceId) => {
+    if (typeof e === 'object' && e && 'message' in e) {
+      console.log(`[renderer:${e.level}] ${e.message} (${e.sourceId}:${e.lineNumber})`);
+    } else {
+      console.log(`[renderer:${level}] ${message} (${sourceId}:${line})`);
+    }
+  });
+  win.webContents.on('render-process-gone', (_e, details) => {
+    console.error('❌ renderer 程序結束（白屏元兇）:', details);
+  });
+  win.webContents.on('did-fail-load', (_e, code, desc, url) => {
+    console.error('❌ 頁面載入失敗:', code, desc, url);
+  });
+
+  // ELECTRON_PROD_TEST=1：用 file:// 載入正式建置的 dist（= 安裝版的環境與 IndexedDB origin），
+  // 方便在不打包整個安裝程式的情況下重現「只在安裝版發生」的白屏。
+  const prodTest = process.env.ELECTRON_PROD_TEST === '1';
+  if (app.isPackaged || prodTest) {
     win.loadFile(path.join(__dirname, 'dist/index.html'));
+    if (prodTest) win.webContents.openDevTools(); // 診斷用：正式安裝版不開
   } else {
     win.loadURL('http://localhost:5173');
     win.webContents.openDevTools(); // 調試中
