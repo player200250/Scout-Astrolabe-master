@@ -56,7 +56,29 @@
       "Bash(xargs -I{} sh -c 'printf \"%4d  %s\\\\n\" \"$\\(wc -l < \"{}\"\\)\" \"{}\"')",
       "Bash(sort -t/ -k2)",
       "Bash(awk '/^### [BC] 類|^#### [BC][0-9]/{p=1} /^## v1.3.0/{p=0} p' docs/roadmap-v2.md)",
-      "Bash(grep \"node_modules/playwright$\")"
+      "Bash(grep \"node_modules/playwright$\")",
+      "PowerShell(\"useBoardManager.ts: $\\(\\(Get-Content src/hooks/useBoardManager.ts | Measure-Object -Line\\).Lines\\)\"; \"useAutoBackup.ts: $\\(\\(Get-Content src/hooks/useAutoBackup.ts | Measure-Object -Line\\).Lines\\)\"; \"boardSanitize.ts: $\\(\\(Get-Content src/utils/boardSanitize.ts | Measure-Object -Line\\).Lines\\)\")",
+      "Bash(npx vite *)",
+      "PowerShell(npx tsc --noEmit 2>&1 | Select-Object -First 40)",
+      "PowerShell(npx vitest run 2>&1 | Select-Object -Last 35)",
+      "PowerShell(npx vitest run 2>&1 | Select-Object -Last 12)",
+      "PowerShell(npm run *)",
+      "PowerShell(npx eslint src/ --ext .ts,.tsx 2>&1 | Select-Object -Last 20)",
+      "PowerShell(npx tsc --noEmit 2>&1 | Select-Object -First 20)",
+      "PowerShell(npx tsc --noEmit; if \\($?\\) { \"TSC OK\" })",
+      "PowerShell(npx vitest run 2>&1 | Select-Object -Last 20)",
+      "PowerShell(npx vitest run src/Usehotkeys.test.tsx 2>&1 | Select-Object -Last 25)",
+      "PowerShell(npx vitest run 2>&1 | Select-Object -Last 5; \"---LINT---\"; npx eslint src/Usehotkeys.tsx src/Usehotkeys.test.tsx src/components/WhiteboardTools.tsx src/HotkeyPanel.tsx 2>&1 | Select-Object -Last 15; if \\($?\\) { \"LINT OK\" })",
+      "PowerShell(git add *)",
+      "PowerShell(\\(Get-Content src/App.tsx | Measure-Object -Line\\).Lines; echo \"---lint---\"; npx eslint src/App.tsx src/hooks/usePanelState.ts src/components/BoardTabBar.tsx src/components/SidebarFooter.tsx 2>&1 | Select-Object -Last 20)",
+      "PowerShell(npx eslint src/App.tsx src/hooks/usePanelState.ts src/hooks/usePanelState.test.ts src/components/BoardTabBar.tsx src/components/SidebarFooter.tsx src/components/SidebarFooter.test.tsx 2>&1 | Select-Object -Last 15; echo \"exit:$LASTEXITCODE\")",
+      "PowerShell(\\(Get-Content src/hooks/useBoardManager.ts | Measure-Object -Line\\).Lines; echo \"---hooks dir---\"; Get-ChildItem src/hooks -Name)",
+      "PowerShell(npx tsc --noEmit; \"tsc exit: $?\")",
+      "PowerShell(npx eslint src/ --ext .ts,.tsx 2>&1 | Select-Object -Last 30; \"eslint exit: $LASTEXITCODE\")",
+      "PowerShell(npx tsc --noEmit; \"tsc: $?\")",
+      "PowerShell(npx eslint src/hooks/useBoardCRUD.ts src/components/WhiteboardTools.tsx src/components/Whiteboard.tsx src/constants.ts 2>&1 | Select-Object -Last 15; \"eslint exit: $LASTEXITCODE\")",
+      "PowerShell(npx tsc --noEmit 2>&1 | Select-Object -First 20; \"tsc: $?\")",
+      "PowerShell(npm *)"
     ]
   }
 }
