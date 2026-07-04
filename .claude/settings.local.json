@@ -80,7 +80,9 @@
       "PowerShell(npx tsc --noEmit 2>&1 | Select-Object -First 20; \"tsc: $?\")",
       "PowerShell(npm *)",
       "PowerShell(git log origin/main..main --oneline | Measure-Object | Select-Object -ExpandProperty Count | ForEach-Object { \"本機 main 領先 origin/main $_ 個 commit\" }; echo \"--- 領先的 commit ---\"; git log origin/main..main --oneline)",
-      "PowerShell(git push *)"
+      "PowerShell(git push *)",
+      "Bash(mkdir -p /tmp/shots)",
+      "Bash(ELECTRON_PROD_TEST=1 ./node_modules/electron/dist/electron.exe --icu-data-dir=node_modules/electron/dist .)"
     ]
   }
 }
