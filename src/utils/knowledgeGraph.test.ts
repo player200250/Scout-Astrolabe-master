@@ -10,7 +10,7 @@
 import { describe, it, expect } from 'vitest'
 import type { TLEditorSnapshot } from 'tldraw'
 import type { BoardRecord } from '../db'
-import { buildGraph, type GraphLink } from './knowledgeGraph'
+import { buildGraph, shouldShowNodeLabel, type GraphLink } from './knowledgeGraph'
 
 /* --------------------------------------------------------------- 捏假資料 */
 type Rec = Record<string, unknown>
@@ -102,6 +102,26 @@ describe('buildGraph — wikilink 連結（來自 forwardLinks）', () => {
         const forwardLinks = new Map<string, string[]>([['c1', ['不存在', '自己']]])
         const { links } = buildGraph(boards, forwardLinks)
         expect(links.filter(l => l.type === 'wikilink')).toHaveLength(0)
+    })
+})
+
+describe('shouldShowNodeLabel — LOD', () => {
+    it('白板標籤：globalScale > 0.6 才顯示', () => {
+        expect(shouldShowNodeLabel('board', 5, 0.7)).toBe(true)
+        expect(shouldShowNodeLabel('board', 5, 0.6)).toBe(false)
+        expect(shouldShowNodeLabel('board', 5, 0.3)).toBe(false)
+    })
+
+    it('卡片標籤：需 val ≥ 3 且放大（globalScale > 1.2）', () => {
+        expect(shouldShowNodeLabel('card', 3, 1.5)).toBe(true)
+        expect(shouldShowNodeLabel('card', 5, 1.2)).toBe(false) // 剛好 1.2 不顯示
+        expect(shouldShowNodeLabel('card', 2, 2)).toBe(false)   // val 太低
+        expect(shouldShowNodeLabel('card', 3, 1.0)).toBe(false) // 未放大
+    })
+
+    it('縮到全局（globalScale 很小）時卡片與白板標籤都隱藏', () => {
+        expect(shouldShowNodeLabel('card', 10, 0.2)).toBe(false)
+        expect(shouldShowNodeLabel('board', 10, 0.2)).toBe(false)
     })
 })
 

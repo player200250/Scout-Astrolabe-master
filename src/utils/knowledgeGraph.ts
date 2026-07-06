@@ -34,6 +34,23 @@ function hsl(idx: number, total: number, l: number): string {
 }
 
 /**
+ * LOD（Level of Detail）：依 react-force-graph 的 `globalScale`（縮放層級，
+ * 1 為預設、< 1 為縮小、> 1 為放大）決定是否繪製節點標籤。
+ * 縮小看全局時隱藏標籤，避免文字重疊、省下繪製。
+ *   - 白板：較重要，縮到 0.6 以上就顯示。
+ *   - 卡片：只在放大（> 1.2）且連結度較高（val ≥ 3）時顯示。
+ */
+export function shouldShowNodeLabel(
+    type: GraphNode['type'],
+    val: number,
+    globalScale: number,
+): boolean {
+    return type === 'board'
+        ? globalScale > 0.6
+        : val >= 3 && globalScale > 1.2
+}
+
+/**
  * 建立知識圖譜資料。
  *
  * @param boards        白板清單（含 snapshot 與 parentId）。

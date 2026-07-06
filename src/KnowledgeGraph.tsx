@@ -8,7 +8,7 @@ import type { NodeObject, LinkObject } from 'react-force-graph-2d'
 const ForceGraph2D = _ForceGraph2D as any
 import type { BoardRecord } from './db'
 import { useBacklinks } from './hooks/useBacklinks'
-import { buildGraph, type GraphNode, type GraphLink } from './utils/knowledgeGraph'
+import { buildGraph, shouldShowNodeLabel, type GraphNode, type GraphLink } from './utils/knowledgeGraph'
 
 /* ------------------------------------------------------------------ types */
 // react-force-graph-2d augments nodes/links with simulation data at runtime
@@ -100,7 +100,7 @@ export function KnowledgeGraph({ boards, onClose, onJumpToCard, onSwitchBoard }:
         }
     }, [])
 
-    const paintNode = useCallback((node: GraphNodeObject, ctx: CanvasRenderingContext2D) => {
+    const paintNode = useCallback((node: GraphNodeObject, ctx: CanvasRenderingContext2D, globalScale: number) => {
         const r = Math.sqrt(Math.max(node.val, 1)) * 3.2
         ctx.beginPath()
         if (node.type === 'board') {
@@ -111,7 +111,7 @@ export function KnowledgeGraph({ boards, onClose, onJumpToCard, onSwitchBoard }:
         }
         ctx.fillStyle = node.color; ctx.fill()
         if (node.type === 'board') { ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 1.5; ctx.stroke() }
-        if (node.type === 'board' || node.val >= 3) {
+        if (shouldShowNodeLabel(node.type, node.val, globalScale)) {
             const lbl = node.name.slice(0, 20)
             ctx.font = `${node.type === 'board' ? 10 : 9}px system-ui`
             ctx.fillStyle = node.type === 'board' ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.6)'
