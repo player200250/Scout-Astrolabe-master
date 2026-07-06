@@ -7,104 +7,13 @@ import type { NodeObject, LinkObject } from 'react-force-graph-2d'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const ForceGraph2D = _ForceGraph2D as any
 import type { BoardRecord } from './db'
-import { getCardShapes } from './utils/snapshot'
+import { useBacklinks } from './hooks/useBacklinks'
+import { buildGraph, type GraphNode, type GraphLink } from './utils/knowledgeGraph'
 
 /* ------------------------------------------------------------------ types */
-interface GraphNode extends NodeObject {
-    id: string
-    name: string
-    type: 'card' | 'board'
-    boardId: string
-    boardName: string
-    color: string
-    val: number
-}
-
-interface GraphLink {
-    source: string
-    target: string
-    type: 'wikilink' | 'parent'
-}
-
 // react-force-graph-2d augments nodes/links with simulation data at runtime
 type GraphNodeObject = NodeObject<GraphNode>
 type GraphLinkObject = LinkObject<GraphNode, GraphLink>
-
-/* ------------------------------------------------------------------ helpers */
-function firstLine(html: string): string {
-    return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 48) || '(empty)'
-}
-
-function extractWikilinks(text: string): string[] {
-    return (text.match(/\[\[([^\]]+)\]\]/g) ?? []).map(m => m.slice(2, -2).trim())
-}
-
-function hsl(idx: number, total: number, l: number): string {
-    const h = Math.round((idx / Math.max(total, 1)) * 360)
-    return `hsl(${h},65%,${l}%)`
-}
-
-/* ------------------------------------------------------------------ graph builder */
-function buildGraph(boards: BoardRecord[]): { nodes: GraphNode[]; links: GraphLink[] } {
-    const total = boards.length
-    const colorIdx = new Map<string, number>()
-    boards.forEach((b, i) => colorIdx.set(b.id, i))
-
-    const nodes: GraphNode[] = []
-    const links: GraphLink[] = []
-    const refCount = new Map<string, number>()
-
-    const boardByName = new Map<string, string>()
-    boards.forEach(b => boardByName.set(b.name.toLowerCase(), b.id))
-    const cardByName = new Map<string, string[]>()
-
-    // Pass 1: card nodes
-    for (const board of boards) {
-        const ci = colorIdx.get(board.id) ?? 0
-        for (const shape of getCardShapes(board.snapshot)) {
-            if (shape.props.type !== 'text' && shape.props.type !== 'journal') continue
-            const name = firstLine(shape.props.text ?? '')
-            nodes.push({ id: shape.id, name, type: 'card', boardId: board.id, boardName: board.name, color: hsl(ci, total, 60), val: 1 })
-            const key = name.toLowerCase()
-            const existing = cardByName.get(key)
-            if (existing) existing.push(shape.id)
-            else cardByName.set(key, [shape.id])
-            refCount.set(shape.id, 0)
-        }
-    }
-
-    // Pass 1b: board nodes
-    for (const board of boards) {
-        const ci = colorIdx.get(board.id) ?? 0
-        nodes.push({ id: board.id, name: board.name, type: 'board', boardId: board.id, boardName: board.name, color: hsl(ci, total, 44), val: 5 })
-        refCount.set(board.id, 0)
-    }
-
-    // Pass 2: links
-    for (const board of boards) {
-        if (board.parentId && boards.find(b => b.id === board.parentId)) {
-            links.push({ source: board.parentId, target: board.id, type: 'parent' })
-        }
-        for (const shape of getCardShapes(board.snapshot)) {
-            if (shape.props.type !== 'text' && shape.props.type !== 'journal') continue
-            for (const t of extractWikilinks(shape.props.text ?? '')) {
-                const tl = t.toLowerCase()
-                const targetId = boardByName.get(tl) ?? cardByName.get(tl)?.[0] ?? null
-                if (targetId && targetId !== shape.id) {
-                    links.push({ source: shape.id, target: targetId, type: 'wikilink' })
-                    refCount.set(targetId, (refCount.get(targetId) ?? 0) + 1)
-                }
-            }
-        }
-    }
-
-    for (const node of nodes) {
-        const rc = refCount.get(node.id) ?? 0
-        node.val = node.type === 'board' ? 5 + rc : 1 + rc
-    }
-
-    return { nodes, links }
-}
 
 /* ------------------------------------------------------------------ component */
 interface KnowledgeGraphProps {
@@ -144,7 +53,10 @@ export function KnowledgeGraph({ boards, onClose, onJumpToCard, onSwitchBoard }:
         return () => window.removeEventListener('mousemove', h)
     }, [])
 
-    const { nodes: allNodes, links: allLinks } = useMemo(() => buildGraph(boards), [boards])
+    // 複用 useBacklinks 的增量快取（forwardLinks）：wikilink 解析與全 App 一致，
+    // 且圖譜開啟期間存檔只增量重掃有異動的白板，不再整包重算。
+    const { forwardLinks } = useBacklinks(boards)
+    const { nodes: allNodes, links: allLinks } = useMemo(() => buildGraph(boards, forwardLinks), [boards, forwardLinks])
 
     const { nodes, links } = useMemo(() => {
         if (!connectedOnly) return { nodes: allNodes, links: allLinks }
