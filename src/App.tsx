@@ -38,6 +38,7 @@ export default function App() {
         handleToggleCollapse, handleGoToInbox, handleReorderBoards,
         handleAddCardToInbox, recentlyTrashedShapeIds,
         handleCreateFolder, handleSetFolder, handleDeleteFolder,
+        migrateAllNow,
     } = useBoardManager()
 
     const [isDark, setIsDark] = useState(() => {
@@ -254,6 +255,7 @@ export default function App() {
                     sidebarWidth={sidebarWidth}
                     onClose={() => closePanel('backup')}
                     onRestore={async (restoredBoards) => { await handleRestore(restoredBoards); closePanel('backup') }}
+                    onMigrateImages={migrateAllNow}
                     isDark={isDark}
                 />
             )}

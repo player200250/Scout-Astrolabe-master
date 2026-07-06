@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import type { Editor } from '@tldraw/editor'
 import type { TLCardShape } from '../type/CardShape'
 import { Z_MODAL } from '../../../constants'
+import * as imageStore from '../../../platform/imageStore'
 
 interface ImageContentProps {
     editor: Editor
@@ -31,29 +32,53 @@ export function ImageContent({ editor, shape }: ImageContentProps) {
     const p = shape.props
     const [previewOpen, setPreviewOpen] = useState(false)
 
+    // 有 storedName 走 astro-img:// protocol（省記憶體），否則 fallback 舊 base64
+    const src = imageStore.getImageSrc(p)
+
     const stop = (e: React.PointerEvent) => e.stopPropagation()
 
-    const handleDownload = (e: React.MouseEvent) => {
+    const handleDownload = async (e: React.MouseEvent) => {
         e.stopPropagation()
-        if (!p.image) return
+        if (!src) return
         const link = document.createElement('a')
-        link.href = p.image
+        if (p.storedName) {
+            try {
+                const res = await fetch(src)
+                const blob = await res.blob()
+                const objUrl = URL.createObjectURL(blob)
+                link.href = objUrl
+                link.download = p.storedName
+                link.click()
+                setTimeout(() => URL.revokeObjectURL(objUrl), 10000)
+                return
+            } catch { /* fall through to direct src */ }
+        }
+        link.href = src
         link.download = 'image.jpg'
         link.click()
     }
 
-    const handleOpenTab = (e: React.MouseEvent) => {
+    const handleOpenTab = async (e: React.MouseEvent) => {
         e.stopPropagation()
-        if (!p.image) return
-        const base64Data = p.image.split(',')[1]
-        const mimeType = p.image.split(';')[0].split(':')[1]
-        const byteCharacters = atob(base64Data)
-        const byteArray = new Uint8Array(byteCharacters.length)
-        for (let i = 0; i < byteCharacters.length; i++) {
-            byteArray[i] = byteCharacters.charCodeAt(i)
+        if (!src) return
+        let blobUrl: string
+        if (p.storedName) {
+            try {
+                const res = await fetch(src)
+                const blob = await res.blob()
+                blobUrl = URL.createObjectURL(blob)
+            } catch { return }
+        } else {
+            const base64Data = src.split(',')[1]
+            const mimeType = src.split(';')[0].split(':')[1]
+            const byteCharacters = atob(base64Data)
+            const byteArray = new Uint8Array(byteCharacters.length)
+            for (let i = 0; i < byteCharacters.length; i++) {
+                byteArray[i] = byteCharacters.charCodeAt(i)
+            }
+            const blob = new Blob([byteArray], { type: mimeType })
+            blobUrl = URL.createObjectURL(blob)
         }
-        const blob = new Blob([byteArray], { type: mimeType })
-        const blobUrl = URL.createObjectURL(blob)
         if (window.electronAPI?.openExternal) {
             window.electronAPI.openExternal(blobUrl)
         } else {
@@ -79,7 +104,7 @@ export function ImageContent({ editor, shape }: ImageContentProps) {
     return (
         <div style={{ width: '100%', height: '100%', overflow: 'hidden', position: 'relative', pointerEvents: 'none' }}>
             <img
-                src={p.image || ''}
+                src={src}
                 alt="Card Content"
                 loading="lazy"
                 draggable={false}
@@ -141,7 +166,7 @@ export function ImageContent({ editor, shape }: ImageContentProps) {
                     }}
                 >
                     <img
-                        src={p.image || ''}
+                        src={src}
                         alt="Preview"
                         draggable={false}
                         onPointerDown={e => e.stopPropagation()}

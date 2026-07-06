@@ -11,6 +11,7 @@ import {
 import { cleanupOrphanBoardCards, sanitizeBoards } from '../utils/boardSanitize'
 import { ensurePageScaffold, nextAppendX, lastShapeIndex } from '../utils/snapshotCards'
 import { useAutoBackup } from './useAutoBackup'
+import { useImageMigration } from './useImageMigration'
 import { useSidebar } from './useSidebar'
 import { useTrash } from './useTrash'
 import { useNavigation } from './useNavigation'
@@ -27,6 +28,7 @@ export function useBoardManager() {
     const [loading, setLoading] = useState(true)
 
     const { triggerAutoBackup } = useAutoBackup(boards)
+    const { migrating: imageMigrating, migrateAllNow } = useImageMigration({ boards, setBoards, activeBoardId, enabled: !loading })
     const { sidebarCollapsed, handleToggleCollapse } = useSidebar()
     const {
         trashCount, recentlyTrashedShapeIds, refreshTrashCount,
@@ -66,7 +68,7 @@ export function useBoardManager() {
             try {
                 const expiredCards: DeletedCardRecord[] = await db.table('deletedCards').where('deletedAt').below(cutoff).toArray()
                 for (const c of expiredCards) {
-                    if (c.type === 'file') {
+                    if (c.type === 'file' || c.type === 'image') {
                         const props = (c.shapeData as { props?: { storedName?: string } })?.props
                         if (props?.storedName) window.electronAPI?.deleteFile(props.storedName)
                     }
@@ -307,5 +309,7 @@ export function useBoardManager() {
         handleCreateFolder,
         handleSetFolder,
         handleDeleteFolder,
+        imageMigrating,
+        migrateAllNow,
     }
 }

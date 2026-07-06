@@ -26,6 +26,7 @@ export interface IElectronAPI {
     } | null>
     openFile: (storedName: string) => Promise<void>
     deleteFile: (storedName: string) => Promise<void>
+    saveImage: (bytes: ArrayBuffer, ext: string) => Promise<{ storedName: string }>
 }
 
 declare global {

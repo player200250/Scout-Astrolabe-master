@@ -1,7 +1,7 @@
 // 🌸 統一在頂部導入所有需要的模組
-import { app, BrowserWindow, ipcMain, dialog, shell, net } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, shell, net, protocol } from 'electron';
 import Store from 'electron-store';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 import { dirname } from 'path';
 import path from 'path';
 import fs from 'fs';
@@ -18,6 +18,13 @@ app.setPath('userData', path.join(app.getPath('appData'), 'Scout-Astrolabe'));
 app.commandLine.appendSwitch('js-flags', '--max-old-space-size=4096');
 
 const store = new Store();
+
+// 自訂 protocol：image 卡改存實體檔後，用 astro-img://<storedName> 讓 Chromium
+// 直接讀 userData/files 內的檔（不把 base64 載進 renderer JS heap，畫布 culling 時自動釋放）。
+// 必須在 app ready 前註冊為 privileged scheme。
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'astro-img', privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true } },
+]);
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -73,6 +80,24 @@ const filesDir = path.join(app.getPath('userData'), 'files')
 fs.mkdirSync(filesDir, { recursive: true })
 
 app.whenReady().then(() => {
+  // astro-img://<storedName> → 串流 userData/files/<storedName>。
+  // storedName 一律 basename 淨化，只允許讀 filesDir 內的檔（防路徑穿越）。
+  protocol.handle('astro-img', async (request) => {
+    try {
+      const url = new URL(request.url)
+      const raw = decodeURIComponent(url.hostname || url.pathname.replace(/^\/+/, ''))
+      const storedName = path.basename(raw)
+      const filePath = path.join(filesDir, storedName)
+      if (!storedName || !fs.existsSync(filePath)) {
+        return new Response('Not Found', { status: 404 })
+      }
+      return net.fetch(pathToFileURL(filePath).toString())
+    } catch (err) {
+      console.error('❌ astro-img 讀取失敗:', err)
+      return new Response('Error', { status: 500 })
+    }
+  })
+
   createWindow();
 
   app.on('activate', () => {
@@ -192,8 +217,19 @@ ipcMain.handle('open-file', async (_, storedName) => {
 })
 
 ipcMain.handle('delete-file', async (_, storedName) => {
-  const filePath = path.join(filesDir, storedName)
+  const filePath = path.join(filesDir, path.basename(storedName || ''))
   try {
     await fs.promises.unlink(filePath)
   } catch { /* 檔案不存在時忽略 */ }
+})
+
+// image 卡改存檔用：把壓縮後的圖片 bytes 寫入 filesDir，只回傳 storedName（輕量）。
+// 來源為 base64/blob（貼上、拖入、選圖），非既有檔案路徑，故不能重用 select-and-copy-file。
+ipcMain.handle('save-image', async (_, bytes, ext) => {
+  const cleaned = (ext || '.png').toLowerCase().replace(/[^.a-z0-9]/g, '')
+  const finalExt = cleaned.startsWith('.') ? cleaned : '.' + cleaned
+  const storedName = (randomUUID() + finalExt).toLowerCase()
+  const destPath = path.join(filesDir, storedName)
+  await fs.promises.writeFile(destPath, Buffer.from(bytes))
+  return { storedName }
 })

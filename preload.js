@@ -12,4 +12,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
   selectAndCopyFile: () => ipcRenderer.invoke('select-and-copy-file'),
   openFile: (storedName) => ipcRenderer.invoke('open-file', storedName),
   deleteFile: (storedName) => ipcRenderer.invoke('delete-file', storedName),
+  saveImage: (bytes, ext) => ipcRenderer.invoke('save-image', bytes, ext),
 })

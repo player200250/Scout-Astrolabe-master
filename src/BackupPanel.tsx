@@ -7,6 +7,8 @@ interface BackupPanelProps {
     sidebarWidth: number
     onClose: () => void
     onRestore: (boards: BoardRecord[]) => void
+    /** 立即把所有白板的舊 base64 圖片遷移成存檔格式；回傳遷移的白板數。 */
+    onMigrateImages?: () => Promise<number>
     isDark: boolean
 }
 
@@ -28,12 +30,30 @@ function formatFull(ts: number): string {
     return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`
 }
 
-export function BackupPanel({ sidebarWidth, onClose, onRestore, isDark }: BackupPanelProps) {
+export function BackupPanel({ sidebarWidth, onClose, onRestore, onMigrateImages, isDark }: BackupPanelProps) {
     const [backups, setBackups] = useState<BackupRecord[]>([])
     const [loading, setLoading] = useState(true)
     const [restoringId, setRestoringId] = useState<string | null>(null)
     const [deletingId, setDeletingId] = useState<string | null>(null)
     const [confirmRestore, setConfirmRestore] = useState<BackupRecord | null>(null)
+    const [migrateState, setMigrateState] = useState<'idle' | 'running' | 'done'>('idle')
+    const [migrateResult, setMigrateResult] = useState<number>(0)
+    const canMigrate = !!onMigrateImages && !!window.electronAPI?.saveImage
+
+    const handleMigrate = async () => {
+        if (!onMigrateImages || migrateState === 'running') return
+        setMigrateState('running')
+        try {
+            const n = await onMigrateImages()
+            setMigrateResult(n)
+            setMigrateState('done')
+            const all = await loadBackups()
+            setBackups(all)
+        } catch (err) {
+            console.error('圖片遷移失敗', err)
+            setMigrateState('idle')
+        }
+    }
 
     useEffect(() => {
         loadBackups().then(all => { setBackups(all); setLoading(false) })
@@ -111,7 +131,7 @@ export function BackupPanel({ sidebarWidth, onClose, onRestore, isDark }: Backup
                 <div style={{ padding: '14px 16px', borderBottom: `1px solid ${headerBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
                     <div>
                         <div style={{ fontSize: 15, fontWeight: 600, color: titleColor }}>🔒 自動備份</div>
-                        <div style={{ fontSize: 11, color: '#aaa', marginTop: 2 }}>共 {backups.length} 份備份，最多保留 30 份</div>
+                        <div style={{ fontSize: 11, color: '#aaa', marginTop: 2 }}>共 {backups.length} 份備份，最多保留 5 份</div>
                     </div>
                     <button
                         onClick={onClose}
@@ -179,6 +199,30 @@ export function BackupPanel({ sidebarWidth, onClose, onRestore, isDark }: Backup
                         ))
                     )}
                 </div>
+
+                {canMigrate && (
+                    <div style={{ padding: '10px 16px', borderTop: `1px solid ${headerBorder}`, flexShrink: 0 }}>
+                        <button
+                            onClick={handleMigrate}
+                            disabled={migrateState === 'running'}
+                            style={{
+                                width: '100%', padding: '8px', borderRadius: 8,
+                                border: `1px solid ${restoreBtnBorder}`, background: restoreBtnBg,
+                                cursor: migrateState === 'running' ? 'default' : 'pointer',
+                                fontSize: 12, fontWeight: 500, color: restoreBtnColor,
+                            }}
+                            onMouseEnter={e => { if (migrateState !== 'running') e.currentTarget.style.background = hoverBg }}
+                            onMouseLeave={e => (e.currentTarget.style.background = restoreBtnBg)}
+                        >
+                            {migrateState === 'running' ? '遷移中…' : '🗜️ 立即遷移舊圖片為存檔'}
+                        </button>
+                        <div style={{ fontSize: 11, color: '#bbb', marginTop: 6, lineHeight: 1.5 }}>
+                            {migrateState === 'done'
+                                ? `完成：已遷移 ${migrateResult} 個白板的圖片`
+                                : '把舊的內嵌 base64 圖片改存成檔案，縮小資料庫與備份體積'}
+                        </div>
+                    </div>
+                )}
 
                 <div style={{ padding: '10px 16px', borderTop: `1px solid ${headerBorder}`, flexShrink: 0, fontSize: 11, color: '#bbb', lineHeight: 1.6 }}>
                     備份在切換白板或關閉 App 時自動建立（每 5 分鐘最多一次）

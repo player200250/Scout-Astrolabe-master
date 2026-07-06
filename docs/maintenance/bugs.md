@@ -22,8 +22,8 @@
 | Medium | 0 | 全部修復或列為設計決策（M1–M11） |
 | Low | 0 | 全部修復（L1–L5） |
 | 設計決策 | 1 | M9：軟刪白板時不逐一歸檔內部卡片 |
-| 已修（部分）| 1 | P1-OOM：備份堆積導致 renderer OOM 白屏（備份已修，圖片治本待辦）|
-| 待辦（已記錄，之後處理）| 1 | TD-IMG：image 卡 base64 內嵌 snapshot，記憶體/體積過重 |
+| 已修（部分）| 1 | P1-OOM：備份堆積導致 renderer OOM 白屏（備份已修，圖片治本 TD-IMG 已完成）|
+| 已修 | 1 | TD-IMG：image 卡 base64 改存實體檔（astro-img protocol + 混合式遷移）|
 
 ---
 
@@ -58,16 +58,20 @@
 
 ---
 
-### TD-IMG：image 卡 base64 內嵌 snapshot（待辦，之後處理）
+### TD-IMG：image 卡 base64 改存實體檔（已完成，2026-07-04）
 
-**問題**：`image` 卡把圖片以 base64 存在 board snapshot 內 → 載入/渲染/備份都吃滿記憶體與體積；是 P1-OOM 的深層病根。`file` 卡已採「存檔案、只存路徑」（`storedName`，見 `files/` 目錄），image 卡尚未。
+**問題**：`image` 卡把圖片以 base64 存在 board snapshot 內 → 載入/渲染/備份都吃滿記憶體與體積；是 P1-OOM 的深層病根。base64 會擴散到 `boards` snapshot、`backups`（複製全 vault ×5）、`deletedCards` 四處。
 
-**治本方向**：image 卡比照 file 卡改存檔案、卡片只存路徑；需寫 base64→檔案的資料遷移、改 `ImageContent` 渲染。屬中等工程。
+**治本做法（已實作）**：
+- **渲染**：新增自訂 protocol `astro-img://<storedName>`（`main.js` `protocol.handle` 串流 `userData/files`，basename 淨化防穿越），Chromium 直接讀檔、不進 JS heap，畫布 culling 時自動釋放。
+- **儲存**：新增 `save-image` IPC（bytes→storedName）；建立 image 卡改走 `src/platform/imageStore.ts`（薄接縫，roadmap S0(a) 首個落地），snapshot 只存 `storedName`、`image:null`。渲染統一走 `getImageSrc`（storedName 優先、否則 fallback 舊 base64，向後相容）。
+- **遷移（混合式）**：`src/hooks/useImageMigration.ts` 背景 idle 逐板遷移（跳過 active 板、冪等、可中斷續傳），遷移期間暫停 autoBackup、全部遷完做一次乾淨備份＋trim；BackupPanel 另有「立即遷移」手動鈕。
+- **清理**：image 卡永久刪除/過期時比照 file 卡刪實體檔。
 
-**決策（2026-06-21）**：**先記錄、之後處理**。自用情境下先以「分散到子白板 + 備份降量」過渡；待白屏復發或管理變麻煩再做。
+**驗證**：`npm run build` exit 0；vitest 254 全綠（新增 imageMigration/getImageSrc 純函式測試）；run-desktop 啟動畫面正常、log 無 render-process-gone。
 
-**狀態**：待辦
-**最後更新**：2026-06-21
+**狀態**：已完成
+**最後更新**：2026-07-04
 
 ---
 

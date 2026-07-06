@@ -19,6 +19,7 @@ import type { SnapshotShapeProps } from '../utils/snapshot'
 import { JUMP_DELAY_MS, Z_TOOL_SUBMENU, THUMBNAIL_SHAPE_LIMIT, THUMBNAIL_MIN_INTERVAL_MS } from '../constants'
 import { emitAppEvent, onAppEvent } from '../utils/appEvents'
 import { getExportBtnStyle } from '../utils/whiteboardUtils'
+import * as imageStore from '../platform/imageStore'
 
 function isCardShape(s: { type: string }): s is TLCardShape {
     return s.type === 'card'
@@ -92,9 +93,25 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
         editor.createShape({ type: 'card', x, y, props: { type: 'link', text: '', image: null, todos: [], url: 'https://example.com', linkEmbedUrl: null, state: 'idle', color: 'none', cardStatus: 'none', priority: 'none', tags: [], w: 280, h: 200 } })
     }, [editor])
 
-    const createImageCard = useCallback((imgBase64: string) => {
-        editor.createShape({ type: 'card', props: { type: 'image', text: '', image: imgBase64, todos: [], url: '', state: 'idle', w: 280, h: 200 } })
+    // image 卡改存實體檔：壓縮後的 data URL 交給 imageStore 存檔，snapshot 只留 storedName；
+    // 無 electronAPI（未來 PWA）或存檔失敗時 fallback 存舊 base64（含遠端 URL）。（TD-IMG）
+    const createImageShape = useCallback(async (
+        dataUrl: string,
+        opts: { x?: number; y?: number; w?: number; h?: number } = {}
+    ) => {
+        const { x, y, w = 280, h = 200 } = opts
+        const storedName = await imageStore.saveImage(dataUrl)
+        editor.createShape({
+            type: 'card', x, y,
+            props: storedName
+                ? { type: 'image', text: '', image: null, storedName, todos: [], url: '', state: 'idle', w, h }
+                : { type: 'image', text: '', image: dataUrl, todos: [], url: '', state: 'idle', w, h },
+        })
     }, [editor])
+
+    const createImageCard = useCallback((imgBase64: string) => {
+        void createImageShape(imgBase64)
+    }, [createImageShape])
 
     const createHeadingCard = useCallback((x?: number, y?: number) => {
         const center = editor.getViewportScreenCenter()
@@ -403,7 +420,7 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
                     reader.onload = async () => {
                         const compressed = await compressImage(reader.result as string)
                         const vp = editor.getViewportPageBounds()
-                        editor.createShape({ type: 'card', x: vp.x + vp.w / 2 - 140, y: vp.y + vp.h / 2 - 100, props: { type: 'image', text: '', image: compressed, todos: [], url: '', state: 'idle', w: 280, h: 200 } })
+                        await createImageShape(compressed, { x: vp.x + vp.w / 2 - 140, y: vp.y + vp.h / 2 - 100 })
                     }
                     reader.readAsDataURL(file)
                 }
@@ -425,12 +442,13 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
                         reader.onload = async () => {
                             const compressed = await compressImage(reader.result as string)
                             const vp = editor.getViewportPageBounds()
-                            editor.createShape({ type: 'card', x: vp.x + vp.w / 2 - 140, y: vp.y + vp.h / 2 - 100, props: { type: 'image', text: '', image: compressed, todos: [], url: '', state: 'idle', w: 280, h: 200 } })
+                            await createImageShape(compressed, { x: vp.x + vp.w / 2 - 140, y: vp.y + vp.h / 2 - 100 })
                         }
                         reader.readAsDataURL(blob)
                     } catch {
                         const vp = editor.getViewportPageBounds()
-                        editor.createShape({ type: 'card', x: vp.x + vp.w / 2 - 140, y: vp.y + vp.h / 2 - 100, props: { type: 'image', text: '', image: imgUrl, todos: [], url: '', state: 'idle', w: 280, h: 200 } })
+                        // 抓取遠端圖失敗：fallback 存遠端 URL 於 image 欄（imageStore 對非 data URL 回 null）
+                        await createImageShape(imgUrl, { x: vp.x + vp.w / 2 - 140, y: vp.y + vp.h / 2 - 100 })
                     }
                     return
                 }
@@ -786,7 +804,7 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
                         const reader = new FileReader()
                         reader.onload = async () => {
                             const compressed = await compressImage(reader.result as string)
-                            editor.createShape({ type: 'card', x, y, props: { type: 'image', text: '', image: compressed, todos: [], url: '', state: 'idle', w: CARD_W, h: CARD_H } })
+                            await createImageShape(compressed, { x, y, w: CARD_W, h: CARD_H })
                         }
                         reader.readAsDataURL(file)
                     })

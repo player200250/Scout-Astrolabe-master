@@ -102,7 +102,7 @@ export function TrashPanel({
         const record: DeletedCardRecord | undefined = await db.table('deletedCards').get(id)
         if (record) {
             emitAppEvent('permanent-delete-shape', { shapeId: record.shapeId, boardId: record.boardId })
-            if (record.type === 'file') {
+            if (record.type === 'file' || record.type === 'image') {
                 const props = (record.shapeData as { props?: { storedName?: string } })?.props
                 if (props?.storedName) {
                     window.electronAPI?.deleteFile(props.storedName)
@@ -129,7 +129,7 @@ export function TrashPanel({
         cancelConfirm()
         for (const card of deletedCards) {
             emitAppEvent('permanent-delete-shape', { shapeId: card.shapeId, boardId: card.boardId })
-            if (card.type === 'file') {
+            if (card.type === 'file' || card.type === 'image') {
                 const props = (card.shapeData as { props?: { storedName?: string } })?.props
                 if (props?.storedName) {
                     window.electronAPI?.deleteFile(props.storedName)

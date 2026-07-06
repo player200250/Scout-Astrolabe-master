@@ -18,6 +18,7 @@ import { CARD_COLORS, STICKY_COLORS, STICKY_COLOR_LIST } from './type/CardShape'
 import type { StickyColor } from './type/CardShape'
 import { Z_MODAL } from '../../constants'
 import { emitAppEvent, onAppEvent } from '../../utils/appEvents'
+import * as imageStore from '../../platform/imageStore'
 
 function toStickyColor(color: string): StickyColor {
     return STICKY_COLOR_LIST.includes(color as StickyColor) ? (color as StickyColor) : 'yellow'
@@ -213,7 +214,7 @@ function CardShapeComponent({ shape, editor }: { shape: TLCardShape; editor: Edi
                     }}
                 >
                     <img
-                        src={p.image || ''}
+                        src={imageStore.getImageSrc(p)}
                         alt="Preview"
                         style={{
                             maxWidth: '95vw', maxHeight: '88vh',
@@ -228,7 +229,7 @@ function CardShapeComponent({ shape, editor }: { shape: TLCardShape; editor: Edi
                         onPointerDown={(e) => e.stopPropagation()}
                     >
                         <a
-                            href={p.image || ''}
+                            href={imageStore.getImageSrc(p)}
                             download="image"
                             style={{
                                 display: 'flex', alignItems: 'center', gap: 6,
@@ -251,18 +252,28 @@ function CardShapeComponent({ shape, editor }: { shape: TLCardShape; editor: Edi
                                 border: '1px solid rgba(255,255,255,0.2)',
                                 backdropFilter: 'blur(8px)',
                             }}
-                            onPointerDown={(e) => {
+                            onPointerDown={async (e) => {
                                 e.stopPropagation()
-                                if (!p.image) return
-                                const base64Data = p.image.split(',')[1]
-                                const mimeType = p.image.split(';')[0].split(':')[1]
-                                const byteCharacters = atob(base64Data)
-                                const byteArray = new Uint8Array(byteCharacters.length)
-                                for (let i = 0; i < byteCharacters.length; i++) {
-                                    byteArray[i] = byteCharacters.charCodeAt(i)
+                                const src = imageStore.getImageSrc(p)
+                                if (!src) return
+                                let blobUrl: string
+                                if (p.storedName) {
+                                    try {
+                                        const res = await fetch(src)
+                                        const blob = await res.blob()
+                                        blobUrl = URL.createObjectURL(blob)
+                                    } catch { return }
+                                } else {
+                                    const base64Data = src.split(',')[1]
+                                    const mimeType = src.split(';')[0].split(':')[1]
+                                    const byteCharacters = atob(base64Data)
+                                    const byteArray = new Uint8Array(byteCharacters.length)
+                                    for (let i = 0; i < byteCharacters.length; i++) {
+                                        byteArray[i] = byteCharacters.charCodeAt(i)
+                                    }
+                                    const blob = new Blob([byteArray], { type: mimeType })
+                                    blobUrl = URL.createObjectURL(blob)
                                 }
-                                const blob = new Blob([byteArray], { type: mimeType })
-                                const blobUrl = URL.createObjectURL(blob)
                                 if (window.electronAPI?.openExternal) {
                                     window.electronAPI.openExternal(blobUrl)
                                 } else {
@@ -389,7 +400,7 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
         const type = shape.props.type
 
         if (type === 'image') {
-            if (shape.props.image) {
+            if (shape.props.image || shape.props.storedName) {
                 this.editor.updateShape({
                     id: shape.id, type: 'card',
                     props: { preview: true },
