@@ -3,7 +3,7 @@ import type { Dispatch, SetStateAction } from 'react'
 import type { BoardRecord } from '../db'
 import { saveBoard } from '../utils/boardDb'
 import { getSnapshotStore, withUpdatedStore, toMutableSnapshot, toTLEditorSnapshot } from '../utils/snapshot'
-import { ensurePageScaffold, nextAppendX, lastShapeIndex } from '../utils/snapshotCards'
+import { ensurePageScaffold, nextAppendX, lastShapeIndex, gridLayout, nextGridSlot } from '../utils/snapshotCards'
 import { emitAppEvent } from '../utils/appEvents'
 
 /** useInboxCards 需共用的核心 board state（由 useBoardManager 傳入） */
@@ -17,7 +17,7 @@ export interface InboxCardsSharedState {
  * - handleAddCardToInbox：更新 inbox snapshot（供非 inbox 板算 inboxCardCount）＋ 發 quick-capture-card
  *   事件（供 inbox 板 editor 即時顯示）。
  * - handleMoveCardsToBoard：從來源板（sourceBoardId，省略則預設收件匣）移除一或多張 shape、
- *   依序附加至目標白板末尾（水平排開避免重疊），逐張發 delete-shape-from-editor 事件。
+ *   以網格排列附加至目標白板既有內容右側（近正方形、避免長龍與重疊），逐張發 delete-shape-from-editor 事件。
  *   來源板即當前 active editor 顯示的板，故可泛用於任意白板（非僅收件匣）。
  * - handleMoveCardToBoard：單卡版，委派給 handleMoveCardsToBoard（保留既有 API、預設 inbox 來源）。
  */
@@ -49,19 +49,22 @@ export function useInboxCards(state: InboxCardsSharedState) {
         }
         saveBoard(updatedSource)
 
-        // Compute updated target (shapes appended, laid out horizontally)
+        // Compute updated target (shapes appended, laid out as a grid — D6：避免一路往右排成長龍)
         const targetBoard = boards.find(b => b.id === targetBoardId)
         let updatedTarget: BoardRecord | null = null
         if (targetBoard) {
             const snap = toMutableSnapshot(targetBoard.snapshot)
             const st = snap.document.store
             const pageId = ensurePageScaffold(st)
-            let x = nextAppendX(st)
-            for (const { id, shape } of moving) {
-                st[id] = { ...structuredClone(shape), parentId: pageId, x, y: 100 }
-                const w = (shape as { props?: { w?: number } }).props?.w ?? 240
-                x += w + 40
-            }
+            // 網格錨在既有內容右側（nextAppendX），整批以近正方形排列、不與既有卡重疊
+            const dims = moving.map(({ shape }) => ({
+                w: (shape as { props?: { w?: number } }).props?.w ?? 240,
+                h: (shape as { props?: { h?: number } }).props?.h ?? 180,
+            }))
+            const positions = gridLayout(dims, nextAppendX(st), 100)
+            moving.forEach(({ id, shape }, i) => {
+                st[id] = { ...structuredClone(shape), parentId: pageId, x: positions[i].x, y: positions[i].y }
+            })
             updatedTarget = { ...targetBoard, snapshot: toTLEditorSnapshot(snap), updatedAt: Date.now() }
             saveBoard(updatedTarget)
         }
@@ -90,12 +93,13 @@ export function useInboxCards(state: InboxCardsSharedState) {
 
         const pageId = ensurePageScaffold(store)
         const newIndex = lastShapeIndex(store) + 'V'
-        const maxX = nextAppendX(store)
+        // D6：收件匣改網格落點，避免快速捕捉卡一路往右排成超長橫列
+        const { x: slotX, y: slotY } = nextGridSlot(store)
 
         const newShapeId = `shape:qc_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
         store[newShapeId] = {
             typeName: 'shape', id: newShapeId, type: 'card',
-            x: maxX, y: 100, rotation: 0, index: newIndex,
+            x: slotX, y: slotY, rotation: 0, index: newIndex,
             parentId: pageId, isLocked: false, opacity: 1, meta: {},
             props: {
                 type: 'text', text,
@@ -110,7 +114,7 @@ export function useInboxCards(state: InboxCardsSharedState) {
         saveBoard(updated)
         setBoards(prev => prev.map(b => b.id === inboxBoard.id ? updated : b))
 
-        emitAppEvent('quick-capture-card', { text, x: maxX, y: 100, shapeId: newShapeId })
+        emitAppEvent('quick-capture-card', { text, x: slotX, y: slotY, shapeId: newShapeId })
     }, [boards, setBoards])
 
     return {

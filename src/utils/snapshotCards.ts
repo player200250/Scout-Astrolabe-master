@@ -44,3 +44,47 @@ export function lastShapeIndex(store: TLSnapshotStore): string {
         .sort()
     return existingIndices[existingIndices.length - 1] ?? 'a0'
 }
+
+/** 網格排列預設：卡片尺寸與格距（與新建卡片預設 240×180 一致） */
+const DEFAULT_CARD_W = 240
+const DEFAULT_CARD_H = 180
+const GRID_GAP = 40
+
+export interface CardDims { w: number; h: number }
+export interface GridPos { x: number; y: number }
+
+/**
+ * 將一批卡片以近正方形網格排列（欄數 = ceil(√n)），回傳每張的左上座標。
+ * 以 (startX, startY) 為整批左上錨點；欄步/列步取批次中最大卡片尺寸 + gap，確保不重疊。
+ * 取代原本「y 固定、x 逐張右移」的長龍排列（D6，批次搬卡）。
+ */
+export function gridLayout(cards: CardDims[], startX: number, startY: number, gap = GRID_GAP): GridPos[] {
+    const n = cards.length
+    if (n === 0) return []
+    const cols = Math.ceil(Math.sqrt(n))
+    const colStep = Math.max(...cards.map(c => c.w)) + gap
+    const rowStep = Math.max(...cards.map(c => c.h)) + gap
+    return cards.map((_, i) => ({
+        x: startX + (i % cols) * colStep,
+        y: startY + Math.floor(i / cols) * rowStep,
+    }))
+}
+
+/**
+ * 收件匣單張快速捕捉卡的下一個網格槽位：以現有 shape 數量決定落點，固定 cols 欄、
+ * 錨點 (startX, startY)、格距 cellW×cellH。取代原本「一路往右 append」導致的超長橫列（D6，快速捕捉）。
+ */
+export function nextGridSlot(
+    store: TLSnapshotStore,
+    cols = 5,
+    cellW = DEFAULT_CARD_W + GRID_GAP,
+    cellH = DEFAULT_CARD_H + GRID_GAP,
+    startX = 100,
+    startY = 100,
+): GridPos {
+    const count = Object.values(store).filter(r => r.typeName === 'shape').length
+    return {
+        x: startX + (count % cols) * cellW,
+        y: startY + Math.floor(count / cols) * cellH,
+    }
+}
