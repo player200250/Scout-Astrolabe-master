@@ -126,6 +126,50 @@
 - **依賴**：無
 - **驗收標準**：✅ 無孤立引用；`tsc -b` 零錯誤；228 測試全綠
 
+#### A6 — 知識圖譜（`KnowledgeGraph.tsx`）優化（Bundle A ✅ / Bundle B ✅ / Bundle C 🟢 暫緩）
+**背景**：盤點知識圖譜功能，發現其自成一套 wikilink 解析，與 App 其他部分（`useBacklinks` / `BacklinksPanel` / `appEvents` 實際跳轉）不一致，會畫出與真實連結語意不符的連線；同時重現了 TD4/TD5/A4 已清除的病灶。分三個 Bundle：
+
+**Bundle A — wikilink 解析對齊 ✅ 完成（2026-07-06）**
+> 做法：把 `buildGraph` 抽成純函式 `src/utils/knowledgeGraph.ts`，卡片命名改用 `extractCardName`、wikilink 連結改取 `useBacklinks` 的增量快取 `forwardLinks`（已 stripHtml + 去重）；`KnowledgeGraph.tsx` 改呼叫 `useBacklinks(boards)`（圖譜在 App 頂層、不在 Whiteboard 的 BacklinksContext 內，故自帶一份 hook 實例，開啟時全掃一次、之後存檔增量）。移除本地 `firstLine` / `extractWikilinks`，並把原「每板掃兩遍」收斂為單遍。
+> 驗收：✅ 連線命名與 BacklinksPanel/`[[]]` 跳轉一致（含 H1 標題卡）；✅ 無本地 extractWikilinks/firstLine；✅ wikilink 解析改走增量快取（不再重新解析 HTML）；✅ `npm run build` exit 0、263 測試全綠、ESLint 0；✅ 新增 `src/utils/knowledgeGraph.test.ts`（9 案例）。
+
+<details><summary>原問題與修法（保留供參）</summary>
+1. **命名不一致**：圖譜用 `firstLine()`（去 tag 後前 48 字）當卡片名並據此連線，但全 App 其他處用 `extractCardName()`（優先 H1/H2 標題，否則前 40 字）。→ 有標題的卡片，圖上連線與實際 `[[xxx]]` 跳轉目標**對不上**。
+2. **`extractWikilinks` 直接吃原始 HTML、不 `stripHtml`、不去重**（`KnowledgeGraph.tsx:38`），而 `useBacklinks.extractLinks` 先 stripHtml 再去重 → 分歧解析、重複連線。**TD5 病灶再現**。
+3. **`firstLine` 自行去 tag** 未用 `stringUtils.stripHtml` → **A4 已修的行內標籤誤插空格 CJK bug 重生**（`<strong>重點</strong>筆記`→`重點 筆記`）。
+4. **`buildGraph` 全量掃描 O(boards×shapes)，`useMemo([boards])`** → 圖譜開著時每次任一白板存檔整包重算，**TD4 病灶再現**。
+
+   **修法**：改為複用 `useBacklinks` 已算好的增量快取（`forwardLinks`）與 `extractCardName`，一次解決 1–4：連線語意與 App 一致、消重複邏輯、順帶去掉全量重掃。
+
+- **工作量**：1–1.5 人天
+- **優先度**：🔴 高（正確性，且與既有技術債清理同調）
+- **依賴**：`useBacklinks`（A3 已完成）、`stringUtils.stripHtml`（A4 已完成）
+- **驗收標準**：
+  - 圖譜連線的來源/目標與 BacklinksPanel、`[[xxx]]` 實際跳轉完全一致（含 H1 標題卡）
+  - `KnowledgeGraph.tsx` 不再有本地 `extractWikilinks` / `firstLine` 去 tag 實作
+  - 圖譜開啟期間存檔不再觸發全量重掃（複用增量快取）
+  - `npm run build` exit 0、既有測試全綠；補圖譜 graph builder 單元測試
+
+</details>
+
+**Bundle B — 繪製優化 ✅ 完成（2026-07-06）**
+5. ~~**每個 board 掃兩遍**：Pass 1 與 Pass 2 各呼叫一次 `getCardShapes`~~ ✅ 已於 Bundle A 順手收斂為單遍（連結改取 forwardLinks 後不需再掃第二遍）。
+6. ~~**`paintNode` 未用 `globalScale` 做 LOD**~~ ✅ `paintNode` 加第三參數 `globalScale`，標籤顯示改由純函式 `shouldShowNodeLabel(type,val,globalScale)` 判斷（白板 > 0.6 顯示、卡片需 val≥3 且 > 1.2）→ 縮小看全局自動隱藏標籤、免重疊省重繪。補 3 條 LOD 單元測試。
+
+- **工作量**：0.5 人天
+- **優先度**：🟡 中（不動資料語意，風險極低）
+- **依賴**：無（可與 Bundle A 分開）
+- **驗收標準**：縮小到全局視圖時標籤自動隱藏、無重疊；`getCardShapes` 每板僅呼叫一次
+
+**Bundle C — 功能/UX 增強（🟢 低，較主觀，暫緩）**
+- 只有 text/journal 是節點；卡片與所屬白板無歸屬連線 → 無 wikilink 的卡是孤點（可加白板↔卡片歸屬邊，或維持現況靠「只顯示有連結的節點」toggle）
+- 大圖無搜尋/聚焦/highlight、開啟無 zoom-to-fit
+- 同名卡只連第一張、board 名恆優先於 card 名，歧義靜默處理
+
+- **優先度**：🟢 低（屬新需求，非債務；roadmap 未列，日後再議）
+
+> **建議排程**：先做 Bundle A（治本、與技術債清理同調），再視情況接 Bundle B；Bundle C 暫緩。
+
 ---
 
 ### B 類：UX 改善
@@ -263,6 +307,60 @@ Markdown → TipTap 使用 `marked`（新增依賴，或手動解析常見語法
 5. **技術債清單**：TD1–TD5、TD7 全部標記為 ✅ 已解決
 6. **新功能驗收**：C2 ✅（盤點已實作）、C3 ✅（三項完成）、**C1 ❌ 跳過**、C4 ⬜ 可做可不做（🟢 低）
 7. **無功能迴歸**：既有 11 種卡片類型基本操作（建立/編輯/刪除/移動/匯出）手動全部驗證通過
+
+---
+
+## 待辦彙整（2026-07-04 手動測試 + AI 提案盤點）
+
+> 來源：使用者手動測試逐項回報（D1–D8）＋ 外部 AI 的 18 條功能提案（去重、現況校正後）。
+> 詳細記錄見 [`docs/maintenance/manual-test-2026-07-04.md`](maintenance/manual-test-2026-07-04.md)。
+> 原則：交叉引用既有項目（A6/C4/E1/AI-4/AI-8/TD-IMG），**不重複造輪子**；已實作者不列為新功能。
+> 優先序：🔴 高 ／ 🟡 中 ／ 🟢 低 ／ 🔵 觀察。前置依賴標於各列。
+
+### 一、手動測試發現（D1–D8，多為 UX/效能，歸 v1.2.0 B 類補充）
+
+| ID | 發現 | 優先序 | 前置依賴 | 落點 / 備註 |
+|----|------|--------|---------|------------|
+| B5（D3） | 白板預覽卡片無法區分主板/子板 | 🟡 中 | 無（`parentId` 已有） | 子板加父板標籤/層級 badge，低風險 |
+| B6（D5） | 卡片庫列表檢視辨識度不足（無文字標籤、類型無色、文字卡未分層） | 🟡 中 | 無（`TYPE_LABEL` 已有） | 列表補標籤+類型上色+標題分層 |
+| B7（D6） | 大量物件一律橫向排列 | 🟡 中 | 無 | `useInboxCards.ts` 搬卡/建卡改網格換行；未來圖片集體上傳共用 |
+| B8（D4） | 側邊欄拖拽歸類（拖進資料夾） | 🟡 中 | 無（`@dnd-kit` 已用） | 把右鍵「移入資料夾」升級為拖放（方案 A）；「最近使用」本質自動排序，不做拖排序 |
+| B9（D2） | 右鍵選單無規範文件（可發現性差） | 🟢 低 | 無 | 寫 `docs/context-menu-spec.md` + App 內提示；功能本身已齊全 |
+| P-DRAW（D8） | 筆刷卡頓 | 🟡 中 | **實測先行**（TD-IMG ✅ 後重測） | 已排除存檔/縮圖；疑重型卡片重繪，需 DevTools Performance 量測；TD-IMG 已移除 base64 圖片內嵌，應先重測是否已緩解再決定是否進一步治 |
+| 討論（D1） | 主頁儀表板/白板雙模式不直覺 | 🟡 中 | 需產品決策 | 與 Command Palette、D7 可發現性一併討論 |
+| 討論（D7） | 任務中心/復盤中心使用率低 | 🟡 中 | 需產品決策 | 主動浮現 badge / 主頁嵌入小工具 / 或簡化合併；連動 AI-4 |
+
+### 二、新增功能候選（AI 提案去重 + 校正後）
+
+> ⚠️ 已實作、勿當新功能重做：**卡片模板系統**（右鍵已有內建+自訂模板）、**Markdown 匯出**（`exportMarkdown.ts`）、**JSON 匯入匯出**、Onboarding modal、暗色模式、Journal 每日自動建卡、週回顧、日曆檢視、Vitest。
+
+| ID | 功能 | 優先序 | 前置依賴 | 校正 / 落點 |
+|----|------|--------|---------|------------|
+| N1 | 全域 Command Palette（擴充 QuickSwitcher） | 🔴 高 | 無 | 一併改善 D1/D7 可發現性；CP/P 值最高 |
+| N2 | Inbox Triage 收件匣整理模式 | 🔴 高 | 無 | 真新、不動資料模型，把快速捕捉串成 GTD 工作流 |
+| N3 | 系統托盤 + 全域快速捕捉 | 🟡 中 | Electron only | 桌面體驗；托盤圖示/最小化/快捷捕捉 |
+| N4 | Tag Manager 標籤管理中心 | 🟡 中 | 無 | 改名/合併/顏色/統計；FilterPanel/CardLibrary/圖譜共用 metadata |
+| N5 | Smart Collections 智慧集合 | 🟡 中 | 無 | 建於既有 Filter/TaskCenter；逾期/高優先/孤立/含 tag 等預設集合 |
+| N6 | 未連結提及偵測（Unlinked mentions） | 🟡 中 | **併入 A6** | 圖譜/backlink 強化的真新子項；其餘圖譜強化歸 A6、分群歸 AI-8 |
+| N7 | 範例白板（首次啟動 seed） | 🟢 低 | 無 | OnboardingModal 已有，僅加建範例資料；易做、利新手 |
+| N8 | 測試覆蓋報告 + CI | 🟢 低 | 無 | Vitest 已有；加 `test:coverage`、GitHub Actions |
+| N9 | Diagnostics / Debug 面板 | 🟡 中 | 無 | main.js 已有 console 轉發/崩潰監聽；面板化＋debug report；支援 D8 排錯 |
+| N10 | 資料安全中心（容量統計 + 一鍵清理） | 🟡 中 | 無（唯讀先行） | 白板/卡片/圖片/備份數統計、清理舊備份/無用縮圖；N9 子集，風險最低 |
+| N11 | 檔案卡片進階（拖放建卡/PDF 預覽/遺失檢查） | 🟡 中 | 無 | File card 基礎已有；OCR 依賴 AI-7 |
+| N12 | 主題/外觀自訂（accent/圓角/字級/背景樣式） | 🟢 低 | 無 | 暗色已有，擴充樣式 |
+| N13 | 任務排程強化（Calendar 拖曳改期/重複/提醒） | 🟡 中 | 無 | 日曆/到期/逾期已有，補排程互動 |
+| N14 | Daily/Weekly 自動化（rollover/自動嵌入/月回顧） | 🟡 中 | 連動 AI-4 | Journal/週回顧已有，補自動化 |
+| N15 | Markdown/Obsidian 匯入 | 🟡 中 | **= C4（已排程）** | 併入 C4，不另列；Obsidian vault 匯入為 C4 擴充 |
+| N16 | 完整 Vault Export（.astrolabe 打包） | 🟡 中 | **依賴 E1（v1.4.0）**（TD-IMG ✅ 已完成） | 打包 boards+cards+files+backups+settings；重疊 E1 |
+| N17 | 備份保留數設定 | 🟡 中 | ✅ **TD-IMG 已完成，前置解除** | image 卡已改存實體檔，base64 不再內嵌；放大備份數風險大降，仍建議加容量警告 |
+| N18 | 大型 Vault 效能模式（只載 metadata 安全模式） | 🔴 高（長期） | **依賴 A3-ext**（TD-IMG ✅ 已完成） | 架構級；延遲載入 snapshot、容量偵測；TD-IMG 已拔除 base64 圖片病根，剩 snapshot 常駐待 A3-ext |
+
+### 三、建議排程（波次）
+
+- **Wave 1｜低風險速贏（v1.2.0 收尾）**：B5/B6/B7（D3/D5/D6）、N7（範例白板）、N8（coverage/CI）、N10（資料安全中心唯讀版）、B9（右鍵文件）。
+- **Wave 2｜高價值真新（v1.2.x → v1.3 前）**：N1（Command Palette，連帶解 D1/D7）、N2（Inbox Triage）、N3（系統托盤）、N4（Tag Manager）。
+- **Wave 3｜前置依賴解鎖後**：**TD-IMG ✅ 已完成（治本 OOM/圖片體積，commit `7eaf7f5`）** → N17（備份保留數）前置已解除、N18 剩 A3-ext；P-DRAW 可重新實測 TD-IMG 是否已緩解；圖譜相關 N6 併 A6；MD 匯入併 C4。
+- **需產品決策先行**：D1（主頁定位）、D7（任務/復盤存廢）——建議與 N1 一起拍板，避免重工。
 
 ---
 
@@ -876,10 +974,10 @@ v1.1.0（基準）
 
 | 版本 | 類別 | 項目數 | 合計人天 |
 |------|------|--------|---------|
-| v1.2.0 | 技術債（A1–A5）| 5 | 6.5 |
+| v1.2.0 | 技術債（A1–A6）| 6 | ~8 |
 | | UX 改善（B1–B4）| 4 | 4 |
 | | 新功能（C1–C4）| 4 | 10 |
-| | **小計** | **13** | **~22–26** |
+| | **小計** | **14** | **~24–28** |
 | v1.3.0 | AI 架構（AI-0/AI-1）| 2 | 4 |
 | | 核心 AI（AI-2~AI-5）| 4 | 10 |
 | | 進階 AI（AI-6~AI-8）| 3 | 12 |
