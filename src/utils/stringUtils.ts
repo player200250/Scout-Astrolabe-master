@@ -21,3 +21,25 @@ export function stripHtml(html: string): string {
     const decoded = new DOMParser().parseFromString(spaced, 'text/html').body.textContent ?? ''
     return decoded.replace(/\s+/g, ' ').trim()
 }
+
+/**
+ * 將卡片 HTML 拆為「標題 + 內文」，供卡片庫列表/格狀分層顯示，
+ * 打破文字卡「整片都是字」的辨識困難（B6/D5）。
+ *
+ * - 若含 H1/H2：標題取其純文字，內文取「移除該標題後」的純文字（避免標題與內文重複）
+ * - 否則：標題為 null，內文為整段純文字（呼叫端照舊只顯示內文）
+ *
+ * 內文以 `bodyLimit`（預設 200）字元截斷。依賴 `stripHtml`（需 DOM 環境）。
+ */
+export function splitTitleBody(html: string, bodyLimit = 200): { title: string | null; body: string } {
+    if (!html) return { title: null, body: '' }
+    const hMatch = html.match(/<h[12][^>]*>([\s\S]*?)<\/h[12]>/i)
+    if (hMatch) {
+        const title = hMatch[1].replace(/<[^>]+>/g, '').trim()
+        if (title) {
+            const rest = html.replace(/<h[12][^>]*>[\s\S]*?<\/h[12]>/i, ' ')
+            return { title, body: stripHtml(rest).slice(0, bodyLimit) }
+        }
+    }
+    return { title: null, body: stripHtml(html).slice(0, bodyLimit) }
+}

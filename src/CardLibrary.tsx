@@ -3,7 +3,7 @@ import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import type { BoardRecord } from './db'
 import { getCardShapes } from './utils/snapshot'
-import { stripHtml } from './utils/stringUtils'
+import { splitTitleBody } from './utils/stringUtils'
 
 /* ─── Types ─── */
 type LibCardType = 'text' | 'todo' | 'link' | 'journal' | 'heading' | 'sticky' | 'table' | 'color' | 'file'
@@ -17,6 +17,7 @@ interface LibraryCard {
     boardId: string
     boardName: string
     type: LibCardType
+    title: string | null
     preview: string
     tags: string[]
     status: StatusType
@@ -36,6 +37,16 @@ export interface CardLibraryProps {
 /* ─── Constants ─── */
 const TYPE_ICON: Record<LibCardType, string>  = { text: '📝', todo: '✅', link: '🔗', journal: '📖', heading: 'A', sticky: '📌', table: '▦', color: '🎨', file: '📎' }
 const TYPE_LABEL: Record<LibCardType, string> = { text: '文字', todo: 'Todo', link: '連結', journal: 'Journal', heading: '標題', sticky: '便利貼', table: '表格', color: '顏色樣本', file: '檔案' }
+/* B6/D5 — 每種卡片類型的識別色，用於列表/格狀圖示與類型標籤，一眼分類 */
+const TYPE_COLOR: Record<LibCardType, string> = { text: '#3b82f6', todo: '#22c55e', link: '#a855f7', journal: '#f59e0b', heading: '#6366f1', sticky: '#eab308', table: '#14b8a6', color: '#ec4899', file: '#64748b' }
+
+/** 將 #rrggbb 轉為指定 alpha 的 rgba（用於類型色的淡底） */
+function hexToRgba(hex: string, alpha: number): string {
+    const r = parseInt(hex.slice(1, 3), 16)
+    const g = parseInt(hex.slice(3, 5), 16)
+    const b = parseInt(hex.slice(5, 7), 16)
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`
+}
 
 const ALL_TYPES: LibCardType[]    = ['text', 'todo', 'link', 'journal', 'heading', 'sticky', 'table', 'color', 'file']
 const ALL_STATUSES: StatusType[]  = ['none', 'todo', 'in-progress', 'done']
@@ -151,6 +162,7 @@ export function CardLibrary({ boards, onJump, onClose, isDark }: CardLibraryProp
                 const t = shape.props.type
                 if (t !== 'text' && t !== 'todo' && t !== 'link' && t !== 'journal' && t !== 'heading' && t !== 'sticky' && t !== 'table' && t !== 'color' && t !== 'file') continue
                 let preview = ''
+                let title: string | null = null
                 if (t === 'table') {
                     const td = (shape.props as { tableData?: { cells: { content: string }[] }[] }).tableData ?? []
                     const headers = td[0]?.cells.map(c => c.content).filter(Boolean).join(' | ') ?? ''
@@ -166,13 +178,17 @@ export function CardLibrary({ boards, onJump, onClose, isDark }: CardLibraryProp
                         : ''
                     preview = size ? `${name}（${size}）` : name
                 } else {
-                    preview = stripHtml(shape.props.text ?? '').slice(0, 200)
+                    /* B6/D5 — 文字類卡片拆「標題（H1/H2）＋內文」分層，打破整片文字感 */
+                    const split = splitTitleBody(shape.props.text ?? '')
+                    title = split.title
+                    preview = split.body
                 }
                 cards.push({
                     shapeId: shape.id,
                     boardId: board.id,
                     boardName: board.name,
                     type: t as LibCardType,
+                    title,
                     preview,
                     tags: Array.isArray(shape.props.tags) ? (shape.props.tags as string[]) : [],
                     status: parseStatus(shape.props.cardStatus),
@@ -198,6 +214,7 @@ export function CardLibrary({ boards, onJump, onClose, isDark }: CardLibraryProp
         let cards = allCards
         if (q) cards = cards.filter(c =>
             c.preview.toLowerCase().includes(q) ||
+            (c.title?.toLowerCase().includes(q) ?? false) ||
             c.boardName.toLowerCase().includes(q) ||
             c.tags.some(t => t.toLowerCase().includes(q))
         )
@@ -318,6 +335,7 @@ export function CardLibrary({ boards, onJump, onClose, isDark }: CardLibraryProp
         const statusCfg   = STATUS_CONFIG[card.status]
         const priorityCfg = PRIORITY_CONFIG[card.priority]
         const isHovered   = hoveredShapeId === card.shapeId
+        const typeColor   = TYPE_COLOR[card.type]
         return (
             <div
                 onClick={() => handleJump(card)}
@@ -333,20 +351,35 @@ export function CardLibrary({ boards, onJump, onClose, isDark }: CardLibraryProp
                 onMouseEnter={() => setHoveredShapeId(card.shapeId)}
                 onMouseLeave={() => setHoveredShapeId(null)}
             >
-                {/* Type icon */}
+                {/* Type icon（B6/D5 — 依類型上色） */}
                 <div style={{
                     width: 36, height: 36, borderRadius: 9, flexShrink: 0,
-                    background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+                    background: hexToRgba(typeColor, isDark ? 0.22 : 0.14),
+                    color: typeColor,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 18, marginTop: 1,
+                    fontSize: 18, fontWeight: 700, marginTop: 1,
                 }}>
                     {TYPE_ICON[card.type]}
                 </div>
                 <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {/* B6/D5 — 類型文字標籤（上色）＋文字卡標題分層 */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                        <span style={{
+                            fontSize: 10, fontWeight: 700, color: typeColor, flexShrink: 0,
+                            background: hexToRgba(typeColor, isDark ? 0.18 : 0.1),
+                            padding: '1px 7px', borderRadius: 5, letterSpacing: '0.02em',
+                        }}>{TYPE_LABEL[card.type]}</span>
+                        {card.title && (
+                            <span style={{
+                                fontSize: 13, fontWeight: 700, color: textPrim,
+                                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0,
+                            }}>{card.title}</span>
+                        )}
+                    </div>
                     <div style={{
-                        fontSize: 13, color: textPrim, lineHeight: '1.55',
+                        fontSize: 13, color: card.title ? textMuted : textPrim, lineHeight: '1.55',
                         overflow: 'hidden',
-                        display: '-webkit-box', WebkitLineClamp: 3,
+                        display: '-webkit-box', WebkitLineClamp: card.title ? 2 : 3,
                         WebkitBoxOrient: 'vertical' as const,
                     }}>
                         {card.preview || <span style={{ color: textMuted, fontStyle: 'italic' }}>（空白卡片）</span>}
@@ -383,6 +416,7 @@ export function CardLibrary({ boards, onJump, onClose, isDark }: CardLibraryProp
     const renderGridCard = (card: LibraryCard) => {
         const statusCfg = STATUS_CONFIG[card.status]
         const isHovered = hoveredShapeId === card.shapeId
+        const typeColor = TYPE_COLOR[card.type]
         return (
             <div
                 onClick={() => handleJump(card)}
@@ -398,17 +432,28 @@ export function CardLibrary({ boards, onJump, onClose, isDark }: CardLibraryProp
                 onMouseEnter={() => setHoveredShapeId(card.shapeId)}
                 onMouseLeave={() => setHoveredShapeId(null)}
             >
+                {/* B6/D5 — 類型圖示/標籤上色 */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                    <span style={{ fontSize: 16 }}>{TYPE_ICON[card.type]}</span>
-                    <span style={{ fontSize: 11, color: textMuted, fontWeight: 600 }}>{TYPE_LABEL[card.type]}</span>
+                    <span style={{
+                        width: 22, height: 22, borderRadius: 6, flexShrink: 0,
+                        background: hexToRgba(typeColor, isDark ? 0.22 : 0.14), color: typeColor,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 13, fontWeight: 700,
+                    }}>{TYPE_ICON[card.type]}</span>
+                    <span style={{ fontSize: 11, color: typeColor, fontWeight: 700 }}>{TYPE_LABEL[card.type]}</span>
                     {card.status !== 'none' && (
                         <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 5, background: isDark ? statusCfg.darkBg : statusCfg.bg, color: statusCfg.color, marginLeft: 'auto', fontWeight: 600 }}>
                             {statusCfg.label}
                         </span>
                     )}
                 </div>
-                <div style={{ fontSize: 12, color: textPrim, lineHeight: '1.6', overflow: 'hidden', flex: 1,
-                    display: '-webkit-box', WebkitLineClamp: 5, WebkitBoxOrient: 'vertical' as const,
+                {card.title && (
+                    <div style={{ fontSize: 13, fontWeight: 700, color: textPrim, overflow: 'hidden',
+                        display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const, lineHeight: '1.4',
+                    }}>{card.title}</div>
+                )}
+                <div style={{ fontSize: 12, color: card.title ? textMuted : textPrim, lineHeight: '1.6', overflow: 'hidden', flex: 1,
+                    display: '-webkit-box', WebkitLineClamp: card.title ? 3 : 5, WebkitBoxOrient: 'vertical' as const,
                 }}>
                     {card.preview || <span style={{ color: textMuted, fontStyle: 'italic' }}>（空白）</span>}
                 </div>
