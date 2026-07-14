@@ -12,6 +12,7 @@
 | [data-model.md](data-model.md) | IndexedDB schema、BoardRecord、DeletedCardRecord 欄位說明 |
 | [tldraw-snapshot.md](tldraw-snapshot.md) | TLEditorSnapshot 格式、讀寫方式、sanitize 機制 |
 | [card-shape-spec.md](card-shape-spec.md) | CardShape 型別規格、各類型 props、顏色常數 |
+| [context-menu-spec.md](context-menu-spec.md) | 右鍵選單規範：空白處/單卡/多選/各類型選單項、顏色選擇器、捷徑對照 |
 | [state-and-events.md](state-and-events.md) | useBoardManager 狀態管理、全域 CustomEvent 總覽 |
 | [electron-ipc.md](electron-ipc.md) | Electron IPC 架構、contextBridge API、安全設定 |
 | [import-export-backup.md](import-export-backup.md) | JSON/PNG/PDF/Markdown 匯出、自動備份、手動還原 |
@@ -43,6 +44,9 @@
 
 ### 我想加一種新卡片類型
 → [card-shape-spec.md](card-shape-spec.md) → `src/components/card-shape/type/CardShape.ts`
+
+### 我想知道右鍵選單有哪些功能 / 加一個選單項
+→ [context-menu-spec.md](context-menu-spec.md) → `src/utils/contextMenuUtils.tsx`
 
 ### 我想追一個跨元件的事件
 → [state-and-events.md](state-and-events.md) → CustomEvent 總覽表
