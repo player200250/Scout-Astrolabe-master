@@ -336,7 +336,7 @@ Markdown → TipTap 使用 `marked`（新增依賴，或手動解析常見語法
 
 | ID | 功能 | 優先序 | 前置依賴 | 校正 / 落點 |
 |----|------|--------|---------|------------|
-| N1 | 全域 Command Palette（擴充 QuickSwitcher） | 🔴 高 | 無 | 一併改善 D1/D7 可發現性；CP/P 值最高 |
+| N1 | 全域 Command Palette（擴充 QuickSwitcher） | ✅ 完成（2026-07-14） | 無 | Ctrl+K；資料驅動命令 registry（`utils/commands.ts` 17 命令 + filterCommands）+ `CommandPalette.tsx`（命令+白板切換併一面板）；QuickSwitcher(Ctrl+P) 保留純切板。一併改善 D1/D7 可發現性。commit `01883b8` |
 | N2 | Inbox Triage 收件匣整理模式 | 🔴 高 | 無 | 真新、不動資料模型，把快速捕捉串成 GTD 工作流 |
 | N3 | 系統托盤 + 全域快速捕捉 | 🟡 中 | Electron only | 桌面體驗；托盤圖示/最小化/快捷捕捉 |
 | N4 | Tag Manager 標籤管理中心 | 🟡 中 | 無 | 改名/合併/顏色/統計；FilterPanel/CardLibrary/圖譜共用 metadata |
@@ -358,7 +358,7 @@ Markdown → TipTap 使用 `marked`（新增依賴，或手動解析常見語法
 ### 三、建議排程（波次）
 
 - **Wave 1｜低風險速贏（v1.2.0 收尾）**：✅ **全部完成（2026-07-14）**——B5/B6/B7（D3/D5/D6）、N7（範例白板）、N8（coverage/CI）、N10（資料安全中心唯讀版）、B9（右鍵文件）。
-- **Wave 2｜高價值真新（v1.2.x → v1.3 前）**：N1（Command Palette，連帶解 D1/D7）、N2（Inbox Triage）、N3（系統托盤）、N4（Tag Manager）。
+- **Wave 2｜高價值真新（v1.2.x → v1.3 前）**：✅ N1（Command Palette，Ctrl+K，2026-07-14 完成）→ 待做 N2（Inbox Triage）、N3（系統托盤）、N4（Tag Manager）。
 - **Wave 3｜前置依賴解鎖後**：**TD-IMG ✅ 已完成（治本 OOM/圖片體積，commit `7eaf7f5`）** → N17（備份保留數）前置已解除、N18 剩 A3-ext；P-DRAW 可重新實測 TD-IMG 是否已緩解；圖譜相關 N6 併 A6；MD 匯入併 C4。
 - **需產品決策先行**：D1（主頁定位）、D7（任務/復盤存廢）——建議與 N1 一起拍板，避免重工。
 
