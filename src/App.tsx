@@ -9,6 +9,7 @@ import { SearchPanel } from './SearchPanel'
 import { TaskCenter } from './TaskCenter'
 import { FilterPanel } from './FilterPanel'
 import { BackupPanel } from './BackupPanel'
+import { DataSafetyPanel } from './components/DataSafetyPanel'
 import { ReviewCenter } from './ReviewCenter'
 import { HotkeyPanel } from './HotkeyPanel'
 import { KnowledgeGraph } from './KnowledgeGraph'
@@ -256,6 +257,14 @@ export default function App() {
                     onClose={() => closePanel('backup')}
                     onRestore={async (restoredBoards) => { await handleRestore(restoredBoards); closePanel('backup') }}
                     onMigrateImages={migrateAllNow}
+                    isDark={isDark}
+                />
+            )}
+            {panels.dataSafety && (
+                <DataSafetyPanel
+                    boards={boards}
+                    onClose={() => closePanel('dataSafety')}
+                    onOpenBackup={() => { closePanel('dataSafety'); openPanel('backup') }}
                     isDark={isDark}
                 />
             )}

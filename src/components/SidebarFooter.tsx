@@ -64,19 +64,25 @@ export function SidebarFooter({ onOpenPanel, isDark, onToggleTheme }: SidebarFoo
                                 boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
                                 zIndex: Z_MODAL_BACKDROP, minWidth: 160,
                             }}>
-                                <div
-                                    onClick={() => { setMoreMenuOpen(false); onOpenPanel('onboarding') }}
-                                    style={{
-                                        padding: '7px 14px', cursor: 'pointer',
-                                        fontSize: 13, color: 'var(--text-primary)',
-                                        display: 'flex', alignItems: 'center', gap: 8,
-                                        borderRadius: 6,
-                                    }}
-                                    onMouseEnter={e => (e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.06)' : '#f5f5f5')}
-                                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                                >
-                                    📖 使用導覽
-                                </div>
+                                {([
+                                    { icon: '🛡️', label: '資料安全中心', panel: 'dataSafety' as const },
+                                    { icon: '📖', label: '使用導覽', panel: 'onboarding' as const },
+                                ]).map(({ icon, label, panel }) => (
+                                    <div
+                                        key={panel}
+                                        onClick={() => { setMoreMenuOpen(false); onOpenPanel(panel) }}
+                                        style={{
+                                            padding: '7px 14px', cursor: 'pointer',
+                                            fontSize: 13, color: 'var(--text-primary)',
+                                            display: 'flex', alignItems: 'center', gap: 8,
+                                            borderRadius: 6,
+                                        }}
+                                        onMouseEnter={e => (e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.06)' : '#f5f5f5')}
+                                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                                    >
+                                        {icon} {label}
+                                    </div>
+                                ))}
                             </div>
                         </>
                     )}
