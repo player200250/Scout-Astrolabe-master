@@ -16,6 +16,8 @@ import { KnowledgeGraph } from './KnowledgeGraph'
 import { CardLibrary } from './CardLibrary'
 import { QuickCapture } from './components/QuickCapture'
 import { QuickSwitcher } from './QuickSwitcher'
+import { CommandPalette } from './CommandPalette'
+import { buildCommands } from './utils/commands'
 import { OnboardingModal } from './components/OnboardingModal'
 import { TrashPanel } from './TrashPanel'
 import { DeleteBoardDialog } from './components/DeleteBoardDialog'
@@ -97,6 +99,32 @@ export default function App() {
         })
     }, [])
 
+    const goHome = useCallback(() => {
+        const home = boards.find(b => b.isHome)
+        if (home) handleSwitch(home.id)
+    }, [boards, handleSwitch])
+
+    // Command Palette（N1）命令清單：把散落各處的入口統一為可搜尋動作。
+    const commands = useMemo(() => buildCommands({
+        goHome,
+        goToInbox: handleGoToInbox,
+        openOverview: () => openPanel('overview'),
+        newBoard: handleNew,
+        quickCapture: () => openPanel('quickCapture'),
+        openSearch: () => openPanel('search'),
+        openCardLibrary: () => openPanel('cardLibrary'),
+        openTaskCenter: () => openPanel('taskCenter'),
+        openReviewCenter: () => openPanel('reviewCenter'),
+        openKnowledgeGraph: () => openPanel('knowledgeGraph'),
+        openFilter: () => openPanel('filter'),
+        openTrash: () => openPanel('trash'),
+        openBackup: () => openPanel('backup'),
+        openDataSafety: () => openPanel('dataSafety'),
+        toggleTheme,
+        openOnboarding: () => openPanel('onboarding'),
+        openHotkey: () => openPanel('hotkey'),
+    }), [goHome, handleGoToInbox, handleNew, openPanel, toggleTheme])
+
     useEffect(() => {
         document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light')
     }, [isDark])
@@ -149,6 +177,10 @@ export default function App() {
             if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'p') {
                 e.preventDefault()
                 openPanel('quickSwitcher')
+            }
+            if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'k') {
+                e.preventDefault()
+                togglePanel('commandPalette')
             }
         }
         window.addEventListener('keydown', handler)
@@ -350,6 +382,16 @@ export default function App() {
                     activeBoardId={activeBoardId ?? ''}
                     onSwitch={handleSwitch}
                     onClose={() => closePanel('quickSwitcher')}
+                    isDark={isDark}
+                />
+            )}
+            {panels.commandPalette && (
+                <CommandPalette
+                    commands={commands}
+                    boards={boards}
+                    activeBoardId={activeBoardId ?? ''}
+                    onSwitchBoard={handleSwitch}
+                    onClose={() => closePanel('commandPalette')}
                     isDark={isDark}
                 />
             )}

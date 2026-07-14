@@ -65,6 +65,7 @@ export function SidebarFooter({ onOpenPanel, isDark, onToggleTheme }: SidebarFoo
                                 zIndex: Z_MODAL_BACKDROP, minWidth: 160,
                             }}>
                                 {([
+                                    { icon: '⌘', label: '命令面板 (Ctrl+K)', panel: 'commandPalette' as const },
                                     { icon: '🛡️', label: '資料安全中心', panel: 'dataSafety' as const },
                                     { icon: '📖', label: '使用導覽', panel: 'onboarding' as const },
                                 ]).map(({ icon, label, panel }) => (
