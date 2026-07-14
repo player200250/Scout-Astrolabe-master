@@ -204,13 +204,14 @@ test('deletedCards shapeId index 存在', async () => {
 
 ## 維護注意事項
 
-- **CI 閘門**：`.github/workflows/ci.yml`（GitHub Actions）在 push 到 main 與對 main 的 PR 時自動跑 `npm run lint`、`npx tsc -b`、`npm test`，任一失敗即紅燈。本機提交前也可手動跑同樣三項先行驗證。三項皆綠仍不等同於功能正確性，修改任何 async handler 前應一併更新手動測試清單。修改 `useBoardManager` 既有 handler 時，先確認 `useBoardManager.test.ts` 仍綠（已全 handler 覆蓋，是重構 TD2/A2 拆分時的安全網）。
+- **CI 閘門**：`.github/workflows/ci.yml`（GitHub Actions）在 push 到 main 與對 main 的 PR 時自動跑 `npm run lint`、`npx tsc -b`、`npm run test:coverage`，任一失敗即紅燈；覆蓋率報告以 artifact（`coverage-report`）上傳保留 14 天。本機提交前也可手動跑同樣三項先行驗證。
+- **覆蓋率**：`npm run test:coverage`（`@vitest/coverage-v8`）本機產出 `coverage/`（text + html + lcov）。**刻意不設 threshold**——測試聚焦純函式與關鍵路徑，不為數字硬測 UI 樣板（見 refactor-roadmap 的過度優化取捨）。報告用來找「該測而未測」的純邏輯，而非追百分比。三項皆綠仍不等同於功能正確性，修改任何 async handler 前應一併更新手動測試清單。修改 `useBoardManager` 既有 handler 時，先確認 `useBoardManager.test.ts` 仍綠（已全 handler 覆蓋，是重構 TD2/A2 拆分時的安全網）。
 - `WhiteboardTools.tsx` 與 tldraw editor 深度耦合，e2e 測試難以 mock。若要測試 Ctrl+Z 同步，建議直接用 Playwright 驅動完整 Electron 應用。
 - `useBoardManager` 的 `useCallback` dependencies 複雜，引入整合測試時需特別確認 stale closure 場景（空板、只有 inbox 等邊緣狀態）。
 
 ## 待確認
 
-- CI 已建立（見上）。後續可考慮在 GitHub 設定 branch protection，把 CI 設為合併 PR 的 required check，並視需要加上 coverage 量測。
+- CI 已建立、coverage 已納入（見上）。後續可考慮在 GitHub 設定 branch protection，把 CI 設為合併 PR 的 required check。
 - Playwright 測試 Electron App 需要特殊設定（`_electron` API）；是否考慮先以純 Web 模式（`npm run dev`）跑 e2e，再逐步遷移到 Electron？
 
 ## 外部參考

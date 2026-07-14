@@ -10,6 +10,7 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "preview": "vite preview",
     "electron-dev": "concurrently \"npm run dev\" \"electron --icu-data-dir=node_modules/electron/dist .\"",
     "build:win": "node scripts/prepare-cache.mjs && vite build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --windows"
@@ -47,6 +48,7 @@
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
     "@vitejs/plugin-react-swc": "^4.0.0",
+    "@vitest/coverage-v8": "^3.2.7",
     "concurrently": "^9.2.0",
     "cross-env": "^10.1.0",
     "electron": "^37.3.1",

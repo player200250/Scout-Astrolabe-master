@@ -9,6 +9,20 @@ export default defineConfig({
     // 純函式測試：用 node 環境即可，不需要 jsdom
     environment: 'node',
     include: ['src/**/*.{test,spec}.{ts,tsx}'],
+    coverage: {
+      // `npm run test:coverage` 產出；不設 threshold（測試聚焦純函式/關鍵路徑，
+      // 不追求數字目標，避免為覆蓋率硬測 UI 樣板）。
+      provider: 'v8',
+      reporter: ['text', 'html', 'lcov'],
+      reportsDirectory: './coverage',
+      include: ['src/**/*.{ts,tsx}'],
+      exclude: [
+        'src/**/*.{test,spec}.{ts,tsx}',
+        'src/**/*.d.ts',
+        'src/main.tsx',
+        'src/vite-env.d.ts',
+      ],
+    },
   },
   plugins: [
     react(),
