@@ -34,6 +34,7 @@ export function BoardOverview({ boards, activeBoardId, onSelect, onNew, onRename
         .sort((a, b) => b.updatedAt - a.updatedAt)
 
     const childCount = (id: string) => boards.filter(b => b.parentId === id).length
+    const parentName = (id: string | null | undefined) => (id ? boards.find(b => b.id === id)?.name : undefined)
 
     const startRename = (board: BoardRecord, e: React.MouseEvent) => {
         e.stopPropagation()
@@ -269,6 +270,12 @@ export function BoardOverview({ boards, activeBoardId, onSelect, onNew, onRename
                                 )}
                                 {activeBoardId === board.id && (
                                     <div style={{ position: 'absolute', top: 7, right: 7, background: isDark ? '#e2e8f0' : '#1a1a1a', color: isDark ? '#0f172a' : 'white', fontSize: 10, fontWeight: 600, padding: '2px 6px', borderRadius: 4 }}>使用中</div>
+                                )}
+                                {!selectionMode && parentName(board.parentId) && (
+                                    <div title={`子板 · 隸屬「${parentName(board.parentId)}」`} style={{ position: 'absolute', top: 7, left: 7, maxWidth: 'calc(100% - 14px)', display: 'flex', alignItems: 'center', gap: 3, background: 'rgba(37,99,235,0.9)', color: 'white', fontSize: 10, fontWeight: 500, padding: '2px 6px', borderRadius: 4 }}>
+                                        <span style={{ flexShrink: 0 }}>↳</span>
+                                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{parentName(board.parentId)}</span>
+                                    </div>
                                 )}
                                 {childCount(board.id) > 0 && (
                                     <div style={{ position: 'absolute', bottom: 7, left: 7, background: 'rgba(0,0,0,0.55)', color: 'white', fontSize: 10, padding: '2px 6px', borderRadius: 4 }}>📋 {childCount(board.id)} 個子板</div>
