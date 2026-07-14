@@ -82,7 +82,15 @@
       "PowerShell(git log origin/main..main --oneline | Measure-Object | Select-Object -ExpandProperty Count | ForEach-Object { \"本機 main 領先 origin/main $_ 個 commit\" }; echo \"--- 領先的 commit ---\"; git log origin/main..main --oneline)",
       "PowerShell(git push *)",
       "Bash(mkdir -p /tmp/shots)",
-      "Bash(ELECTRON_PROD_TEST=1 ./node_modules/electron/dist/electron.exe --icu-data-dir=node_modules/electron/dist .)"
+      "Bash(ELECTRON_PROD_TEST=1 ./node_modules/electron/dist/electron.exe --icu-data-dir=node_modules/electron/dist .)",
+      "PowerShell(Start-Sleep -Seconds 12; powershell -File .claude\\\\skills\\\\run-desktop\\\\capture-window.ps1 -Title \"Scout Astrolabe\" -Out \"$env:TEMP\\\\shots_astro.png\"; Write-Output \"captured: $env:TEMP\\\\shots_astro.png\")",
+      "PowerShell(Get-Process *)",
+      "Bash(echo \"exit: $?\")",
+      "PowerShell(Start-Sleep -Seconds 12; powershell -File .claude\\\\skills\\\\run-desktop\\\\capture-window.ps1 -Title \"Scout Astrolabe\" -Out \"$env:TEMP\\\\shots_astro2.png\"; Write-Output \"done\")",
+      "Bash(echo \"lint exit: $?\")",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(echo \"TSC_EXIT:$?\")",
+      "PowerShell(Start-Sleep -Seconds 12; powershell -File .claude\\\\skills\\\\run-desktop\\\\capture-window.ps1 -Title \"Scout Astrolabe\" -Out \"$env:TEMP\\\\shots_astro.png\")"
     ]
   }
 }
