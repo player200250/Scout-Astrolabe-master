@@ -13,7 +13,7 @@
 | 檔案 | 狀態職責 |
 |------|---------|
 | `useBoardManager.ts` | 白板 CRUD、垃圾桶、收件匣、備份、導航 |
-| `App.tsx` + `hooks/usePanelState.ts` | 14 個面板開關集中於 `usePanelState`（`panels`/`openPanel`/`closePanel`/`togglePanel`）；App.tsx 另留 `movingCardShapeIds`/`deletingBoardId`/`isDark` |
+| `App.tsx` + `hooks/usePanelState.ts` | 15 個面板開關集中於 `usePanelState`（`panels`/`openPanel`/`closePanel`/`togglePanel`）；App.tsx 另留 `movingCardShapeIds`/`deletingBoardId`/`isDark` |
 | `WhiteboardTools.tsx` | tldraw editor 操作、事件橋接、自動儲存 |
 | `CardShapeUtil.tsx` | 卡片內部狀態（hover、showTextModal、isEditing） |
 
@@ -181,7 +181,7 @@ recentlyTrashedShapeIds         // 防切板後 Ctrl+Z 同步失效的 Set（現
 
 ## App.tsx Panel 狀態（2026-06-21 起改用 `usePanelState`，A1/TD1）
 
-14 個面板開關不再是 App.tsx 內的個別 boolean `useState`，而是集中於 **`src/hooks/usePanelState.ts`**：
+15 個面板開關不再是 App.tsx 內的個別 boolean `useState`，而是集中於 **`src/hooks/usePanelState.ts`**：
 
 ```typescript
 // usePanelState 回傳 { panels, openPanel, closePanel, togglePanel }
@@ -189,6 +189,7 @@ type PanelName =
   | 'search' | 'hotkey' | 'overview' | 'taskCenter' | 'filter'
   | 'reviewCenter' | 'backup' | 'knowledgeGraph' | 'cardLibrary'
   | 'quickCapture' | 'onboarding' | 'trash' | 'quickSwitcher' | 'overdueBanner'
+  | 'dataSafety'  // N10 資料安全中心（唯讀統計）
 // 用法：panels.search（讀）、openPanel('search')、closePanel('search')、togglePanel('overview')
 ```
 

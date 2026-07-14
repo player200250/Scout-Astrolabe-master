@@ -6,16 +6,18 @@
 
 ## 適用範圍
 
-`src/db.ts`（Dexie schema）、`src/utils/snapshot.ts`（sanitize）、`src/hooks/useBoardManager.ts`（14 天清除、sanitizeBoards）、`src/BackupPanel.tsx`（備份）。
+`src/db.ts`（Dexie schema）、`src/utils/snapshot.ts`（sanitize）、`src/hooks/useBoardManager.ts`（14 天清除、sanitizeBoards）、`src/BackupPanel.tsx`（備份）、`src/platform/imageStore.ts`（圖片改存實體檔）、`src/components/DataSafetyPanel.tsx`（唯讀容量統計）。
 
 ## 相關檔案
 
 | 檔案 | 說明 |
 |------|------|
-| `src/db.ts` | IndexedDB schema v1–v7、所有 table 定義 |
+| `src/db.ts` | IndexedDB schema v1–v8、所有 table 定義、`MAX_BACKUPS`/`trimBackups` |
 | `src/utils/snapshot.ts` | `sanitizeSnapshot`、`sanitizeCardProps`、`CARD_PROP_DEFAULTS` |
 | `src/hooks/useBoardManager.ts` | 啟動時 sanitizeBoards、14 天自動清除、備份觸發 |
-| `src/BackupPanel.tsx` | 備份清單 UI、手動還原 |
+| `src/BackupPanel.tsx` | 備份清單 UI、手動還原、手動「立即遷移」圖片 |
+| `src/platform/imageStore.ts` | image 卡改存 `userData/files`（astro-img protocol）；snapshot 只存 `storedName`（TD-IMG） |
+| `src/utils/dataSafetyStats.ts` + `src/components/DataSafetyPanel.tsx` | 資料安全中心：`computeVaultStats` 純函式 + 唯讀統計面板（N10） |
 | `src/constants.ts` | `BACKUP_THROTTLE_MS`（5 分鐘） |
 
 ---
@@ -130,23 +132,42 @@ const expiredBoards = await db.table('boards')
 | 切換白板 | 距上次備份 > 5 分鐘（`BACKUP_THROTTLE_MS`） |
 | 應用進入背景（`visibilitychange`） | 同上 |
 
-### 備份上限（30 份）
+### 備份上限（5 份）
 
 ```typescript
-// db.ts — saveAutoBackup
-const MAX_BACKUPS = 30
-const existing = await db.table('backups').orderBy('timestamp').reverse().toArray()
-if (existing.length >= MAX_BACKUPS) {
-    const toDelete = existing.slice(MAX_BACKUPS - 1)
-    await db.table('backups').bulkDelete(toDelete.map(b => b.id))
+// db.ts — 2026-06-21 由 30 降為 5（OOM 修復，commit cf105dc）
+export const MAX_BACKUPS = 5
+
+// trimBackups：只比對 timestamp 主鍵、不載入 blob，記憶體成本低
+export async function trimBackups(): Promise<number> {
+    const keys = await db.table('backups').orderBy('timestamp').primaryKeys()
+    if (keys.length <= MAX_BACKUPS) return 0
+    const toDelete = keys.slice(0, keys.length - MAX_BACKUPS)
+    await db.table('backups').bulkDelete(toDelete)
+    return toDelete.length
 }
 ```
 
-超過 30 份時自動刪除最舊的備份，確保 IndexedDB 不無限成長。
+`saveAutoBackup` 寫入後呼叫 `trimBackups`；`useBoardManager` 啟動載入後、render 前也先 trim 一次。**為何由 30 降為 5**：每份備份是「所有白板的完整 snapshot」複製，30 份等於把整個 vault 複製 30 次，含圖片的 vault 會把 IndexedDB 撐到數 GB 並在寫入時造成記憶體尖峰導致 renderer OOM 白屏（見 `maintenance/bugs.md` P1-OOM）。`trimBackups` 刻意只讀 primaryKeys 不載 blob，避免修剪動作本身又觸發記憶體尖峰。
 
 ### 備份完整性
 
 每份備份儲存所有白板的完整 `BoardRecord` 陣列（含 tldraw snapshot、縮圖 base64）。**備份不包含 `deletedCards` 和 `backups` 自身的 table**，因此還原後垃圾桶和備份歷史會被清空。
+
+---
+
+## 資料安全中心（唯讀統計，N10）
+
+`DataSafetyPanel`（入口：側邊欄「更多」選單 🛡️）提供 vault 的唯讀容量觀測，**不做任何清理**（清理功能列後續）：
+
+| 區塊 | 來源 |
+|------|------|
+| IndexedDB 儲存用量 + 進度條 | `navigator.storage.estimate()`（usage/quota，最準的實體用量） |
+| 白板分類（一般/子板/封存/資料夾） | `computeVaultStats(boards)` |
+| 卡片依型別計數 | 遍歷各板 `getCardShapes` 統計 `props.type` |
+| 體積明細（圖片卡數/縮圖 base64/快照/備份估算） | `computeVaultStats`，字串長度近似 bytes |
+
+統計邏輯集中在純函式 `src/utils/dataSafetyStats.ts`（`computeVaultStats` + `formatBytes`），有單元測試覆蓋；面板僅負責非同步取 `loadBackups()` 與 `storage.estimate()` 並呈現。體積為**估算**（以序列化字串長度近似），實體用量以 `storage.estimate()` 為準。
 
 ---
 
@@ -161,6 +182,7 @@ if (existing.length >= MAX_BACKUPS) {
 | v5 | `backups` table | 新增 table |
 | v6 | `boards` 新增 `sortOrder` 欄位 | 既有記錄 `sortOrder` 為 undefined，首次讀取時補值 |
 | v7 | `deletedCards.shapeId` index | **重要**：加入 `.upgrade()` 對舊記錄補 `shapeId: ''`（L5 修復） |
+| v8 | `boards.folderId` index | 純新增 index（資料夾分類用）；既有記錄 `folderId` 為 undefined，讀取時容忍即可，無需 upgrade |
 
 ```typescript
 // db.ts — v7 upgrade
@@ -185,13 +207,13 @@ db.version(7).stores({
 
 ## 已知風險
 
-### R1：大量圖片導致 IndexedDB 體積膨脹
+### R1：IndexedDB 體積膨脹（image 病根已治本，尚餘縮圖）
 
-**描述**：圖片卡片的 base64 data URL 存入 snapshot，體積隨白板數量線性成長。備份時所有白板 snapshot 一次序列化，單份備份可能達數十 MB。
+**描述（歷史）**：早期 image 卡把 base64 data URL 直接存入 snapshot，體積隨白板數量線性成長，並擴散到 `backups`（×5 複製）與 `deletedCards`，是 P1-OOM 的深層病根。
 
-**緩解**：目前無自動清理機制；`compressImage` 壓縮至 1200px/JPEG0.8 降低單張體積。
+**已治本（TD-IMG，commit `7eaf7f5`）**：image 卡改存實體檔——`imageStore.saveImage` 寫入 `userData/files`，snapshot 只留 `storedName`、`image:null`，渲染走 `astro-img://` protocol 由 Chromium 直接讀檔、不進 JS heap。舊 base64 資料透過 `useImageMigration` 背景逐板遷移（跳過作用中板、冪等、可中斷），並 fallback 舊 base64 永久向後相容。詳見 `maintenance/bugs.md` TD-IMG。
 
-**建議**：若白板體積超過 10MB，考慮：(1) 圖片改存獨立 object store，snapshot 只存參照 ID；(2) 或顯示警告建議使用者清理。
+**尚餘體積源**：整板縮圖 `boards.thumbnail` 仍是 base64（畫布 export，非 `props.image`），是 TD-IMG 未涵蓋的另一體積源。資料安全中心（N10）會把「整板縮圖」估算體積單獨列出，供使用者判斷；清理無用縮圖的功能列 N10 後續。
 
 ### R2：App 未正常關閉時的未儲存變更
 
@@ -222,7 +244,7 @@ db.version(7).stores({
 ## 待確認
 
 - `electron-store`（`config.json`）與 IndexedDB 的 `tldraw-document` 欄位：兩者是否都在使用，還是其中一個已廢棄？（從 `main.js` IPC 看，`electron-store` 的 `load-document` 仍在使用，但 Dexie 的 `boards` table 是主要存儲；兩者關係需釐清）
-- 30 份備份上限在重度使用者（每天多次切板）的場景下，最多保留幾天的歷史？（5 分鐘節流 × 30 份 = 至少 150 分鐘的不重複備份點，但跨天數取決於使用頻率）
+- 5 份備份上限在重度使用者（每天多次切板）的場景下，最多保留多久的歷史？（5 分鐘節流 × 5 份 = 至少 25 分鐘的不重複備份點）。放大備份數的前置是 TD-IMG（已完成）＋容量警告，見 roadmap N17。
 
 ## 外部參考
 

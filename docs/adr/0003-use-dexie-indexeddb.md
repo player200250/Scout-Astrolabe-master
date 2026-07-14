@@ -73,7 +73,7 @@ Scout Astrolabe 是本地優先應用，需要在瀏覽器/Electron 環境中持
 
 ## 相關文件
 
-- [docs/data-model.md](../data-model.md) — Dexie schema 詳情（v1–v7）
+- [docs/data-model.md](../data-model.md) — Dexie schema 詳情（v1–v8）
 - [docs/data-safety.md](../data-safety.md) — IndexedDB 儲存限制與安全設計
 - [docs/trash-lifecycle.md](../trash-lifecycle.md) — deletedCards table 用法
 - [Dexie.js 文件](https://dexie.org/docs/)

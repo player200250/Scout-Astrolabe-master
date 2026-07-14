@@ -12,7 +12,7 @@
 
 | 檔案 | 職責 |
 |------|------|
-| `src/db.ts` | Dexie 實例建立，schema 版本定義（v1–v7），型別介面 |
+| `src/db.ts` | Dexie 實例建立，schema 版本定義（v1–v8），型別介面 |
 | `src/utils/boardDb.ts` | `saveBoard`、`deleteBoard`、`loadAllBoards`、`generateId` |
 | `src/hooks/useBoardManager.ts` | 所有白板操作；讀取後存入 React state（`boards`） |
 
@@ -29,9 +29,10 @@ v5  templates(id, createdAt)
 v6  deletedCards(id, deletedAt, boardId)
 v7  deletedCards(id, deletedAt, boardId, shapeId)
     + upgrade: 對缺少 shapeId 的舊記錄補上空字串
+v8  boards(id, deletedAt, folderId)     — folderId index 加入（資料夾分類）
 ```
 
-目前最高版本：**v7**。
+目前最高版本：**v8**。
 
 ---
 

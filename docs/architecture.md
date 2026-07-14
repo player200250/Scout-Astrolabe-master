@@ -27,7 +27,7 @@
 | `src/utils/trashUtils.ts` | `saveCardToTrash`、`getCardPreview`（從 TrashPanel.tsx 分離） |
 | `src/utils/weeklyReviewUtils.ts` | `getISOWeekKey`、`getWeekRange`（從 WeeklyReview.tsx 分離） |
 | `src/utils/whiteboardUtils.ts` | `getExportBtnStyle`、`exportBtnStyle`（從 WhiteboardTools.tsx 分離） |
-| `src/db.ts` | Dexie 實例定義，schema 版本歷史（v1–v7） |
+| `src/db.ts` | Dexie 實例定義，schema 版本歷史（v1–v8） |
 | `main.js` | Electron 主程序：BrowserWindow、選單、`electronAPI` |
 | `preload.js` | contextBridge，暴露 `window.electronAPI` |
 

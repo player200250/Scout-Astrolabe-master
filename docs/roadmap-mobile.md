@@ -29,7 +29,7 @@
 
 - ✅ **好處**：手機端**不需要跑 tldraw**，用既有工具（`getCardShapes` / `toMutableSnapshot` / `getSnapshotStore` / `utils/snapshotCards`）即可純 JSON 讀寫卡片。
 - ⚠️ **限制一**：`file` 卡存的是桌機本機路徑（`storedName`），手機**無法開啟檔案**——初版僅顯示檔名。
-- ⚠️ **限制二**：`image` 卡以 base64 內嵌於 snapshot，同步體積會膨脹——初版可選擇不同步大圖或延後優化。
+- ⚠️ **限制二**：`image` 卡體積。桌面端已由 **TD-IMG** 治本（改存 `userData/files`，snapshot 只留 `storedName`、`image:null`；`imageStore.ts` 是 PWA S0(a) 平台抽象的首個落地）。但 PWA 端無 `userData` 檔案系統，需把圖片接到 **Supabase Storage**（storedName ↔ 雲端物件 key）；舊 vault 中尚未遷移的殘留 base64 仍會膨脹同步體積，初版可選擇不同步大圖或延後優化。
 
 同步單位：整個 `BoardRecord`（含 snapshot）。雲端 `boards` 表鏡像本機 schema（見 [data-model.md](data-model.md)）。
 
