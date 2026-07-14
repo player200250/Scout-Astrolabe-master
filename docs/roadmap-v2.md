@@ -325,7 +325,7 @@ Markdown → TipTap 使用 `marked`（新增依賴，或手動解析常見語法
 | B6（D5） | 卡片庫列表檢視辨識度不足（無文字標籤、類型無色、文字卡未分層） | ✅ 完成（2026-07-13） | 無（`TYPE_LABEL` 已有） | 列表/格狀補類型文字標籤＋`TYPE_COLOR` 類型上色（圖示/標籤）＋文字卡 H1/H2 標題分層（新純函式 `splitTitleBody`，+7 測試） |
 | B7（D6） | 大量物件一律橫向排列 | ✅ 完成（2026-07-13） | 無 | `useInboxCards.ts` 搬卡（`gridLayout` 近正方形）＋快速捕捉（`nextGridSlot` 5 欄）改網格換行；純函式抽至 `snapshotCards.ts`（+18 測試），未來圖片集體上傳可共用 |
 | B8（D4） | 側邊欄拖拽歸類（拖進資料夾） | 🟡 中 | 無（`@dnd-kit` 已用） | 把右鍵「移入資料夾」升級為拖放（方案 A）；「最近使用」本質自動排序，不做拖排序 |
-| B9（D2） | 右鍵選單無規範文件（可發現性差） | 🟢 低 | 無 | 寫 `docs/context-menu-spec.md` + App 內提示；功能本身已齊全 |
+| B9（D2） | 右鍵選單無規範文件（可發現性差） | ✅ 完成（2026-07-14） | 無 | `docs/context-menu-spec.md`（完整規範各情境選單項＋捷徑對照）＋README 索引；App 內提示現況＝OnboardingModal 已涵蓋。commit `be064bc` |
 | P-DRAW（D8） | 筆刷卡頓 | 🟡 中 | **實測先行**（TD-IMG ✅ 後重測） | 已排除存檔/縮圖；疑重型卡片重繪，需 DevTools Performance 量測；TD-IMG 已移除 base64 圖片內嵌，應先重測是否已緩解再決定是否進一步治 |
 | 討論（D1） | 主頁儀表板/白板雙模式不直覺 | 🟡 中 | 需產品決策 | 與 Command Palette、D7 可發現性一併討論 |
 | 討論（D7） | 任務中心/復盤中心使用率低 | 🟡 中 | 需產品決策 | 主動浮現 badge / 主頁嵌入小工具 / 或簡化合併；連動 AI-4 |
@@ -342,10 +342,10 @@ Markdown → TipTap 使用 `marked`（新增依賴，或手動解析常見語法
 | N4 | Tag Manager 標籤管理中心 | 🟡 中 | 無 | 改名/合併/顏色/統計；FilterPanel/CardLibrary/圖譜共用 metadata |
 | N5 | Smart Collections 智慧集合 | 🟡 中 | 無 | 建於既有 Filter/TaskCenter；逾期/高優先/孤立/含 tag 等預設集合 |
 | N6 | 未連結提及偵測（Unlinked mentions） | 🟡 中 | **併入 A6** | 圖譜/backlink 強化的真新子項；其餘圖譜強化歸 A6、分群歸 AI-8 |
-| N7 | 範例白板（首次啟動 seed） | 🟢 低 | 無 | OnboardingModal 已有，僅加建範例資料；易做、利新手 |
-| N8 | 測試覆蓋報告 + CI | 🟢 低 | 無 | Vitest 已有；加 `test:coverage`、GitHub Actions |
+| N7 | 範例白板（首次啟動 seed） | ✅ 完成（2026-07-14） | 無 | 全新使用者首次建板時 seed 4 張範例卡（走 editor.createShape 避 schema 風險，純資料 `EXAMPLE_CARDS`）。commit `e8f8472` |
+| N8 | 測試覆蓋報告 + CI | ✅ 完成（2026-07-14） | 無 | `@vitest/coverage-v8`＋`test:coverage`（不設 threshold）；CI 跑 coverage 並上傳 artifact。commit `25df96c` |
 | N9 | Diagnostics / Debug 面板 | 🟡 中 | 無 | main.js 已有 console 轉發/崩潰監聽；面板化＋debug report；支援 D8 排錯 |
-| N10 | 資料安全中心（容量統計 + 一鍵清理） | 🟡 中 | 無（唯讀先行） | 白板/卡片/圖片/備份數統計、清理舊備份/無用縮圖；N9 子集，風險最低 |
+| N10 | 資料安全中心（容量統計 + 一鍵清理） | 🟡 唯讀版完成（2026-07-14）；清理待做 | 無（唯讀先行） | `DataSafetyPanel` 顯示 IndexedDB 用量/白板/卡片/體積明細（純函式 `computeVaultStats`）；**清理舊備份/無用縮圖尚未開放**。commit `c746b44` |
 | N11 | 檔案卡片進階（拖放建卡/PDF 預覽/遺失檢查） | 🟡 中 | 無 | File card 基礎已有；OCR 依賴 AI-7 |
 | N12 | 主題/外觀自訂（accent/圓角/字級/背景樣式） | 🟢 低 | 無 | 暗色已有，擴充樣式 |
 | N13 | 任務排程強化（Calendar 拖曳改期/重複/提醒） | 🟡 中 | 無 | 日曆/到期/逾期已有，補排程互動 |
@@ -357,7 +357,7 @@ Markdown → TipTap 使用 `marked`（新增依賴，或手動解析常見語法
 
 ### 三、建議排程（波次）
 
-- **Wave 1｜低風險速贏（v1.2.0 收尾）**：B5/B6/B7（D3/D5/D6）、N7（範例白板）、N8（coverage/CI）、N10（資料安全中心唯讀版）、B9（右鍵文件）。
+- **Wave 1｜低風險速贏（v1.2.0 收尾）**：✅ **全部完成（2026-07-14）**——B5/B6/B7（D3/D5/D6）、N7（範例白板）、N8（coverage/CI）、N10（資料安全中心唯讀版）、B9（右鍵文件）。
 - **Wave 2｜高價值真新（v1.2.x → v1.3 前）**：N1（Command Palette，連帶解 D1/D7）、N2（Inbox Triage）、N3（系統托盤）、N4（Tag Manager）。
 - **Wave 3｜前置依賴解鎖後**：**TD-IMG ✅ 已完成（治本 OOM/圖片體積，commit `7eaf7f5`）** → N17（備份保留數）前置已解除、N18 剩 A3-ext；P-DRAW 可重新實測 TD-IMG 是否已緩解；圖譜相關 N6 併 A6；MD 匯入併 C4。
 - **需產品決策先行**：D1（主頁定位）、D7（任務/復盤存廢）——建議與 N1 一起拍板，避免重工。
