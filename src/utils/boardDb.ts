@@ -1,6 +1,7 @@
 import { db } from '../db'
 import type { BoardRecord } from '../db'
 import { HOME_BOARD_ID, INBOX_BOARD_ID } from '../constants'
+import { EXAMPLE_SEED_FLAG } from './exampleBoard'
 
 export const generateId = () => `board_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
 
@@ -62,6 +63,13 @@ export const loadAllBoards = async (): Promise<BoardRecord[]> => {
         }
         await db.table('boards').put(firstBoard)
         boards.push(firstBoard)
+
+        // 全新使用者（沒有可沿用的舊 snapshot）：標記這塊為待 seed 範例卡。
+        // 實際建卡由 WhiteboardTools 掛載時走 editor.createShape 完成（見 exampleBoard.ts）。
+        // 從舊版遷移（有 oldSnapshot）者不標記，避免覆蓋既有內容。
+        if (!oldSnapshot?.snapshot) {
+            try { localStorage.setItem(EXAMPLE_SEED_FLAG, firstBoard.id) } catch { /* localStorage 不可用時略過 */ }
+        }
     }
 
     const home  = boards.filter(b => b.isHome)

@@ -19,6 +19,7 @@ import type { SnapshotShapeProps } from '../utils/snapshot'
 import { JUMP_DELAY_MS, Z_TOOL_SUBMENU, THUMBNAIL_SHAPE_LIMIT, THUMBNAIL_MIN_INTERVAL_MS } from '../constants'
 import { emitAppEvent, onAppEvent } from '../utils/appEvents'
 import { getExportBtnStyle } from '../utils/whiteboardUtils'
+import { EXAMPLE_CARDS, EXAMPLE_SEED_FLAG } from '../utils/exampleBoard'
 import * as imageStore from '../platform/imageStore'
 
 function isCardShape(s: { type: string }): s is TLCardShape {
@@ -556,6 +557,17 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
         if (board.snapshot) loadSnapshot(editor.store, sanitizeSnapshot(board.snapshot))
 
         setTimeout(() => {
+            // 首次啟動範例卡 seed（N7）：只對被 boardDb 標記的那塊、且畫布仍為空時做一次。
+            try {
+                if (localStorage.getItem(EXAMPLE_SEED_FLAG) === board.id) {
+                    localStorage.removeItem(EXAMPLE_SEED_FLAG)
+                    if (editor.getCurrentPageShapes().filter(isCardShape).length === 0) {
+                        EXAMPLE_CARDS.forEach(c => editor.createShape({ type: 'card', x: c.x, y: c.y, props: c.props }))
+                        editor.zoomToFit()
+                    }
+                }
+            } catch { /* localStorage 不可用或 seed 失敗時略過，不影響白板開啟 */ }
+
             const targetBoards = board.isHome
                 ? boards.filter(b => !b.parentId && !b.isHome)
                 : boards.filter(b => b.parentId === board.id)
