@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react'
+import React, { useCallback, useContext, useEffect, useRef, useState, useMemo } from 'react'
 import { useEditor, getSnapshot, loadSnapshot, exportToBlob, createShapeId } from 'tldraw'
 import type { TLEditorSnapshot, TLShapeId } from 'tldraw'
 import { jsPDF } from 'jspdf'
@@ -17,6 +17,8 @@ import { sanitizeSnapshot, sanitizeCardProps } from '../utils/snapshot'
 import type { SnapshotShapeProps } from '../utils/snapshot'
 import { JUMP_DELAY_MS, Z_TOOL_SUBMENU, THUMBNAIL_SHAPE_LIMIT, THUMBNAIL_MIN_INTERVAL_MS } from '../constants'
 import { emitAppEvent, onAppEvent } from '../utils/appEvents'
+import { resolveLinkTarget } from '../utils/cardLinks'
+import { BacklinksContext } from '../hooks/useBacklinks'
 import { getExportBtnStyle } from '../utils/whiteboardUtils'
 import { EXAMPLE_CARDS, EXAMPLE_SEED_FLAG } from '../utils/exampleBoard'
 import * as imageStore from '../platform/imageStore'
@@ -75,6 +77,7 @@ interface WhiteboardToolsProps {
 
 export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSearch, onOpenHotkey, onOpenQuickSwitcher, onCreateBoard, onSwitchBoard, isInboxBoard, onMoveCard, isDark, onCardTrashed, recentlyTrashedShapeIds }: WhiteboardToolsProps) {
     const editor = useEditor()
+    const { cardIndex } = useContext(BacklinksContext)
     const initialized = useRef(false)
     const imageInputRef = useRef<HTMLInputElement>(null)
     const jsonInputRef = useRef<HTMLInputElement>(null)
@@ -244,22 +247,33 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
 
     useEffect(() => {
         return onAppEvent('jump-to-card', ({ boardId, shapeId, x, y, targetName }) => {
+            let toBoardId = boardId
+            let toShapeId = shapeId
+            let toX = x
+            let toY = y
+
             if (targetName) {
-                const target = boards.find(b => b.name.toLowerCase() === targetName.toLowerCase())
-                if (target) onSwitchBoard(target.id)
-                return
+                // B-LINK：白板優先、再卡片。此前只比對白板就 return，
+                // 導致 [[卡片名]] 點下去完全沒反應（靜默失敗）。
+                const hit = resolveLinkTarget(targetName, boards, cardIndex)
+                if (!hit) return
+                if (hit.kind === 'board') { onSwitchBoard(hit.boardId); return }
+                toBoardId = hit.target.boardId
+                toShapeId = hit.target.shapeId
+                toX = hit.target.x
+                toY = hit.target.y
             }
 
-            if (!shapeId) return
+            if (!toShapeId) return
 
-            if (!boardId || boardId === board.id) {
-                jumpRef.current?.(shapeId, x ?? 0, y ?? 0)
+            if (!toBoardId || toBoardId === board.id) {
+                jumpRef.current?.(toShapeId, toX ?? 0, toY ?? 0)
             } else {
-                onSwitchBoard(boardId)
-                setTimeout(() => jumpRef.current?.(shapeId, x ?? 0, y ?? 0), JUMP_DELAY_MS)
+                onSwitchBoard(toBoardId)
+                setTimeout(() => jumpRef.current?.(toShapeId, toX ?? 0, toY ?? 0), JUMP_DELAY_MS)
             }
         })
-    }, [boards, board.id, onSwitchBoard, jumpRef])
+    }, [boards, cardIndex, board.id, onSwitchBoard, jumpRef])
 
     useEffect(() => {
         return onAppEvent('create-board-card-on', ({ targetBoardId, linkedBoardId, boardName }) => {

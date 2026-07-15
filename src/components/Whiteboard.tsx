@@ -58,13 +58,14 @@ export function Whiteboard({
     recentlyTrashedShapeIds,
 }: WhiteboardProps) {
     const boardInfos = boards.map(b => ({ id: b.id, name: b.name, thumbnail: b.thumbnail }))
-    const { forwardLinks, backlinks } = useBacklinks(boards)
+    const { forwardLinks, backlinks, cardIndex } = useBacklinks(boards)
     const backlinksValue = useMemo(() => ({
         forwardLinks,
         backlinks,
         boardNames: boards.filter(b => !b.isHome).map(b => b.name),
+        cardIndex,
         currentBoardName: board.name,
-    }), [forwardLinks, backlinks, boards, board.name])
+    }), [forwardLinks, backlinks, cardIndex, boards, board.name])
 
     // D1：主頁永遠是儀表板，不再有儀表板／白板雙模式（舊主頁畫布內容由 loadAllBoards 搬成普通白板）
     if (board.isHome) {

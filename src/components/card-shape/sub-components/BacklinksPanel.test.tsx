@@ -26,6 +26,7 @@ function renderPanel(
         forwardLinks: new Map(),
         backlinks: new Map(),
         boardNames: [],
+        cardIndex: new Map(),
         ...ctx,
     }
     return render(

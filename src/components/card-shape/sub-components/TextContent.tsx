@@ -14,6 +14,7 @@ import { Z_MODAL } from '../../../constants'
 import { emitAppEvent } from '../../../utils/appEvents'
 import { buildSlashCommands, matchSlashQuery, groupSlashCommands, type SlashCommand } from '../../../utils/slashCommands'
 import { filterCommands } from '../../../utils/commands'
+import { buildLinkTargets, filterLinkTargets, groupLinkTargets, type LinkTarget } from '../../../utils/cardLinks'
 
 // registry 是純資料、與元件無關 → 模組層建一次即可，不隨每次 render 重算
 const SLASH_COMMANDS = buildSlashCommands()
@@ -201,7 +202,7 @@ interface SuggestState {
     from: number
     coords: { x: number; y: number }
     index: number
-    matches: string[]
+    matches: LinkTarget[]
 }
 
 /* ================================================
@@ -266,7 +267,17 @@ export function TextContent({ editor: tldrawEditor, shape, isEditing, exitEdit, 
     const p = shape.props
     const cardBg = CARD_COLORS[p.color ?? 'none']?.bg ?? '#ffffff'
     const isDark = useIsDarkMode()
-    const { boardNames } = useContext(BacklinksContext)
+    const { boardNames, cardIndex } = useContext(BacklinksContext)
+    // 補全候選＝白板名＋卡片名（B-LINK 後 [[卡片名]] 才跳得動，故也該補得出來）。
+    // cardIndex 來自 useBacklinks 的增量快取，不是每次 render 重掃。
+    const linkTargets = useMemo(() => {
+        const cardNames: string[] = []
+        for (const targets of cardIndex.values()) {
+            const t = targets[0]
+            if (t) cardNames.push(t.name)
+        }
+        return buildLinkTargets(boardNames, cardNames)
+    }, [boardNames, cardIndex])
     const [suggest, setSuggest] = useState<SuggestState | null>(null)
     const suggestRef = useRef<SuggestState | null>(null)
     suggestRef.current = suggest
@@ -358,9 +369,7 @@ export function TextContent({ editor: tldrawEditor, shape, isEditing, exitEdit, 
             const match = textBefore.match(/\[\[([^\]]*)$/)
             if (!match) { setSuggest(null); return }
             const query = match[1]
-            const matches = boardNames
-                .filter(n => n.toLowerCase().includes(query.toLowerCase()))
-                .slice(0, 8)
+            const matches = filterLinkTargets(linkTargets, query)
             if (matches.length === 0) { setSuggest(null); return }
             const coords = tiptap.view.coordsAtPos(from)
             setSuggest(prev => ({
@@ -377,7 +386,7 @@ export function TextContent({ editor: tldrawEditor, shape, isEditing, exitEdit, 
             tiptap.off('update', handler)
             tiptap.off('selectionUpdate', handler)
         }
-    }, [tiptap, isEditing, boardNames])
+    }, [tiptap, isEditing, linkTargets])
 
     // `/` 選單觸發（matchSlashQuery 內已讓 `[[` 補全優先，兩者不會同時開）
     useEffect(() => {
@@ -461,7 +470,7 @@ export function TextContent({ editor: tldrawEditor, shape, isEditing, exitEdit, 
             return true
         }
         if (event.key === 'Enter' || event.key === 'Tab') {
-            insertCompletion(s.matches[s.index])
+            insertCompletion(s.matches[s.index].name)
             return true
         }
         if (event.key === 'Escape') {
@@ -596,22 +605,37 @@ export function TextContent({ editor: tldrawEditor, shape, isEditing, exitEdit, 
             {/* [[xxx]] autocomplete dropdown — position:fixed to escape card clipping */}
             {suggest && (
                 <SuggestPopup coords={suggest.coords} isDark={isDark} footer="↑↓ 選擇  Tab/Enter 確認  Esc 關閉">
-                    {suggest.matches.map((name, i) => (
-                        <div
-                            key={name}
-                            onPointerDown={() => insertCompletion(name)}
-                            style={{
-                                padding: '6px 12px',
-                                cursor: 'pointer',
-                                background: i === suggest.index ? (isDark ? '#1e3a5f' : '#eff6ff') : 'transparent',
-                                color: i === suggest.index ? '#60a5fa' : (isDark ? '#cbd5e1' : '#1a1a1a'),
-                                borderLeft: i === suggest.index ? '2px solid #3b82f6' : '2px solid transparent',
-                                whiteSpace: 'nowrap',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                            }}
-                        >
-                            {name}
+                    {groupLinkTargets(suggest.matches).map(({ group, items }) => (
+                        <div key={group}>
+                            <div style={{
+                                padding: '5px 12px 2px', fontSize: 10, fontWeight: 700,
+                                letterSpacing: '0.5px', color: isDark ? '#64748b' : '#aaa',
+                            }}>{group}</div>
+                            {items.map(t => {
+                                // index 是對 suggest.matches 的全域序號，分組顯示時要換算回去
+                                const i = suggest.matches.indexOf(t)
+                                const active = i === suggest.index
+                                return (
+                                    <div
+                                        key={t.kind + ':' + t.name}
+                                        onPointerDown={() => insertCompletion(t.name)}
+                                        style={{
+                                            padding: '6px 12px',
+                                            cursor: 'pointer',
+                                            display: 'flex', alignItems: 'center', gap: 8,
+                                            background: active ? (isDark ? '#1e3a5f' : '#eff6ff') : 'transparent',
+                                            color: active ? '#60a5fa' : (isDark ? '#cbd5e1' : '#1a1a1a'),
+                                            borderLeft: active ? '2px solid #3b82f6' : '2px solid transparent',
+                                            whiteSpace: 'nowrap',
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis',
+                                        }}
+                                    >
+                                        <span style={{ flexShrink: 0, opacity: 0.7 }}>{t.kind === 'board' ? '🗂️' : '📝'}</span>
+                                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.name}</span>
+                                    </div>
+                                )
+                            })}
                         </div>
                     ))}
                 </SuggestPopup>

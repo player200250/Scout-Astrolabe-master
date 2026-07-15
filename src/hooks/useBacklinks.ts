@@ -22,6 +22,16 @@ export interface BacklinkEntry {
     y: number
 }
 
+/** 一張可被 `[[名稱]]` 指到的卡片（含跳轉所需的座標） */
+export interface CardTarget {
+    boardId: string
+    boardName: string
+    shapeId: string
+    name: string
+    x: number
+    y: number
+}
+
 export interface BacklinksContextValue {
     /** shapeId → [[xxx]] 中引用的名稱清單 */
     forwardLinks: Map<string, string[]>
@@ -29,6 +39,11 @@ export interface BacklinksContextValue {
     backlinks: Map<string, BacklinkEntry[]>
     /** 所有白板名稱，供補全選單使用 */
     boardNames: string[]
+    /**
+     * cardName.toLowerCase() → 同名卡片清單（撞名時取 [0]，與 knowledgeGraph 一致）。
+     * 供 `[[卡片名]]` 跳轉（B-LINK）與補全選單使用。
+     */
+    cardIndex: Map<string, CardTarget[]>
     /** 當前白板名稱，供 BacklinksPanel 查詢白板級引用 */
     currentBoardName?: string
 }
@@ -37,16 +52,28 @@ export const BacklinksContext = createContext<BacklinksContextValue>({
     forwardLinks: new Map(),
     backlinks: new Map(),
     boardNames: [],
+    cardIndex: new Map(),
 })
 
 /* ---------------------------------------------------------------
    工具函式
 --------------------------------------------------------------- */
-/** 從 HTML 擷取 [[xxx]] 裡的 xxx，去重後回傳 */
-function extractLinks(html: string): string[] {
-    const text = stripHtml(html)
+/** 從純文字擷取 [[xxx]] 裡的 xxx，去重後回傳 */
+function linksFromText(text: string): string[] {
     const matches = [...text.matchAll(/\[\[([^\]]+)\]\]/g)]
     return [...new Set(matches.map(m => m[1].trim()).filter(Boolean))]
+}
+
+/** 第一個 H1/H2 的純文字（沒有就 null） */
+function headingName(html: string): string | null {
+    const hMatch = html.match(/<h[12][^>]*>(.*?)<\/h[12]>/i)
+    if (!hMatch) return null
+    return hMatch[1].replace(/<[^>]+>/g, '').trim() || null
+}
+
+/** 卡片名稱：優先 H1/H2，否則取前 40 字純文字。純文字已算好時用這個，避免重跑 stripHtml。 */
+function cardNameFrom(html: string, plainText: string): string | null {
+    return headingName(html) ?? (plainText.slice(0, 40) || null)
 }
 
 /**
@@ -56,13 +83,8 @@ function extractLinks(html: string): string[] {
  */
 export function extractCardName(html: string): string | null {
     if (!html) return null
-    const hMatch = html.match(/<h[12][^>]*>(.*?)<\/h[12]>/i)
-    if (hMatch) {
-        const name = hMatch[1].replace(/<[^>]+>/g, '').trim()
-        if (name) return name
-    }
-    const text = stripHtml(html)
-    return text.slice(0, 40) || null
+    // 有標題就不必 stripHtml（DOMParser 很貴）
+    return headingName(html) ?? (stripHtml(html).slice(0, 40) || null)
 }
 
 /* ---------------------------------------------------------------
@@ -73,12 +95,14 @@ type BoardCache = {
     name: string
     forwardLinks: Map<string, string[]>
     backlinks: Map<string, BacklinkEntry[]>
+    cards: CardTarget[]
 }
 
-function scanBoard(board: BoardRecord): Pick<BoardCache, 'forwardLinks' | 'backlinks'> {
+function scanBoard(board: BoardRecord): Pick<BoardCache, 'forwardLinks' | 'backlinks' | 'cards'> {
     const forwardLinks = new Map<string, string[]>()
     const backlinks = new Map<string, BacklinkEntry[]>()
-    if (!board.snapshot) return { forwardLinks, backlinks }
+    const cards: CardTarget[] = []
+    if (!board.snapshot) return { forwardLinks, backlinks, cards }
 
     const store = getSnapshotStore(board.snapshot)
     for (const shape of Object.values(store)) {
@@ -88,13 +112,31 @@ function scanBoard(board: BoardRecord): Pick<BoardCache, 'forwardLinks' | 'backl
         const html = shape.props?.text ?? ''
         if (!html) continue
 
-        const links = extractLinks(html)
+        // stripHtml 的成本幾乎全在 DOMParser，每張卡只做一次，
+        // 名稱／連結／preview 共用同一份純文字。
+        const text = stripHtml(html)
+
+        // 卡片索引要收「每一張」卡——沒有 [[連結]] 的卡正是 B-LINK 要能跳到的目標，
+        // 故必須在下方 links 的 early-return 之前收集。
+        const name = cardNameFrom(html, text)
+        if (name) {
+            cards.push({
+                boardId: board.id,
+                boardName: board.name,
+                shapeId: shape.id,
+                name,
+                x: shape.x ?? 0,
+                y: shape.y ?? 0,
+            })
+        }
+
+        const links = linksFromText(text)
         if (links.length === 0) continue
 
         forwardLinks.set(shape.id, links)
-        const preview = stripHtml(html).slice(0, 80)
-        for (const name of links) {
-            const key = name.toLowerCase()
+        const preview = text.slice(0, 80)
+        for (const linkName of links) {
+            const key = linkName.toLowerCase()
             if (!backlinks.has(key)) backlinks.set(key, [])
             backlinks.get(key)!.push({
                 boardId: board.id,
@@ -106,12 +148,13 @@ function scanBoard(board: BoardRecord): Pick<BoardCache, 'forwardLinks' | 'backl
             })
         }
     }
-    return { forwardLinks, backlinks }
+    return { forwardLinks, backlinks, cards }
 }
 
 export function useBacklinks(boards: BoardRecord[]): Omit<BacklinksContextValue, 'boardNames'> {
     const cacheRef = useRef<Map<string, BoardCache>>(new Map())
     const resultRef = useRef<Omit<BacklinksContextValue, 'boardNames'> | null>(null)
+
 
     const currentIds = new Set(boards.map(b => b.id))
     const removedIds = [...cacheRef.current.keys()].filter(id => !currentIds.has(id))
@@ -127,22 +170,29 @@ export function useBacklinks(boards: BoardRecord[]): Omit<BacklinksContextValue,
     for (const id of removedIds) cacheRef.current.delete(id)
 
     for (const board of changedBoards) {
-        const { forwardLinks, backlinks } = scanBoard(board)
-        cacheRef.current.set(board.id, { snapshot: board.snapshot, name: board.name, forwardLinks, backlinks })
+        const { forwardLinks, backlinks, cards } = scanBoard(board)
+        cacheRef.current.set(board.id, { snapshot: board.snapshot, name: board.name, forwardLinks, backlinks, cards })
     }
 
     // Merge all per-board caches into final Maps
     const mergedForward = new Map<string, string[]>()
     const mergedBack = new Map<string, BacklinkEntry[]>()
-    for (const { forwardLinks, backlinks } of cacheRef.current.values()) {
+    const cardIndex = new Map<string, CardTarget[]>()
+    for (const { forwardLinks, backlinks, cards } of cacheRef.current.values()) {
         for (const [k, v] of forwardLinks) mergedForward.set(k, v)
         for (const [k, vs] of backlinks) {
             const arr = mergedBack.get(k)
             if (arr) arr.push(...vs)
             else mergedBack.set(k, [...vs])
         }
+        for (const c of cards) {
+            const key = c.name.toLowerCase()
+            const arr = cardIndex.get(key)
+            if (arr) arr.push(c)
+            else cardIndex.set(key, [c])
+        }
     }
 
-    resultRef.current = { forwardLinks: mergedForward, backlinks: mergedBack }
+    resultRef.current = { forwardLinks: mergedForward, backlinks: mergedBack, cardIndex }
     return resultRef.current
 }

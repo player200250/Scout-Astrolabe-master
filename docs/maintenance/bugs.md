@@ -23,7 +23,7 @@
 | Low | 0 | 全部修復（L1–L5） |
 | 設計決策 | 1 | M9：軟刪白板時不逐一歸檔內部卡片 |
 | 已修（部分）| 1 | P1-OOM：備份堆積導致 renderer OOM 白屏（備份已修，圖片治本 TD-IMG 已完成）|
-| 已修 | 2 | TD-IMG：image 卡 base64 改存實體檔（astro-img protocol + 混合式遷移）；WO4：`[[]]` 補全按 Enter 無法選取 |
+| 已修 | 3 | TD-IMG：image 卡 base64 改存實體檔（astro-img protocol + 混合式遷移）；WO4：`[[]]` 補全按 Enter 無法選取；B-LINK：指向卡片的 `[[連結]]` 點了沒反應 |
 | 待觀察 | 1 | WO1：link 卡片的 title / description / thumbnail 欄位從未填充 |
 
 ---
@@ -73,6 +73,53 @@
 
 **狀態**：已完成
 **最後更新**：2026-07-04
+
+---
+
+## 已修（本次）
+
+### ~~B-LINK：指向「卡片」的 `[[連結]]` 點了沒反應~~ ✅ 已修（2026-07-15）
+
+- **位置**：`WhiteboardTools.tsx:248`（`jump-to-card` 的 `targetName` 分支）
+- **現象**：`[[X]]` 只在 X 是**白板名**時會跳轉；X 是**卡片名**時點擊**完全沒反應**（靜默失敗，連提示都沒有）。
+- **實測**：dogfooding vault 的真實連結 `卡片綁死單一白板 → [[Heptabase]]`（Heptabase 是卡片、非白板），
+  以 CDP 點擊該 wikilink → 畫面不動、仍停在原板。
+- **根因**：
+  ```js
+  const target = boards.find(b => b.name.toLowerCase() === targetName.toLowerCase())
+  if (target) onSwitchBoard(target.id)
+  return   // ← 找不到白板就直接 return，從不嘗試解析成卡片
+  ```
+- **同一個 `[[X]]` 在三處語意不一致**（這是病灶本身）：
+
+  | 位置 | `[[X]]` 解析成 |
+  |---|---|
+  | 知識圖譜 `knowledgeGraph.ts:111` | 白板**或**卡片（`boardByName.get(tl) ?? cardByName.get(tl)?.[0]`）|
+  | 實際跳轉 `WhiteboardTools.tsx:248` | **只有白板** |
+  | 補全選單 `Whiteboard.tsx:65` | **只提示白板名** |
+
+- **影響**：使用者無法連到卡片，只能連到白板。**可能是「20 節點只有 3 連結」的真正原因**
+  ——不是不想連，是連了也沒用。
+- **修法（已實作）**：
+  - `useBacklinks` 的 `BoardCache` 新增 `cards`，merge 出 `cardIndex`（`cardName.toLowerCase() → CardTarget[]`），
+    走既有的 board-level 增量失效，**不需要新機制**。
+  - `scanBoard` 順手把**每張卡的 stripHtml 從 1~2 次收斂成恰好 1 次**（原本 `extractLinks` 一次、
+    `preview` 再一次），名稱／連結／preview 共用同一份純文字。卡片索引在 `links.length === 0` 的
+    early-return **之前**收集——沒有 `[[連結]]` 的卡正是要能被跳到的目標。
+  - 新增純函式 `utils/cardLinks.ts`：`resolveLinkTarget`（白板優先、再卡片，與 `knowledgeGraph.ts:111` 同規則）
+    ／`buildLinkTargets`／`filterLinkTargets`／`groupLinkTargets`（+18 測試）。
+  - `WhiteboardTools` 的 `targetName` 分支改用 `resolveLinkTarget`，解析到卡片後**複用既有的
+    `{boardId, shapeId, x, y}` 跳轉路徑**（`:253-260`）。
+  - 補全選單納入卡片名並分組顯示（🗂️ 白板／📝 卡片），比照 `/` 選單的 `groupSlashCommands`。
+- **⚠️ 眼驗才抓到的坑**：補全的顯示上限原本是**共用一個總額 8**，實測 **7 個白板就把額度吃光、
+  一張卡片名都出不來**。改為**分組各自配額**（白板 5／卡片 8）。單元測試沒抓到——它測的是
+  「limit 有沒有生效」這種抽象性質，不是真實的板數配置。
+- **驗證**：CDP 實測——修改前點 `[[Heptabase]]` 毫無反應，修改後跳到競品參考板並定位到該卡；
+  `[[` 顯示白板／卡片兩組；`[[Hep` 過濾出 Heptabase 且白板不亂入。413 測試全綠、build exit 0、ESLint 0 errors。
+- **與 N6 的關係**：本修法建立的 `cardIndex` 正是 N6 需要的索引；stripHtml 收斂成一次後，
+  N6 要的純文字也只差快取一份。詳見 [n6-performance-2026-07-15.md](n6-performance-2026-07-15.md)。
+- **狀態**：✅ 已修並眼驗
+- **最後更新**：2026-07-15
 
 ---
 
