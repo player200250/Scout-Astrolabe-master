@@ -2,16 +2,7 @@ import { useCallback } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
 import type { TLEditorSnapshot } from 'tldraw'
 import type { BoardRecord } from '../db'
-import { saveBoard, generateId } from '../utils/boardDb'
-
-/** 在現有白板名稱中產生不重複名稱（base、base (2)、base (3)…）。純函式。 */
-export function uniqueName(base: string, currentBoards: BoardRecord[]): string {
-    const existing = new Set(currentBoards.map(b => b.name))
-    if (!existing.has(base)) return base
-    let n = 2
-    while (existing.has(`${base} (${n})`)) n++
-    return `${base} (${n})`
-}
+import { saveBoard, generateId, uniqueName } from '../utils/boardDb'
 
 /** useBoardCRUD 需共用的核心 board state（由 useBoardManager 傳入） */
 export interface BoardCRUDSharedState {

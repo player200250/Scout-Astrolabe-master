@@ -327,7 +327,7 @@ Markdown → TipTap 使用 `marked`（新增依賴，或手動解析常見語法
 | B8（D4） | 側邊欄拖拽歸類（拖進資料夾） | 🟡 中 | 無（`@dnd-kit` 已用） | 把右鍵「移入資料夾」升級為拖放（方案 A）；「最近使用」本質自動排序，不做拖排序 |
 | B9（D2） | 右鍵選單無規範文件（可發現性差） | ✅ 完成（2026-07-14） | 無 | `docs/context-menu-spec.md`（完整規範各情境選單項＋捷徑對照）＋README 索引；App 內提示現況＝OnboardingModal 已涵蓋。commit `be064bc` |
 | P-DRAW（D8） | 筆刷卡頓 | 🟡 中 | **實測先行**（TD-IMG ✅ 後重測） | 已排除存檔/縮圖；疑重型卡片重繪，需 DevTools Performance 量測；TD-IMG 已移除 base64 圖片內嵌，應先重測是否已緩解再決定是否進一步治 |
-| 討論（D1） | 主頁儀表板/白板雙模式不直覺 | 🟡 中 | 需產品決策 | 與 Command Palette、D7 可發現性一併討論 |
+| 討論（D1） | 主頁儀表板/白板雙模式不直覺 | ✅ 完成（2026-07-15） | 產品決策已拍板 | **決議：主頁永遠是儀表板，砍掉雙模式**（使用者確認幾乎不用主頁畫布，都在其他白板）。移除 `homeView` state／localStorage `home-view`／Dashboard 與 WhiteboardTools 兩組切換鈕；`Whiteboard.tsx` 改為 `if (board.isHome) return <Dashboard/>`。舊主頁畫布內容由 `loadAllBoards` 自動整份搬成普通白板「主頁白板」（`utils/homeBoardMigration.ts`，只搬不刪、+11 測試）；主頁保留 board record 當導覽錨點（不動 `activeBoardId` 導覽模型，見下方註）。`uniqueName` 從 useBoardCRUD 移到 utils/boardDb（避免資料層 → hook 的循環匯入） |
 | 討論（D7） | 任務中心/復盤中心使用率低 | 🟡 中 | 需產品決策 | 主動浮現 badge / 主頁嵌入小工具 / 或簡化合併；連動 AI-4 |
 
 ### 二、新增功能候選（AI 提案去重 + 校正後）
@@ -360,7 +360,10 @@ Markdown → TipTap 使用 `marked`（新增依賴，或手動解析常見語法
 - **Wave 1｜低風險速贏（v1.2.0 收尾）**：✅ **全部完成（2026-07-14）**——B5/B6/B7（D3/D5/D6）、N7（範例白板）、N8（coverage/CI）、N10（資料安全中心唯讀版）、B9（右鍵文件）。
 - **Wave 2｜高價值真新（v1.2.x → v1.3 前）**：✅ **全部完成（2026-07-15）**——N1（Command Palette，07-14）、N2（Inbox Triage）、N3（系統托盤 + 全域捕捉）、N4（Tag Manager）。
 - **Wave 3｜前置依賴解鎖後**：**TD-IMG ✅ 已完成（治本 OOM/圖片體積，commit `7eaf7f5`）** → N17（備份保留數）前置已解除、N18 剩 A3-ext；P-DRAW 可重新實測 TD-IMG 是否已緩解；圖譜相關 N6 併 A6；MD 匯入併 C4。
-- **需產品決策先行**：D1（主頁定位）、D7（任務/復盤存廢）——建議與 N1 一起拍板，避免重工。
+- **需產品決策先行**：~~D1（主頁定位）~~ ✅ 已拍板（2026-07-15，主頁＝儀表板）；**D7（任務/復盤存廢）仍待討論**。
+  - D1 定案後，D7 的「降低進入門檻：主頁嵌入小工具」其實已是既成事實——儀表板本來就嵌了今日待辦／今日日記＋卡片庫/復盤中心/知識圖譜捷徑。
+  - D7 真正剩下的是：**任務中心／復盤中心該不該續存為獨立面板**（提升 engagement vs 簡化合併）。
+- **D1 已知取捨（未來若要再收斂）**：主頁現在是「一筆永遠不渲染成白板的 board record」。乾淨做法是讓主頁不是 board、改成獨立 view，但要動 `activeBoardId` 導覽模型（navigationStack／QuickSwitcher／Command Palette 切板都假設「當前位置＝一個 boardId」）。使用者感受不到差別，故刻意不做。
 
 ---
 

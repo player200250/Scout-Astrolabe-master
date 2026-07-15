@@ -4,7 +4,6 @@ import type { TLEditorSnapshot, TLShapeId } from 'tldraw'
 import { jsPDF } from 'jspdf'
 import { db } from '../db'
 import type { BoardRecord } from '../db'
-import type { HomeView } from './Whiteboard'
 import TldrawToolPanel, { type CardCreators } from '../TIdrawToolPanel'
 import { useContextMenu } from '../utils/contextMenuUtils'
 import { useHotkeys } from '../Usehotkeys'
@@ -70,13 +69,11 @@ interface WhiteboardToolsProps {
     isInboxBoard: boolean
     onMoveCard: (shapeIds: string[]) => void
     isDark: boolean
-    homeView?: HomeView
-    onSetHomeView?: (v: HomeView) => void
     onCardTrashed?: () => void
     recentlyTrashedShapeIds: React.MutableRefObject<Set<string>>
 }
 
-export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSearch, onOpenHotkey, onOpenQuickSwitcher, onCreateBoard, onSwitchBoard, isInboxBoard, onMoveCard, isDark, homeView, onSetHomeView, onCardTrashed, recentlyTrashedShapeIds }: WhiteboardToolsProps) {
+export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSearch, onOpenHotkey, onOpenQuickSwitcher, onCreateBoard, onSwitchBoard, isInboxBoard, onMoveCard, isDark, onCardTrashed, recentlyTrashedShapeIds }: WhiteboardToolsProps) {
     const editor = useEditor()
     const initialized = useRef(false)
     const imageInputRef = useRef<HTMLInputElement>(null)
@@ -578,9 +575,8 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
                 }
             } catch { /* localStorage 不可用或 seed 失敗時略過，不影響白板開啟 */ }
 
-            const targetBoards = board.isHome
-                ? boards.filter(b => !b.parentId && !b.isHome)
-                : boards.filter(b => b.parentId === board.id)
+            // D1 後主頁不再渲染 tldraw，本元件只會掛在真實白板上，故僅需子板分支
+            const targetBoards = boards.filter(b => b.parentId === board.id)
 
             if (targetBoards.length > 0) {
                 const existingLinkedIds = new Set(
@@ -720,34 +716,6 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
         <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
             <TldrawToolPanel {...cardCreators} isDark={isDark} />
             <div style={{ position: 'absolute', top: 10, right: 10, display: 'flex', gap: 6, pointerEvents: 'auto', zIndex: 100 }}>
-                {homeView !== undefined && onSetHomeView && (
-                    <>
-                        <button
-                            onClick={() => onSetHomeView('dashboard')}
-                            style={{
-                                ...getExportBtnStyle(isDark),
-                                ...(homeView === 'dashboard' ? {
-                                    background: '#2563eb', color: '#fff',
-                                    border: '1px solid #2563eb',
-                                } : {}),
-                            }}
-                            onMouseEnter={e => { if (homeView !== 'dashboard') e.currentTarget.style.background = isDark ? '#2d3748' : '#f0f0f0' }}
-                            onMouseLeave={e => { if (homeView !== 'dashboard') e.currentTarget.style.background = isDark ? 'rgba(30,41,59,0.92)' : 'rgba(255,255,255,0.92)' }}
-                        >📊 儀表板</button>
-                        <button
-                            onClick={() => onSetHomeView('whiteboard')}
-                            style={{
-                                ...getExportBtnStyle(isDark),
-                                ...(homeView === 'whiteboard' ? {
-                                    background: '#2563eb', color: '#fff',
-                                    border: '1px solid #2563eb',
-                                } : {}),
-                            }}
-                            onMouseEnter={e => { if (homeView !== 'whiteboard') e.currentTarget.style.background = isDark ? '#2d3748' : '#f0f0f0' }}
-                            onMouseLeave={e => { if (homeView !== 'whiteboard') e.currentTarget.style.background = isDark ? 'rgba(30,41,59,0.92)' : 'rgba(255,255,255,0.92)' }}
-                        >🖼️ 白板</button>
-                    </>
-                )}
                 {window.electronAPI && (
                     <button
                         onClick={() => window.electronAPI?.saveDocument(JSON.stringify({ snapshot: getSnapshot(editor.store) }))}

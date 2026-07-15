@@ -1,6 +1,5 @@
 import React, { useMemo } from 'react'
 import type { BoardRecord } from '../db'
-import type { HomeView } from './Whiteboard'
 import { getCardShapes } from '../utils/snapshot'
 import { getTodayStr, formatRelativeDate, toDateStr } from '../utils/date'
 import { stripHtml } from '../utils/stringUtils'
@@ -16,8 +15,6 @@ interface DashboardProps {
     onQuickCapture: () => void
     isDark: boolean
     sidebarWidth: number
-    homeView: HomeView
-    onSetHomeView: (v: HomeView) => void
 }
 
 function getWeekRange(): { start: string; end: string } {
@@ -68,7 +65,7 @@ const CARD_TYPE_ICON: Record<string, string> = {
 export function Dashboard({
     boards, onSwitch, onOpenTaskCenter, onOpenReviewCenter,
     onOpenKnowledgeGraph, onOpenCardLibrary, onOpenOverview,
-    onQuickCapture, isDark, sidebarWidth, homeView, onSetHomeView,
+    onQuickCapture, isDark, sidebarWidth,
 }: DashboardProps) {
     const todayStr = getTodayStr()
     const { start: weekStart, end: weekEnd } = useMemo(() => getWeekRange(), [])
@@ -183,26 +180,6 @@ export function Dashboard({
                         <div style={{ fontSize: 14, color: textSecondary, marginTop: 4 }}>{getDateLabel()}</div>
                     </div>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
-                        <button
-                            onClick={() => onSetHomeView('dashboard')}
-                            style={{
-                                padding: '7px 14px', borderRadius: 8, cursor: 'pointer',
-                                fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap',
-                                border: homeView === 'dashboard' ? '1px solid #2563eb' : `1px solid ${border}`,
-                                background: homeView === 'dashboard' ? '#2563eb' : cardBg,
-                                color: homeView === 'dashboard' ? '#fff' : textSecondary,
-                            }}
-                        >📊 儀表板</button>
-                        <button
-                            onClick={() => onSetHomeView('whiteboard')}
-                            style={{
-                                padding: '7px 14px', borderRadius: 8, cursor: 'pointer',
-                                fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap',
-                                border: homeView === 'whiteboard' ? '1px solid #2563eb' : `1px solid ${border}`,
-                                background: homeView === 'whiteboard' ? '#2563eb' : cardBg,
-                                color: homeView === 'whiteboard' ? '#fff' : textSecondary,
-                            }}
-                        >🖼️ 白板</button>
                         <button
                             onClick={onQuickCapture}
                             style={{

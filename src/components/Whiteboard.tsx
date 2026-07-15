@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo } from 'react'
 import { Tldraw, SelectTool, defaultTools, useEditor } from 'tldraw'
 import type { TLEditorSnapshot } from 'tldraw'
 import type { BoardRecord } from '../db'
@@ -8,8 +8,6 @@ import { useBacklinks } from '../hooks/useBacklinks'
 import { WhiteboardTools } from './WhiteboardTools'
 import { Dashboard } from './Dashboard'
 import { ErrorBoundary } from './ErrorBoundary'
-
-export type HomeView = 'dashboard' | 'whiteboard'
 
 class CustomSelectTool extends SelectTool {
     static id = 'select' as const
@@ -68,17 +66,8 @@ export function Whiteboard({
         currentBoardName: board.name,
     }), [forwardLinks, backlinks, boards, board.name])
 
-    const [homeView, setHomeView] = useState<HomeView>(() => {
-        try { return (localStorage.getItem('home-view') as HomeView) || 'dashboard' }
-        catch { return 'dashboard' }
-    })
-
-    const handleSetHomeView = useCallback((v: HomeView) => {
-        setHomeView(v)
-        try { localStorage.setItem('home-view', v) } catch { /* empty */ }
-    }, [])
-
-    if (board.isHome && homeView === 'dashboard') {
+    // D1：主頁永遠是儀表板，不再有儀表板／白板雙模式（舊主頁畫布內容由 loadAllBoards 搬成普通白板）
+    if (board.isHome) {
         return (
             <Dashboard
                 boards={boards}
@@ -91,8 +80,6 @@ export function Whiteboard({
                 onQuickCapture={onQuickCapture}
                 isDark={isDark}
                 sidebarWidth={sidebarWidth}
-                homeView={homeView}
-                onSetHomeView={handleSetHomeView}
             />
         )
     }
@@ -127,8 +114,6 @@ export function Whiteboard({
                                 isInboxBoard={isInboxBoard}
                                 onMoveCard={onMoveCard}
                                 isDark={isDark}
-                                homeView={board.isHome ? homeView : undefined}
-                                onSetHomeView={board.isHome ? handleSetHomeView : undefined}
                                 onCardTrashed={onCardTrashed}
                                 recentlyTrashedShapeIds={recentlyTrashedShapeIds}
                             />

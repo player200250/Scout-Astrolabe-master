@@ -40,7 +40,9 @@ const mocks = vi.hoisted(() => {
 })
 
 // ── 2. 把真模組換成替身 ────────────────────────────────────────────────────
-vi.mock('../utils/boardDb', () => ({
+vi.mock('../utils/boardDb', async (importOriginal) => ({
+    // uniqueName 是純函式（無 DB），用真的；只替換會碰 DB 的那幾個
+    ...(await importOriginal<typeof import('../utils/boardDb')>()),
     loadAllBoards: mocks.loadAllBoards,
     saveBoard: mocks.saveBoard,
     deleteBoard: mocks.deleteBoard,

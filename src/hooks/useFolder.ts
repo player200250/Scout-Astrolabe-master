@@ -2,7 +2,7 @@ import { useCallback } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
 import type { BoardRecord } from '../db'
 import { saveBoard, deleteBoard, generateId } from '../utils/boardDb'
-import { uniqueName } from './useBoardCRUD'
+import { uniqueName } from '../utils/boardDb'
 
 /** useFolder 需共用的核心 board state（由 useBoardManager 傳入） */
 export interface FolderSharedState {

@@ -2,8 +2,22 @@ import { db } from '../db'
 import type { BoardRecord } from '../db'
 import { HOME_BOARD_ID, INBOX_BOARD_ID } from '../constants'
 import { EXAMPLE_SEED_FLAG } from './exampleBoard'
+import { buildHomeBoardMigration } from './homeBoardMigration'
 
 export const generateId = () => `board_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
+
+/**
+ * 在現有白板名稱中產生不重複名稱（base、base (2)、base (3)…）。純函式。
+ * 原本在 useBoardCRUD，但 loadAllBoards 的主頁畫布搬遷也要用；
+ * 從資料層 import hook 會與 useBoardCRUD → boardDb 形成循環，故移到這裡。
+ */
+export function uniqueName(base: string, currentBoards: BoardRecord[]): string {
+    const existing = new Set(currentBoards.map(b => b.name))
+    if (!existing.has(base)) return base
+    let n = 2
+    while (existing.has(`${base} (${n})`)) n++
+    return `${base} (${n})`
+}
 
 export const isRasterThumbnail = (t: string | null | undefined): t is string =>
     typeof t === 'string' && (
@@ -36,6 +50,22 @@ export const loadAllBoards = async (): Promise<BoardRecord[]> => {
         }
         await db.table('boards').put(homeBoard)
         boards.unshift(homeBoard)
+    }
+
+    // D1：主頁不再有白板模式。舊主頁畫布若還有內容，整份搬成一張普通白板，
+    // 否則那些 shape 會留在 DB 裡但沒有任何 UI 打得開（見 homeBoardMigration.ts）。
+    const migration = buildHomeBoardMigration(
+        homeBoard,
+        generateId(),
+        base => uniqueName(base, boards),
+    )
+    if (migration) {
+        await db.table('boards').put(migration.migratedBoard)
+        await db.table('boards').put(migration.clearedHome)
+        const homeIdx = boards.findIndex(b => b.id === migration.clearedHome.id)
+        if (homeIdx >= 0) boards[homeIdx] = migration.clearedHome
+        boards.push(migration.migratedBoard)
+        console.log(`[home] 主頁畫布已搬成「${migration.migratedBoard.name}」`)
     }
 
     let inboxBoard = boards.find(b => b.isInbox)

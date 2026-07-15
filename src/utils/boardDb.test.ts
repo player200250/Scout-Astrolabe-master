@@ -19,7 +19,17 @@ const mocks = vi.hoisted(() => {
 })
 vi.mock('../db', () => ({ db: mocks.db }))
 
-import { generateId, isRasterThumbnail, saveBoard, deleteBoard, loadAllBoards } from './boardDb'
+import { generateId, isRasterThumbnail, uniqueName, saveBoard, deleteBoard, loadAllBoards } from './boardDb'
+import type { TLEditorSnapshot } from 'tldraw'
+
+/** 帶一張卡的 snapshot，用來觸發主頁畫布搬遷（D1） */
+const snapshotWithCard = (): TLEditorSnapshot => ({
+    document: {
+        store: { 'shape:a': { typeName: 'shape', id: 'shape:a', type: 'card', x: 0, y: 0, index: 'a1', props: {} } },
+        schema: { schemaVersion: 2, sequences: {} },
+    },
+    session: {},
+}) as unknown as TLEditorSnapshot
 
 // 補齊 BoardRecord 必要欄位的小工具。
 const board = (over: Partial<BoardRecord> & { id: string }): BoardRecord =>
@@ -63,6 +73,20 @@ describe('isRasterThumbnail', () => {
     it('null / undefined 為 false', () => {
         expect(isRasterThumbnail(null)).toBe(false)
         expect(isRasterThumbnail(undefined)).toBe(false)
+    })
+})
+
+describe('uniqueName', () => {
+    it('沒撞名時原樣回傳', () => {
+        expect(uniqueName('主頁白板', [board({ id: 'b1', name: '其他' })])).toBe('主頁白板')
+    })
+
+    it('撞名時往後找到第一個空號', () => {
+        const boards = [
+            board({ id: 'b1', name: '主頁白板' }),
+            board({ id: 'b2', name: '主頁白板 (2)' }),
+        ]
+        expect(uniqueName('主頁白板', boards)).toBe('主頁白板 (3)')
     })
 })
 
@@ -134,6 +158,56 @@ describe('loadAllBoards', () => {
         expect(mocks.tableApi.put).toHaveBeenCalledWith(
             expect.objectContaining({ id: 'svg1', thumbnail: null }),
         )
+    })
+
+    it('D1：主頁畫布有內容 → 搬成普通白板，主頁清空（兩者都寫回 DB）', async () => {
+        const homeSnap = snapshotWithCard()
+        mocks.tableApi.toArray.mockResolvedValue([
+            board({ id: HOME_BOARD_ID, isHome: true, snapshot: homeSnap, thumbnail: 'data:image/png;base64,AAAA' }),
+            board({ id: INBOX_BOARD_ID, isInbox: true }),
+            board({ id: 'b1', name: '既有白板' }),
+        ])
+
+        const result = await loadAllBoards()
+
+        // 新白板承接整份 snapshot
+        const migrated = result.find(b => b.name === '主頁白板')!
+        expect(migrated.snapshot).toBe(homeSnap)
+        expect(migrated.isHome).toBeUndefined()
+        // 主頁只剩空殼
+        const home = result.find(b => b.isHome)!
+        expect(home.snapshot).toBeNull()
+        expect(home.thumbnail).toBeNull()
+        // 兩者都寫回 DB
+        expect(mocks.tableApi.put).toHaveBeenCalledWith(expect.objectContaining({ name: '主頁白板' }))
+        expect(mocks.tableApi.put).toHaveBeenCalledWith(
+            expect.objectContaining({ id: HOME_BOARD_ID, snapshot: null }),
+        )
+    })
+
+    it('D1：主頁畫布是空的 → 完全不搬、不寫 DB', async () => {
+        mocks.tableApi.toArray.mockResolvedValue([
+            board({ id: HOME_BOARD_ID, isHome: true, snapshot: null }),
+            board({ id: INBOX_BOARD_ID, isInbox: true }),
+            board({ id: 'b1', name: '既有白板' }),
+        ])
+
+        const result = await loadAllBoards()
+
+        expect(result.find(b => b.name === '主頁白板')).toBeUndefined()
+        expect(mocks.tableApi.put).not.toHaveBeenCalled()
+    })
+
+    it('D1：搬遷後的白板名撞名時加序號', async () => {
+        mocks.tableApi.toArray.mockResolvedValue([
+            board({ id: HOME_BOARD_ID, isHome: true, snapshot: snapshotWithCard() }),
+            board({ id: INBOX_BOARD_ID, isInbox: true }),
+            board({ id: 'b1', name: '主頁白板' }),
+        ])
+
+        const result = await loadAllBoards()
+
+        expect(result.some(b => b.name === '主頁白板 (2)')).toBe(true)
     })
 
     it('排序：home、inbox 在前，其餘先依 sortOrder、再依 updatedAt', async () => {
