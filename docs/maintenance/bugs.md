@@ -14,7 +14,7 @@
 
 ---
 
-## 目前狀態摘要（截至 2026-05-08）
+## 目前狀態摘要（截至 2026-07-15）
 
 | 類別 | 數量 | 說明 |
 |------|------|------|
@@ -23,7 +23,8 @@
 | Low | 0 | 全部修復（L1–L5） |
 | 設計決策 | 1 | M9：軟刪白板時不逐一歸檔內部卡片 |
 | 已修（部分）| 1 | P1-OOM：備份堆積導致 renderer OOM 白屏（備份已修，圖片治本 TD-IMG 已完成）|
-| 已修 | 1 | TD-IMG：image 卡 base64 改存實體檔（astro-img protocol + 混合式遷移）|
+| 已修 | 2 | TD-IMG：image 卡 base64 改存實體檔（astro-img protocol + 混合式遷移）；WO4：`[[]]` 補全按 Enter 無法選取 |
+| 待觀察 | 1 | WO1：link 卡片的 title / description / thumbnail 欄位從未填充 |
 
 ---
 
@@ -95,6 +96,41 @@
 - 位置：實為 7 處（`SearchPanel`、`useBacklinks`、`DeleteBoardDialog`、`exportMarkdown`、`CardLibrary`、`FilterPanel`、`Dashboard`）
 - 結論：統一至 `src/utils/stringUtils.ts`，修正行內標籤誤插空格的 CJK bug（roadmap-v2 A4 / TD5）
 
+### ~~WO4：`[[]]` 補全按 Enter 無法選取~~ ✅ 已修（2026-07-15）
+
+**發現**：2026-07-15 實作 `/` 選單（階段 1）時發現，**同日以 CDP 實測確認並修復**。
+
+**位置**：`TextContent.tsx` 的 `handleEditorKeyDown`（掛在外層 div 的 React `onKeyDown`，委派在 root 的
+**bubble 階段**），而 ProseMirror 的 listener 直接掛在 contenteditable 上（**target 階段**）。
+
+**實測結果（CDP，非推論）**：**只有 Enter 壞，Tab 與方向鍵都正常。**
+
+| 鍵 | 結果 | 原因 |
+|----|------|------|
+| **Enter** | ❌ 段落被切開、補全**完全沒套用**、`[[技` 原樣留在文字裡、浮層關閉 | PM 的 listener 在 target 階段就把 Enter 轉成 `splitBlock` transaction **送出**；`preventDefault()` 救不回已 dispatch 的 transaction |
+| Tab | ✅ 正常插入 | 焦點轉移是瀏覽器**預設動作**，預設動作在傳播結束後才跑 → bubble 階段 `preventDefault()` 仍攔得掉 |
+| ↑／↓ | ✅ 正常改索引、游標不動 | 同上，游標移動也是預設動作 |
+
+**兩個原本的推測都被實測推翻**：
+1. ~~「方向鍵可能同時移動游標又改選單索引」~~ → 方向鍵完全正常。
+2. ~~「`deleteRange` 跨過段落斷點可能「剛好」得到近似正確的結果，掩蓋問題」~~ → 沒有被掩蓋，
+   補全**根本沒執行**：PM 切段落後 `selectionUpdate` 先觸發，`textBefore` 變成 `[[技\n`
+   （`\n` 不是 `]`，正則仍匹配但 query 變成 `技\n`）→ 比對不到白板 → `setSuggest(null)`；
+   等 React 的 `onKeyDown` 收到時 `suggest` 已是 null，直接 return。
+
+**修法**：新增 `suggestKeyRef` 併進 `editorProps.handleKeyDown`
+（`slashKeyRef.current(event) || suggestKeyRef.current(event)`），移除 React `onKeyDown` 路徑。
+比照 `/` 選單，機制詳見 [rich-text-editor.md](../rich-text-editor.md)。
+
+**驗證**：CDP 實測四項全過——Enter 正確插入 `[[技術債]]` 且不切段落；ArrowDown 後 Tab 插入索引 1 的項目
+（證明方向鍵與 Tab 未退化）。395 單元測試全綠、`npm run build` exit 0。
+
+**附帶行為變更**：Esc 現在只關浮層、不再退出編輯模式（與 `/` 選單一致，也符合浮層上「Esc 關閉」的提示）。
+
+**踩坑筆記（給下次驅動 App 實測的人）**：前兩次實測失敗都是**腳本自身**的錯，不是 App——
+Escape 先關掉編輯模式、選擇器抓錯卡片。這次的作法：先 `[data-shape-type="card"]` 傾印卡片座標再用明確座標雙擊；
+雙擊前先點空白處清掉選取（殘留選取會讓雙擊行為不同）；全程不用 Escape。
+
 ---
 
 ## 新增 Bug 格式範本
@@ -109,29 +145,6 @@
 - 狀態：待修 / 修復中 / 已修 / 設計決策
 - 最後更新：YYYY-MM-DD
 ```
-
----
-
-## WO4：`[[]]` 補全的鍵盤處理可能被 ProseMirror 先攔截（待實測）
-
-**發現**：2026-07-15，實作 `/` 選單（階段 1）時發現。
-
-**問題**：`TextContent.tsx` 的 `handleEditorKeyDown` 掛在外層 div 的 React `onKeyDown`。
-但 React 的事件是委派在 root 的 **bubble 階段**，而 ProseMirror 的 listener 直接掛在 contenteditable 上
-（**target 階段**）→ PM 會先處理 Enter／Tab／方向鍵，等 React 收到時預設行為已經發生，
-`preventDefault()` 已無意義。
-
-**證據**：`/` 選單一開始用同一套 React `onKeyDown`，實測 Enter **無法套用命令**（`/h3` 原樣留在文字裡）；
-改用 tiptap 的 `editorProps.handleKeyDown`（跑在 PM 內部）後立即正常。
-
-**影響（推測，未證實）**：`[[]]` 補全的 Enter／Tab 選取可能沒生效、方向鍵可能同時移動游標又改選單索引。
-`insertCompletion` 用 `deleteRange(suggest.from, curFrom)`，即使段落已被 Enter 切開也可能「剛好」得到近似正確的結果，
-故問題可能一直被掩蓋。
-
-**尚未確認**：兩次嘗試實測都因測試腳本自身的錯誤（Escape 先關掉編輯模式、選擇器抓錯卡片）而未取得結論。
-**修法已知**：比照 `/` 選單改走 `editorProps.handleKeyDown`。
-
-**狀態**：待實測確認後再修（不在 `/` 選單階段 1 的範圍內，避免夾帶）。
 
 ---
 

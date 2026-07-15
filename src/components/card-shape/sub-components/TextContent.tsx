@@ -273,11 +273,12 @@ export function TextContent({ editor: tldrawEditor, shape, isEditing, exitEdit, 
     const [slash, setSlash] = useState<SlashState | null>(null)
     const slashRef = useRef<SlashState | null>(null)
     slashRef.current = slash
-    // `/` 選單的鍵盤處理必須走 ProseMirror 的 handleKeyDown，不能用 React 的 onKeyDown：
+    // 兩個選單的鍵盤處理都必須走 ProseMirror 的 handleKeyDown，不能用 React 的 onKeyDown：
     // PM 的 listener 掛在 contenteditable 上（target 階段），React 是委派在 root（bubble 階段），
-    // 所以 PM 會先吃掉 Enter，等 React 收到時段落已經被切開了。
+    // 所以 PM 會先把 Enter 變成 splitBlock transaction，等 React 收到時段落已經被切開了。
     // 用 ref 讓 useTiptap 的一次性 config 能讀到最新的 state 與 callback。
     const slashKeyRef = useRef<(e: KeyboardEvent) => boolean>(() => false)
+    const suggestKeyRef = useRef<(e: KeyboardEvent) => boolean>(() => false)
 
     // Ref for the view-mode container — native capture-phase listener bypasses tldraw interception
     const viewContainerRef = useRef<HTMLDivElement>(null)
@@ -310,7 +311,8 @@ export function TextContent({ editor: tldrawEditor, shape, isEditing, exitEdit, 
         editable: isEditing,
         editorProps: {
             // 回傳 true ＝ 攔下，PM 不再跑預設行為（見上方 slashKeyRef 的說明）
-            handleKeyDown: (_view, event) => slashKeyRef.current(event),
+            // 兩者不會同時開（matchSlashQuery 讓 `[[` 優先），順序只是保險
+            handleKeyDown: (_view, event) => slashKeyRef.current(event) || suggestKeyRef.current(event),
         },
         onBlur: ({ editor }) => {
             const html = editor.getHTML()
@@ -446,6 +448,29 @@ export function TextContent({ editor: tldrawEditor, shape, isEditing, exitEdit, 
         setSuggest(null)
     }, [tiptap])
 
+    // 每次 render 更新，理由同 slashKeyRef
+    suggestKeyRef.current = (event: KeyboardEvent): boolean => {
+        const s = suggestRef.current
+        if (!s || s.matches.length === 0) return false
+        if (event.key === 'ArrowDown') {
+            setSuggest(prev => prev ? { ...prev, index: (prev.index + 1) % prev.matches.length } : prev)
+            return true
+        }
+        if (event.key === 'ArrowUp') {
+            setSuggest(prev => prev ? { ...prev, index: (prev.index - 1 + prev.matches.length) % prev.matches.length } : prev)
+            return true
+        }
+        if (event.key === 'Enter' || event.key === 'Tab') {
+            insertCompletion(s.matches[s.index])
+            return true
+        }
+        if (event.key === 'Escape') {
+            setSuggest(null)
+            return true
+        }
+        return false
+    }
+
     const handleSave = useCallback(() => {
         if (!tiptap) return
         const html = tiptap.getHTML()
@@ -543,27 +568,6 @@ export function TextContent({ editor: tldrawEditor, shape, isEditing, exitEdit, 
         )
     }
 
-    // 注意：`/` 選單的鍵盤走 tiptap 的 editorProps.handleKeyDown，不在這裡——
-    // 這個 React onKeyDown 是委派在 root 的 bubble 階段，ProseMirror 會先處理掉 Enter。
-    const handleEditorKeyDown = (e: React.KeyboardEvent) => {
-        if (!suggest) return
-        if (e.key === 'ArrowDown') {
-            e.preventDefault()
-            setSuggest(s => s ? { ...s, index: (s.index + 1) % s.matches.length } : s)
-        } else if (e.key === 'ArrowUp') {
-            e.preventDefault()
-            setSuggest(s => s ? { ...s, index: (s.index - 1 + s.matches.length) % s.matches.length } : s)
-        } else if (e.key === 'Enter' || e.key === 'Tab') {
-            if (suggest.matches[suggest.index]) {
-                e.preventDefault()
-                e.stopPropagation()
-                insertCompletion(suggest.matches[suggest.index])
-            }
-        } else if (e.key === 'Escape') {
-            setSuggest(null)
-        }
-    }
-
     return (
         <>
             <div
@@ -578,7 +582,6 @@ export function TextContent({ editor: tldrawEditor, shape, isEditing, exitEdit, 
                 onPointerDown={(e) => {
                     if (isEditing) e.stopPropagation()
                 }}
-                onKeyDown={handleEditorKeyDown}
             >
                 <Toolbar tiptap={tiptap} isDark={isDark} />
 

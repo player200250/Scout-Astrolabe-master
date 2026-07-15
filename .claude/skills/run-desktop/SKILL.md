@@ -88,6 +88,21 @@ const page = targets.find(t => t.type === 'page' && !t.url.startsWith('devtools:
 - 打字：`Input.insertText`（比逐鍵送可靠）。
 - 斷言：`Runtime.evaluate` 讀 `document.body.innerText`，或直接查 IndexedDB 驗資料真的寫進去。
 
+### 要雙擊畫布上的卡片（進編輯模式）
+
+2026-07-15 驗 WO4 時定出的可靠流程——**前兩次實測失敗都是腳本自己的錯，不是 App**：
+
+1. **先傾印座標，別猜**：`[...document.querySelectorAll('[data-shape-type="card"]')]` 取
+   `getBoundingClientRect()`，用**明確的中心座標**點。（前次失敗原因之一＝選擇器抓錯卡片。）
+2. **雙擊前先點空白畫布清掉選取**——殘留的選取狀態會讓 tldraw 對雙擊的反應不同（實測會進不了編輯模式）。
+3. 送 `mouseMoved` → `mousePressed/mouseReleased` with `clickCount: 1` → 再一組 `clickCount: 2`，中間隔 ~60ms。
+4. **全程不要用 Escape**：Escape 會被 tldraw 吃掉、直接退出編輯模式（前次失敗原因之二）。
+   要離開編輯模式改點空白畫布（走 `onBlur`，會正常存檔）。
+5. 斷言用 `document.querySelector('.ProseMirror')` 是否存在。
+
+**改卡片內容後要還原**：`Ctrl+A` 選的是**整份文件**（H1 標題會一起被洗掉）。重建結構靠 Markdown input rule：
+`insertText('#')` → `insertText(' ')` **分兩次送**（input rule 要靠空格觸發），再送標題 → Enter → 內文。
+
 ### 用 eval 抓 DOM 的兩個坑
 
 - **`document.querySelector('input')` 會抓到隱藏的檔案上傳 input**（丟 InvalidStateError）。用 `x.type === 'text'` 過濾。
