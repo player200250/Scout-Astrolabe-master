@@ -24,6 +24,8 @@ export type PanelName =
     | 'overdueBanner'
     | 'dataSafety'
     | 'commandPalette'
+    | 'inboxTriage'
+    | 'tagManager'
 
 export type PanelState = Record<PanelName, boolean>
 
@@ -31,7 +33,7 @@ export const PANEL_NAMES: PanelName[] = [
     'search', 'hotkey', 'overview', 'taskCenter', 'filter',
     'reviewCenter', 'backup', 'knowledgeGraph', 'cardLibrary',
     'quickCapture', 'onboarding', 'trash', 'quickSwitcher', 'overdueBanner',
-    'dataSafety', 'commandPalette',
+    'dataSafety', 'commandPalette', 'inboxTriage', 'tagManager',
 ]
 
 const INITIAL_STATE: PanelState = Object.fromEntries(

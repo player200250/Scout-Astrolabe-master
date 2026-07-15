@@ -4,6 +4,8 @@ import type { BoardRecord } from './db'
 import { getCardShapes } from './utils/snapshot'
 import { Z_PANEL } from './constants'
 import { stripHtml } from './utils/stringUtils'
+import { loadTagColors, getTagColor, type TagColorMap } from './utils/tagColors'
+import { hexToRgba } from './utils/cardMeta'
 
 type CardStatusType = 'none' | 'todo' | 'in-progress' | 'done'
 type PriorityType   = 'none' | 'low'  | 'medium'      | 'high'
@@ -99,9 +101,10 @@ interface FilterResultRowProps {
     result: FilterResult
     onJump: (boardId: string, shapeId: string, x: number, y: number) => void
     isDark: boolean
+    tagColors: TagColorMap
 }
 
-function FilterResultRow({ result, onJump, isDark }: FilterResultRowProps) {
+function FilterResultRow({ result, onJump, isDark, tagColors }: FilterResultRowProps) {
     const [hovered, setHovered] = useState(false)
     const sCfg = STATUS_CONFIG[result.cardStatus]
     const pCfg = PRIORITY_CONFIG[result.priority]
@@ -139,9 +142,12 @@ function FilterResultRow({ result, onJump, isDark }: FilterResultRowProps) {
             </div>
             {result.tags.length > 0 && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
-                    {result.tags.map(tag => (
-                        <span key={tag} style={{ fontSize: 10, background: '#eff6ff', color: '#2563eb', borderRadius: 6, padding: '1px 5px' }}>#{tag}</span>
-                    ))}
+                    {result.tags.map(tag => {
+                        const c = getTagColor(tagColors, tag)
+                        return (
+                            <span key={tag} style={{ fontSize: 10, background: hexToRgba(c, isDark ? 0.22 : 0.12), color: c, borderRadius: 6, padding: '1px 5px' }}>#{tag}</span>
+                        )
+                    })}
                 </div>
             )}
         </div>
@@ -153,6 +159,8 @@ export function FilterPanel({ boards, onJump, onClose, isDark }: FilterPanelProp
     const [filterPriorities, setFilterPriorities] = useState<Set<PriorityType>>(new Set())
     const [filterTag,        setFilterTag]        = useState<string | null>(null)
 
+    // 顏色是顯示偏好、改動不頻繁，開面板時讀一次即可（來源見 utils/tagColors.ts）
+    const [tagColors] = useState<TagColorMap>(() => loadTagColors())
     const allTags = useMemo(() => getAllTags(boards), [boards])
     const results = useMemo(() => scanCards(boards, filterStatuses, filterPriorities, filterTag), [boards, filterStatuses, filterPriorities, filterTag])
     const hasFilter = filterStatuses.size > 0 || filterPriorities.size > 0 || filterTag !== null
@@ -252,9 +260,10 @@ export function FilterPanel({ boards, onJump, onClose, isDark }: FilterPanelProp
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                             {allTags.map(tag => {
                                 const active = filterTag === tag
+                                const c = getTagColor(tagColors, tag)
                                 return (
                                     <button key={tag} onClick={() => setFilterTag(active ? null : tag)}
-                                        style={chipStyle(active, '#2563eb', '#eff6ff')}
+                                        style={chipStyle(active, c, hexToRgba(c, isDark ? 0.22 : 0.12))}
                                         onMouseEnter={e => { if (!active) e.currentTarget.style.background = hoverBg }}
                                         onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent' }}
                                     >#{tag}</button>
@@ -274,7 +283,7 @@ export function FilterPanel({ boards, onJump, onClose, isDark }: FilterPanelProp
                     <>
                         <div style={{ padding: '7px 16px 2px', fontSize: 11, color: '#bbb' }}>共 {results.length} 張卡片 點擊跳轉</div>
                         {results.map(r => (
-                            <FilterResultRow key={`${r.boardId}_${r.shapeId}`} result={r} onJump={onJump} isDark={isDark} />
+                            <FilterResultRow key={`${r.boardId}_${r.shapeId}`} result={r} onJump={onJump} isDark={isDark} tagColors={tagColors} />
                         ))}
                     </>
                 )}

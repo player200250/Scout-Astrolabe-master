@@ -68,6 +68,7 @@
     "productName": "Scout Astrolabe",
     "files": [
       "dist/**/*",
+      "assets/**/*",
       "main.js",
       "preload.js",
       "package.json"

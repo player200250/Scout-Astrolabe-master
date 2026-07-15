@@ -27,12 +27,14 @@ export interface CommandActions {
     openOverview: () => void
     newBoard: () => void
     quickCapture: () => void
+    openInboxTriage: () => void
     openSearch: () => void
     openCardLibrary: () => void
     openTaskCenter: () => void
     openReviewCenter: () => void
     openKnowledgeGraph: () => void
     openFilter: () => void
+    openTagManager: () => void
     openTrash: () => void
     openBackup: () => void
     openDataSafety: () => void
@@ -52,12 +54,14 @@ export function buildCommands(a: CommandActions): Command[] {
         { id: 'new-board', title: '新增白板', icon: '➕', group: '建立', keywords: 'new board create 建立', run: a.newBoard },
         { id: 'quick-capture', title: '快速捕捉到收件匣', icon: '⚡', group: '建立', keywords: 'capture quick 捕捉 收件匣', shortcut: 'Ctrl+Space', run: a.quickCapture },
         // 工具
+        { id: 'open-inbox-triage', title: '整理收件匣', icon: '📥', group: '工具', keywords: 'triage inbox gtd 收件匣 整理 清空', shortcut: 'Ctrl+Shift+E', run: a.openInboxTriage },
         { id: 'open-search', title: '搜尋卡片', icon: '🔍', group: '工具', keywords: 'search find 搜尋', shortcut: 'Ctrl+F', run: a.openSearch },
         { id: 'open-card-library', title: '卡片庫', icon: '🗃️', group: '工具', keywords: 'card library 卡片庫', shortcut: 'Ctrl+Shift+L', run: a.openCardLibrary },
         { id: 'open-task-center', title: '任務中心', icon: '✅', group: '工具', keywords: 'task todo 任務', run: a.openTaskCenter },
         { id: 'open-review-center', title: '復盤中心', icon: '📔', group: '工具', keywords: 'review journal 復盤 週回顧', shortcut: 'Ctrl+Shift+C', run: a.openReviewCenter },
         { id: 'open-knowledge-graph', title: '知識圖譜', icon: '🕸️', group: '工具', keywords: 'graph knowledge 圖譜', shortcut: 'Ctrl+Shift+G', run: a.openKnowledgeGraph },
         { id: 'open-filter', title: '篩選卡片', icon: '🔎', group: '工具', keywords: 'filter 篩選 標籤', run: a.openFilter },
+        { id: 'open-tag-manager', title: '標籤管理', icon: '🏷️', group: '工具', keywords: 'tag manager 標籤 改名 合併 顏色', run: a.openTagManager },
         { id: 'open-trash', title: '垃圾桶', icon: '🗑️', group: '工具', keywords: 'trash 垃圾桶 還原', shortcut: 'Ctrl+Shift+T', run: a.openTrash },
         // 資料
         { id: 'open-backup', title: '自動備份', icon: '🔒', group: '資料', keywords: 'backup 備份 還原', run: a.openBackup },

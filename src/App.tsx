@@ -15,6 +15,8 @@ import { HotkeyPanel } from './HotkeyPanel'
 import { KnowledgeGraph } from './KnowledgeGraph'
 import { CardLibrary } from './CardLibrary'
 import { QuickCapture } from './components/QuickCapture'
+import { InboxTriage } from './components/InboxTriage'
+import { TagManager } from './components/TagManager'
 import { QuickSwitcher } from './QuickSwitcher'
 import { CommandPalette } from './CommandPalette'
 import { buildCommands } from './utils/commands'
@@ -39,8 +41,10 @@ export default function App() {
         handleRestore, handleGoToWeeklyCard, handleSaveJournal,
         handleMoveCardsToBoard, handleCreateBoard,
         handleToggleCollapse, handleGoToInbox, handleReorderBoards,
-        handleAddCardToInbox, recentlyTrashedShapeIds,
+        handleAddCardToInbox, handleUpdateInboxCardProps, handleTrashInboxCard,
+        recentlyTrashedShapeIds,
         handleCreateFolder, handleSetFolder, handleDeleteFolder,
+        handleRewriteTag,
         migrateAllNow,
     } = useBoardManager()
 
@@ -111,12 +115,14 @@ export default function App() {
         openOverview: () => openPanel('overview'),
         newBoard: handleNew,
         quickCapture: () => openPanel('quickCapture'),
+        openInboxTriage: () => openPanel('inboxTriage'),
         openSearch: () => openPanel('search'),
         openCardLibrary: () => openPanel('cardLibrary'),
         openTaskCenter: () => openPanel('taskCenter'),
         openReviewCenter: () => openPanel('reviewCenter'),
         openKnowledgeGraph: () => openPanel('knowledgeGraph'),
         openFilter: () => openPanel('filter'),
+        openTagManager: () => openPanel('tagManager'),
         openTrash: () => openPanel('trash'),
         openBackup: () => openPanel('backup'),
         openDataSafety: () => openPanel('dataSafety'),
@@ -128,6 +134,12 @@ export default function App() {
     useEffect(() => {
         document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light')
     }, [isDark])
+
+    // N3：托盤選單／全域快捷鍵（Ctrl+Shift+Space）觸發快速捕捉。
+    // 非 Electron（PWA）環境沒有 electronAPI，optional chaining 直接跳過。
+    useEffect(() => {
+        return window.electronAPI?.onTriggerQuickCapture?.(() => openPanel('quickCapture'))
+    }, [openPanel])
 
     const sidebarWidth = sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_WIDTH
     const activeBoard = boards.find(b => b.id === activeBoardId) ?? null
@@ -173,6 +185,10 @@ export default function App() {
             if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 't') {
                 e.preventDefault()
                 togglePanel('trash')
+            }
+            if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'e') {
+                e.preventDefault()
+                togglePanel('inboxTriage')
             }
             if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'p') {
                 e.preventDefault()
@@ -283,6 +299,14 @@ export default function App() {
                     isDark={isDark}
                 />
             )}
+            {panels.tagManager && (
+                <TagManager
+                    boards={boards}
+                    onRewriteTag={handleRewriteTag}
+                    onClose={() => closePanel('tagManager')}
+                    isDark={isDark}
+                />
+            )}
             {panels.backup && (
                 <BackupPanel
                     sidebarWidth={sidebarWidth}
@@ -350,6 +374,16 @@ export default function App() {
                 <QuickCapture
                     onSave={text => { handleAddCardToInbox(text); closePanel('quickCapture') }}
                     onClose={() => closePanel('quickCapture')}
+                    isDark={isDark}
+                />
+            )}
+            {panels.inboxTriage && (
+                <InboxTriage
+                    boards={boards}
+                    onMoveCard={(shapeId, targetBoardId) => handleMoveCardsToBoard([shapeId], targetBoardId)}
+                    onUpdateCardProps={handleUpdateInboxCardProps}
+                    onTrashCard={handleTrashInboxCard}
+                    onClose={() => closePanel('inboxTriage')}
                     isDark={isDark}
                 />
             )}

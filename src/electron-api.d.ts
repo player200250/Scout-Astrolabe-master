@@ -27,6 +27,8 @@ export interface IElectronAPI {
     openFile: (storedName: string) => Promise<void>
     deleteFile: (storedName: string) => Promise<void>
     saveImage: (bytes: ArrayBuffer, ext: string) => Promise<{ storedName: string }>
+    /** N3：托盤選單／全域快捷鍵觸發快速捕捉；回傳 unsubscribe */
+    onTriggerQuickCapture?: (callback: () => void) => () => void
 }
 
 declare global {
@@ -42,5 +44,6 @@ declare global {
         'jump-to-card': CustomEvent<{ boardId?: string; shapeId?: string; x?: number; y?: number; targetName?: string }>
         'quick-capture-card': CustomEvent<{ text: string; x: number; y: number; shapeId: string }>
         'delete-shape-from-editor': CustomEvent<{ shapeId: string }>
+        'update-shape-props-in-editor': CustomEvent<{ shapeId: string; props: Record<string, unknown> }>
     }
 }

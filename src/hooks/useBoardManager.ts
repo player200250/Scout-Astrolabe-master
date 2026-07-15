@@ -6,8 +6,9 @@ import { loadAllBoards, saveBoard, deleteBoard, generateId } from '../utils/boar
 import { JUMP_DELAY_MS } from '../constants'
 import { emitAppEvent } from '../utils/appEvents'
 import {
-    getSnapshotStore, toMutableSnapshot, toTLEditorSnapshot,
+    getSnapshotStore, withUpdatedStore, toMutableSnapshot, toTLEditorSnapshot,
 } from '../utils/snapshot'
+import { saveCardToTrash, getCardPreview } from '../utils/trashUtils'
 import { cleanupOrphanBoardCards, sanitizeBoards } from '../utils/boardSanitize'
 import { ensurePageScaffold, nextAppendX, lastShapeIndex } from '../utils/snapshotCards'
 import { useAutoBackup } from './useAutoBackup'
@@ -19,6 +20,7 @@ import { useBoardCRUD, uniqueName } from './useBoardCRUD'
 import { useFolder } from './useFolder'
 import { useJournal } from './useJournal'
 import { useInboxCards } from './useInboxCards'
+import { useTags } from './useTags'
 
 const TRASH_EXPIRE_MS = 14 * 86400000
 
@@ -47,7 +49,11 @@ export function useBoardManager() {
         handleCreateFolder, handleSetFolder, handleDeleteFolder,
     } = useFolder({ boards, setBoards })
     const { handleSetJournal, handleSaveJournal } = useJournal({ boards, setBoards })
-    const { handleAddCardToInbox, handleMoveCardToBoard, handleMoveCardsToBoard } = useInboxCards({ boards, setBoards })
+    const {
+        handleAddCardToInbox, handleMoveCardToBoard, handleMoveCardsToBoard,
+        handleUpdateInboxCardProps,
+    } = useInboxCards({ boards, setBoards })
+    const { handleRewriteTag } = useTags({ boards, setBoards })
 
     useEffect(() => {
         navigator.storage?.persist?.().then(granted => {
@@ -235,6 +241,39 @@ export function useBoardManager() {
         await refreshTrashCount()
     }, [boards, activeBoardId, refreshTrashCount])
 
+    /**
+     * 從收件匣把單張卡片丟進垃圾桶（Inbox Triage 用）。跨 inbox snapshot 與 deletedCards 兩個領域，
+     * 故與其他跨領域 handler 一樣留在合成層。
+     * 走與編輯器內刪卡相同的順序：先存檔進垃圾桶 → 再從 snapshot 與 editor 移除。
+     */
+    const handleTrashInboxCard = useCallback(async (shapeId: string) => {
+        const inboxBoard = boards.find(b => b.isInbox)
+        if (!inboxBoard?.snapshot) return
+        const store = getSnapshotStore(inboxBoard.snapshot)
+        const shape = store[shapeId]
+        if (!shape) return
+
+        // 先登記，Ctrl+Z 把 shape 加回 editor 時才會連帶撤銷這筆垃圾桶記錄
+        recentlyTrashedShapeIds.current.add(shapeId)
+        await saveCardToTrash(
+            shapeId, structuredClone(shape), inboxBoard.id, inboxBoard.name,
+            String(shape.props?.type ?? 'text'), getCardPreview(shape),
+        )
+
+        const newStore = { ...store }
+        delete newStore[shapeId]
+        const updated: BoardRecord = {
+            ...inboxBoard,
+            snapshot: withUpdatedStore(inboxBoard.snapshot, newStore),
+            updatedAt: Date.now(),
+        }
+        await saveBoard(updated)
+        setBoards(prev => prev.map(b => b.id === inboxBoard.id ? updated : b))
+
+        emitAppEvent('delete-shape-from-editor', { shapeId })
+        await refreshTrashCount()
+    }, [boards, recentlyTrashedShapeIds, refreshTrashCount])
+
     const handleRestore = useCallback(async (restoredBoards: BoardRecord[]) => {
         await db.table('boards').clear()
         await Promise.all(restoredBoards.map(b => db.table('boards').put(b)))
@@ -305,10 +344,13 @@ export function useBoardManager() {
         handleGoToInbox,
         handleReorderBoards,
         handleAddCardToInbox,
+        handleUpdateInboxCardProps,
+        handleTrashInboxCard,
         recentlyTrashedShapeIds,
         handleCreateFolder,
         handleSetFolder,
         handleDeleteFolder,
+        handleRewriteTag,
         imageMigrating,
         migrateAllNow,
     }

@@ -4,6 +4,8 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import type { BoardRecord } from './db'
 import { getCardShapes } from './utils/snapshot'
 import { splitTitleBody } from './utils/stringUtils'
+import { TYPE_ICON, TYPE_LABEL, TYPE_COLOR, hexToRgba } from './utils/cardMeta'
+import { loadTagColors, getTagColor, type TagColorMap } from './utils/tagColors'
 
 /* ─── Types ─── */
 type LibCardType = 'text' | 'todo' | 'link' | 'journal' | 'heading' | 'sticky' | 'table' | 'color' | 'file'
@@ -35,19 +37,6 @@ export interface CardLibraryProps {
 }
 
 /* ─── Constants ─── */
-const TYPE_ICON: Record<LibCardType, string>  = { text: '📝', todo: '✅', link: '🔗', journal: '📖', heading: 'A', sticky: '📌', table: '▦', color: '🎨', file: '📎' }
-const TYPE_LABEL: Record<LibCardType, string> = { text: '文字', todo: 'Todo', link: '連結', journal: 'Journal', heading: '標題', sticky: '便利貼', table: '表格', color: '顏色樣本', file: '檔案' }
-/* B6/D5 — 每種卡片類型的識別色，用於列表/格狀圖示與類型標籤，一眼分類 */
-const TYPE_COLOR: Record<LibCardType, string> = { text: '#3b82f6', todo: '#22c55e', link: '#a855f7', journal: '#f59e0b', heading: '#6366f1', sticky: '#eab308', table: '#14b8a6', color: '#ec4899', file: '#64748b' }
-
-/** 將 #rrggbb 轉為指定 alpha 的 rgba（用於類型色的淡底） */
-function hexToRgba(hex: string, alpha: number): string {
-    const r = parseInt(hex.slice(1, 3), 16)
-    const g = parseInt(hex.slice(3, 5), 16)
-    const b = parseInt(hex.slice(5, 7), 16)
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`
-}
-
 const ALL_TYPES: LibCardType[]    = ['text', 'todo', 'link', 'journal', 'heading', 'sticky', 'table', 'color', 'file']
 const ALL_STATUSES: StatusType[]  = ['none', 'todo', 'in-progress', 'done']
 const ALL_PRIORITIES: PriorityType[] = ['none', 'low', 'medium', 'high']
@@ -114,6 +103,8 @@ export function CardLibrary({ boards, onJump, onClose, isDark }: CardLibraryProp
     const [filterStatus, setFilterStatus]     = useState<StatusType | 'all'>('all')
     const [filterPriority, setFilterPriority] = useState<PriorityType | 'all'>('all')
     const [filterTag, setFilterTag]     = useState<string | null>(null)
+    // 顏色是顯示偏好、改動不頻繁，開面板時讀一次即可（來源見 utils/tagColors.ts）
+    const [tagColors] = useState<TagColorMap>(() => loadTagColors())
     const [collapsed, setCollapsed]     = useState<Record<string, boolean>>(() => {
         try {
             const saved = localStorage.getItem(COLLAPSE_KEY)
@@ -400,11 +391,14 @@ export function CardLibrary({ boards, onJump, onClose, isDark }: CardLibraryProp
                                 {card.priority === 'low' ? '↓' : card.priority === 'medium' ? '→' : '↑'} {priorityCfg.label}
                             </span>
                         )}
-                        {card.tags.slice(0, 3).map(tag => (
-                            <span key={tag} style={{ fontSize: 10, padding: '1px 5px', borderRadius: 4, background: isDark ? '#334155' : '#f1f5f9', color: textMuted }}>
-                                #{tag}
-                            </span>
-                        ))}
+                        {card.tags.slice(0, 3).map(tag => {
+                            const tc = getTagColor(tagColors, tag)
+                            return (
+                                <span key={tag} style={{ fontSize: 10, padding: '1px 5px', borderRadius: 4, background: hexToRgba(tc, isDark ? 0.22 : 0.12), color: tc }}>
+                                    #{tag}
+                                </span>
+                            )
+                        })}
                         <span style={{ fontSize: 11, color: isDark ? '#475569' : '#94a3b8', marginLeft: 'auto', flexShrink: 0 }}>{timeAgo(card.boardUpdatedAt)}</span>
                     </div>
                 </div>
@@ -459,9 +453,12 @@ export function CardLibrary({ boards, onJump, onClose, isDark }: CardLibraryProp
                 </div>
                 {card.tags.length > 0 && (
                     <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                        {card.tags.slice(0, 4).map(tag => (
-                            <span key={tag} style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, background: isDark ? '#334155' : '#f1f5f9', color: textMuted }}>#{tag}</span>
-                        ))}
+                        {card.tags.slice(0, 4).map(tag => {
+                            const tc = getTagColor(tagColors, tag)
+                            return (
+                                <span key={tag} style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, background: hexToRgba(tc, isDark ? 0.22 : 0.12), color: tc }}>#{tag}</span>
+                            )
+                        })}
                     </div>
                 )}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: `1px solid ${border}`, paddingTop: 8 }}>

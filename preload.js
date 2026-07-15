@@ -13,4 +13,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openFile: (storedName) => ipcRenderer.invoke('open-file', storedName),
   deleteFile: (storedName) => ipcRenderer.invoke('delete-file', storedName),
   saveImage: (bytes, ext) => ipcRenderer.invoke('save-image', bytes, ext),
+  // N3 托盤／全域快捷鍵觸發快速捕捉。回傳 unsubscribe 供 React cleanup 用，
+  // 不然每次 effect 重跑都會多疊一個 listener。
+  onTriggerQuickCapture: (callback) => {
+    const listener = () => callback()
+    ipcRenderer.on('trigger-quick-capture', listener)
+    return () => ipcRenderer.removeListener('trigger-quick-capture', listener)
+  },
 })

@@ -1,5 +1,5 @@
 // 🌸 統一在頂部導入所有需要的模組
-import { app, BrowserWindow, ipcMain, dialog, shell, net, protocol } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, shell, net, protocol, Tray, Menu, globalShortcut, nativeImage } from 'electron';
 import Store from 'electron-store';
 import { fileURLToPath, pathToFileURL } from 'url';
 import { dirname } from 'path';
@@ -19,6 +19,79 @@ app.commandLine.appendSwitch('js-flags', '--max-old-space-size=4096');
 
 const store = new Store();
 
+// ── 托盤 / 全域捕捉（N3）狀態 ───────────────────────────────────────────
+// 托盤常駐後「關視窗」不等於「結束程式」，需要一個明確的離開意圖旗標，
+// 否則 close 事件永遠被攔成隱藏，App 就關不掉了。
+let mainWindow = null;
+let tray = null;
+let isQuitting = false;
+
+/** 全域快速捕捉快捷鍵：App 沒有焦點時也能叫出捕捉框（in-app 版是 Ctrl+Space）*/
+const GLOBAL_CAPTURE_ACCELERATOR = 'CommandOrControl+Shift+Space';
+
+/** 關閉視窗時最小化到托盤（而非結束程式）；可從托盤選單切換，存 electron-store */
+const minimizeToTray = () => store.get('minimizeToTray', true);
+
+// 第二個實例：托盤程式常見情境是使用者再點一次捷徑。
+// 不開新視窗，把既有視窗叫回前景即可。
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => showMainWindow());
+}
+
+function showMainWindow() {
+  if (!mainWindow) {
+    createWindow();
+    return;
+  }
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  if (!mainWindow.isVisible()) mainWindow.show();
+  mainWindow.focus();
+}
+
+/** 叫出視窗並請 renderer 開啟快速捕捉框（托盤選單與全域快捷鍵共用）*/
+function triggerQuickCapture() {
+  showMainWindow();
+  mainWindow?.webContents.send('trigger-quick-capture');
+}
+
+function buildTrayMenu() {
+  return Menu.buildFromTemplate([
+    { label: '顯示主視窗', click: () => showMainWindow() },
+    { label: '快速捕捉', accelerator: GLOBAL_CAPTURE_ACCELERATOR, click: () => triggerQuickCapture() },
+    { type: 'separator' },
+    {
+      label: '關閉視窗時最小化到托盤',
+      type: 'checkbox',
+      checked: minimizeToTray(),
+      click: (item) => {
+        store.set('minimizeToTray', item.checked);
+        tray?.setContextMenu(buildTrayMenu());
+      },
+    },
+    { type: 'separator' },
+    { label: '離開 Scout Astrolabe', click: () => { isQuitting = true; app.quit(); } },
+  ]);
+}
+
+function createTray() {
+  // 放 assets/ 而非 build/：build/ 是 electron-builder 的保留資源目錄，不會打包進 asar。
+  // assets/ 已列入 package.json 的 build.files，開發與安裝版路徑一致。
+  // 找不到圖示時不讓整個 App 掛掉，只是沒有托盤。
+  const iconPath = path.join(__dirname, 'assets', 'tray-icon.png');
+  const icon = nativeImage.createFromPath(iconPath);
+  if (icon.isEmpty()) {
+    console.error('❌ 托盤圖示載入失敗，略過托盤:', iconPath);
+    return;
+  }
+  tray = new Tray(icon);
+  tray.setToolTip('Scout Astrolabe');
+  tray.setContextMenu(buildTrayMenu());
+  tray.on('double-click', () => showMainWindow());
+}
+
 // 自訂 protocol：image 卡改存實體檔後，用 astro-img://<storedName> 讓 Chromium
 // 直接讀 userData/files 內的檔（不把 base64 載進 renderer JS heap，畫布 culling 時自動釋放）。
 // 必須在 app ready 前註冊為 privileged scheme。
@@ -27,7 +100,7 @@ protocol.registerSchemesAsPrivileged([
 ]);
 
 function createWindow() {
-  const win = new BrowserWindow({
+  const win = mainWindow = new BrowserWindow({
     width: 1920,
     height: 1080,
     webPreferences: {
@@ -64,6 +137,16 @@ function createWindow() {
     console.error('❌ 頁面載入失敗:', code, desc, url);
   });
 
+  // 托盤常駐時，關視窗＝收進托盤（保住全域快速捕捉）。
+  // 只有從托盤選單「離開」或 app.quit() 才真的結束，否則使用者會關不掉。
+  win.on('close', (e) => {
+    if (isQuitting || !tray || !minimizeToTray()) return;
+    e.preventDefault();
+    win.hide();
+  });
+
+  win.on('closed', () => { mainWindow = null; });
+
   // ELECTRON_PROD_TEST=1：用 file:// 載入正式建置的 dist（= 安裝版的環境與 IndexedDB origin），
   // 方便在不打包整個安裝程式的情況下重現「只在安裝版發生」的白屏。
   const prodTest = process.env.ELECTRON_PROD_TEST === '1';
@@ -99,15 +182,29 @@ app.whenReady().then(() => {
   })
 
   createWindow();
+  createTray();
+
+  // 全域快捷鍵：App 在背景／沒有焦點時也能捕捉。註冊失敗多半是被其他程式佔用，
+  // 不影響 App 本身，記錄即可（in-app 的 Ctrl+Space 仍可用）。
+  if (!globalShortcut.register(GLOBAL_CAPTURE_ACCELERATOR, () => triggerQuickCapture())) {
+    console.error('❌ 全域快速捕捉快捷鍵註冊失敗（可能已被其他程式佔用）:', GLOBAL_CAPTURE_ACCELERATOR);
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow();
+    } else {
+      showMainWindow();
     }
   });
 });
 
+app.on('before-quit', () => { isQuitting = true; });
+app.on('will-quit', () => { globalShortcut.unregisterAll(); });
+
 app.on('window-all-closed', () => {
+  // 有托盤且設定為最小化到托盤時，視窗全關只是收起來，不結束程式
+  if (tray && minimizeToTray()) return;
   if (process.platform !== 'darwin') {
     app.quit();
   }

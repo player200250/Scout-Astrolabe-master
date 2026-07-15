@@ -2,6 +2,7 @@ import { useCallback } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
 import type { BoardRecord } from '../db'
 import { saveBoard } from '../utils/boardDb'
+import type { SnapshotShapeProps } from '../utils/snapshot'
 import { getSnapshotStore, withUpdatedStore, toMutableSnapshot, toTLEditorSnapshot } from '../utils/snapshot'
 import { ensurePageScaffold, nextAppendX, lastShapeIndex, gridLayout, nextGridSlot } from '../utils/snapshotCards'
 import { emitAppEvent } from '../utils/appEvents'
@@ -20,6 +21,8 @@ export interface InboxCardsSharedState {
  *   以網格排列附加至目標白板既有內容右側（近正方形、避免長龍與重疊），逐張發 delete-shape-from-editor 事件。
  *   來源板即當前 active editor 顯示的板，故可泛用於任意白板（非僅收件匣）。
  * - handleMoveCardToBoard：單卡版，委派給 handleMoveCardsToBoard（保留既有 API、預設 inbox 來源）。
+ * - handleUpdateInboxCardProps：在編輯器外 patch 收件匣某卡的 props（Inbox Triage 標任務/優先序用），
+ *   同時發 update-shape-props-in-editor 事件讓已掛載的 editor 跟上。
  */
 export function useInboxCards(state: InboxCardsSharedState) {
     const { boards, setBoards } = state
@@ -117,9 +120,30 @@ export function useInboxCards(state: InboxCardsSharedState) {
         emitAppEvent('quick-capture-card', { text, x: slotX, y: slotY, shapeId: newShapeId })
     }, [boards, setBoards])
 
+    const handleUpdateInboxCardProps = useCallback((shapeId: string, patch: Partial<SnapshotShapeProps>) => {
+        const inboxBoard = boards.find(b => b.isInbox)
+        if (!inboxBoard?.snapshot) return
+        const store = getSnapshotStore(inboxBoard.snapshot)
+        const shape = store[shapeId]
+        if (!shape) return
+
+        const newStore = { ...store, [shapeId]: { ...shape, props: { ...shape.props, ...patch } } }
+        const updated: BoardRecord = {
+            ...inboxBoard,
+            snapshot: withUpdatedStore(inboxBoard.snapshot, newStore),
+            updatedAt: Date.now(),
+        }
+        saveBoard(updated)
+        setBoards(prev => prev.map(b => b.id === inboxBoard.id ? updated : b))
+
+        // 收件匣此刻可能正是 active editor 顯示的板；不同步的話 editor 的自動存檔會用舊 props 覆蓋回去
+        emitAppEvent('update-shape-props-in-editor', { shapeId, props: patch })
+    }, [boards, setBoards])
+
     return {
         handleAddCardToInbox,
         handleMoveCardToBoard,
         handleMoveCardsToBoard,
+        handleUpdateInboxCardProps,
     }
 }

@@ -65,9 +65,45 @@ Get-Process electron -ErrorAction SilentlyContinue | Stop-Process -Force
 
 背景啟動任務會回報 exit 127 / 非 0 —— 那是被 kill 的正常結果，不是 App 崩潰。
 
+## 要「操作」App（開面板、按快捷鍵、填表單）而不只是看首屏
+
+**不要用 SendKeys。** SendKeys 送到的是當下的前景視窗；Electron 視窗一掉前景，
+輸入就會跑進別的視窗（實測跑進過使用者的終端機）。改用 **CDP（Chrome DevTools Protocol）**，
+它直接對 renderer 送事件，不依賴視窗焦點：
+
+```bash
+# 啟動時加 --remote-debugging-port=9222
+ELECTRON_PROD_TEST=1 ./node_modules/electron/dist/electron.exe \
+  --icu-data-dir=node_modules/electron/dist --remote-debugging-port=9222 . > /tmp/shots/electron.log 2>&1
+```
+
+```js
+// 取得頁面目標（排除 devtools:// 目標）後連 webSocketDebuggerUrl（Node 22 有原生 WebSocket）
+const targets = await (await fetch('http://127.0.0.1:9222/json')).json()
+const page = targets.find(t => t.type === 'page' && !t.url.startsWith('devtools://'))
+```
+
+- 送鍵：`Input.dispatchKeyEvent`（`rawKeyDown` + `keyUp`）。**必須帶正確的 `windowsVirtualKeyCode`**，
+  否則 React 收不到；修飾鍵 bitmask：alt=1 / ctrl=2 / shift=8。
+- 打字：`Input.insertText`（比逐鍵送可靠）。
+- 斷言：`Runtime.evaluate` 讀 `document.body.innerText`，或直接查 IndexedDB 驗資料真的寫進去。
+
+### 用 eval 抓 DOM 的兩個坑
+
+- **`document.querySelector('input')` 會抓到隱藏的檔案上傳 input**（丟 InvalidStateError）。用 `x.type === 'text'` 過濾。
+- **`[...divs].filter(d => d.textContent.includes('某字'))` 會同時命中祖先與後代**；`[0]` 是最外層、
+  `.pop()` 是最內層（常常是那段文字自己的 div）。抓面板根請用特徵：`d.style.position === 'fixed' && d.textContent.includes(...)`。
+- 卡片上的標籤 chip 與面板裡的 chip 文字相同 → 一定要先 scope 到面板再查，否則點到畫布上的卡。
+
 ## Gotchas（實際踩過的）
 
+- **殘留的 electron 行程會佔住 userData** → 新實例的 IndexedDB 開不起來，畫面變成
+  「未處理的 Promise 錯誤 / UnknownError: Internal error」，log 有 `Could not open the quota database`。
+  **啟動前先 `Get-Process electron | Stop-Process -Force`**，別誤判成程式碼壞掉。
 - **全桌面截圖抓到的是 VS Code 不是本 App** → 一定要用 `capture-window.ps1` 的 PrintWindow 針對視窗抓。
+- **`capture-window.ps1` 靠 `MainWindowTitle` 找窗，視窗被隱藏（收進托盤）時會報 NO WINDOW** —— 不代表 App 掛了。
+  要分辨「隱藏」與「不存在」，用 `EnumWindows` 列舉（PowerShell 閉包內累加陣列要用 `$script:` 作用域，
+  否則永遠是空的、會誤判成沒有視窗）。
 - **`Add-Type -ReferencedAssemblies` 拼錯會報參數錯**，但若型別已被定義則不影響；腳本已用
   `[PSTypeName]'Win'` 檢查避免重複定義。
 - **改了程式忘了 rebuild** → `file://` 載到舊 dist，畫面對不上。先 `npm run build`。
@@ -78,5 +114,5 @@ Get-Process electron -ErrorAction SilentlyContinue | Stop-Process -Force
 
 ```powershell
 npm run build     # 期望 exit 0
-npm test          # vitest run，期望全綠（目前 241 案例）
+npm test          # vitest run，期望全綠（2026-07-15 為 349 案例）
 ```

@@ -84,6 +84,7 @@ const sections: HotkeySection[] = [
             { keys: [MOD, 'Shift', 'L'], label: '卡片庫' },
             { keys: [MOD, 'Shift', 'T'], label: '垃圾桶' },
             { keys: [MOD, 'Space'], label: '快速捕捉' },
+            { keys: [MOD, 'Shift', 'E'], label: '整理收件匣' },
             { keys: ['?'], label: '快捷鍵說明' },
             { keys: [MOD, '/'], label: '快捷鍵說明' },
         ],

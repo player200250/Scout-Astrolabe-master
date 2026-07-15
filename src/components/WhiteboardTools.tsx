@@ -303,6 +303,16 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
         })
     }, [editor])
 
+    // Inbox Triage 在編輯器外改了卡片屬性；若該卡就在本板，同步套用避免 editor 用舊值覆寫回 DB
+    useEffect(() => {
+        return onAppEvent('update-shape-props-in-editor', ({ shapeId, props }) => {
+            if (!editor) return
+            const shape = editor.getShape(shapeId as TLShapeId)
+            if (!shape) return
+            editor.updateShape({ id: shape.id, type: shape.type, props })
+        })
+    }, [editor])
+
     // When a shape is permanently deleted from trash, clear undo history so Ctrl+Z cannot restore it
     useEffect(() => {
         return onAppEvent('permanent-delete-shape', ({ shapeId, boardId }) => {

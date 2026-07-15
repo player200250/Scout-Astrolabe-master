@@ -47,6 +47,12 @@ export interface AppEventPayloads {
     /** 將卡片移動到 Inbox 後，從原白板刪除該 shape */
     'delete-shape-from-editor': { shapeId: string }
 
+    /**
+     * 在編輯器外改動卡片屬性（Inbox Triage）後，同步套用到白板 editor。
+     * 若該板此刻沒掛載 editor 則無人接收——snapshot 已先寫入 DB，下次開板即為新值。
+     */
+    'update-shape-props-in-editor': { shapeId: string; props: Record<string, unknown> }
+
     /** 新建子板後，在父板自動建立一張連結卡片 */
     'create-board-card-on': {
         targetBoardId: string
