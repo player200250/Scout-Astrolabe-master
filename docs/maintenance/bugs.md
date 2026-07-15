@@ -112,6 +112,29 @@
 
 ---
 
+## WO4：`[[]]` 補全的鍵盤處理可能被 ProseMirror 先攔截（待實測）
+
+**發現**：2026-07-15，實作 `/` 選單（階段 1）時發現。
+
+**問題**：`TextContent.tsx` 的 `handleEditorKeyDown` 掛在外層 div 的 React `onKeyDown`。
+但 React 的事件是委派在 root 的 **bubble 階段**，而 ProseMirror 的 listener 直接掛在 contenteditable 上
+（**target 階段**）→ PM 會先處理 Enter／Tab／方向鍵，等 React 收到時預設行為已經發生，
+`preventDefault()` 已無意義。
+
+**證據**：`/` 選單一開始用同一套 React `onKeyDown`，實測 Enter **無法套用命令**（`/h3` 原樣留在文字裡）；
+改用 tiptap 的 `editorProps.handleKeyDown`（跑在 PM 內部）後立即正常。
+
+**影響（推測，未證實）**：`[[]]` 補全的 Enter／Tab 選取可能沒生效、方向鍵可能同時移動游標又改選單索引。
+`insertCompletion` 用 `deleteRange(suggest.from, curFrom)`，即使段落已被 Enter 切開也可能「剛好」得到近似正確的結果，
+故問題可能一直被掩蓋。
+
+**尚未確認**：兩次嘗試實測都因測試腳本自身的錯誤（Escape 先關掉編輯模式、選擇器抓錯卡片）而未取得結論。
+**修法已知**：比照 `/` 選單改走 `editorProps.handleKeyDown`。
+
+**狀態**：待實測確認後再修（不在 `/` 選單階段 1 的範圍內，避免夾帶）。
+
+---
+
 ## 維護注意事項
 
 - 每次修復 bug 後，在根目錄 BUGS.md 補上「已修」標記與確認點，並更新本文件的摘要數字。

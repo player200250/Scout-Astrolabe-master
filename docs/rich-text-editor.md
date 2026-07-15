@@ -58,6 +58,40 @@ extensions: [StarterKit, Underline, TextStyle, Color]
 
 ## 支援格式與工具列
 
+### `/` 選單（slash command，2026-07-15）
+
+輸入 `/` 開啟命令選單，比照 Notion／Heptabase。命令 registry 與過濾在 `src/utils/slashCommands.ts`（純函式、有測試），
+過濾直接複用 `utils/commands.ts` 的 `filterCommands`（與 N1 命令面板同一套，支援中英別名與多詞 AND）。
+
+**階段 1 的原則：只露出「已經能用但沒有入口」的東西，不新增任何格式。**
+StarterKit 早就支援引用／分隔線／H3–H6／刪除線／行內程式碼，連 Markdown 輸入規則（`## `、`> `、`- `、`--- `）
+都是通的——但工具列只有 9 個按鈕，這些全都看不見。（同型病灶：`BoardTabBar` 的 `isStale` 🕐 也是算好了但幾乎不可見）
+
+| 分組 | 命令 |
+|------|------|
+| 基本 | 文字、標題 1／2／3 |
+| 清單 | 條列清單、編號清單 |
+| 區塊 | 引用、程式碼區塊、分隔線 |
+| 格式 | 粗體、斜體、底線、刪除線、行內程式碼 |
+| 顏色 | 6 色（與工具列圓點同一組） |
+| 連結 | 卡片連結（插入 `[[` 觸發既有補全，不另做一套） |
+
+- **觸發規則**（`matchSlashQuery`）：`/` 須在行首或空白之後，其後不得再有空白或斜線 → `http://`、`a/b` 不會誤觸；
+  `[[` 補全優先，兩個浮層不會同時開。
+- **keywords 一律含 Notion 式縮寫**（`h1`／`ul`／`ol`／`hr`／`code`…）：那是使用者的肌肉記憶，
+  而 `filterCommands` 只搜 title+keywords、不搜 icon。
+
+#### ⚠️ 鍵盤事件必須走 `editorProps.handleKeyDown`，不能用 React 的 `onKeyDown`
+
+ProseMirror 的 listener 直接掛在 contenteditable 上（**target 階段**），React 的 `onKeyDown` 則是委派在 root
+（**bubble 階段**）→ **PM 永遠先吃掉 Enter**，等 React 收到時段落已經被切開，`preventDefault()` 為時已晚。
+
+`/` 選單因此改用 tiptap 的 `editorProps.handleKeyDown`（跑在 PM 內部，回傳 `true` 即攔下預設行為）。
+`useTiptap` 的 config 只建立一次，故用 `slashKeyRef` 讓它讀得到最新的 state 與 callback。
+
+> **待查**：既有的 `[[]]` 補全仍走 React `onKeyDown`（`handleEditorKeyDown`），理論上有同樣問題——
+> 其 Enter／Tab／方向鍵可能都被 PM 先處理掉。尚未實測確認，見 `docs/maintenance/bugs.md`。
+
 ### TextContent 工具列按鈕
 
 | 按鈕 | TipTap 指令 | 快捷鍵（TipTap 內建）|
