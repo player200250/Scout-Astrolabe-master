@@ -328,7 +328,7 @@ Markdown → TipTap 使用 `marked`（新增依賴，或手動解析常見語法
 | B9（D2） | 右鍵選單無規範文件（可發現性差） | ✅ 完成（2026-07-14） | 無 | `docs/context-menu-spec.md`（完整規範各情境選單項＋捷徑對照）＋README 索引；App 內提示現況＝OnboardingModal 已涵蓋。commit `be064bc` |
 | P-DRAW（D8） | 筆刷卡頓 | 🟡 中 | **實測先行**（TD-IMG ✅ 後重測） | 已排除存檔/縮圖；疑重型卡片重繪，需 DevTools Performance 量測；TD-IMG 已移除 base64 圖片內嵌，應先重測是否已緩解再決定是否進一步治 |
 | 討論（D1） | 主頁儀表板/白板雙模式不直覺 | ✅ 完成（2026-07-15） | 產品決策已拍板 | **決議：主頁永遠是儀表板，砍掉雙模式**（使用者確認幾乎不用主頁畫布，都在其他白板）。移除 `homeView` state／localStorage `home-view`／Dashboard 與 WhiteboardTools 兩組切換鈕；`Whiteboard.tsx` 改為 `if (board.isHome) return <Dashboard/>`。舊主頁畫布內容由 `loadAllBoards` 自動整份搬成普通白板「主頁白板」（`utils/homeBoardMigration.ts`，只搬不刪、+11 測試）；主頁保留 board record 當導覽錨點（不動 `activeBoardId` 導覽模型，見下方註）。`uniqueName` 從 useBoardCRUD 移到 utils/boardDb（避免資料層 → hook 的循環匯入） |
-| 討論（D7） | 任務中心/復盤中心使用率低 | 🟡 中 | 需產品決策 | 主動浮現 badge / 主頁嵌入小工具 / 或簡化合併；連動 AI-4 |
+| 討論（D7） | 任務中心/復盤中心使用率低 | ✅ 決議完成（2026-07-15）；實作待排 | 產品決策已拍板 | **完整討論見 [product-redesign-2026-07.md](product-redesign-2026-07.md)**。關鍵發現：①D7 前提錯誤——兩個中心不對稱（復盤中心是 127 行的殼、任務中心有 330 行真邏輯）；②兩者是按「功能類別」歸檔而非「使用時機」，補丁救不了；③使用者很少設 dueDate → **整條死線視角恆為 0**（儀表板 4 格統計死 3 格、逾期 banner 永不出現、任務中心 5 頁籤死 3 個）；④真正需求是「憶起」不是死線管理，架構根源見 [ADR 0007](adr/0007-cards-bound-to-single-board.md)。**決議**：砍月曆＋復盤中心＋死統計；週回顧統計／日記時間軸／未完成摘要搬儀表板；任務中心留但脫掉行事曆外衣 |
 
 ### 二、新增功能候選（AI 提案去重 + 校正後）
 
@@ -340,8 +340,8 @@ Markdown → TipTap 使用 `marked`（新增依賴，或手動解析常見語法
 | N2 | Inbox Triage 收件匣整理模式 | ✅ 完成（2026-07-15） | 無 | Ctrl+Shift+E；一次一張做一個決定（移到白板 M／標為任務 T／保留 K／刪除 D／略過 S），完成畫面給統計。純函式 `utils/inboxTriage.ts`（佇列/游標/統計，+19 測試）＋ `InboxTriage.tsx`；佇列開啟時建一次避免卡片跳位。資料層複用既有 `handleMoveCardsToBoard`，新增 `handleUpdateInboxCardProps`（inbox 領域）與 `handleTrashInboxCard`（跨領域，走既有垃圾桶流程）。不動資料模型 |
 | N3 | 系統托盤 + 全域快速捕捉 | ✅ 完成（2026-07-15） | Electron only | 托盤圖示（`assets/tray-icon.png`，`scripts/gen-tray-icon.mjs` 可重產）＋選單（顯示/快速捕捉/最小化開關/離開）；關視窗＝收進托盤（可從托盤選單關閉此行為，存 electron-store）；全域 `Ctrl+Shift+Space` 捕捉；單一實例鎖（再點捷徑＝叫回視窗） |
 | N4 | Tag Manager 標籤管理中心 | ✅ 完成（2026-07-15） | 無 | 跨白板統計/改名/合併（改成既有標籤即合併）/顏色/移除。純函式 `utils/tagManager.ts`（+16 測試）＋ `utils/tagColors.ts`（+13 測試，顏色存 localStorage、未指定者用名稱雜湊固定色）；`useTags` hook 逐張發 `update-shape-props-in-editor` 同步已掛載 editor。類型 metadata 抽至 `utils/cardMeta.ts` 供 CardLibrary/InboxTriage 共用；標籤色已套用到 CardLibrary 與 FilterPanel（圖譜未動） |
-| N5 | Smart Collections 智慧集合 | 🟡 中 | 無 | 建於既有 Filter/TaskCenter；逾期/高優先/孤立/含 tag 等預設集合 |
-| N6 | 未連結提及偵測（Unlinked mentions） | 🟡 中 | **併入 A6** | 圖譜/backlink 強化的真新子項；其餘圖譜強化歸 A6、分群歸 AI-8 |
+| N5 | Smart Collections 智慧集合 | 🟢 低（2026-07-15 下調） | 無 | **原定位有誤**：被寫成篩選器功能，但真正需要的是「主動浮現」（見 [product-redesign-2026-07.md](product-redesign-2026-07.md)）——浮現的部分已改由儀表板重組＋N6 承接。剩下的「逾期/高優先」預設集合對本使用者恆為空（無 dueDate）；「孤立卡片」短期是雜訊（2026-07 才開始用 `[[]]`，無 backlink ≈ 全部舊卡）。可做可不做 |
+| N6 | 未連結提及偵測（Unlinked mentions） | 🔴 **高（2026-07-15 上調，脫離 A6 獨立）** | **效能驗證先行** | **重新定位：這不是圖譜裝飾，是「憶起」的主力機制**（見 [ADR 0007](adr/0007-cards-bound-to-single-board.md)）。寫下 `[[專案A]]` 時指出「另有 3 張舊卡提到過但沒連結」＝用新連結打撈舊卡，且自帶時機（寫作當下浮現，不需使用者記得去看）。比「久未造訪」高明：後者靠時間推東西，常推出已結案的死板＝雜訊；前者靠語意相關。**前置：需驗證能否掛上 `useBacklinks` 增量快取——全量掃描 O(n×m) vs 445M vault，useBacklinks 本身曾是效能問題（TD4）** |
 | N7 | 範例白板（首次啟動 seed） | ✅ 完成（2026-07-14） | 無 | 全新使用者首次建板時 seed 4 張範例卡（走 editor.createShape 避 schema 風險，純資料 `EXAMPLE_CARDS`）。commit `e8f8472` |
 | N8 | 測試覆蓋報告 + CI | ✅ 完成（2026-07-14） | 無 | `@vitest/coverage-v8`＋`test:coverage`（不設 threshold）；CI 跑 coverage 並上傳 artifact。commit `25df96c` |
 | N9 | Diagnostics / Debug 面板 | 🟡 中 | 無 | main.js 已有 console 轉發/崩潰監聽；面板化＋debug report；支援 D8 排錯 |
