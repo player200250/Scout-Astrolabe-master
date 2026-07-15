@@ -36,6 +36,7 @@
 | [adr/0006-cloud-sync-and-mobile.md](adr/0006-cloud-sync-and-mobile.md) | ADR：選擇性雲端同步與行動端 PWA（修正 0005）|
 | [adr/0007-cards-bound-to-single-board.md](adr/0007-cards-bound-to-single-board.md) | ADR：接受「卡片綁定單一白板」，以 `[[連結]]` 作為跨板可達的近似解 |
 | [maintenance/bugs.md](maintenance/bugs.md) | Bug 追蹤索引（詳細內容見根目錄 BUGS.md） |
+| [maintenance/n6-performance-2026-07-15.md](maintenance/n6-performance-2026-07-15.md) | N6 未連結提及的效能前置驗證（結論：效能非問題，風險是準確度）|
 
 ---
 
