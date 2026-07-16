@@ -35,7 +35,8 @@
 | [adr/0005-local-first-product-direction.md](adr/0005-local-first-product-direction.md) | ADR：本地優先（Local-First）的產品方向（已由 0006 修正）|
 | [adr/0006-cloud-sync-and-mobile.md](adr/0006-cloud-sync-and-mobile.md) | ADR：選擇性雲端同步與行動端 PWA（修正 0005）|
 | [adr/0007-cards-bound-to-single-board.md](adr/0007-cards-bound-to-single-board.md) | ADR：接受「卡片綁定單一白板」，以 `[[連結]]` 作為跨板可達的近似解 |
-| [maintenance/bugs.md](maintenance/bugs.md) | Bug 追蹤索引（詳細內容見根目錄 BUGS.md） |
+| [maintenance/bugs.md](maintenance/bugs.md) | **活的** Bug 索引：只記未關閉問題、設計決策與待觀察項（根目錄 [BUGS.md](../BUGS.md) 是 2026-05 初始掃描 20 項的完整驗證報告，已全數關閉，屬歷史紀錄） |
+| [maintenance/manual-test-2026-07-04.md](maintenance/manual-test-2026-07-04.md) | 手動功能測試記錄 D1–D8（使用者逐項回報）＋ **D8 筆刷卡頓的 CDP 量測與「量測方法的三個坑」**——重跑效能量測前必讀 |
 | [maintenance/n6-performance-2026-07-15.md](maintenance/n6-performance-2026-07-15.md) | N6 未連結提及的效能前置驗證（結論：效能非問題，風險是準確度）|
 
 ---

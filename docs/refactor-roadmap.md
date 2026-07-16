@@ -12,19 +12,30 @@
 
 | 檔案 | 技術債說明 |
 |------|-----------|
-| `src/App.tsx` | 14+ boolean state、prop drilling、無路由層 |
+| `src/App.tsx` | ✅ TD1 面板 state 已收進 `usePanelState`（14 boolean → hook，僅剩 4 個 useState）；prop drilling 已部分收斂（BoardTabBar 12 個 `onOpenXxx` → 單一 `onOpenPanel`）；仍無路由層 |
 | `src/hooks/useBoardManager.ts` | ✅ TD2 已拆分（677→303 行，職責下放至 8 hook + 2 util，合成層僅留跨領域 handler） |
 | `src/components/WhiteboardTools.tsx` | 10+ useEffect 事件橋接、緊耦合 tldraw |
-| `src/hooks/useBacklinks.ts` | 全量掃描效能、無索引快取 |
+| `src/hooks/useBacklinks.ts` | ✅ TD4 已解（per-board `useRef` 增量快取，37× 加速）；千板以上的 Dexie 持久化 index 列入觀察（見 TD4 段） |
 | `src/SearchPanel.tsx` | 全量掃描、無防抖、無分頁 |
 
 ---
 
 ## 技術債清單
 
-### TD1：App.tsx 承擔過多 UI 狀態（高優先，盤點完成 2026-06-20，尚未動工）
+### ~~TD1：App.tsx 承擔過多 UI 狀態（高優先）~~ ✅ 核心已完成（2026-06-21，commit `e6967de`）
 
-**現狀**（2026-06-20 核實，App.tsx 404 行，17 個 useState + 1 ref）：
+> **驗收現況（2026-07-16 核實）**：`src/hooks/usePanelState.ts` 已存在，App.tsx **449 行、僅剩 4 個 useState**
+> （A 群 14 個面板 boolean 全數收進 hook；留下的是主題 `isDark` 與兩個帶 payload 的 modal）。
+> 行數比原盤點的 404 行更多，是因為此後又長進了 Command Palette（N1）等新功能——**面板 state 確實已抽走，
+> 不是沒做**。Prop drilling 第二階段一併做了 BoardTabBar（12 個 `onOpenXxx` → 單一 `onOpenPanel`）。
+> 安全網：`usePanelState.test.ts`（7 案例）。
+>
+> **原藍圖尚未抽的三個**（2026-07-16 以 grep 確認 `src/` 下不存在）：`useTheme`、`useOverdueStats`、
+> `useGlobalHotkeys`。非 TD1 驗收必要，視後續需要再做。
+>
+> 以下保留原始盤點內容作為脈絡紀錄。
+
+**原始盤點**（2026-06-20 核實，App.tsx 404 行，17 個 useState + 1 ref）：
 
 | 群組 | 內容 | 數量 | 性質 |
 |------|------|------|------|
@@ -42,16 +53,29 @@ Effects 共 4 個：onboarding 首開、逾期橫幅計時、`data-theme` 套用
 
 | 步驟 | 產出 | 內容 | 風險 |
 |------|------|------|------|
-| 1 | `hooks/useTheme.ts` | `isDark` + `toggleTheme` + localStorage + `data-theme` effect | 🟢 最低，完全獨立 |
-| 2 | `hooks/useOverdueStats.ts` | `overdueCount/todayCount` memo（純算 boards） | 🟢 純函式 |
-| 3 | `hooks/usePanelState.ts` | A 群 13 boolean + B 群 2 modal，統一 open/close/toggle API | 🟡 核心，動最多處 |
-| 4 | `hooks/useGlobalHotkeys.ts` | keydown effect，依賴步驟 3 的 setter | 🟡 依賴 3 |
+| 步驟 | 產出 | 內容 | 風險 | 狀態 |
+|------|------|------|------|------|
+| 1 | `hooks/useTheme.ts` | `isDark` + `toggleTheme` + localStorage + `data-theme` effect | 🟢 最低，完全獨立 | ⬜ 未做 |
+| 2 | `hooks/useOverdueStats.ts` | `overdueCount/todayCount` memo（純算 boards） | 🟢 純函式 | ⬜ 未做 |
+| 3 | `hooks/usePanelState.ts` | A 群 13 boolean + B 群 2 modal，統一 open/close/toggle API | 🟡 核心，動最多處 | ✅ **已完成**（`e6967de`，含逾期橫幅共 14 個） |
+| 4 | `hooks/useGlobalHotkeys.ts` | keydown effect，依賴步驟 3 的 setter | 🟡 依賴 3 | ⬜ 未做 |
 
 逾期橫幅（D 群）可併入 `usePanelState` 或留在 App。**Prop drilling 收斂（BoardTabBar 40 props → 收成 `panels` 物件或 Context）屬第二階段大手術，TD1 一期不做。**
 
+> **實際結果（2026-06-21）**：逾期橫幅**已併入** `usePanelState`（共 14 個面板）。Prop drilling 收斂也**一併做了 BoardTabBar**
+> （12 個 `onOpenXxx` → 單一 `onOpenPanel`，SidebarFooter props 6→3），沒有留到第二階段；`Whiteboard` 仍保留個別
+> `onOpenXxx`（內部呼叫 `openPanel`）。
+
 **⚠️ 安全網缺口**：App.tsx 目前零測試覆蓋（子元件雖有 7 個 test，但 App 組裝層無守護）。動工前需先決定：補 App 冒煙測試（需 mock 回傳 40+ 值的 `useBoardManager`）／靠 `tsc --noEmit` + `npm run build` + 手動點過面板／各新 hook 寫 `renderHook` 單元測試。
 
-**觸發時機（重要）**：純面板開關目前 **13 個**，離原訂觸發點「新增第 15 個面板前」尚有 2 個緩衝。2026-06-20 評估結論為**現在先不動**——觸發條件是「痛了才動」，目前無正在開發的新面板逼改 App.tsx/BoardTabBar，且 TD2 剛收尾、App.tsx 是其主要消費端，預先重構等於在剛變動的介面上再疊風險。**建議讓重構跟著功能走**：下次新增面板，或開始做圖片集體上傳（會新增 modal）時，順手帶 `usePanelState`，把風險攤提進功能開發。最低風險的 `useTheme` + `useOverdueStats` 完全獨立，若要清雜訊可單獨先抽，但仍屬預先重構。
+> **實際採用**：第三案——`usePanelState.test.ts`（7 案例）+ 更新 `SidebarFooter.test.tsx`，未補 App 冒煙測試。
+> App.tsx 組裝層至今仍無測試覆蓋，這個缺口**依然存在**。
+
+**~~觸發時機~~**（此段已由事實推翻，保留供對照）：~~純面板開關目前 **13 個**，離原訂觸發點「新增第 15 個面板前」尚有 2 個緩衝。2026-06-20 評估結論為**現在先不動**——觸發條件是「痛了才動」，目前無正在開發的新面板逼改 App.tsx/BoardTabBar，且 TD2 剛收尾、App.tsx 是其主要消費端，預先重構等於在剛變動的介面上再疊風險。**建議讓重構跟著功能走**：下次新增面板，或開始做圖片集體上傳（會新增 modal）時，順手帶 `usePanelState`，把風險攤提進功能開發。最低風險的 `useTheme` + `useOverdueStats` 完全獨立，若要清雜訊可單獨先抽，但仍屬預先重構。~~
+
+> **後續發展（2026-07-16 回填）**：此段的兩個前提都已不成立——TD1 隔天（2026-06-21）就動工完成了，而「圖片集體上傳」
+> 也早在 2026-06-09 就已實作（commit `fdd44ae`），且**沒有新增 modal**（只在既有 file picker 加 `multiple`），
+> 因此從未成為預想中的觸發點。「讓重構跟著功能走」的原則本身仍然成立，只是這個具體預測落空了。
 
 ---
 

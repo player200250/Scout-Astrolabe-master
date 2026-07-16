@@ -603,7 +603,9 @@ Electron 實作透過 `window.electronAPI`；Web fallback 使用 `File System Ac
 
 **說明**：在備份面板新增「雲端備份」區塊。使用者授權後，每次本機自動備份同時將 JSON 備份上傳至雲端指定資料夾。策略：
 - 備份格式與本機完全相同（BoardRecord JSON array）
-- 每個白板維持最多 30 份雲端備份（與本機同步）
+- 每個白板維持最多 5 份雲端備份（與本機 `MAX_BACKUPS` 對齊；2026-06-21 由 30 降為 5，見 `maintenance/bugs.md` P1-OOM）
+  - ⚠️ **但「雲端也只留 5 份」未必是對的結論**：本機降為 5 的原因是 IndexedDB 體積撐爆 renderer 記憶體，
+    這個約束在雲端不存在。真要做時應重新評估雲端份數（雲端保留更多份反而是本機只留 5 份的補償）。
 - 可手動下載雲端備份至本機還原
 
 支援的服務（用 OAuth 授權，API key 不由 App 持有）：

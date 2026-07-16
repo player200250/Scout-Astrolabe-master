@@ -54,7 +54,8 @@ Scout Astrolabe 是本地優先應用，需要在瀏覽器/Electron 環境中持
 
 - `db.ts` 的 schema 版本號是一條單向路，升版前需確認 upgrade 函式的正確性
 - 新增有 index 的欄位時，必須提供 `upgrade()` 對現有記錄補充預設值（前例：v7 對 `shapeId` 補空字串）
-- `BackupRecord` 的體積隨白板數量成長，30 份上限是防止 DB 無限膨脹的必要設計
+- `BackupRecord` 的體積隨白板數量成長，份數上限是防止 DB 無限膨脹的必要設計
+  （本 ADR 撰寫時為 30 份；**2026-06-21 已降為 5** —— 30 份實測仍會撐到 2.7GB 並造成 renderer OOM 白屏，見 `docs/maintenance/bugs.md` P1-OOM）
 - 跨 table 的一致性（如刪白板後清除對應 deletedCards）需要在應用層手動處理
 
 ---
