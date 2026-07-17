@@ -70,6 +70,7 @@ export function buildSlashCommands(): SlashCommand[] {
         { id: 'italic', title: '斜體', icon: 'I', group: '格式', keywords: 'i italic em 斜', hint: 'Ctrl+I', apply: (e, r) => at(e, r).toggleItalic().run() },
         { id: 'underline', title: '底線', icon: 'U', group: '格式', keywords: 'u underline 底線', hint: 'Ctrl+U', apply: (e, r) => at(e, r).toggleUnderline().run() },
         { id: 'strike', title: '刪除線', icon: 'S', group: '格式', keywords: 's strike strikethrough del 刪除線', apply: (e, r) => at(e, r).toggleStrike().run() },
+        { id: 'highlight', title: '螢光筆', icon: '🖍', group: '格式', keywords: 'highlight mark 螢光筆 標記 醒目', apply: (e, r) => at(e, r).toggleHighlight().run() },
         { id: 'inline-code', title: '行內程式碼', icon: '`', group: '格式', keywords: 'code inline 行內 程式', apply: (e, r) => at(e, r).toggleCode().run() },
 
         // 顏色

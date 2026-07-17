@@ -25,6 +25,10 @@ describe('htmlToMarkdown', () => {
         expect(htmlToMarkdown('<a href="https://g.com">G</a>')).toBe('[G](https://g.com)')
     })
 
+    it('螢光筆轉成 ==文字==', () => {
+        expect(htmlToMarkdown('<mark>重點</mark>')).toBe('==重點==')
+    })
+
     it('無序清單轉成 - 項目', () => {
         expect(htmlToMarkdown('<ul><li>一</li><li>二</li></ul>')).toBe('- 一\n- 二')
     })

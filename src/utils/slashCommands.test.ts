@@ -120,7 +120,7 @@ describe('apply', () => {
         for (const m of ['focus', 'deleteRange', 'setParagraph', 'toggleHeading', 'toggleBulletList',
             'toggleOrderedList', 'toggleBlockquote', 'toggleCodeBlock', 'setHorizontalRule',
             'toggleBold', 'toggleItalic', 'toggleUnderline', 'toggleStrike', 'toggleCode',
-            'setColor', 'insertContent']) {
+            'toggleHighlight', 'setColor', 'insertContent']) {
             chain[m] = vi.fn((...args: unknown[]) => { calls.push(args.length ? `${m}:${JSON.stringify(args[0])}` : m); return chain })
         }
         chain.run = vi.fn(() => true)
@@ -158,5 +158,11 @@ describe('apply', () => {
         const { editor, calls } = makeEditor()
         buildSlashCommands().find(c => c.id === 'wikilink')!.apply(editor, { from: 0, to: 1 })
         expect(calls).toContain('insertContent:"[["')
+    })
+
+    it('螢光筆套用 toggleHighlight', () => {
+        const { editor, calls } = makeEditor()
+        buildSlashCommands().find(c => c.id === 'highlight')!.apply(editor, { from: 0, to: 1 })
+        expect(calls).toContain('toggleHighlight')
     })
 })

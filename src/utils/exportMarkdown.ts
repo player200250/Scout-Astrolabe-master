@@ -18,6 +18,7 @@ function nodeToMarkdown(node: Node): string {
         case 'strong': case 'b': return `**${inner()}**`
         case 'em': case 'i': return `*${inner()}*`
         case 'u': return `<u>${inner()}</u>`
+        case 'mark': return `==${inner()}==`
         case 'code': return `\`${inner()}\``
         case 'pre': return `\`\`\`\n${inner()}\n\`\`\`\n\n`
         case 'ul': {

@@ -54,6 +54,43 @@ a {
 }
 
 /* ================================================
+   文字卡片：超連結 / 螢光筆 / 空白提示
+   註：這些樣式必須放在本檔（index.css，唯一被 main.tsx import 的樣式表）。
+   src/App.css 未被任何地方 import＝死檔，放那裡不會生效。
+   ================================================ */
+
+/* 超連結（唯讀 .tiptap-readonly 與編輯 .tiptap 共用）。
+   色用 #3b82f6 與既有 wiki-link 一致，淺色/深色卡皆可讀；
+   選擇器特異性高於上方全域 a 重置，故覆蓋得掉 color:inherit/decoration:none。*/
+.tiptap-readonly a,
+.tiptap a {
+    color: #3b82f6;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+/* 螢光筆——底色恆為淺黃，故文字強制深色（暗色卡上淺字疊黃底會看不清）*/
+.tiptap-readonly mark,
+.tiptap mark {
+    background: #fef08a;
+    color: #1a1a1a;
+    padding: 0 1px;
+    border-radius: 2px;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+}
+
+/* Placeholder：空白編輯器的提示（接階段 1 `/` 選單的可發現性）*/
+.tiptap p.is-editor-empty:first-child::before {
+    content: attr(data-placeholder);
+    float: left;
+    height: 0;
+    pointer-events: none;
+    color: #b0b0b0;
+    font-size: 15px;
+}
+
+/* ================================================
    細版滾動條（全域）
    ================================================ */
 ::-webkit-scrollbar {

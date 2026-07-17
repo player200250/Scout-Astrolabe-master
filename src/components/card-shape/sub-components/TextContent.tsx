@@ -8,6 +8,9 @@ import Underline from '@tiptap/extension-underline'
 import TextStyle from '@tiptap/extension-text-style'
 import { Color } from '@tiptap/extension-color'
 import { CodeBlockLowlight } from '@tiptap/extension-code-block-lowlight'
+import Link from '@tiptap/extension-link'
+import Highlight from '@tiptap/extension-highlight'
+import Placeholder from '@tiptap/extension-placeholder'
 import { createLowlight, common } from 'lowlight'
 import { BacklinksContext } from '../../../hooks/useBacklinks'
 import { Z_MODAL } from '../../../constants'
@@ -168,6 +171,15 @@ function Toolbar({ tiptap, isDark }: { tiptap: ReturnType<typeof useTiptap>; isD
                 {'</>'}
             </ToolbarButton>
 
+            <ToolbarButton
+                onClick={() => tiptap.chain().focus().toggleHighlight().run()}
+                active={tiptap.isActive('highlight')}
+                title="螢光筆"
+                isDark={isDark}
+            >
+                <mark style={{ background: '#fef08a', padding: '0 2px', borderRadius: 2 }}>H</mark>
+            </ToolbarButton>
+
             <span style={{ width: 1, height: 16, background: isDark ? '#475569' : '#ddd', margin: '0 4px' }} />
 
             {COLORS.map((color) => (
@@ -298,12 +310,23 @@ export function TextContent({ editor: tldrawEditor, shape, isEditing, exitEdit, 
         if (!el) return
         const handler = (e: PointerEvent) => {
             const target = e.target as HTMLElement
+            // 卡片連結 [[X]] → 站內跳轉
             const encoded = (target.closest('[data-wikilink]') as HTMLElement | null)?.getAttribute('data-wikilink')
-            if (!encoded) return
-            e.stopPropagation()
-            e.preventDefault()
-            const name = decodeURIComponent(encoded)
-            emitAppEvent('jump-to-card', { targetName: name })
+            if (encoded) {
+                e.stopPropagation()
+                e.preventDefault()
+                emitAppEvent('jump-to-card', { targetName: decodeURIComponent(encoded) })
+                return
+            }
+            // 外部超連結 <a href> → 用系統瀏覽器開啟（與 LinkContent 一致，走 openLink 這個 IPC）
+            const href = (target.closest('a[href]') as HTMLAnchorElement | null)?.getAttribute('href')
+            if (href) {
+                e.stopPropagation()
+                e.preventDefault()
+                const url = href.startsWith('http') ? href : `https://${href}`
+                if (window.electronAPI?.openLink) window.electronAPI.openLink(url)
+                else window.open(url, '_blank', 'noopener,noreferrer')
+            }
         }
         el.addEventListener('pointerdown', handler, { capture: true })
         return () => el.removeEventListener('pointerdown', handler, { capture: true })
@@ -317,6 +340,13 @@ export function TextContent({ editor: tldrawEditor, shape, isEditing, exitEdit, 
             TextStyle,
             Color,
             CodeBlockLowlight.configure({ lowlight }), // 取代為有語法高亮的版本
+            // 超連結：autolink 讓打字時自動偵測網址，linkOnPaste 讓貼上網址即成連結。
+            // openOnClick:false — 編輯模式點連結只移游標不跳轉；唯讀模式的跳轉走
+            // viewContainerRef 的 capture-phase listener（tldraw 會攔 pointer 事件，見下方）。
+            Link.configure({ openOnClick: false, autolink: true, linkOnPaste: true }),
+            Highlight, // 螢光筆（單色，<mark>）
+            // 空白卡片提示：接上階段 1 `/` 選單的可發現性——沒有這行，使用者不會知道有 `/`
+            Placeholder.configure({ placeholder: '輸入文字，或按 / 選擇格式…' }),
         ],
         content: p.text || '<p></p>',
         editable: isEditing,
