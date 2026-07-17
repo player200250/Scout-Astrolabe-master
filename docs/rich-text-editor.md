@@ -46,6 +46,10 @@ useTiptap({
 
 **停用 StarterKit.codeBlock 的原因**：`CodeBlockLowlight` 取代了 StarterKit 內建的 CodeBlock；若兩者同時存在，會有衝突。
 
+> **⚠️ 2026-07-17 已知落差（`/` 選單階段 2 待補）**：目前**沒有裝 Link extension**，因此文字卡**產不出 `<a>`，貼網址點不動**。
+> 弔詭的是出口早就鋪好——`exportMarkdown.ts:33` 有 `<a href>` → `[文字](url)` 的轉換與測試（`exportMarkdown.test.ts:25`），只是從來沒有入口生出 `<a>`。
+> 這是「文字卡完成度」這一輪要補的第一個洞。範圍與取捨見 [ADR 0008](adr/0008-text-card-does-not-absorb-block-types.md)。
+
 ### JournalDayView.tsx 使用的擴充套件（簡化版）
 
 ```typescript
@@ -62,6 +66,11 @@ extensions: [StarterKit, Underline, TextStyle, Color]
 
 輸入 `/` 開啟命令選單，比照 Notion／Heptabase。命令 registry 與過濾在 `src/utils/slashCommands.ts`（純函式、有測試），
 過濾直接複用 `utils/commands.ts` 的 `filterCommands`（與 N1 命令面板同一套，支援中英別名與多詞 AND）。
+
+> **三階段計畫的最終結局（2026-07-17 定案）**：
+> - **階段 1 ✅**：只露出既有格式（見下方原則），已完成。
+> - **階段 2（純文字增強，進行中）**：超連結／Placeholder／螢光筆＋（未定）Callout／Toggle／LaTeX。皆為 TipTap extension，不動卡片型別。
+> - **階段 3 ❌ 取消**：原設想「block vs 卡片型別分岔」（todo/table/image 進文字卡成 block）**不做**——三種型別都維持獨立卡片。決策與理由見 [ADR 0008](adr/0008-text-card-does-not-absorb-block-types.md)。
 
 **階段 1 的原則：只露出「已經能用但沒有入口」的東西，不新增任何格式。**
 StarterKit 早就支援引用／分隔線／H3–H6／刪除線／行內程式碼，連 Markdown 輸入規則（`## `、`> `、`- `、`--- `）
