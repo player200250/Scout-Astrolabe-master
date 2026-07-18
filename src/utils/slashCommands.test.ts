@@ -120,7 +120,7 @@ describe('apply', () => {
         for (const m of ['focus', 'deleteRange', 'setParagraph', 'toggleHeading', 'toggleBulletList',
             'toggleOrderedList', 'toggleBlockquote', 'toggleCodeBlock', 'setHorizontalRule',
             'toggleBold', 'toggleItalic', 'toggleUnderline', 'toggleStrike', 'toggleCode',
-            'toggleHighlight', 'setColor', 'insertContent']) {
+            'toggleHighlight', 'toggleCallout', 'setToggle', 'setMathBlock', 'setColor', 'insertContent']) {
             chain[m] = vi.fn((...args: unknown[]) => { calls.push(args.length ? `${m}:${JSON.stringify(args[0])}` : m); return chain })
         }
         chain.run = vi.fn(() => true)
@@ -164,5 +164,23 @@ describe('apply', () => {
         const { editor, calls } = makeEditor()
         buildSlashCommands().find(c => c.id === 'highlight')!.apply(editor, { from: 0, to: 1 })
         expect(calls).toContain('toggleHighlight')
+    })
+
+    it('提示框套用 toggleCallout', () => {
+        const { editor, calls } = makeEditor()
+        buildSlashCommands().find(c => c.id === 'callout')!.apply(editor, { from: 0, to: 1 })
+        expect(calls).toContain('toggleCallout')
+    })
+
+    it('摺疊區塊套用 setToggle', () => {
+        const { editor, calls } = makeEditor()
+        buildSlashCommands().find(c => c.id === 'toggle')!.apply(editor, { from: 0, to: 1 })
+        expect(calls).toContain('setToggle')
+    })
+
+    it('數學式套用 setMathBlock', () => {
+        const { editor, calls } = makeEditor()
+        buildSlashCommands().find(c => c.id === 'math')!.apply(editor, { from: 0, to: 1 })
+        expect(calls).toContain('setMathBlock')
     })
 })

@@ -53,8 +53,17 @@ function CardShapeComponent({ shape, editor }: { shape: TLCardShape; editor: Edi
     const colorStyle = CARD_COLORS[p.color ?? 'none']
     const isSticky = p.type === 'sticky'
     const stickyStyle = isSticky ? STICKY_COLORS[toStickyColor(p.color)] : null
-    // Cache the [[link]] check — avoids O(text.length) search on every render
-    const hasLinks = useMemo(() => p.type === 'text' && !!p.text?.includes('[['), [p.type, p.text])
+    // 文字卡在唯讀模式是否要讓內容捕捉指標事件（否則 tldraw 會把整卡當可拖曳單元、內容 pointer-events:none）。
+    // 條件＝內容含「需要在唯讀時被點」的互動元素：站內 [[連結]]、外部 <a> 超連結、或摺疊區塊（點 summary 收合）。
+    // Cache 起來，避免每次 render 都掃 O(text.length)。
+    const hasLinks = useMemo(
+        () => p.type === 'text' && !!p.text && (
+            p.text.includes('[[') ||          // 站內 [[連結]]
+            p.text.includes('<a ') ||         // 外部超連結
+            p.text.includes('toggle-block')   // 摺疊區塊：點 summary 要能收合
+        ),
+        [p.type, p.text]
+    )
     const capturePointerEvents = shouldInnerDivCaptureEvents || p.type === 'image' || p.type === 'todo' || p.type === 'table' || p.type === 'color' || p.type === 'file' || hasLinks
 
     const exitEdit = () => {

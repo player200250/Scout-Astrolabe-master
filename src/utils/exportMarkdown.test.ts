@@ -29,6 +29,31 @@ describe('htmlToMarkdown', () => {
         expect(htmlToMarkdown('<mark>重點</mark>')).toBe('==重點==')
     })
 
+    it('提示框轉成 blockquote 帶 💡', () => {
+        expect(htmlToMarkdown('<div class="callout"><p>注意這件事</p></div>'))
+            .toBe('> 💡\n> 注意這件事')
+    })
+
+    it('一般 div 不當提示框，只取內文', () => {
+        expect(htmlToMarkdown('<div><p>普通</p></div>')).toBe('普通')
+    })
+
+    it('摺疊區塊轉成粗體標題 + 內文', () => {
+        expect(htmlToMarkdown(
+            '<details class="toggle-block" open><summary>更多細節</summary><div class="details-content"><p>被摺疊的內容</p></div></details>'
+        )).toBe('**更多細節**\n\n被摺疊的內容')
+    })
+
+    it('數學式區塊轉成 $$…$$（讀 data-latex，不理會 katex markup）', () => {
+        expect(htmlToMarkdown(
+            '<div class="math-block" data-latex="E = mc^2"><span class="katex">忽略的渲染結果</span></div>'
+        )).toBe('$$E = mc^2$$')
+    })
+
+    it('無 latex 的數學式區塊略過', () => {
+        expect(htmlToMarkdown('<div class="math-block" data-latex=""></div>')).toBe('')
+    })
+
     it('無序清單轉成 - 項目', () => {
         expect(htmlToMarkdown('<ul><li>一</li><li>二</li></ul>')).toBe('- 一\n- 二')
     })

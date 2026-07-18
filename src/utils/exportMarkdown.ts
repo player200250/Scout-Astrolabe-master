@@ -30,6 +30,36 @@ function nodeToMarkdown(node: Node): string {
             return `${items}\n\n`
         }
         case 'li': return inner()
+        case 'div': {
+            // 數學式區塊 → $$…$$（讀 data-latex 原始碼，不理會內部 katex markup）
+            if (el.classList.contains('math-block')) {
+                const latex = el.getAttribute('data-latex') ?? ''
+                return latex ? `$$${latex}$$\n\n` : ''
+            }
+            // 提示框（callout）→ 比照 blockquote，每行前綴 `> `，首行帶 💡
+            if (el.classList.contains('callout')) {
+                const body = inner().trim()
+                if (!body) return ''
+                const quoted = body.split('\n').map(line => `> ${line}`).join('\n')
+                return `> 💡\n${quoted}\n\n`
+            }
+            return inner()
+        }
+        case 'details': {
+            // 摺疊區塊 → 標題粗體 + 內文（markdown 無 toggle 標準）
+            let summaryMd = ''
+            let contentMd = ''
+            for (const child of Array.from(el.children)) {
+                const t = child.tagName.toLowerCase()
+                if (t === 'summary') {
+                    summaryMd = Array.from(child.childNodes).map(nodeToMarkdown).join('').trim()
+                } else if (t === 'div' && child.classList.contains('details-content')) {
+                    contentMd = Array.from(child.childNodes).map(nodeToMarkdown).join('').trim()
+                }
+            }
+            const head = summaryMd ? `**${summaryMd}**\n\n` : ''
+            return `${head}${contentMd}\n\n`
+        }
         case 'br': return '\n'
         case 'a': return `[${inner()}](${el.getAttribute('href') ?? ''})`
         case 'p': return `${inner()}\n\n`

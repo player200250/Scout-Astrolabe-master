@@ -11,6 +11,10 @@ import { CodeBlockLowlight } from '@tiptap/extension-code-block-lowlight'
 import Link from '@tiptap/extension-link'
 import Highlight from '@tiptap/extension-highlight'
 import Placeholder from '@tiptap/extension-placeholder'
+import { Callout } from '../extensions/Callout'
+import { ToggleBlock, ToggleSummary, ToggleContent } from '../extensions/Toggle'
+import { MathBlock } from '../extensions/MathBlock'
+import 'katex/dist/katex.min.css' // 全域 katex 樣式：編輯預覽與唯讀注入都靠它畫對
 import { createLowlight, common } from 'lowlight'
 import { BacklinksContext } from '../../../hooks/useBacklinks'
 import { Z_MODAL } from '../../../constants'
@@ -310,6 +314,16 @@ export function TextContent({ editor: tldrawEditor, shape, isEditing, exitEdit, 
         if (!el) return
         const handler = (e: PointerEvent) => {
             const target = e.target as HTMLElement
+            // 摺疊區塊 summary：讓原生 <details> 自己 toggle open（CSS 據此收合/展開），
+            // 這裡只 stopPropagation 擋住 tldraw 把點擊當成選取/拖曳。
+            // ⚠️ 不可 preventDefault、也不可手動 toggle open——否則會與原生 click 的 toggle 疊成
+            // 「雙重切換」＝點了等於沒反應（實測）。前提是卡片內容此時 pointer-events:auto，
+            // 由 CardShapeUtil 的 capturePointerEvents（含 toggle-block 判斷）打開。
+            const summary = target.closest('details.toggle-block > summary') as HTMLElement | null
+            if (summary) {
+                e.stopPropagation()
+                return
+            }
             // 卡片連結 [[X]] → 站內跳轉
             const encoded = (target.closest('[data-wikilink]') as HTMLElement | null)?.getAttribute('data-wikilink')
             if (encoded) {
@@ -345,6 +359,9 @@ export function TextContent({ editor: tldrawEditor, shape, isEditing, exitEdit, 
             // viewContainerRef 的 capture-phase listener（tldraw 會攔 pointer 事件，見下方）。
             Link.configure({ openOnClick: false, autolink: true, linkOnPaste: true }),
             Highlight, // 螢光筆（單色，<mark>）
+            Callout, // 提示框（進階批：靜態 block，唯讀走純 CSS）
+            ToggleBlock, ToggleSummary, ToggleContent, // 摺疊區塊（原生 <details>，唯讀免 JS 摺疊）
+            MathBlock, // 數學式區塊（LaTeX；渲染結果存進 HTML 供唯讀注入）
             // 空白卡片提示：接上階段 1 `/` 選單的可發現性——沒有這行，使用者不會知道有 `/`
             Placeholder.configure({ placeholder: '輸入文字，或按 / 選擇格式…' }),
         ],
@@ -354,6 +371,21 @@ export function TextContent({ editor: tldrawEditor, shape, isEditing, exitEdit, 
             // 回傳 true ＝ 攔下，PM 不再跑預設行為（見上方 slashKeyRef 的說明）
             // 兩者不會同時開（matchSlashQuery 讓 `[[` 優先），順序只是保險
             handleKeyDown: (_view, event) => slashKeyRef.current(event) || suggestKeyRef.current(event),
+            handleDOMEvents: {
+                // 編輯模式下點摺疊區塊的三角形，原生 <details> 會收合並藏住正在編輯的內文。
+                // preventDefault 取消原生 toggle（游標放置走 mousedown，不受影響），讓它編輯時恆展開。
+                click: (_view, event) => {
+                    const t = event.target as HTMLElement
+                    if (t.closest?.('details.toggle-block > summary')) event.preventDefault()
+                    return false
+                },
+            },
+        },
+        onUpdate: ({ editor }) => {
+            // 一般文字編輯靠 onBlur 存檔即可。但數學式的 latex 是在 nodeView 的 <input> 裡改的，
+            // 焦點一離開 contenteditable、onBlur 就已經存過一次（那時 latex 還是舊值），之後的
+            // setNodeMarkup 不會再觸發 onBlur。故這裡補一道：任何 doc 變更都把最新內容寫回 shape。
+            tldrawEditor.updateShape({ id: shape.id, type: 'card', props: { text: editor.getHTML() } })
         },
         onBlur: ({ editor }) => {
             const html = editor.getHTML()

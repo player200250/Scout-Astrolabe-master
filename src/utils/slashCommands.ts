@@ -64,6 +64,9 @@ export function buildSlashCommands(): SlashCommand[] {
         { id: 'blockquote', title: '引用', icon: '❝', group: '區塊', keywords: 'quote blockquote 引言 引用', hint: '> ', apply: (e, r) => at(e, r).toggleBlockquote().run() },
         { id: 'code-block', title: '程式碼區塊', icon: '</>', group: '區塊', keywords: 'code codeblock block 程式 語法高亮', hint: '``` ', apply: (e, r) => at(e, r).toggleCodeBlock().run() },
         { id: 'divider', title: '分隔線', icon: '—', group: '區塊', keywords: 'hr divider horizontal rule line 分隔 水平線', hint: '--- ', apply: (e, r) => at(e, r).setHorizontalRule().run() },
+        { id: 'callout', title: '提示框', icon: '💡', group: '區塊', keywords: 'callout note info admonition 提示 標註 重點框', apply: (e, r) => at(e, r).toggleCallout().run() },
+        { id: 'toggle', title: '摺疊區塊', icon: '▸', group: '區塊', keywords: 'toggle details collapse fold 摺疊 折疊 收合 展開', apply: (e, r) => at(e, r).setToggle().run() },
+        { id: 'math', title: '數學式', icon: '∑', group: '區塊', keywords: 'math latex equation formula katex 數學 公式 方程式', apply: (e, r) => at(e, r).setMathBlock().run() },
 
         // 格式
         { id: 'bold', title: '粗體', icon: 'B', group: '格式', keywords: 'b bold strong 粗', hint: 'Ctrl+B', apply: (e, r) => at(e, r).toggleBold().run() },

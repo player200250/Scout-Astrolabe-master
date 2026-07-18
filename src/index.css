@@ -80,6 +80,121 @@ a {
     -webkit-box-decoration-break: clone;
 }
 
+/* 提示框（callout）——用 rgba 藍底＝主題無關（淺卡淡藍、深卡也讀得到），
+   文字色不強制 inherit，故淺卡深字、深卡淺字都自然。💡 走 ::before 免存屬性。*/
+.tiptap-readonly .callout,
+.tiptap .callout {
+    position: relative;
+    background: rgba(59, 130, 246, 0.10);
+    border-left: 3px solid #3b82f6;
+    border-radius: 6px;
+    margin: 6px 0;
+    padding: 8px 12px 8px 34px;
+}
+.tiptap-readonly .callout::before,
+.tiptap .callout::before {
+    content: '💡';
+    position: absolute;
+    left: 10px;
+    top: 7px;
+    font-size: 14px;
+    line-height: 1.4;
+}
+/* callout 內最後一段不留下方外距，避免框底空一截 */
+.tiptap-readonly .callout > :last-child,
+.tiptap .callout > :last-child {
+    margin-bottom: 0;
+}
+
+/* 摺疊區塊（toggle）——原生 <details>，唯讀時點 summary 即可展開/收合（零 JS）。
+   編輯時永遠 open（renderHTML 帶 open），故內文可見可編輯。*/
+.tiptap-readonly details.toggle-block,
+.tiptap details.toggle-block {
+    margin: 6px 0;
+    padding: 2px 0;
+}
+.tiptap-readonly details.toggle-block > summary,
+.tiptap details.toggle-block > summary {
+    font-weight: 600;
+    padding: 2px 4px;
+    border-radius: 4px;
+}
+/* 唯讀：summary 是可點的收合按鈕（原生三角形 ▶/▾ 自己翻）*/
+.tiptap-readonly details.toggle-block > summary {
+    cursor: pointer;
+}
+.tiptap-readonly details.toggle-block > summary:hover {
+    background: rgba(0, 0, 0, 0.05);
+}
+/* 編輯模式：summary 是「要編輯的標題文字」，不是可收合按鈕（編輯時不收合）。
+   拿掉原生互動三角形、改文字游標、放一個淡灰靜態摺疊指示 ▾，避免使用者誤以為點得動。*/
+.tiptap details.toggle-block > summary {
+    cursor: text;
+    list-style: none;
+}
+.tiptap details.toggle-block > summary::-webkit-details-marker {
+    display: none;
+}
+.tiptap details.toggle-block > summary::before {
+    content: '▾';
+    display: inline-block;
+    margin-right: 6px;
+    color: #94a3b8;
+    pointer-events: none;
+}
+.tiptap-readonly details.toggle-block > .details-content,
+.tiptap details.toggle-block > .details-content {
+    padding: 2px 0 2px 20px;
+}
+/* 自控收合（**只在唯讀模式**）：不靠瀏覽器原生 details 隱藏（實測這版 Chromium 不會藏
+   .details-content）。收合狀態＝details 無 open 屬性，由卡片的 capture-phase handler 切換（見 TextContent）。*/
+.tiptap-readonly details.toggle-block:not([open]) > .details-content {
+    display: none;
+}
+/* 編輯模式：內文永遠可見。否則點到 summary 三角形 → 原生拿掉 open → 上面的規則會把
+   正在編輯的內文藏起來。編輯時不該收合，故強制顯示（優先於任何 :not([open]) 隱藏）。*/
+.tiptap details.toggle-block > .details-content {
+    display: block;
+}
+.tiptap-readonly details.toggle-block > .details-content > :last-child,
+.tiptap details.toggle-block > .details-content > :last-child {
+    margin-bottom: 0;
+}
+
+/* 數學式區塊（LaTeX / katex）。
+   唯讀：.math-block 是渲染後結果，katex.min.css（全域 import）負責排版，這裡只加外距與置中。
+   編輯：.math-block-editor＝原始碼輸入框 + 即時預覽。*/
+.tiptap-readonly .math-block,
+.tiptap .math-block {
+    margin: 8px 0;
+    text-align: center;
+    overflow-x: auto;
+}
+.math-block-editor {
+    margin: 8px 0;
+    border: 1px solid rgba(59, 130, 246, 0.35);
+    border-radius: 6px;
+    padding: 6px 8px;
+    background: rgba(59, 130, 246, 0.06);
+}
+.math-src-input {
+    width: 100%;
+    box-sizing: border-box;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 13px;
+    color: inherit;
+    padding: 2px 0;
+}
+.math-preview {
+    margin-top: 4px;
+    text-align: center;
+    overflow-x: auto;
+    min-height: 20px;
+}
+
 /* Placeholder：空白編輯器的提示（接階段 1 `/` 選單的可發現性）*/
 .tiptap p.is-editor-empty:first-child::before {
     content: attr(data-placeholder);
