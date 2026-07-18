@@ -357,7 +357,10 @@ Markdown → TipTap 使用 `marked`（新增依賴，或手動解析常見語法
 
 ### 三、建議排程（波次）
 
-- **🚧 目前進行中（2026-07-17）｜文字卡片完成度（`/` 選單階段 2：純文字增強）**：使用者定調「重心以文字卡片的完成度為主要目標」。**階段 3（todo/table/image 進文字卡成 block）已拍板取消**，三種卡片型別維持獨立——決策與盤點見 [ADR 0008](adr/0008-text-card-does-not-absorb-block-types.md)。階段 2 範圍＝**基礎批**（超連結／Placeholder／螢光筆，其中超連結是補「文字卡產不出 `<a>`」的真實洞）＋**進階批未定**（Callout／Toggle／LaTeX）。
+- **✅ 完成（2026-07-18）｜文字卡片完成度（`/` 選單階段 2：純文字增強）**：使用者定調「重心以文字卡片的完成度為主要目標」。**階段 3（todo/table/image 進文字卡成 block）已拍板取消**，三種卡片型別維持獨立——決策與盤點見 [ADR 0008](adr/0008-text-card-does-not-absorb-block-types.md)。階段 2 兩批皆完成、皆 CDP 實機驗證：
+  - **基礎批 ✅（commit `bbaa080`）**：超連結（Link，補「文字卡產不出 `<a>`」的真實洞）／Placeholder／螢光筆（Highlight）。
+  - **進階批 ✅（commit `98b3413`）**：Callout（提示框）／Toggle（摺疊，原生 `<details>`）／LaTeX（katex block `$$…$$`，字型隨 build 打包＝離線可用）。皆自製 TipTap Node、CSS 進 `index.css`、匯出加 `nodeToMarkdown` case。實作細節與踩過的坑見 [rich-text-editor.md](rich-text-editor.md)。
+  - **殘留（未做，非阻塞）**：①Toggle 長內容在固定高度卡片「收合仍留白／展開淡出」的體驗優化（方案待定）；②LaTeX 行內數學 `$…$`（目前只做 block）；③進階批的 Callout icon 目前固定 💡（不可換）。皆使用者判斷可延後。
 - **Wave 1｜低風險速贏（v1.2.0 收尾）**：✅ **全部完成（2026-07-14）**——B5/B6/B7（D3/D5/D6）、N7（範例白板）、N8（coverage/CI）、N10（資料安全中心唯讀版）、B9（右鍵文件）。
 - **Wave 2｜高價值真新（v1.2.x → v1.3 前）**：✅ **全部完成（2026-07-15）**——N1（Command Palette，07-14）、N2（Inbox Triage）、N3（系統托盤 + 全域捕捉）、N4（Tag Manager）。
 - **Wave 3｜前置依賴解鎖後**：**TD-IMG ✅ 已完成（治本 OOM/圖片體積，commit `7eaf7f5`）** → N17（備份保留數）前置已解除、N18 剩 A3-ext；**P-DRAW ✅ 已關閉（2026-07-17，使用者實測正常＝TD-IMG 附帶治好）**；**N6 ✅ 已結案（2026-07-17，階段 1 交付、階段 2/3 使用者拍板不做）**；MD 匯入併 C4。
