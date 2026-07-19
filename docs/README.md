@@ -23,6 +23,7 @@
 | [rich-text-editor.md](rich-text-editor.md) | TipTap 設定、格式支援、[[]] 自動補全、HTML 儲存格式 |
 | [journal-review.md](journal-review.md) | Journal 白板、每日卡片、週回顧、月曆、ReviewCenter |
 | [data-safety.md](data-safety.md) | IndexedDB 限制、備份策略、sanitize 防護、已知風險 |
+| [tech-stack-feasibility.md](tech-stack-feasibility.md) | **技術棧可行性評估**：逐項盤點，以「能否撐到 PWA/行動端 + Supabase 同步」為視角；三大工程風險（同步層／IPC 抽象未完／tldraw 授權）|
 | [refactor-roadmap.md](refactor-roadmap.md) | 技術債清單、重構優先順序、架構演進建議 |
 | [roadmap-v2.md](roadmap-v2.md) | v1.2.0–v2.0.0 開發路線圖（功能清單、工作量、依賴關係） |
 | [roadmap-mobile.md](roadmap-mobile.md) | 行動端（PWA）與雲端同步路線圖（階段、技術、風險）— 自用定位 |

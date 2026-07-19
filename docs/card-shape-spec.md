@@ -147,7 +147,7 @@ interface TableCell {
 
 ### todo
 
-- `text` 儲存卡片標題（HTML）
+- `text` 儲存卡片標題（**純文字**，`TodoContent.tsx:144` 以 React child 直接渲染、非 `dangerouslySetInnerHTML`；塞 HTML 標籤會被當字面文字顯示。App 建卡預設 `text: ''`）
 - `todos` 陣列存每個項目（`TodoItem`）
 - 雙擊進入 `state: 'editing'`，可直接在卡片內編輯
 - 逾期顯示：`dueDate < todayStr` 時，`TaskCenter.tsx` 顯示逾期 badge
