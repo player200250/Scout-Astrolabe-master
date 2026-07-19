@@ -119,12 +119,30 @@ a {
     padding: 2px 4px;
     border-radius: 4px;
 }
-/* 唯讀：summary 是可點的收合按鈕（原生三角形 ▶/▾ 自己翻）*/
+/* 唯讀（Notion 式分流）：三角形 .toggle-caret 才是收合目標，標題文字是「雙擊進編輯」＝文字游標。
+   拿掉原生 marker，改用 processedHtml 注入的真實 <span data-toggle-caret> 當三角形（可單獨點）。 */
 .tiptap-readonly details.toggle-block > summary {
-    cursor: pointer;
+    cursor: text;
+    list-style: none;
 }
-.tiptap-readonly details.toggle-block > summary:hover {
-    background: rgba(0, 0, 0, 0.05);
+.tiptap-readonly details.toggle-block > summary::-webkit-details-marker {
+    display: none;
+}
+.tiptap-readonly details.toggle-block > summary > .toggle-caret {
+    display: inline-block;
+    width: 1em;
+    margin-right: 4px;
+    color: #94a3b8;
+    cursor: pointer;
+    font-size: 0.85em;
+    transition: transform 0.12s ease;
+    user-select: none;
+}
+.tiptap-readonly details.toggle-block[open] > summary > .toggle-caret {
+    transform: rotate(90deg);
+}
+.tiptap-readonly details.toggle-block > summary > .toggle-caret:hover {
+    color: #475569;
 }
 /* 編輯模式：summary 是「要編輯的標題文字」，不是可收合按鈕（編輯時不收合）。
    拿掉原生互動三角形、改文字游標、放一個淡灰靜態摺疊指示 ▾，避免使用者誤以為點得動。*/

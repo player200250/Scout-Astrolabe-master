@@ -93,19 +93,34 @@ export const ToggleBlock = Node.create({
     content: 'toggleSummary toggleContent',
     defining: true,
 
+    addAttributes() {
+        return {
+            // 展開/收合狀態存進資料（p.text 的 `<details open>`），才能跨重載/編輯持久一致。
+            // 唯讀點 summary 收合 → TextContent 把新狀態寫回 p.text（見該檔 toggle 持久化 effect）；
+            // 編輯模式恆顯示內容（CSS `.tiptap …details-content{display:block}`）但保留這個旗標，
+            // 存檔時 renderHTML 依旗標輸出 → 收合不會因為編輯過就被洗成展開。
+            open: {
+                default: true,
+                parseHTML: (el) => el.hasAttribute('open'),
+                renderHTML: (attrs) => (attrs.open ? { open: 'open' } : {}),
+            },
+        }
+    },
+
     parseHTML() {
         return [{ tag: 'details' }]
     },
 
     renderHTML({ HTMLAttributes }) {
-        // 永遠 open：編輯時內容需可見可編輯；唯讀時當作預設展開（使用者可點 summary 收合）
-        return ['details', mergeAttributes(HTMLAttributes, { class: 'toggle-block', open: 'open' }), 0]
+        // open 屬性由 addAttributes 依 node 狀態輸出（展開才有 open）；class 固定。
+        return ['details', mergeAttributes(HTMLAttributes, { class: 'toggle-block' }), 0]
     },
 
     addCommands() {
         return {
             setToggle: () => ({ commands }) => commands.insertContent({
                 type: this.name,
+                attrs: { open: true }, // 新建預設展開
                 content: [
                     { type: 'toggleSummary' },
                     { type: 'toggleContent', content: [{ type: 'paragraph' }] },

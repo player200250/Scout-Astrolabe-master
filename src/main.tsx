@@ -27,6 +27,10 @@ function showGlobalError(title: string, detail: string) {
 }
 
 window.addEventListener('error', (e) => {
+    // ResizeObserver 的「loop completed with undelivered notifications / loop limit exceeded」
+    // 是公認良性的警告（回呼內改尺寸、跨幀才收斂時發出，無 error 物件、無 stack），不代表應用出錯。
+    // 絕不可讓它蓋出全域錯誤浮層——那是全螢幕 pointer-events:auto，會攔掉一切點擊互動。
+    if (e.message && e.message.includes('ResizeObserver loop')) return
     showGlobalError('應用程式錯誤 (error)', `${e.message}\n${e.error?.stack ?? ''}`)
 })
 window.addEventListener('unhandledrejection', (e) => {
