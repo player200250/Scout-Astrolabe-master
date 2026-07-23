@@ -196,6 +196,30 @@ if (app.isPackaged || prodTest) {
 
 ---
 
+## 平台抽象層（src/platform/）— PWA 遷移進度
+
+> roadmap-mobile **S0(a)**：把渲染層對 `window.electronAPI` 的直接依賴，逐條收進 `src/platform/` 薄接縫；桌面行為不變、web 端留 fallback，供未來 PWA 脫離 Electron 執行。**一次一條 channel、每條做完 `npm run build` 驗證**（不 big-bang 全炸）。
+
+| 接縫檔 | 收攏的 IPC | 原直接呼叫點 | web fallback | 狀態 |
+|--------|-----------|------------|-------------|------|
+| `imageStore.ts` | `save-image`（`delete-file` 已改委派 `fileStore`） | — | `saveImage` 回 null → 呼叫端存 base64 | ✅ TD-IMG 時落地 |
+| `linkOpener.ts` | `open-external-link`（openLink）／`open-external`（openExternal） | 4 檔 6 處 → 收斂成 1 | `window.open`（openLink 帶 `noopener,noreferrer`） | ✅ B1（2026-07-23） |
+| `linkPreview.ts` | `get-link-preview` | `embedUtils.fetchLinkMeta` 1 處（grep 的另 2 命中皆註解） | 回 null（web／非瀏覽器不做預覽） | ✅ B2（2026-07-23） |
+| `fileStore.ts` | `select-and-copy-file`／`open-file`／`delete-file` | selectAndCopyFile 1 真呼叫＋2 能力守衛（改 `canAttachFile()`）；openFile 1；delete-file 是**通用刪檔**（trash/到期，圖+檔卡共用）3 處，imageStore.deleteImage 亦委派此 | `canAttachFile` 回 false（隱藏上傳入口）／選檔回 null／開檔·刪檔 no-op | ✅ B3（2026-07-23） |
+| `documentIO.ts` | `save-document` | `WhiteboardTools`「儲存」鈕 1 呼叫＋1 能力守衛（改 `canSaveDocument()`）。**`load-document`／`open-document` 無呼叫者＝死碼，未包裝** | `canSaveDocument` 回 false（隱藏鈕）／saveDocument no-op | ✅ B4（2026-07-23） |
+| `quickCapture.ts` | `trigger-quick-capture` | `App.tsx` effect 1 處（N3 托盤/熱鍵） | 回 no-op unsubscribe | ✅ B5（2026-07-23） |
+
+**設計原則（已比對 Electron 官方 contextBridge／security 指引）**：
+- preload 維持「每個動作一個具名 method」的安全樣式（官方明示勿曝露原始 `ipcRenderer`）——接縫層在 renderer 端，不改變這點。
+- 接縫是**葉節點模組**（零 App 內部 import、只依賴全域 `window.electronAPI` 型別）＝**降耦合**，非新增耦合；原本各元件散落的重複 `window.open` fallback 一併收斂。
+- 外部連結收斂到單一接縫後，日後若要加 URL 驗證（官方 security 建議 #15）只需改一處。
+
+**S0(a) 主體完成（B1–B5）**。剩餘殘留：
+- **`saveImage` 有呼叫端沒走 `imageStore.saveImage`**：`BackupPanel.tsx`（能力守衛）、`useImageMigration.ts`（守衛＋實呼叫）仍直接碰 `window.electronAPI.saveImage`（imageStore 於 TD-IMG 時建、這兩處未一併遷移）。屬 imageStore 域的收尾，非本 5 批範圍。
+- **死碼 IPC `load-document`／`open-document`**：preload/型別有宣告、`main.js` 或有 handler，但 renderer 零呼叫者。清理需同步刪 `preload.js`＋`main.js`＋`electron-api.d.ts`（未做，待決定）。
+
+---
+
 ## 維護注意事項
 
 - 新增 IPC channel 時，需同步更新：`main.js`（ipcMain handler）、`preload.js`（contextBridge 暴露）、`src/electron-api.d.ts`（TypeScript 型別）。

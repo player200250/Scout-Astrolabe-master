@@ -5,6 +5,7 @@ import type { TLDefaultColorStyle, TLDefaultSizeStyle } from "tldraw"
 import { GeoShapeGeoStyle } from "@tldraw/tlschema"
 import type { TLGeoShapeGeoStyle } from "@tldraw/tlschema"
 import type { TLCardShape, CardType } from "./components/card-shape/type/CardShape"
+import { canAttachFile } from "./platform/fileStore"
 
 /* ─── Style constants ─── */
 const DRAW_COLORS: { id: TLDefaultColorStyle; css: string; label: string }[] = [
@@ -977,7 +978,7 @@ export default function TldrawToolPanel({
                 <DraggableCardButton icon={IcoStickyCard} label="便利貼（拖曳或點擊）" cardType="sticky" onClick={createStickyCard} isDark={isDark} btnHover={btnHover} onDragStart={() => { draggingCardType.current = 'sticky' }} onDragEnd={() => {}} />
                 <TableCardButton createTableCard={createTableCard} isDark={isDark} btnHover={btnHover} onDragStart={() => { draggingCardType.current = 'table' }} onDragEnd={() => {}} />
                 <DraggableCardButton icon={IcoColorCard} label="顏色樣本（拖曳或點擊）" cardType="color" onClick={createColorCard} isDark={isDark} btnHover={btnHover} onDragStart={() => { draggingCardType.current = 'color' }} onDragEnd={() => {}} />
-                {createFileCard && window.electronAPI?.selectAndCopyFile && (
+                {createFileCard && canAttachFile() && (
                     <DraggableCardButton icon={IcoFileCard} label="上傳檔案（點擊）" cardType="file" onClick={createFileCard} isDark={isDark} btnHover={btnHover} onDragStart={() => {}} onDragEnd={() => {}} />
                 )}
 

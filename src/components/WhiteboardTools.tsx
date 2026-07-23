@@ -12,6 +12,8 @@ import { exportJSON, importJSON } from '../utils/boardExport'
 import { exportBoardToMarkdown, exportSelectedToMarkdown } from '../utils/exportMarkdown'
 import type { TLCardShape, StickyColor, TableRow } from './card-shape/type/CardShape'
 import { getEmbedData, fetchLinkMeta } from './card-shape/utils/embedUtils'
+import { selectAndCopyFile } from '../platform/fileStore'
+import { canSaveDocument, saveDocument as saveDocumentToStore } from '../platform/documentIO'
 import { saveCardToTrash, getCardPreview } from '../utils/trashUtils'
 import { sanitizeSnapshot, sanitizeCardProps } from '../utils/snapshot'
 import type { SnapshotShapeProps } from '../utils/snapshot'
@@ -127,8 +129,7 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
     }, [editor])
 
     const createFileCard = useCallback(async (x?: number, y?: number) => {
-        if (!window.electronAPI?.selectAndCopyFile) return
-        const result = await window.electronAPI.selectAndCopyFile()
+        const result = await selectAndCopyFile()
         if (!result) return
         const center = editor.getViewportScreenCenter()
         const pageCenter = editor.screenToPage(center)
@@ -730,9 +731,9 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
         <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
             <TldrawToolPanel {...cardCreators} isDark={isDark} />
             <div style={{ position: 'absolute', top: 10, right: 10, display: 'flex', gap: 6, pointerEvents: 'auto', zIndex: 100 }}>
-                {window.electronAPI && (
+                {canSaveDocument() && (
                     <button
-                        onClick={() => window.electronAPI?.saveDocument(JSON.stringify({ snapshot: getSnapshot(editor.store) }))}
+                        onClick={() => saveDocumentToStore(JSON.stringify({ snapshot: getSnapshot(editor.store) }))}
                         style={getExportBtnStyle(isDark)}
                         onMouseEnter={e => (e.currentTarget.style.background = isDark ? '#2d3748' : '#f0f0f0')}
                         onMouseLeave={e => (e.currentTarget.style.background = isDark ? 'rgba(30,41,59,0.92)' : 'rgba(255,255,255,0.92)')}

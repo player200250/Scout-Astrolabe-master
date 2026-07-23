@@ -2,6 +2,7 @@ import { useEffect, useCallback, useContext, useState, useMemo, useRef } from 'r
 import { type Editor as TldrawEditor, useIsDarkMode } from '@tldraw/editor'
 import type { TLCardShape } from '../type/CardShape'
 import { CARD_COLORS } from '../type/CardShape'
+import { openLink } from '../../../platform/linkOpener'
 import { useEditor as useTiptap, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
@@ -364,8 +365,7 @@ export function TextContent({ editor: tldrawEditor, shape, isEditing, exitEdit, 
                 e.stopPropagation()
                 e.preventDefault()
                 const url = href.startsWith('http') ? href : `https://${href}`
-                if (window.electronAPI?.openLink) window.electronAPI.openLink(url)
-                else window.open(url, '_blank', 'noopener,noreferrer')
+                openLink(url)
             }
         }
         el.addEventListener('pointerdown', handler, { capture: true })

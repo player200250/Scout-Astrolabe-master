@@ -4,6 +4,7 @@ import type { Editor } from '@tldraw/editor'
 import type { TLCardShape } from '../type/CardShape'
 import { Z_MODAL } from '../../../constants'
 import * as imageStore from '../../../platform/imageStore'
+import { openExternalUrl } from '../../../platform/linkOpener'
 
 interface ImageContentProps {
     editor: Editor
@@ -79,11 +80,7 @@ export function ImageContent({ editor, shape }: ImageContentProps) {
             const blob = new Blob([byteArray], { type: mimeType })
             blobUrl = URL.createObjectURL(blob)
         }
-        if (window.electronAPI?.openExternal) {
-            window.electronAPI.openExternal(blobUrl)
-        } else {
-            window.open(blobUrl, '_blank')
-        }
+        openExternalUrl(blobUrl)
     }
 
     const handleDelete = (e: React.MouseEvent) => {

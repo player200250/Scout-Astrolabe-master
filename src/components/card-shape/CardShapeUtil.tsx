@@ -18,6 +18,8 @@ import { CARD_COLORS, STICKY_COLORS, STICKY_COLOR_LIST } from './type/CardShape'
 import type { StickyColor } from './type/CardShape'
 import { Z_MODAL } from '../../constants'
 import { emitAppEvent, onAppEvent } from '../../utils/appEvents'
+import { openExternalUrl } from '../../platform/linkOpener'
+import { openStoredFile } from '../../platform/fileStore'
 import * as imageStore from '../../platform/imageStore'
 
 function toStickyColor(color: string): StickyColor {
@@ -283,11 +285,7 @@ function CardShapeComponent({ shape, editor }: { shape: TLCardShape; editor: Edi
                                     const blob = new Blob([byteArray], { type: mimeType })
                                     blobUrl = URL.createObjectURL(blob)
                                 }
-                                if (window.electronAPI?.openExternal) {
-                                    window.electronAPI.openExternal(blobUrl)
-                                } else {
-                                    window.open(blobUrl, '_blank')
-                                }
+                                openExternalUrl(blobUrl)
                             }}
                         >
                             🔗 新分頁
@@ -440,7 +438,7 @@ export class CardShapeUtil extends ShapeUtil<TLCardShape> {
                 return { id: shape.id, type: shape.type }
             } else if (type === 'file') {
                 if (shape.props.storedName) {
-                    window.electronAPI?.openFile(shape.props.storedName)
+                    openStoredFile(shape.props.storedName)
                 }
                 return { id: shape.id, type: shape.type }
             } else if (type === 'text' || type === 'journal') {

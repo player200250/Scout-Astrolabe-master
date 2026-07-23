@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { db } from './db'
 import type { BoardRecord, DeletedCardRecord } from './db'
 import { emitAppEvent, onAppEvent } from './utils/appEvents'
+import { deleteStoredFile } from './platform/fileStore'
 
 interface TrashPanelProps {
     onClose: () => void
@@ -105,7 +106,7 @@ export function TrashPanel({
             if (record.type === 'file' || record.type === 'image') {
                 const props = (record.shapeData as { props?: { storedName?: string } })?.props
                 if (props?.storedName) {
-                    window.electronAPI?.deleteFile(props.storedName)
+                    deleteStoredFile(props.storedName)
                 }
             }
         }
@@ -132,7 +133,7 @@ export function TrashPanel({
             if (card.type === 'file' || card.type === 'image') {
                 const props = (card.shapeData as { props?: { storedName?: string } })?.props
                 if (props?.storedName) {
-                    window.electronAPI?.deleteFile(props.storedName)
+                    deleteStoredFile(props.storedName)
                 }
             }
         }

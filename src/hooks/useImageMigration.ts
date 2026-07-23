@@ -79,7 +79,7 @@ export function useImageMigration({ boards, setBoards, activeBoardId, enabled }:
 
     const tick = useCallback(async () => {
         if (!mountedRef.current || runningRef.current) return
-        if (typeof window === 'undefined' || !window.electronAPI?.saveImage) return
+        if (!imageStore.canSaveImage()) return
 
         const target = boardsRef.current.find(b =>
             b.id !== activeIdRef.current &&
@@ -113,7 +113,7 @@ export function useImageMigration({ boards, setBoards, activeBoardId, enabled }:
 
     /** 手動觸發：清掉本 session 的 processed 記錄並立即把所有非 active 板遷移完。回傳遷移的板數。 */
     const migrateAllNow = useCallback(async (): Promise<number> => {
-        if (!window.electronAPI?.saveImage || runningRef.current) return 0
+        if (!imageStore.canSaveImage() || runningRef.current) return 0
         runningRef.current = true
         setMigrating(true)
         setImageMigrationRunning(true)

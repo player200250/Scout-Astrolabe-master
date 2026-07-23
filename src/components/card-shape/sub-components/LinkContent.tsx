@@ -2,6 +2,7 @@ import { useMemo, useCallback, useState } from 'react'
 import { Editor } from 'tldraw'
 import type { TLCardShape, TLCardProps } from '../type/CardShape'
 import { fetchLinkMeta, type EmbedData } from '../utils/embedUtils'
+import { openLink as openLinkExternal } from '../../../platform/linkOpener'
 
 interface LinkContentProps {
     editor: Editor
@@ -65,11 +66,7 @@ export const LinkContent = ({ editor, shape, isEditing, exitEdit, getEmbedData }
         const rawUrl = p.url
         if (!rawUrl) return
         const formattedUrl = rawUrl.startsWith('http') ? rawUrl : `https://${rawUrl}`
-        if (window.electronAPI?.openLink) {
-            window.electronAPI.openLink(formattedUrl)
-        } else {
-            window.open(formattedUrl, '_blank', 'noopener,noreferrer')
-        }
+        openLinkExternal(formattedUrl)
     }, [p.url])
 
     // --- 編輯模式：有 embed → 播放模式；無 embed → 編輯 URL ---

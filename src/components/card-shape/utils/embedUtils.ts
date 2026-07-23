@@ -1,3 +1,5 @@
+import { getLinkPreview } from '../../../platform/linkPreview'
+
 export interface EmbedData {
     embedUrl: string | null
     isEmbeddable: boolean
@@ -67,7 +69,7 @@ export interface LinkMeta {
 /**
  * Fetch link metadata for a URL.
  * - YouTube / Vimeo: uses their public oEmbed API (CORS-safe, no server needed).
- * - Other URLs: falls back to window.electronAPI.getLinkPreview when available.
+ * - Other URLs: falls back to the platform linkPreview seam (Electron scraper; null on web).
  */
 export async function fetchLinkMeta(url: string, embed: EmbedData): Promise<LinkMeta> {
     if (embed.isEmbeddable) {
@@ -88,18 +90,14 @@ export async function fetchLinkMeta(url: string, embed: EmbedData): Promise<Link
         } catch { /* network failure — fall through */ }
     }
 
-    // Fallback: Electron main-process scraper
-    if (typeof window !== 'undefined' && window.electronAPI?.getLinkPreview) {
-        try {
-            const meta = await window.electronAPI.getLinkPreview(url)
-            if (meta) {
-                return {
-                    title: meta.title,
-                    description: meta.description ?? undefined,
-                    thumbnail: meta.image ?? undefined,
-                }
-            }
-        } catch { /* empty */ }
+    // Fallback: Electron main-process scraper（無 electronAPI／非瀏覽器／失敗時回 null）
+    const meta = await getLinkPreview(url)
+    if (meta) {
+        return {
+            title: meta.title,
+            description: meta.description ?? undefined,
+            thumbnail: meta.image ?? undefined,
+        }
     }
 
     return {}

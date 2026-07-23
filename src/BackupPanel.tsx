@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { loadBackups, deleteBackup, type BackupRecord, type BoardRecord } from './db'
 import { Z_PANEL, Z_BACKUP_PANEL } from './constants'
+import { canSaveImage } from './platform/imageStore'
 
 interface BackupPanelProps {
     sidebarWidth: number
@@ -38,7 +39,7 @@ export function BackupPanel({ sidebarWidth, onClose, onRestore, onMigrateImages,
     const [confirmRestore, setConfirmRestore] = useState<BackupRecord | null>(null)
     const [migrateState, setMigrateState] = useState<'idle' | 'running' | 'done'>('idle')
     const [migrateResult, setMigrateResult] = useState<number>(0)
-    const canMigrate = !!onMigrateImages && !!window.electronAPI?.saveImage
+    const canMigrate = !!onMigrateImages && canSaveImage()
 
     const handleMigrate = async () => {
         if (!onMigrateImages || migrateState === 'running') return

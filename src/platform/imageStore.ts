@@ -7,6 +7,7 @@
 // 只做薄封裝，不是完整平台抽象層。
 
 import type { TLCardProps } from '../components/card-shape/type/CardShape'
+import { deleteStoredFile } from './fileStore'
 
 /** 解析壓縮後的 data URL，取出位元組與副檔名。無法解析回 null。 */
 function dataUrlToBytes(dataUrl: string): { bytes: ArrayBuffer; ext: string } | null {
@@ -26,6 +27,11 @@ function dataUrlToBytes(dataUrl: string): { bytes: ArrayBuffer; ext: string } | 
     const arr = new Uint8Array(binary.length)
     for (let i = 0; i < binary.length; i++) arr[i] = binary.charCodeAt(i)
     return { bytes: arr.buffer, ext }
+}
+
+/** 目前平台是否支援把圖片存成實體檔（＝有 Electron saveImage IPC）。圖片遷移/備份據此決定是否啟動。 */
+export function canSaveImage(): boolean {
+    return typeof window !== 'undefined' && !!window.electronAPI?.saveImage
 }
 
 /**
@@ -57,7 +63,7 @@ export function getImageSrc(props: Pick<TLCardProps, 'storedName' | 'image'>): s
     return props.image ?? ''
 }
 
-/** 刪除 image 卡對應的實體檔（與 file 卡共用 filesDir 的 delete-file IPC）。 */
+/** 刪除 image 卡對應的實體檔。與 file 卡共用同一實體檔儲存，委派 fileStore（單一真相來源）。 */
 export function deleteImage(storedName: string): void {
-    window.electronAPI?.deleteFile?.(storedName)
+    deleteStoredFile(storedName)
 }

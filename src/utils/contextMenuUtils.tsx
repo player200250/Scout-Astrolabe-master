@@ -10,6 +10,7 @@ import type { TemplateRecord } from '../db'
 import { saveCardToTrash, getCardPreview } from './trashUtils'
 import { sanitizeCardProps } from './snapshot'
 import type { SnapshotShapeProps } from './snapshot'
+import { canAttachFile } from '../platform/fileStore'
 import { ContextMenuUI, SaveTemplateModal, BatchAddTagModal } from '../ContextMenu'
 import type { MenuItem } from '../ContextMenu'
 
@@ -590,7 +591,7 @@ export function useContextMenu({
                             submenu: tableSubmenu,
                         },
                         { icon: '🎨', label: '新增顏色樣本', action: () => createColorCard?.(px, py) },
-                        ...(createFileCard && window.electronAPI?.selectAndCopyFile ? [{ icon: '📎', label: '上傳檔案', action: () => createFileCard(px, py) }] : []),
+                        ...(createFileCard && canAttachFile() ? [{ icon: '📎', label: '上傳檔案', action: () => createFileCard(px, py) }] : []),
                         {
                             icon: '📋',
                             label: '從模板新增',

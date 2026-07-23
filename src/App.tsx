@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useBoardManager } from './hooks/useBoardManager'
 import { usePanelState } from './hooks/usePanelState'
+import { onTriggerQuickCapture } from './platform/quickCapture'
 import { Whiteboard } from './components/Whiteboard'
 import { BoardTabBar } from './components/BoardTabBar'
 import { BoardOverview } from './components/BoardOverview'
@@ -138,7 +139,7 @@ export default function App() {
     // N3：托盤選單／全域快捷鍵（Ctrl+Shift+Space）觸發快速捕捉。
     // 非 Electron（PWA）環境沒有 electronAPI，optional chaining 直接跳過。
     useEffect(() => {
-        return window.electronAPI?.onTriggerQuickCapture?.(() => openPanel('quickCapture'))
+        return onTriggerQuickCapture(() => openPanel('quickCapture'))
     }, [openPanel])
 
     const sidebarWidth = sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_WIDTH

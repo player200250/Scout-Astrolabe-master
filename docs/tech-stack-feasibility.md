@@ -38,7 +38,7 @@
 | **electron-builder 26** | 打包（Windows NSIS） | 桌面-only、穩。見 [build-and-release.md](build-and-release.md) | 不適用 PWA（PWA 自有安裝機制）|
 
 **需抽象化的 IPC 面（`preload.js` / `main.js`，PWA 前要收進 `src/platform/` 並補 web fallback）**：
-`save-image`、`delete-file`、`open-file`、`select-and-copy-file`、`get-link-preview`、`load-document`、`save-document`、`open-document`、`open-external(-link)`、`trigger-quick-capture`（托盤/熱鍵）。目前**只有 `imageStore.ts`（save-image/delete-file 一路）已抽象**＝首個落地樣板，其餘約 8 條待收。
+`save-image`、`delete-file`、`open-file`、`select-and-copy-file`、`get-link-preview`、`load-document`、`save-document`、`open-document`、`open-external(-link)`、`trigger-quick-capture`（托盤/熱鍵）。**S0(a) 主體已完成（2026-07-23，B1–B5）**：`src/platform/` 六接縫 `imageStore`／`linkOpener`（B1）／`linkPreview`（B2）／`fileStore`（B3）／`documentIO`（B4）／`quickCapture`（B5）已收攏 renderer 對 Electron IPC 的直接依賴。剩餘殘留：`saveImage` 有兩處呼叫端（BackupPanel／useImageMigration）未走 imageStore、以及死碼 `load-document`／`open-document`。詳見 [electron-ipc.md](electron-ipc.md#平台抽象層srcplatform-pwa-遷移進度)。
 
 ## 建置與測試（無虞）
 
@@ -79,7 +79,7 @@
 ## 剩餘要盯的風險（不是選型，是工程）
 
 1. **Supabase 同步層（最大）** — 全新、風險最高。建議照 roadmap 先做 **S0+S1** 走通「本機↔雲↔手機」最小鏈路驗架構，再往上疊。
-2. **Electron IPC 抽象化未完成** — 只抽了 `imageStore`，還有約 8 條 IPC 綁死 `window.electronAPI`。PWA 前要收進 `src/platform/` 並補 web fallback。
+2. **Electron IPC 抽象化：主體已完成（B1–B5，2026-07-23）** — renderer 對 IPC 的直接依賴已收進 `src/platform/` 六接縫並補 web fallback。剩餘僅 `saveImage` 兩處呼叫端未走 imageStore、與死碼 load/open-document 待清（見 electron-ipc.md）。
 
 ## 待確認 / 待評估項
 

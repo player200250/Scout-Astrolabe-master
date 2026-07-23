@@ -5,6 +5,7 @@ import { getISOWeekKey } from '../utils/weeklyReviewUtils'
 import { loadAllBoards, saveBoard, deleteBoard, generateId, uniqueName } from '../utils/boardDb'
 import { JUMP_DELAY_MS } from '../constants'
 import { emitAppEvent } from '../utils/appEvents'
+import { deleteStoredFile } from '../platform/fileStore'
 import {
     getSnapshotStore, withUpdatedStore, toMutableSnapshot, toTLEditorSnapshot,
 } from '../utils/snapshot'
@@ -76,7 +77,7 @@ export function useBoardManager() {
                 for (const c of expiredCards) {
                     if (c.type === 'file' || c.type === 'image') {
                         const props = (c.shapeData as { props?: { storedName?: string } })?.props
-                        if (props?.storedName) window.electronAPI?.deleteFile(props.storedName)
+                        if (props?.storedName) deleteStoredFile(props.storedName)
                     }
                     await db.table('deletedCards').delete(c.id)
                 }
