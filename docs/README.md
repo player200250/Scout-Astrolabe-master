@@ -29,6 +29,7 @@
 | [roadmap-mobile.md](roadmap-mobile.md) | 行動端（PWA）與雲端同步路線圖（階段、技術、風險）— 自用定位 |
 | [product-analysis.md](product-analysis.md) | 產品定位、檔案/功能高層分析（與 architecture.md 部分重疊，待整併） |
 | [product-redesign-2026-07.md](product-redesign-2026-07.md) | **功能全景盤點**＋D1/D7 重設計討論記錄（死線視角全死、兩個中心的分類法錯誤、Heptabase/Milanote/Notion 對照、月曆為何無用） |
+| [ux-audit-2026-07-23.md](ux-audit-2026-07-23.md) | **UI/UX 盤點報告**：真實 App 逐畫面截圖眼驗；跨畫面主軸（水平空間死白、面板樣式不一致、主題不一致、空狀態冷淡、導覽冗餘）＋逐畫面觀察＋優先級（挑著做，非待辦） |
 | [adr/0001-use-electron.md](adr/0001-use-electron.md) | ADR：選用 Electron 作為桌面應用框架 |
 | [adr/0002-use-tldraw.md](adr/0002-use-tldraw.md) | ADR：選用 tldraw 作為無限白板引擎 |
 | [adr/0003-use-dexie-indexeddb.md](adr/0003-use-dexie-indexeddb.md) | ADR：選用 Dexie.js + IndexedDB 作為本地資料庫 |
