@@ -38,7 +38,7 @@
 | **electron-builder 26** | 打包（Windows NSIS） | 桌面-only、穩。見 [build-and-release.md](build-and-release.md) | 不適用 PWA（PWA 自有安裝機制）|
 
 **需抽象化的 IPC 面（`preload.js` / `main.js`，PWA 前要收進 `src/platform/` 並補 web fallback）**：
-`save-image`、`delete-file`、`open-file`、`select-and-copy-file`、`get-link-preview`、`load-document`、`save-document`、`open-document`、`open-external(-link)`、`trigger-quick-capture`（托盤/熱鍵）。**S0(a) 主體已完成（2026-07-23，B1–B5）**：`src/platform/` 六接縫 `imageStore`／`linkOpener`（B1）／`linkPreview`（B2）／`fileStore`（B3）／`documentIO`（B4）／`quickCapture`（B5）已收攏 renderer 對 Electron IPC 的直接依賴。剩餘殘留：`saveImage` 有兩處呼叫端（BackupPanel／useImageMigration）未走 imageStore、以及死碼 `load-document`／`open-document`。詳見 [electron-ipc.md](electron-ipc.md#平台抽象層srcplatform-pwa-遷移進度)。
+`save-image`、`delete-file`、`open-file`、`select-and-copy-file`、`get-link-preview`、`open-external(-link)`、`trigger-quick-capture`（托盤/熱鍵）。**S0(a) 主體已完成（2026-07-23，B1–B5）**：`src/platform/` 五接縫 `imageStore`／`linkOpener`（B1）／`linkPreview`（B2）／`fileStore`（B3）／`quickCapture`（B5）已收攏 renderer 對 Electron IPC 的直接依賴。**`load-document`／`open-document`（死碼）與 `save-document`／「儲存」鈕整條已於 2026-07-25 退場**（原 B4 `documentIO` 接縫連同移除）。剩餘殘留：`saveImage` 有兩處呼叫端（BackupPanel／useImageMigration）未走 imageStore。詳見 [electron-ipc.md](electron-ipc.md#平台抽象層srcplatform-pwa-遷移進度)。
 
 ## 建置與測試（無虞）
 

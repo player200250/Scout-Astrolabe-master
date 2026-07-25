@@ -6,7 +6,6 @@ interface LinkPreviewResult {
 }
 
 export interface IElectronAPI {
-    saveDocument: (document: string) => void
     openLink: (url: string) => void
     openExternal: (url: string) => void
     getLinkPreview?: (url: string) => Promise<LinkPreviewResult | null>

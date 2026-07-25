@@ -243,7 +243,7 @@ db.version(7).stores({
 
 ## 待確認
 
-- `electron-store`（`config.json`）的 `tldraw-document` 欄位：僅由工具列「儲存」鈕的 `save-document` 單向寫入，**已無任何讀取端**（`load-document` 讀取 IPC 已於 2026-07-25 移除為死碼）；Dexie 的 `boards` table 才是主要且唯一實際被讀回的存儲。此 electron-store 快照現為 write-only 殘留，日後可評估連 `save-document` 一併退場。
+- ~~`electron-store` 的 `tldraw-document` 快照欄位~~：**整條路徑已於 2026-07-25 退場**——工具列「儲存」鈕（語意誤導：日常存檔早已走 Dexie）連同 `save-document`／`load-document`／`open-document` IPC 全數移除。Dexie 的 `boards` table 是**唯一**的白板持久化存儲。electron-store 現僅保留 `minimizeToTray` 等設定。既有安裝的 `config.json` 或殘留舊 `tldraw-document` 欄位，但已無程式讀寫、不影響資料安全。
 - 5 份備份上限在重度使用者（每天多次切板）的場景下，最多保留多久的歷史？（5 分鐘節流 × 5 份 = 至少 25 分鐘的不重複備份點）。放大備份數的前置是 TD-IMG（已完成）＋容量警告，見 roadmap N17。
 
 ## 外部參考

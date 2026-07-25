@@ -16,7 +16,6 @@
 | `preload.js` | 在沙盒中以 contextBridge 暴露 API |
 | `src/electron-api.d.ts` | TypeScript 型別宣告：`IElectronAPI` 介面 + CustomEvent WindowEventMap 擴充 |
 | `src/components/card-shape/sub-components/LinkContent.tsx` | 唯一呼叫 `getLinkPreview` 的元件 |
-| `src/hooks/useBoardManager.ts` | 透過 `window.electronAPI.saveDocument` 持久化 snapshot |
 
 ---
 
@@ -48,7 +47,7 @@ app.setPath('userData', path.join(app.getPath('appData'), 'Scout-Astrolabe'))
 
 實際路徑（Windows）：`C:\Users\<user>\AppData\Roaming\Scout-Astrolabe`
 
-`electron-store` 的 JSON 設定檔（`config.json`，含 `tldraw-document` 欄位）存放於此目錄。開發與封裝版本共用同一個 userData 路徑（由 appId 決定）。
+`electron-store` 的 JSON 設定檔（`config.json`）存放於此目錄，現僅存 `minimizeToTray` 等設定。開發與封裝版本共用同一個 userData 路徑（由 appId 決定）。（舊版曾有 `tldraw-document` 快照欄位，其讀寫 IPC 已於 2026-07-25 全數移除；既有安裝的 config.json 或殘留此欄位但已無程式讀寫。）
 
 ---
 
@@ -58,7 +57,6 @@ app.setPath('userData', path.join(app.getPath('appData'), 'Scout-Astrolabe'))
 
 | channel | 方向 | 說明 |
 |---------|------|------|
-| `save-document` | renderer → main | 將 tldraw snapshot JSON 字串寫入 electron-store |
 | `open-external-link` | renderer → main | 以系統預設瀏覽器開啟外部 URL |
 
 ### 雙向（request / response）
@@ -79,7 +77,6 @@ app.setPath('userData', path.join(app.getPath('appData'), 'Scout-Astrolabe'))
 const { contextBridge, ipcRenderer } = require('electron')
 
 contextBridge.exposeInMainWorld('electronAPI', {
-    saveDocument: (data) => ipcRenderer.send('save-document', data),
     openLink: (url) => ipcRenderer.send('open-external-link', url),
     getLinkPreview: (url) => ipcRenderer.invoke('get-link-preview', url),
     selectAndCopyFile: () => ipcRenderer.invoke('select-and-copy-file'),
@@ -105,7 +102,6 @@ interface FilePickResult {
 }
 
 interface IElectronAPI {
-    saveDocument: (document: string) => void
     openLink: (url: string) => void
     getLinkPreview?: (url: string) => Promise<LinkPreviewResult | null>
     selectAndCopyFile?: () => Promise<FilePickResult | null>
@@ -196,7 +192,7 @@ if (app.isPackaged || prodTest) {
 | `linkOpener.ts` | `open-external-link`（openLink）／`open-external`（openExternal） | 4 檔 6 處 → 收斂成 1 | `window.open`（openLink 帶 `noopener,noreferrer`） | ✅ B1（2026-07-23） |
 | `linkPreview.ts` | `get-link-preview` | `embedUtils.fetchLinkMeta` 1 處（grep 的另 2 命中皆註解） | 回 null（web／非瀏覽器不做預覽） | ✅ B2（2026-07-23） |
 | `fileStore.ts` | `select-and-copy-file`／`open-file`／`delete-file` | selectAndCopyFile 1 真呼叫＋2 能力守衛（改 `canAttachFile()`）；openFile 1；delete-file 是**通用刪檔**（trash/到期，圖+檔卡共用）3 處，imageStore.deleteImage 亦委派此 | `canAttachFile` 回 false（隱藏上傳入口）／選檔回 null／開檔·刪檔 no-op | ✅ B3（2026-07-23） |
-| `documentIO.ts` | `save-document` | `WhiteboardTools`「儲存」鈕 1 呼叫＋1 能力守衛（改 `canSaveDocument()`）。**曾有 `load-document`／`open-document` 死碼，已於 2026-07-25 移除** | `canSaveDocument` 回 false（隱藏鈕）／saveDocument no-op | ✅ B4（2026-07-23） |
+| ~~`documentIO.ts`~~ | ~~`save-document`~~ | **整條退場（2026-07-25）**：`WhiteboardTools`「儲存」鈕語意誤導（寫 electron-store 舊快照、日常存檔早已走 Dexie），連同 `save-document` IPC／preload 暴露／型別／`documentIO.ts` 接縫檔一併移除 | — | 🗑️ 已移除 |
 | `quickCapture.ts` | `trigger-quick-capture` | `App.tsx` effect 1 處（N3 托盤/熱鍵） | 回 no-op unsubscribe | ✅ B5（2026-07-23） |
 
 **設計原則（已比對 Electron 官方 contextBridge／security 指引）**：
@@ -206,7 +202,8 @@ if (app.isPackaged || prodTest) {
 
 **S0(a) 主體完成（B1–B5）**。剩餘殘留：
 - **`saveImage` 有呼叫端沒走 `imageStore.saveImage`**：`BackupPanel.tsx`（能力守衛）、`useImageMigration.ts`（守衛＋實呼叫）仍直接碰 `window.electronAPI.saveImage`（imageStore 於 TD-IMG 時建、這兩處未一併遷移）。屬 imageStore 域的收尾，非本 5 批範圍。
-- ~~**死碼 IPC `load-document`／`open-document`**~~：**已於 2026-07-25 清除**（`main.js` handler＋`preload.js` 暴露＋`electron-api.d.ts` 型別 `LoadDocumentResult`/`loadDocument`/`openDocument` 一併移除；build 0、426 測試綠）。
+- ~~**死碼 IPC `load-document`／`open-document`**~~：**已於 2026-07-25 清除**（`main.js` handler＋`preload.js` 暴露＋`electron-api.d.ts` 型別 `LoadDocumentResult`/`loadDocument`/`openDocument` 一併移除）。
+- ~~**`save-document`／「儲存」鈕**~~：**已於 2026-07-25 整條退場**（B4 的 `documentIO.ts` 接縫連同移除；理由見平台表 documentIO 列）。electron-store 現僅存 `minimizeToTray`。**現存 IPC 只剩 `open-external-link`（單向）＋ `get-link-preview`／`select-and-copy-file`／`open-file`／`delete-file`／`save-image`（雙向）＋ `trigger-quick-capture`（main→renderer）。**
 
 ---
 

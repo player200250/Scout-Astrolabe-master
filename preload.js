@@ -2,7 +2,6 @@
 const { contextBridge, ipcRenderer } = require('electron')
 
 contextBridge.exposeInMainWorld('electronAPI', {
-  saveDocument: (data) => ipcRenderer.send('save-document', data),
   // 這裡也要補上 openLink
   openLink: (url) => ipcRenderer.send('open-external-link', url),
   openExternal: (url) => ipcRenderer.send('open-external', url),
