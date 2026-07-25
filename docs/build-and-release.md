@@ -13,7 +13,7 @@
 | 檔案 | 說明 |
 |------|------|
 | `package.json` | npm scripts、依賴清單、electron-builder 設定 |
-| `vite.config.ts` | Vite 5 設定（base、plugins、server middleware） |
+| `vite.config.ts` | Vite 7 設定（base、plugins、server middleware） |
 | `scripts/prepare-cache.mjs` | 建置前下載 winCodeSign 快取 |
 | `main.js` | Electron 主程序（userData 路徑、開發/封裝模式切換） |
 | `preload.js` | contextBridge 橋接腳本 |
@@ -22,13 +22,13 @@
 
 ## 技術版本
 
-| 工具 | 版本（`package.json` 截至 2026-05-08） |
+| 工具 | 版本（`package.json`） |
 |------|--------------------------------------|
 | Electron | 37.x |
 | Vite | 7.x |
 | React | 19.x |
 | TypeScript | 5.8.x |
-| electron-builder | 25.x |
+| electron-builder | 26.x |
 | tldraw | 3.x |
 | Dexie.js | 4.x |
 
@@ -38,12 +38,15 @@
 
 | script | 指令 | 說明 |
 |--------|------|------|
-| `dev` | `vite` | 啟動 Vite dev server（port 5173） |
-| `electron-dev` | `concurrently "npm run dev" "electron ."` | 同時啟動 Vite + Electron（完整開發模式） |
-| `build` | `vite build` | 僅建置前端（輸出至 `dist/`） |
-| `build:win` | `node scripts/prepare-cache.mjs && vite build && electron-builder --windows` | 完整 Windows 封裝流程 |
-| `typecheck` | `tsc --noEmit` | TypeScript 型別檢查（不產生輸出） |
+| `dev` | `cross-env NODE_OPTIONS=--max-http-header-size=131072 vite` | 啟動 Vite dev server（port 5173） |
+| `electron-dev` | `concurrently "npm run dev" "electron --icu-data-dir=node_modules/electron/dist ."` | 同時啟動 Vite + Electron（完整開發模式） |
+| `build` | `tsc -b && vite build` | **先 `tsc -b` 型別檢查、再** Vite 建置（輸出 `dist/`）。**型別檢查即由此把關**（無獨立 typecheck script） |
+| `build:win` | `node scripts/prepare-cache.mjs && vite build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --windows` | 完整 Windows 封裝流程 |
+| `lint` | `eslint .` | ESLint |
+| `test` / `test:watch` / `test:coverage` | `vitest run` / `vitest` / `vitest run --coverage` | 單元測試 |
 | `preview` | `vite preview` | 預覽 `dist/` 建置結果（不含 Electron） |
+
+> ⚠️ **沒有 `typecheck` script**（曾有的舊記載已移除）。型別檢查走 `npm run build`（`tsc -b`）；`tsc --noEmit` 對專案參照有盲點，勿改用。
 
 ### 開發模式啟動順序
 
@@ -121,6 +124,7 @@ electron-builder --windows
         "productName": "Scout Astrolabe",
         "files": [
             "dist/**/*",
+            "assets/**/*",
             "main.js",
             "preload.js",
             "package.json"
@@ -128,15 +132,18 @@ electron-builder --windows
         "directories": {
             "output": "release"
         },
+        "forceCodeSigning": false,
         "win": {
-            "target": "nsis"
+            "target": ["nsis"],
+            "requestedExecutionLevel": "asInvoker"
         },
         "nsis": {
             "oneClick": false,
             "perMachine": false,
-            "allowToChangeInstallationDirectory": true
-        },
-        "forceCodeSigning": false
+            "allowToChangeInstallationDirectory": true,
+            "createDesktopShortcut": true,
+            "createStartMenuShortcut": true
+        }
     }
 }
 ```
@@ -162,8 +169,8 @@ app.setPath('userData', path.join(app.getPath('appData'), 'Scout-Astrolabe'))
 **覆寫預設路徑的原因**：Electron 預設 userData 以 `productName` 命名（含空格），在某些系統上可能有相容性問題。統一改為 `Scout-Astrolabe`（kebab-case）。
 
 此路徑存放：
-- `electron-store` 的 `config.json`（含 `tldraw-document` 欄位）
-- Electron 的 crash dumps、IndexedDB 等瀏覽器資料
+- `electron-store` 的 `config.json`（現僅存 `minimizeToTray` 等設定；舊 `tldraw-document` 快照欄位已隨「儲存」鈕於 2026-07-25 退場）
+- Electron 的 crash dumps、IndexedDB（白板實際資料，Dexie `AstrolabeDB`）、`files/`（檔案卡附件）等
 
 ---
 
@@ -189,13 +196,13 @@ app.setPath('userData', path.join(app.getPath('appData'), 'Scout-Astrolabe'))
 
 ### TypeScript 型別錯誤阻擋建置
 
-Vite 預設不執行型別檢查（只做 transpile）。若需確保型別正確性，執行：
+Vite 預設不執行型別檢查（只做 transpile）。本專案的 `build` script 已在 `vite build` 前串 `tsc -b`，故 `npm run build` 本身就會因型別錯誤而失敗（無獨立 `typecheck` script）。若只想單獨檢查型別：
 
 ```bash
-npm run typecheck
+npx tsc -b        # 用 -b（專案參照），勿用 tsc --noEmit（有盲點會漏抓）
 ```
 
-CI/CD 流程（若有）應在 `vite build` 前執行 `typecheck`。
+CI（`.github/workflows/ci.yml`）在 push/PR 時跑 `npm run lint`、`npx tsc -b`、`npm run test:coverage`。
 
 ---
 

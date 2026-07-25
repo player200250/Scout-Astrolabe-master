@@ -21,9 +21,11 @@
 
 ## 目前測試現況
 
-**單元測試已導入（Vitest 3.2.6），目前 24 檔 241 案例全綠（2026-06-21）。** 較前次新增 `hooks/usePanelState.test.ts`（7）、`Usehotkeys.test.tsx`（4）。 設定寫在 `vite.config.ts` 的 `test` 區塊（`include: src/**/*.{test,spec}.{ts,tsx}`）；指令 `npm test`（`vitest run`）、`npm run test:watch`。已裝 `jsdom`、`@testing-library/react`、`@testing-library/dom`（未裝 `@testing-library/jest-dom`，斷言用 `.toBeTruthy()`/`.toBeNull()`）。純函式測試跑 node 環境、需要 DOM 的單檔以 `// @vitest-environment jsdom` 切換。
+**單元測試已導入（Vitest 3.2.6），目前 37 檔 426 案例全綠（2026-07 起持續成長）。** 設定寫在 `vite.config.ts` 的 `test` 區塊（`include: src/**/*.{test,spec}.{ts,tsx}`）；指令 `npm test`（`vitest run`）、`npm run test:watch`、`npm run test:coverage`。已裝 `jsdom`、`@testing-library/react`、`@testing-library/dom`（未裝 `@testing-library/jest-dom`，斷言用 `.toBeTruthy()`/`.toBeNull()`）。純函式測試跑 node 環境、需要 DOM 的單檔以 `// @vitest-environment jsdom` 切換。
 
-已覆蓋的測試檔：
+> **下表是 2026-06-21 的快照（約 24 檔）**；此後隨功能陸續新增，現已 37 檔 426 案例。表未逐一列出的新增檔包括：`cardLinks`／`slashCommands`／`knowledgeGraph`／`tagManager`／`tagColors`／`commands`／`inboxTriage`／`dataSafetyStats`／`homeBoardMigration`／`imageMigration`／`exampleBoard`（utils）、`platform/imageStore`、`card-shape/extensions/Toggle`。逐檔案例數會漂移，以 `npm test` 實跑為準。
+
+已覆蓋的測試檔（2026-06-21 快照）：
 
 **純函式 / 工具（utils）**
 
@@ -66,7 +68,7 @@
 
 開發驗證目前依賴：
 1. **單元測試**（`npm test`）— 純函式、資料層、`useBoardManager` 全 handler、`useBacklinks`、純 UI 元件
-2. **TypeScript 型別檢查**（`npx tsc --noEmit`）
+2. **TypeScript 型別檢查**（`npm run build` 走 `tsc -b`；用 `-b` 而非 `tsc --noEmit`——後者對專案參照有盲點會漏抓）
 3. **手動操作測試**（開發者本地驗證，見下方重點清單）
 4. **代碼審查**（BUGS.md 中的全面驗證報告，2026-05-07）
 
@@ -89,7 +91,7 @@
 
 **建議測試**：mock Dexie + 測試 async 序列；驗證 `setBoards` 在正確時機被呼叫。
 
-**現況**：`useBoardManager.test.ts`（43 案例）已覆蓋**所有 handler**，包含先前缺口 `handleSoftDeleteBoardWithInboxMove`、`handleMoveCardToBoard`、`handleSaveJournal`（snapshot 搬卡/寫入）、`handleSetParent`（含 400ms setTimeout 發事件，用 fake timers）、`handleJump`/`handleGoToWeeklyCard`（jumpRef spy）、`handleRestore`/`handleEmptyTrash`/`handleRestoreBoard` 等。
+**現況**：`useBoardManager.test.ts` 已覆蓋**所有 handler**，包含先前缺口 `handleSoftDeleteBoardWithInboxMove`、`handleMoveCardToBoard`、`handleSaveJournal`（snapshot 搬卡/寫入）、`handleSetParent`（含 400ms setTimeout 發事件，用 fake timers）、`handleJump`/`handleGoToWeeklyCard`（jumpRef spy）、`handleRestore`/`handleEmptyTrash`/`handleRestoreBoard` 等。
 
 ### 2. `snapshot.ts` 工具函式（高優先）✅ 已全覆蓋
 
