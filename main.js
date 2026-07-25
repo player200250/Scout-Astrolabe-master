@@ -214,34 +214,10 @@ app.on('window-all-closed', () => {
 // | IPC MAIN 處理邏輯 |
 // ----------------------------------------------------------------
 
-// 儲存與讀取功能
+// 儲存功能（工具列「儲存」鈕的手動 document 快照；日常存檔走 Dexie）
 ipcMain.on('save-document', (event, document) => {
   store.set('tldraw-document', document);
   console.log('Document saved!');
-});
-
-ipcMain.handle('load-document', () => {
-  return store.get('tldraw-document');
-});
-
-// 檔案開啟功能
-ipcMain.handle('open-document', async (event) => {
-  const { canceled, filePaths } = await dialog.showOpenDialog({ 
-    properties: ['openFile'],
-    filters: [{ name: 'JSON Files', extensions: ['json', 'tldr'] }]
-  });
-
-  if (canceled) {
-    return null;
-  } else {
-    try {
-      const content = fs.readFileSync(filePaths[0], 'utf-8'); 
-      return content;
-    } catch (error) {
-      console.error('Failed to read file:', error);
-      return null;
-    }
-  }
 });
 
 // ----------------------------------------------------------------

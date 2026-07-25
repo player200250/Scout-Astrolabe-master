@@ -5,8 +5,8 @@
 // 日常存檔其實走 Dexie/IndexedDB，此按鈕是額外的本機 document 快照）。
 // web/PWA 無 electron-store：canSaveDocument 回 false（隱藏按鈕）、saveDocument no-op。
 //
-// 註：preload 另暴露 loadDocument / openDocument 兩條 IPC，但 renderer 目前**無任何呼叫者**
-//     （宣告即死碼）——故此接縫不予包裝，避免加進沒人用的程式碼。待清理見 electron-ipc.md。
+// 註：此接縫只包 save-document。曾另有 load-document / open-document 兩條 IPC，
+//     但 renderer 零呼叫者（宣告即死碼），已於 2026-07-25 從 main.js/preload.js/型別一併移除。
 // 比照 imageStore.ts / linkOpener.ts / linkPreview.ts / fileStore.ts。
 
 /** 目前平台是否支援「手動儲存 document 到本機」（＝有 Electron store IPC）。UI 據此決定是否顯示儲存鈕。 */

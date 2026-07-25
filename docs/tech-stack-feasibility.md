@@ -79,7 +79,7 @@
 ## 剩餘要盯的風險（不是選型，是工程）
 
 1. **Supabase 同步層（最大）** — 全新、風險最高。建議照 roadmap 先做 **S0+S1** 走通「本機↔雲↔手機」最小鏈路驗架構，再往上疊。
-2. **Electron IPC 抽象化：主體已完成（B1–B5，2026-07-23）** — renderer 對 IPC 的直接依賴已收進 `src/platform/` 六接縫並補 web fallback。剩餘僅 `saveImage` 兩處呼叫端未走 imageStore、與死碼 load/open-document 待清（見 electron-ipc.md）。
+2. **Electron IPC 抽象化：主體已完成（B1–B5，2026-07-23）** — renderer 對 IPC 的直接依賴已收進 `src/platform/` 六接縫並補 web fallback。死碼 load/open-document 已於 2026-07-25 清除；剩餘僅 `saveImage` 兩處呼叫端未走 imageStore（見 electron-ipc.md）。
 
 ## 待確認 / 待評估項
 

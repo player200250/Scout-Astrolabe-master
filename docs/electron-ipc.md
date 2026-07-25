@@ -65,8 +65,6 @@ app.setPath('userData', path.join(app.getPath('appData'), 'Scout-Astrolabe'))
 
 | channel | 方向 | 回傳值 | 說明 |
 |---------|------|--------|------|
-| `load-document` | renderer → main | `{ snapshot: string } \| null` | 從 electron-store 讀取上次儲存的 snapshot |
-| `open-document` | renderer → main | `string \| null` | 開啟系統檔案選擇器（.json），回傳內容字串 |
 | `get-link-preview` | renderer → main | `{ title, description, thumbnail } \| null` | 以 `net.fetch` 抓取 URL 並用 regex 解析 og/meta tags |
 | `select-and-copy-file` | renderer → main | `{ storedName, originalName, fileSize, fileExt } \| null` | 開啟系統檔案選擇器（所有格式），將選取的檔案複製到 `userData/files/`，以 UUID 命名 |
 | `open-file` | renderer → main | `void` | 以系統預設程式開啟 `userData/files/` 中的指定檔案（`shell.openPath`） |
@@ -82,8 +80,6 @@ const { contextBridge, ipcRenderer } = require('electron')
 
 contextBridge.exposeInMainWorld('electronAPI', {
     saveDocument: (data) => ipcRenderer.send('save-document', data),
-    loadDocument: () => ipcRenderer.invoke('load-document'),
-    openDocument: () => ipcRenderer.invoke('open-document'),
     openLink: (url) => ipcRenderer.send('open-external-link', url),
     getLinkPreview: (url) => ipcRenderer.invoke('get-link-preview', url),
     selectAndCopyFile: () => ipcRenderer.invoke('select-and-copy-file'),
@@ -101,10 +97,6 @@ interface LinkPreviewResult {
     thumbnail?: string
 }
 
-interface LoadDocumentResult {
-    snapshot: string
-}
-
 interface FilePickResult {
     storedName: string      // userData/files/ 中的檔案名稱（UUID + ext）
     originalName: string    // 原始檔名
@@ -114,8 +106,6 @@ interface FilePickResult {
 
 interface IElectronAPI {
     saveDocument: (document: string) => void
-    loadDocument: () => Promise<LoadDocumentResult | null>
-    openDocument: () => Promise<string | null>
     openLink: (url: string) => void
     getLinkPreview?: (url: string) => Promise<LinkPreviewResult | null>
     selectAndCopyFile?: () => Promise<FilePickResult | null>
@@ -206,7 +196,7 @@ if (app.isPackaged || prodTest) {
 | `linkOpener.ts` | `open-external-link`（openLink）／`open-external`（openExternal） | 4 檔 6 處 → 收斂成 1 | `window.open`（openLink 帶 `noopener,noreferrer`） | ✅ B1（2026-07-23） |
 | `linkPreview.ts` | `get-link-preview` | `embedUtils.fetchLinkMeta` 1 處（grep 的另 2 命中皆註解） | 回 null（web／非瀏覽器不做預覽） | ✅ B2（2026-07-23） |
 | `fileStore.ts` | `select-and-copy-file`／`open-file`／`delete-file` | selectAndCopyFile 1 真呼叫＋2 能力守衛（改 `canAttachFile()`）；openFile 1；delete-file 是**通用刪檔**（trash/到期，圖+檔卡共用）3 處，imageStore.deleteImage 亦委派此 | `canAttachFile` 回 false（隱藏上傳入口）／選檔回 null／開檔·刪檔 no-op | ✅ B3（2026-07-23） |
-| `documentIO.ts` | `save-document` | `WhiteboardTools`「儲存」鈕 1 呼叫＋1 能力守衛（改 `canSaveDocument()`）。**`load-document`／`open-document` 無呼叫者＝死碼，未包裝** | `canSaveDocument` 回 false（隱藏鈕）／saveDocument no-op | ✅ B4（2026-07-23） |
+| `documentIO.ts` | `save-document` | `WhiteboardTools`「儲存」鈕 1 呼叫＋1 能力守衛（改 `canSaveDocument()`）。**曾有 `load-document`／`open-document` 死碼，已於 2026-07-25 移除** | `canSaveDocument` 回 false（隱藏鈕）／saveDocument no-op | ✅ B4（2026-07-23） |
 | `quickCapture.ts` | `trigger-quick-capture` | `App.tsx` effect 1 處（N3 托盤/熱鍵） | 回 no-op unsubscribe | ✅ B5（2026-07-23） |
 
 **設計原則（已比對 Electron 官方 contextBridge／security 指引）**：
@@ -216,7 +206,7 @@ if (app.isPackaged || prodTest) {
 
 **S0(a) 主體完成（B1–B5）**。剩餘殘留：
 - **`saveImage` 有呼叫端沒走 `imageStore.saveImage`**：`BackupPanel.tsx`（能力守衛）、`useImageMigration.ts`（守衛＋實呼叫）仍直接碰 `window.electronAPI.saveImage`（imageStore 於 TD-IMG 時建、這兩處未一併遷移）。屬 imageStore 域的收尾，非本 5 批範圍。
-- **死碼 IPC `load-document`／`open-document`**：preload/型別有宣告、`main.js` 或有 handler，但 renderer 零呼叫者。清理需同步刪 `preload.js`＋`main.js`＋`electron-api.d.ts`（未做，待決定）。
+- ~~**死碼 IPC `load-document`／`open-document`**~~：**已於 2026-07-25 清除**（`main.js` handler＋`preload.js` 暴露＋`electron-api.d.ts` 型別 `LoadDocumentResult`/`loadDocument`/`openDocument` 一併移除；build 0、426 測試綠）。
 
 ---
 
@@ -229,7 +219,6 @@ if (app.isPackaged || prodTest) {
 
 ## 待確認
 
-- `load-document` 回傳的 `snapshot` 欄位名稱是否與 `saveDocument(data)` 存入的格式一致？（`data` 存入時似為直接的 JSON 字串，而非包在物件中）
 - 目前 `getLinkPreview` 的 regex meta tag 解析是否有 fallback 順序文件？
 
 ## 外部參考

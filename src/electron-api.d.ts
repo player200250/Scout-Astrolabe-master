@@ -1,10 +1,4 @@
 // src/electron-api.d.ts
-import type { TLEditorSnapshot } from 'tldraw'
-
-export interface LoadDocumentResult {
-    snapshot: TLEditorSnapshot | null
-}
-
 interface LinkPreviewResult {
     title?: string
     description?: string
@@ -13,8 +7,6 @@ interface LinkPreviewResult {
 
 export interface IElectronAPI {
     saveDocument: (document: string) => void
-    loadDocument: () => Promise<LoadDocumentResult | null>
-    openDocument: () => Promise<string | null>
     openLink: (url: string) => void
     openExternal: (url: string) => void
     getLinkPreview?: (url: string) => Promise<LinkPreviewResult | null>
