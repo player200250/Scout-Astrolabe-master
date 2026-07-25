@@ -332,7 +332,7 @@ Markdown → TipTap 使用 `marked`（新增依賴，或手動解析常見語法
 
 ### 二、新增功能候選（AI 提案去重 + 校正後）
 
-> ⚠️ 已實作、勿當新功能重做：**卡片模板系統**（右鍵已有內建+自訂模板，**注意：只存單一文字卡的 HTML，非整塊白板**——「整板存為模板」是未做的新功能 N19）、**Markdown 匯出**（`exportMarkdown.ts`）、**JSON 匯入匯出**、Onboarding modal、暗色模式、Journal 每日自動建卡、週回顧、日曆檢視、Vitest。
+> ⚠️ 已實作、勿當新功能重做：**卡片模板系統**（右鍵內建+自訂，存單一文字卡 HTML）＋**白板模板**（N19，✅ 2026-07-25 完成，整塊白板存/建，`BoardOverview` 的 ⧉）、**Markdown 匯出**（`exportMarkdown.ts`）、**JSON 匯入匯出**、Onboarding modal、暗色模式、Journal 每日自動建卡、週回顧、日曆檢視、Vitest。
 
 | ID | 功能 | 優先序 | 前置依賴 | 校正 / 落點 |
 |----|------|--------|---------|------------|
@@ -354,9 +354,9 @@ Markdown → TipTap 使用 `marked`（新增依賴，或手動解析常見語法
 | N16 | 完整 Vault Export（.astrolabe 打包） | 🟡 中 | **依賴 E1（v1.4.0）**（TD-IMG ✅ 已完成） | 打包 boards+cards+files+backups+settings；重疊 E1 |
 | N17 | 備份保留數設定 | 🟡 中 | ✅ **TD-IMG 已完成，前置解除** | image 卡已改存實體檔，base64 不再內嵌；放大備份數風險大降，仍建議加容量警告 |
 | N18 | 大型 Vault 效能模式（只載 metadata 安全模式） | 🔴 高（長期） | **依賴 A3-ext**（TD-IMG ✅ 已完成） | 架構級；延遲載入 snapshot、容量偵測；TD-IMG 已拔除 base64 圖片病根，剩 snapshot 常駐待 A3-ext |
-| N19 | **白板模板**（整板存為模板 + 從模板一鍵新建白板） | 🟡 中（2026-07-25 使用者提出） | 無（infra 齊全，見下設計） | 見下方「N19 設計」 |
+| N19 | **白板模板**（整板存為模板 + 從模板一鍵新建白板） | ✅ **完成（2026-07-25，commit `8043580`）** | 無 | 見下方「N19 設計」；build 0、428 測試綠、CDP 實機驗往返 |
 
-#### N19 — 白板模板 設計（2026-07-25 記錄，未實作）
+#### N19 — 白板模板 設計（2026-07-25 記錄；✅ 已於同日實作 `8043580`）
 
 **背景**：現有「模板系統」只存**單一文字卡的 HTML**（`templates` 表＋右鍵「從模板新增」生一張文字卡），**存不了整塊白板佈局**。使用者用本 App 做遊戲 GDD（dogfood「星塵拾荒者」12 卡 7 型別）後，想把整塊多卡佈局存成可重複使用的模板。
 
@@ -378,6 +378,8 @@ Markdown → TipTap 使用 `marked`（新增依賴，或手動解析常見語法
 
 **工作量**：~1 人天（M）——schema/表＋型別（小）、2 handler（小，套現成 `loadSnapshot`/`sanitizeSnapshot`/`handleCreateBoard`）、UI 挑選器（中）、單元測試（mock Dexie，比照 `boardDb.test.ts` 測 `saveBoardTemplate`/`createBoardFromTemplate` 純資料邏輯）。
 **前置依賴**：無。**優先序**：🟡 中。
+
+> **✅ 實作落地（2026-07-25，`8043580`）**：照上述設計完成。落點：`db.ts`（v9 `boardTemplates` 表＋`BoardTemplateRecord`＋`saveBoardAsTemplate`/`loadBoardTemplates`/`deleteBoardTemplate`）、`useBoardManager.handleCreateBoardFromTemplate`、`BoardOverview`（卡片 hover ⧉ 存模板＋頂部「⧉ 從模板」挑選器）。**兩個實作決定與設計不同**：①**未剔除 board 卡連結**（開放問題 1）——與匯出/匯入 JSON 同語意保持一致，不特別處理；②**存模板不跳名稱輸入**——Electron 不支援 `window.prompt`，改用預設名「<板名> 模板」，挑選器可刪除。build 0、428 測試綠、CDP 驗一輪往返（存 12 卡模板→挑選器→建板→新板 12 卡全對）。
 
 ### 三、建議排程（波次）
 

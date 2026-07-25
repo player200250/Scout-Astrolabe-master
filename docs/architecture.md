@@ -27,7 +27,7 @@
 | `src/utils/trashUtils.ts` | `saveCardToTrash`、`getCardPreview`（從 TrashPanel.tsx 分離） |
 | `src/utils/weeklyReviewUtils.ts` | `getISOWeekKey`、`getWeekRange`（從 WeeklyReview.tsx 分離） |
 | `src/utils/whiteboardUtils.ts` | `getExportBtnStyle`、`exportBtnStyle`（從 WhiteboardTools.tsx 分離） |
-| `src/db.ts` | Dexie 實例定義，schema 版本歷史（v1–v8） |
+| `src/db.ts` | Dexie 實例定義，schema 版本歷史（v1–v9） |
 | `main.js` | Electron 主程序：BrowserWindow、選單、`electronAPI` |
 | `preload.js` | contextBridge，暴露 `window.electronAPI` |
 
@@ -42,7 +42,7 @@
 富文本     TipTap 2（StarterKit〔codeBlock 停用〕+ Underline + TextStyle + Color
            + CodeBlockLowlight + Link + Highlight + Placeholder
            + 自製 node：Callout / Toggle / MathBlock〔katex〕）
-資料持久化 Dexie.js → IndexedDB（schema v8）
+資料持久化 Dexie.js → IndexedDB（schema v9）
 匯出       jsPDF（離線 PDF）、exportToBlob（tldraw PNG）、exportMarkdown（自製 HTML→MD）
 知識圖譜   react-force-graph-2d
 拖曳排序   @dnd-kit/core + @dnd-kit/sortable

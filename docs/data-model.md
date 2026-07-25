@@ -12,7 +12,7 @@
 
 | 檔案 | 職責 |
 |------|------|
-| `src/db.ts` | Dexie 實例建立，schema 版本定義（v1–v8），型別介面 |
+| `src/db.ts` | Dexie 實例建立，schema 版本定義（v1–v9），型別介面 |
 | `src/utils/boardDb.ts` | `saveBoard`、`deleteBoard`、`loadAllBoards`、`generateId` |
 | `src/hooks/useBoardManager.ts` | 所有白板操作；讀取後存入 React state（`boards`） |
 
@@ -30,9 +30,10 @@ v6  deletedCards(id, deletedAt, boardId)
 v7  deletedCards(id, deletedAt, boardId, shapeId)
     + upgrade: 對缺少 shapeId 的舊記錄補上空字串
 v8  boards(id, deletedAt, folderId)     — folderId index 加入（資料夾分類）
+v9  boardTemplates(id, createdAt)       — 白板模板（N19，整塊 snapshot 存為可複用模板）
 ```
 
-目前最高版本：**v8**。
+目前最高版本：**v9**。
 
 ---
 
@@ -177,7 +178,23 @@ interface TemplateRecord {
 }
 ```
 
-使用者自訂模板，從 `ContextMenu.tsx` 的「新增至模板」功能寫入，讀取用於右鍵選單的「模板」子選單。
+使用者自訂模板，從 `ContextMenu.tsx` 的「新增至模板」功能寫入，讀取用於右鍵選單的「模板」子選單。**注意：`content` 是單一文字卡的 HTML，非整塊白板**（整塊白板模板見下方 `boardTemplates`）。
+
+---
+
+## Table：boardTemplates（v9，N19）
+
+```typescript
+interface BoardTemplateRecord {
+    id: string          // 'btmpl_${timestamp}'
+    name: string        // 預設「<板名> 模板」
+    snapshot: TLEditorSnapshot | null   // 整塊白板 snapshot（與 BoardRecord.snapshot 同型）
+    thumbnail: string | null
+    createdAt: number
+}
+```
+
+**白板模板**：把整塊白板（所有卡片 + 座標）存成可複用模板。`saveBoardAsTemplate(board, name?)` 寫入（snapshot 直接沿用 board 的，Dexie put 序列化隔離）；`BoardOverview` 的「⧉ 從模板」挑選器讀取，點擊經 `handleCreateBoardFromTemplate` 建新白板（snapshot `structuredClone` 深拷貝、載入時 WhiteboardTools sanitize）。與匯出/匯入 JSON 同語意：不重生 shape id、不動 board 卡連結。CRUD helper 在 `db.ts`（`saveBoardAsTemplate`/`loadBoardTemplates`/`deleteBoardTemplate`，比照 backup helpers）。
 
 ---
 
