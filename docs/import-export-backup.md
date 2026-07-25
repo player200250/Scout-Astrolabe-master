@@ -28,9 +28,9 @@
 
 ```typescript
 // src/utils/boardExport.ts
-export function exportJSON(snapshot: TLEditorSnapshot | null, name: string): void {
-    const json = JSON.stringify(snapshot, null, 2)
-    const blob = new Blob([json], { type: 'application/json' })
+export const exportJSON = (snapshot: TLEditorSnapshot, name: string) => {
+    const dataStr = JSON.stringify({ snapshot }, null, 2)   // ⚠️ 外層包一層 { snapshot }
+    const blob = new Blob([dataStr], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
@@ -40,45 +40,47 @@ export function exportJSON(snapshot: TLEditorSnapshot | null, name: string): voi
 }
 ```
 
-- 輸出格式：tldraw `TLEditorSnapshot` JSON，包含所有 shape、document、page 資料
-- 匯出的是**單一白板**的 snapshot，非整個 DB
+- **檔案結構是 `{ "snapshot": TLEditorSnapshot }`**（tldraw snapshot 被包在 `snapshot` 鍵下，**不是**裸的 snapshot）。這與匯入端 `d.snapshot!` 對稱、也與已退場的舊「儲存」鈕存進 electron-store 的格式相同。
+- 匯出的是**單一白板**的 snapshot（含所有 shape、document、page），非整個 DB。
 
 ### 匯入（`importJSON`）
 
 ```typescript
-export function importJSON(file: File, onLoad: (snapshot: TLEditorSnapshot) => void): void {
+export const importJSON = (file: File, onLoad: (data: WhiteboardData) => void) => {
     const reader = new FileReader()
-    reader.onload = (e) => {
-        const json = JSON.parse(e.target!.result as string)
-        onLoad(json)
+    reader.onload = e => {
+        try { onLoad(JSON.parse(e.target!.result as string)) }
+        catch { alert('匯入失敗，檔案格式錯誤') }   // JSON.parse 失敗會被攔並提示
     }
     reader.readAsText(file)
 }
+// WhiteboardTools 呼叫點：importJSON(f, d => loadSnapshot(editor.store, sanitizeSnapshot(d.snapshot!)))
 ```
 
-- 匯入後呼叫 `onLoad` callback，由呼叫端決定如何套用（通常是 `editor.loadSnapshot()`）
-- 無 schema 驗證，若 JSON 格式不符 tldraw 格式，`editor.loadSnapshot` 會拋錯
+- `onLoad` 收到的是 `WhiteboardData = { snapshot }`；呼叫端取 `d.snapshot` 再經 **`sanitizeSnapshot`** 清理後 `loadSnapshot` 套用。
+- JSON **解析錯誤**（非法 JSON）會被 try/catch 攔下並 `alert`；但**結構驗證有限**——若 JSON 合法但 `snapshot` 不符 tldraw schema，`loadSnapshot` 仍可能拋錯（`sanitizeSnapshot` 只做孤兒清理等，非完整 schema 驗證）。
 
 ---
 
 ## PNG 匯出
 
-觸發位置：`WhiteboardTools.tsx` 的匯出按鈕或快捷鍵
+觸發位置：`WhiteboardTools.tsx` 的匯出按鈕
 
 ```typescript
-// WhiteboardTools.tsx（示意）
-const blob = await editor.toImage('png', { scale: 2, background: true })
+// WhiteboardTools.tsx：用 tldraw 的 exportToBlob 輔助函式（非 editor.toImage）
+const blob = await exportToBlob({ editor, ids, format: 'png', opts: { background: true, scale: 2 } })
 const url = URL.createObjectURL(blob)
 const a = document.createElement('a')
 a.href = url
-a.download = `${boardName}.png`
+a.download = `${board.name}.png`
 a.click()
 URL.revokeObjectURL(url)
 ```
 
+- **API 是 `exportToBlob({ editor, ids, format, opts })`**（從 `'tldraw'` import 的獨立函式），不是 `editor.toImage()`。`ids` 指定要匯出的 shape（全板匯出時傳當前頁全部 shape id）。
 - `scale: 2` — 匯出為 2× 解析度（Retina 等級），適合高清列印
 - `background: true` — 包含白底（否則透明背景）
-- 使用 tldraw 內建的 `editor.toImage()`，不需額外 canvas 操作
+- 卡片庫縮圖也走同一函式，但 `scale: 0.15`（小圖省記憶體）
 
 ---
 
@@ -87,16 +89,16 @@ URL.revokeObjectURL(url)
 觸發位置：`WhiteboardTools.tsx` 的匯出選單
 
 ```
-editor.toImage('png', { scale: 2 })
+exportToBlob({ editor, ids, format: 'png', opts: { background: true, scale: 2 } })
   → Blob → Image element
-  → jsPDF（本地，不需網路）
-  → pdf.addImage(canvas, 'PNG', ...)
-  → pdf.save(`${boardName}.pdf`)
+  → new jsPDF({...})（本地，不需網路）
+  → pdf.addImage(imgData, 'PNG', 0, 0, img.width/2, img.height/2)   // /2 抵銷 scale:2
+  → pdf.save(`${board.name}.pdf`)
 ```
 
-- 使用 `jsPDF` 套件，純本地產生，不需任何後端或雲端服務
+- 底圖同樣走 `exportToBlob`（PNG），再以 `jsPDF` 套件純本地嵌入，不需任何後端或雲端服務
 - 實際上是將 PNG 圖片嵌入 PDF，不是向量格式
-- A4 比例：若白板長寬比不符，會等比縮放置中
+- 尺寸用 `img.width/2、img.height/2`（因 PNG 以 `scale:2` 產生，除以 2 還原邏輯尺寸）
 
 ---
 
@@ -112,41 +114,50 @@ function htmlToMarkdown(html: string): string {
 }
 ```
 
-遞迴處理 DOM 節點，支援：
-- `H1–H3` → `# / ## / ###`
-- `STRONG / B` → `**text**`
-- `EM / I` → `*text*`
+遞迴處理 DOM 節點（`nodeToMarkdown`），支援：
+- `H1–H4` → `# / ## / ### / ####`
+- `STRONG / B` → `**text**`；`EM / I` → `*text*`；`U` → `<u>text</u>`（markdown 無底線，保留 HTML）
+- `MARK` → `==text==`（螢光筆）；`CODE` → `` `text` ``；`PRE` → ```` ```…``` ````
 - `A` → `[text](href)`
 - `UL / OL / LI` → `- text` / `1. text`
-- `P` → 段落（前後換行）
-- 其他節點 → 純文字
+- `P` → 段落（前後換行）；`BR` → 換行
+- `DIV.callout`（提示框）→ blockquote，每行前綴 `> `、首行 `> 💡`
+- `DIV.math-block`（LaTeX）→ `$$…$$`（讀 `data-latex` 原始碼，不理會內部 katex markup）
+- `DETAILS`（摺疊）→ `**summary**` + 內文（markdown 無 toggle 標準）
+- 其他節點 → 遞迴其子節點（等同純文字）
 
 ### 各卡片類型 Markdown 格式（`cardToMarkdown`）
 
-| type | 輸出格式 |
-|------|---------|
-| `text` / `journal` | `## [標題行]\n\n[htmlToMarkdown(text)]` |
-| `todo` | `## [標題]\n\n- [x] 已完成項目\n- [ ] 未完成項目` |
-| `link` | `## Link\n\n[title \| url](url)` |
-| `image` | `## Image\n\n[圖片（base64 略）]` |
-| `board` | `## Board: [text]\n\n（子白板，不含內容）` |
+| type | 輸出格式 | 空值處理 |
+|------|---------|---------|
+| `text` | `htmlToMarkdown(text)`（**無標題前綴**） | 空內容 → `null`（略過該卡） |
+| `journal` | `# [journalDate]` + `htmlToMarkdown(text)`（日期為 H1，非標題行） | 皆空 → `null` |
+| `todo` | `## [stripHtml(text) 標題]` + 每項 `- [x]/[ ] [todo.text][ 📅 dueDate]` | 無標題無項目 → `null` |
+| `link` | 有標題 `[title](url)`；無標題 `<url>`（**無 `## Link` 標頭**） | 無 url → `null` |
+| `image` | `*[圖片卡片]*`（占位字串，不含 base64） | — |
+| `board` | `*[白板連結：[stripHtml(text) 或「白板」]]*` | — |
+| 其他型別 | — | `null` |
+
+- todo 的到期日以 ` 📅 [dueDate]` 附在項目後（doc 舊版漏記）。
+- `text` 卡**不加** `## 標題`——標題只是內文第一行、由 `htmlToMarkdown` 自然帶出。
 
 ### 白板整體匯出（`exportBoardToMarkdown`）
 
 ```typescript
-export function exportBoardToMarkdown(shapes: SnapshotCardShape[], boardName: string): void {
+export function exportBoardToMarkdown(shapes: TLShape[], boardName: string): void {
     const sections = shapes
-        .filter(s => s.props.type === 'card')  // 只匯出 card shapes
-        .map(s => cardToMarkdown(s.props))
-        .join('\n\n---\n\n')
-    const md = `# ${boardName}\n\n${sections}`
-    // 下載 boardName.md
+        .filter(s => s.type === 'card')                       // 注意：s.type，非 s.props.type
+        .map(s => cardToMarkdown((s as TLCardShape).props))
+        .filter((s): s is string => s !== null && s.trim() !== '')  // 濾掉回傳 null 的卡
+    if (sections.length === 0) { alert('白板沒有可匯出的卡片'); return }
+    download(sections.join('\n\n---\n\n') + '\n', boardName)   // 無 `# boardName` 標頭
 }
 ```
 
-- 僅匯出 `type === 'card'` 的 shapes，忽略 frame、arrow 等
-- 各卡片之間以 `---` 分隔線分開
-- 不含 tldraw 空間座標資訊（純文字內容）
+- 僅匯出 `s.type === 'card'` 的 shapes，忽略 frame、arrow 等；`cardToMarkdown` 回 `null` 的卡（空內容）也濾掉。
+- **沒有** `# ${boardName}` 檔頭（doc 舊版誤記）；各卡片之間以 `---` 分隔線分開。全部卡片皆空時 `alert('白板沒有可匯出的卡片')` 並中止。
+- 不含 tldraw 空間座標資訊（純文字內容）。
+- **shape 來源是即時 editor**：`WhiteboardTools.exportMarkdown` 取 `editor.getCurrentPageShapes()`（非從 snapshot 讀）。`exportSelectedToMarkdown`——`selectedOnly` 時以 `editor.getSelectedShapeIds()` 過濾，空選取時 `alert('請先選取卡片')`。
 
 ---
 
@@ -245,7 +256,6 @@ const handleRestore = useCallback(async (restoredBoards: BoardRecord[]) => {
 ## 待確認
 
 - PDF 匯出使用的 canvas 尺寸上限為何？tldraw `editor.toImage()` 在超大白板時是否有截斷？
-- `exportBoardToMarkdown` 的 shape 來源是直接傳入還是從 snapshot 讀取？（需確認 `WhiteboardTools` 的呼叫點）
 - `visibilitychange` 備份觸發時，若 App 正在執行非同步操作（如大量卡片移入收件匣），是否有 race condition？
 
 ## 外部參考
