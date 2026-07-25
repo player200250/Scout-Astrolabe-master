@@ -55,16 +55,18 @@ interface BoardRecord {
     lastVisitedAt?: number              // 上次切換到此白板的時間
     sortOrder?: number                  // 拖曳排序，undefined 表示未排序
     deletedAt?: number                  // 軟刪除時間；undefined 表示正常
+    folderId?: string | null            // 所屬資料夾 id（v8 加；null/undefined 表示未歸類）
+    isFolder?: boolean                  // 此記錄本身是資料夾節點
 }
 ```
 
 ### Dexie index
 
 ```
-boards: 'id, deletedAt'
+boards: 'id, deletedAt, folderId'
 ```
 
-`deletedAt` 有 index，可用 `where('deletedAt').above(0)` 查詢垃圾桶清單。
+`deletedAt` 有 index，可用 `where('deletedAt').above(0)` 查詢垃圾桶清單；`folderId` 於 v8 加入 index（資料夾分類）。
 
 ### 特殊 ID
 
@@ -77,8 +79,8 @@ boards: 'id, deletedAt'
 
 ### thumbnail 規則
 
-- 只存 raster（`data:image/png;...` 或 `data:image/jpeg;...`）。
-- `loadAllBoards()` 讀取時若 thumbnail 非 raster 則清為 `null`（`isRasterThumbnail()` 判斷）。
+- 只存 raster（`data:image/png;base64,`、`data:image/jpeg;base64,` 或 `data:image/webp;base64,`）。
+- `loadAllBoards()` 讀取時若 thumbnail 非 raster（且非 null）則清為 `null`（`isRasterThumbnail()` 判斷），並寫回 DB。
 - 縮放比例 0.15（`exportToBlob scale: 0.15`），用於側邊欄小縮圖。
 
 ### 排序規則（loadAllBoards 回傳順序）

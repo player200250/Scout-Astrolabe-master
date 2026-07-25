@@ -19,7 +19,12 @@
 | `sub-components/TodoContent.tsx` | 勾選清單 |
 | `sub-components/LinkContent.tsx` | 連結卡片（含嵌入播放） |
 | `sub-components/ImageContent.tsx` | 圖片卡片 |
-| `sub-components/Boardcontent.tsx` | Board 卡片（子白板縮圖） |
+| `sub-components/Boardcontent.tsx` | Board 卡片（子白板縮圖，檔名 `Boardcontent` 小寫 c） |
+| `sub-components/HeadingContent.tsx` | heading 卡片（大字標題） |
+| `sub-components/StickyContent.tsx` | sticky 便利貼（顏色取自共用 `color`） |
+| `sub-components/TableContent.tsx` | table 表格卡片 |
+| `sub-components/ColorSwatchContent.tsx` | color 色票卡片（`swatches[]`） |
+| `sub-components/FileContent.tsx` | file 檔案卡片（附件） |
 | `sub-components/CardPropsBar.tsx` | 編輯模式屬性列（顏色、狀態、優先度、標籤） |
 | `sub-components/BacklinksPanel.tsx` | 文字 / Journal 卡片底部的反向連結面板 |
 
@@ -77,7 +82,8 @@ interface TLCardProps {
     preview?: boolean   // true 時顯示全螢幕圖片預覽（image 類型用）
 
     // ── Sticky ──
-    stickyColor?: StickyColor       // 'yellow' | 'blue' | 'green' | 'pink' | 'purple'
+    // ⚠️ 沒有 stickyColor 欄位！sticky 卡沿用共用的 `color: CardColor`，
+    //    再經 toStickyColor(color) 對映到 STICKY_COLOR_LIST（不在清單則退回 'yellow'）。
 
     // ── Table ──（實際欄位名，2026-06-21 校正）
     tableData?: TableRow[]
@@ -85,8 +91,8 @@ interface TLCardProps {
     tableHeaderRow?: boolean        // 標題列開關；未設視為 true（首列以標題樣式顯示）
 
     // ── Color Swatch ──
-    mainColor?: string              // HEX 字串，主色
-    extraColors?: string[]          // 最多 8 個額外顏色
+    swatches?: ColorSwatch[]        // swatches[0]=主色、其餘=額外色，最多 8 個
+                                    // （無 mainColor / extraColors 欄位）
 
     // ── File ──
     storedName?: string             // userData/files/ 下的檔案名稱（UUID + ext）
@@ -107,7 +113,14 @@ interface TodoItem {
     dueDate?: string | null   // 'YYYY-MM-DD'
 }
 
-type StickyColor = 'yellow' | 'blue' | 'green' | 'pink' | 'purple'
+type StickyColor = 'yellow' | 'green' | 'blue' | 'pink' | 'orange'
+// 對應常數：STICKY_COLORS（每色 { bg, darkBg, label }）、STICKY_COLOR_LIST（順序陣列）
+
+interface ColorSwatch {   // color 卡的 swatches 元素
+    id: string
+    hex: string
+    name: string
+}
 
 interface TableRow {
     id: string
@@ -177,18 +190,18 @@ interface TableCell {
 
 ### sticky
 
-- `stickyColor` 決定便利貼顏色，預設 `'yellow'`
-- 正方形佈局（預設 `w: 200, h: 200`）
+- **沒有專屬 `stickyColor` 欄位**：便利貼顏色取自共用 `color`，經 `toStickyColor(p.color)` 對映（不在 sticky 清單則退回 `'yellow'`）。
 - 右下角 CSS 摺角效果（偽元素三角形）
 - 雙擊進入 `state: 'editing'`，inline 直接編輯文字
+- 顏色定義在 `STICKY_COLORS`（每色含 `bg` 淺色 / `darkBg` 暗色模式 / `label`），順序見 `STICKY_COLOR_LIST`
 
-| stickyColor | 背景色 |
-|-------------|--------|
-| yellow | `#fef08a` |
-| blue | `#bfdbfe` |
-| green | `#bbf7d0` |
-| pink | `#fbcfe8` |
-| purple | `#e9d5ff` |
+| StickyColor | bg（淺） | darkBg（暗） |
+|-------------|---------|-------------|
+| yellow | `#FEF08A` | `#CA8A04` |
+| green  | `#BBF7D0` | `#15803D` |
+| blue   | `#BAE6FD` | `#0369A1` |
+| pink   | `#FBCFE8` | `#BE185D` |
+| orange | `#FED7AA` | `#C2410C` |
 
 ### table
 
@@ -202,11 +215,10 @@ interface TableCell {
 
 ### color
 
-- `mainColor` 必填，HEX 字串（如 `'#3b82f6'`）
-- `extraColors` 最多 8 個，`[]` 表示無額外顏色
-- 卡片顯示大色塊（`mainColor`）+ HEX 標籤
-- 額外顏色以小色點橫排顯示於主色塊下方
-- 雙擊主色塊或額外顏色進入 color picker 編輯
+- `swatches: ColorSwatch[]`（每個 `{ id, hex, name }`）；**`swatches[0]` 為主色、`swatches.slice(1)` 為額外色**，總數上限 8。建立時預設一個 `{ hex: '#3B82F6', name: '' }`（見 `TIdrawToolPanel`/`WhiteboardTools`）。
+- 卡片顯示主色大色塊（`swatches[0].hex`）+ HEX/名稱標籤，額外色以小色點橫排於下方（`ColorSwatchContent.tsx`）。
+- 「+ 新增顏色」加一個 swatch（達 8 則停）；額外色 hover 顯示刪除（`swatches.length > 1` 才可刪，主色不可刪）。
+- 卡高隨 swatch 數自動調整（`computeH(swatches.length)`）。
 
 ### file
 
