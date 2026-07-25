@@ -44,7 +44,7 @@
 | 📌 | 新增便利貼 | 預設黃色；**子選單**列出所有便利貼顏色（`STICKY_COLOR_LIST`） |
 | ▦ | 新增表格 | 預設 3 欄；**子選單** 2 / 3 / 4 欄 |
 | 🎨 | 新增顏色樣本 | `createColorCard` |
-| 📎 | 上傳檔案 | 僅在 Electron（`window.electronAPI.selectAndCopyFile` 存在）時出現 |
+| 📎 | 上傳檔案 | 需有 `createFileCard` 且 `canAttachFile()` 為真（`platform/fileStore` 能力守衛；web 無 IPC 時隱藏） |
 | 📋 | 從模板新增 | **子選單**（見下）；與上方分隔 |
 
 ### 「從模板新增」子選單
@@ -98,7 +98,8 @@
 | `Ctrl+F` | 全白板卡片內容搜尋 |
 | `Ctrl+Space` | 快速把想法丟進收件匣 |
 | `Ctrl+Shift+O` | 開啟所有白板總覽 |
-| `S` / `Shift+N` / `Shift+T` | 建立便利貼 / 文字 / 待辦（畫布聚焦時） |
+| `N` / `T` / `L` / `I` / `S` | 建立文字 / 待辦 / 連結 / 圖片 / 便利貼（畫布聚焦時） |
+| `Shift+N` / `Shift+T` | 建立標題 / 表格（畫布聚焦時） |
 
 ---
 

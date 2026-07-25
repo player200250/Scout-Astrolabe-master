@@ -16,7 +16,9 @@
 | `src/hooks/useBacklinks.ts` | 雙向連結索引建立（`useBacklinks` hook + `BacklinksContext`） |
 | `src/components/card-shape/sub-components/BacklinksPanel.tsx` | 卡片底部雙向連結面板 |
 | `src/components/card-shape/sub-components/TextContent.tsx` | `[[]]` 自動補全觸發邏輯 |
-| `src/KnowledgeGraph.tsx` | `react-force-graph-2d` 知識圖譜 |
+| `src/utils/cardLinks.ts` | `[[]]` 解析與補全候選純函式（`resolveLinkTarget`／`buildLinkTargets`／`filterLinkTargets`／`groupLinkTargets`，B-LINK 新增） |
+| `src/KnowledgeGraph.tsx` | `react-force-graph-2d` 知識圖譜（呈現層） |
+| `src/utils/knowledgeGraph.ts` | `buildGraph` 純函式（節點/邊建構，與 React 解耦） |
 
 ---
 
@@ -24,7 +26,7 @@
 
 ### 觸發方式
 
-- `Ctrl+F`（`useHotkeys.ts`）→ `setSearchOpen(true)`
+- `Ctrl+F`（`src/Usehotkeys.tsx`）→ `openSearch` action → `openPanel('search')`
 - 側邊欄搜尋按鈕
 
 ### 搜尋架構（索引式，commit `ff38071`）
@@ -89,20 +91,33 @@ forwardLinks: Map<string, string[]>
 
 backlinks: Map<string, BacklinkEntry[]>
 // targetName.toLowerCase() → 引用該名稱的卡片清單
+
+cardIndex: Map<string, CardTarget[]>
+// cardName.toLowerCase() → 同名卡片清單（撞名取 [0]）。B-LINK（6e06ee1）新增，
+// 供 [[卡片名]] 跳轉與補全選單使用。CardTarget = { boardId, boardName, shapeId, name, x, y }
+
+// boardNames: string[] 由 Whiteboard.tsx 合成（過濾 deletedAt 的白板名），
+// 併入 Provider 的 value；useBacklinks 本身回傳 forwardLinks/backlinks/cardIndex。
 ```
 
-### 索引建立流程
+### 索引建立流程（增量，TD4）
+
+**不是 `useMemo([boards])` 全量重掃**——`useBacklinks` 用 `useRef` 持一個 per-board 快取（`cacheRef: Map<boardId, BoardCache>`），每次呼叫只重掃 snapshot 或 name 有異動的白板，其餘沿用快取，最後合併：
 
 ```
-useMemo([boards]) → 遍歷所有 board.snapshot
-  → 篩選 typeName==='shape' && type==='card' && props.type in ['text','journal']
-  → 對每張卡片的 HTML：
-      extractLinks(html) → stripHtml → matchAll(/\[\[([^\]]+)\]\]/g) → 去重
-  → 結果寫入 forwardLinks（shapeId → [name...]）
-  → 對每個 name，寫入 backlinks（name.toLowerCase() → [BacklinkEntry...]）
+每次呼叫：
+  → 算出 removedIds（快取有、boards 沒了）與 changedBoards（snapshot 或 name 變了）
+  → 兩者皆空 → 直接回傳上次的 resultRef（零重算）
+  → 對每個 changedBoard 跑 scanBoard()：
+      篩 typeName==='shape' && type==='card' && props.type in ['text','journal']
+      每張卡「只 stripHtml 一次」→ 名稱／連結／preview 共用同一份純文字（TD5 收斂）
+      linksFromText(text) → matchAll(/\[\[([^\]]+)\]\]/g) → 去重
+      收 forwardLinks（shapeId→[name...]）、backlinks、以及 cards（每張卡都收，供 cardIndex）
+  → 合併所有 per-board 快取 → mergedForward / mergedBack / cardIndex
 ```
 
-`BacklinkEntry`：`{ boardId, boardName, shapeId, preview（前 80 字）, x, y }`
+`BacklinkEntry`：`{ boardId, boardName, shapeId, preview（前 80 字）, x, y }`。
+`cardIndex` 收「每一張」text/journal 卡（含沒有 `[[連結]]` 的，因為它們正是 `[[卡片名]]` 要能跳到的目標）。
 
 ### extractCardName
 
@@ -140,19 +155,23 @@ const boardNames = boards.filter(b => !b.deletedAt).map(b => b.name)
 在 TipTap 編輯器中輸入 `[[`，接著輸入查詢字串時觸發：
 
 ```typescript
-// TextContent.tsx — useEffect on tiptap.on('update')
-const textBefore = state.doc.textBetween(Math.max(0, from - 120), from, '\n')
+// TextContent.tsx
+const { boardNames, cardIndex } = useContext(BacklinksContext)
+// cardIndex → cardNames，與 boardNames 合併成候選（白板在前、撞名只留白板）
+const linkTargets = useMemo(
+    () => buildLinkTargets(boardNames, cardNames),   // utils/cardLinks.ts
+    [boardNames, cardIndex],
+)
+// 觸發：游標前 120 字比對 /\[\[([^\]]*)$/
 const match = textBefore.match(/\[\[([^\]]*)$/)
 if (!match) { setSuggest(null); return }
-const query = match[1]
-const matches = boardNames
-    .filter(n => n.toLowerCase().includes(query.toLowerCase()))
-    .slice(0, 8)
+const matches = filterLinkTargets(linkTargets, match[1])  // 預設配額：board 5 / card 8
 ```
 
-- 搜尋範圍：游標前 120 字元內
-- 候選清單：最多 8 筆，從 `BacklinksContext.boardNames` 過濾（白板名稱，不含卡片名稱）
-- 補全 dropdown 用 `position: fixed`（脫離 card 的 overflow 裁剪）
+- 搜尋範圍：游標前 120 字元內。
+- **候選含白板名 _與_ 卡片名**（B-LINK 起）：`buildLinkTargets` 合併、`filterLinkTargets` 依 query 子字串過濾。**配額分組各自算**（白板 5／卡片 8），不是共用總額——否則白板名（組織性、數量多）會把卡片擠光（實測 7 板吃光 8 格總額）。
+- 顯示用 `groupLinkTargets` 分「🗂️ 白板／📝 卡片」兩組。
+- 補全 dropdown 用 `position: fixed`（脫離 card 的 overflow 裁剪）。
 
 ### 鍵盤操作
 
@@ -196,7 +215,7 @@ const boardBkLinks = currentBoardName ? (backlinks.get(currentBoardName.toLowerC
 
 ### 點擊跳轉
 
-- 前向連結（`[[name]]`）點擊 → `emitAppEvent('jump-to-card', { targetName: name })`（依白板名稱切換）
+- 前向連結（`[[name]]`）點擊 → `emitAppEvent('jump-to-card', { targetName: name })`。接收端（WhiteboardTools）用 `resolveLinkTarget(name, boards, cardIndex)`（`utils/cardLinks.ts`）解析：**白板優先、再卡片**，都找不到才是死連結（B-LINK 之前指向卡片的 `[[X]]` 點了無反應，就是因為只比白板）。
 - 反向引用點擊 → `emitAppEvent('jump-to-card', { boardId, shapeId, x, y })`（跳到指定 shape）
 
 ---
@@ -219,17 +238,20 @@ const boardBkLinks = currentBoardName ? (backlinks.get(currentBoardName.toLowerC
 | `wikilink` | `rgba(96,165,250,0.52)`（藍） | `[[]]` 引用，有方向箭頭 |
 | `parent` | `rgba(148,163,184,0.28)`（灰） | 白板父子關係（`board.parentId`） |
 
-### buildGraph 流程
+### buildGraph 流程（`src/utils/knowledgeGraph.ts` 純函式）
 
 ```
-Pass 1：建立 card 節點（text/journal only）
+buildGraph(boards, forwardLinks)   // forwardLinks 來自 useBacklinks 增量快取
+Pass 1：建立 card 節點（text/journal only），命名走 extractCardName（與全 App 一致）
 Pass 1b：建立 board 節點
 Pass 2：建立邊
   → 對每個 board 的 parentId → parent 邊
-  → 對每個 text/journal card 的 [[]] → wikilink 邊
-     （優先匹配 boardByName，其次 cardByName[0]）
-  → 更新 refCount → 影響節點大小 node.val
+  → wikilink 邊：直接取 forwardLinks.get(shapeId)（**不重新解析 HTML**，A6 收斂），
+     目標優先匹配 boardByName，其次 cardByName[0]
+  → 更新 refCount → 影響節點大小 node.val（board 5+rc / card 1+rc）
 ```
+
+> 另有 `shouldShowNodeLabel(type, val, globalScale)`：LOD 標籤——白板 `globalScale>0.6` 顯示；卡片需 `val>=3 && globalScale>1.2`。
 
 ### 效能設計
 
@@ -242,15 +264,15 @@ Pass 2：建立邊
 
 ## 維護注意事項
 
-- `useBacklinks` 的 `useMemo` 依賴 `[boards]`，任何白板更新都會重新掃描所有 snapshot。白板數量增多後效能會線性下降，可考慮改為增量更新或 Web Worker。
+- `useBacklinks` **已改為增量更新（TD4，完成）**：per-board `cacheRef` 只重掃 snapshot/name 有異動的白板，其餘沿用快取；每張卡 `stripHtml` 只跑一次（TD5 收斂）。千板以上的極端量再看是否需要 Web Worker（目前非瓶頸）。
 - `extractCardName` 只取第一個 H1/H2；若卡片沒有標題（純段落），取前 40 字。這意味著兩張內容相同前 40 字的卡片，在 backlinks map 中會指向同一個 key，引用關係可能混淆。
 - `KnowledgeGraph` 中 `react-force-graph-2d` 的型別系統有問題（見原始碼 `const ForceGraph2D = _ForceGraph2D as any`），升級版本時需重新驗證型別。
 - 搜尋不支援正規表示式或模糊搜尋，只有 `toLowerCase().includes(kw)`，無法處理 CJK 片假名等邊緣案例。
 
 ## 待確認
 
-- `boardNames`（補全候選）只包含白板名稱，不包含卡片的 `extractCardName`。若使用者想引用卡片標題（非白板名稱），補全不會出現。是否為預期行為？
-- `KnowledgeGraph` 的 wikilink 邊：若同名白板有多個，`boardByName.get(tl)` 只取第一個（後者覆蓋前者）。重複白板名稱會造成邊指向錯誤目標。
+- ~~`boardNames`（補全候選）只包含白板名稱~~ **已解決（B-LINK）**：補全同時含卡片名（`cardIndex`），`[[卡片名]]` 也能連能跳。
+- `KnowledgeGraph` 的 wikilink 邊：若同名白板有多個，`boardByName.get(tl)` 只取第一個（後者覆蓋前者）。重複白板名稱會造成邊指向錯誤目標。（同理 `resolveLinkTarget` 撞名取 `[0]`。）
 
 ## 外部參考
 

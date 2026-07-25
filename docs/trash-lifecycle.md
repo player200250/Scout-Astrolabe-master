@@ -16,8 +16,8 @@
 | `src/hooks/useBoardManager.ts` | 白板 CRUD：軟刪、永久刪、還原、清空垃圾桶 |
 | `src/components/WhiteboardTools.tsx` | 卡片軟刪除（Delete 鍵/右鍵）、Ctrl+Z 同步、permanent-delete-shape 接收 |
 | `src/TrashPanel.tsx` | 垃圾桶 UI：卡片/白板列表、還原、永久刪除 |
-| `src/ContextMenu.tsx` | 右鍵選單「刪除」觸發 `saveCardToTrash` |
-| `src/useHotkeys.ts` | Delete 鍵觸發 `onDeleteShapes` |
+| `src/ContextMenu.tsx` / `src/utils/contextMenuUtils.tsx` | 右鍵選單「刪除」觸發 `saveCardToTrash` |
+| `src/Usehotkeys.tsx` | Delete 鍵觸發 `onDeleteShapes`（檔名大寫 U、`.tsx`、src 根） |
 
 ---
 
@@ -38,8 +38,8 @@ Scout Astrolabe 有兩類可被刪除的物件，機制略有差異：
 
 | 觸發 | 元件 |
 |------|------|
-| 選取卡片後按 `Delete` | `useHotkeys.ts` → `onDeleteShapes()` |
-| 右鍵選單 → 刪除 | `ContextMenu.tsx` → `saveCardToTrash()` |
+| 選取卡片後按 `Delete` | `Usehotkeys.tsx` → `onDeleteShapes()` |
+| 右鍵選單 → 刪除 | `contextMenuUtils.tsx` → `saveCardToTrash()` |
 
 ### `onDeleteShapes` 完整流程
 
@@ -64,18 +64,20 @@ useHotkeys.onDeleteShapes(selectedIds)
 ### `saveCardToTrash`（寫入 DB）
 
 ```typescript
-// db.ts 的 deletedCards table
-await db.table('deletedCards').add({
-    id: generateId(),
+// src/utils/trashUtils.ts — saveCardToTrash（try/catch 包覆，失敗只 console.error）
+await db.table('deletedCards').put({
+    id: `dc_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,  // dc_時戳_random4
     shapeId,
     boardId,
     boardName,
     shapeData,       // 已 sanitize 的 shape（含 props）
-    deletedAt,
+    deletedAt: Date.now(),
     type,
-    preview          // 純文字摘要，用於 TrashPanel 顯示
+    preview          // 純文字摘要（getCardPreview），用於 TrashPanel 顯示
 })
 ```
+
+> 注意：id 前綴是 `dc_` 而非 board 的 `generateId()`（`board_...`）；寫入用 `.put`（非 `.add`）。
 
 `shapeData` 在存入前呼叫 `sanitizeCardProps`，確保還原時 `editor.createShape` 不會因缺少必要欄位而失敗。
 
@@ -88,7 +90,7 @@ await db.table('deletedCards').add({
 ### `recentlyTrashedShapeIds` ref
 
 ```typescript
-// useBoardManager.ts — 提升到此層，防止切板後重置
+// useTrash.ts（TD2 後居此子 hook，經 useBoardManager 回傳）— 提升到此層，防止切板後重置
 const recentlyTrashedShapeIds = useRef<Set<string>>(new Set())
 ```
 
@@ -116,7 +118,7 @@ editor.store.listen(({ changes }) => {
 
 ### 切板不重置 ref
 
-`recentlyTrashedShapeIds` 在 `useBoardManager` 宣告（而非 `WhiteboardTools`），因此切換白板時不會因 re-mount 而清空。若改為在 `WhiteboardTools` 內宣告，切板後的 Ctrl+Z 無法找到對應記錄，垃圾桶會出現已消失的卡片（Bug C4 修復）。
+`recentlyTrashedShapeIds` 在 `useTrash`（`useBoardManager` 的子 hook，向上回傳）宣告，而非 `WhiteboardTools`，因此切換白板時不會因 re-mount 而清空。若改為在 `WhiteboardTools` 內宣告，切板後的 Ctrl+Z 無法找到對應記錄，垃圾桶會出現已消失的卡片（Bug C4 修復）。
 
 ---
 
@@ -212,22 +214,17 @@ WhiteboardTools useEffect（接收 permanent-delete-shape）
 ## 14 天自動清除
 
 ```typescript
-// useBoardManager.ts — App 啟動時執行
-const TRASH_TTL_MS = 14 * 24 * 60 * 60 * 1000  // 14 天
+// useBoardManager.ts 啟動載入 effect — App 啟動時執行一次
+const TRASH_EXPIRE_MS = 14 * 86400000            // 14 天（= 14*24*60*60*1000）
+const cutoff = Date.now() - TRASH_EXPIRE_MS
 
-// 清除過期卡片
-await db.table('deletedCards')
-    .filter(r => Date.now() - r.deletedAt > TRASH_TTL_MS)
-    .delete()
+// 清除過期白板（永久刪除）：先 filter 已載入的 boards
+const expiredBoards = loaded.filter(b => b.deletedAt && b.deletedAt < cutoff)
+for (const b of expiredBoards) await deleteBoard(b.id)
 
-// 清除過期白板（永久刪除）
-const expiredBoards = await db.table('boards')
-    .filter(b => !!b.deletedAt && Date.now() - b.deletedAt > TRASH_TTL_MS)
-    .toArray()
-for (const board of expiredBoards) {
-    await deleteBoard(board.id)
-}
-await refreshTrashCount()
+// 清除過期卡片：走 deletedAt 索引 where().below(cutoff)，逐筆 delete
+const expiredCards = await db.table('deletedCards').where('deletedAt').below(cutoff).toArray()
+for (const c of expiredCards) await db.table('deletedCards').delete(c.id)
 ```
 
 每次 App 啟動時執行一次，不在執行期間定期掃描。
@@ -259,10 +256,10 @@ const handleEmptyTrash = useCallback(async () => {
 ## trashCount 計算
 
 ```typescript
-// refreshTrashCount
-const boardsCount = await db.table('boards').filter(b => !!b.deletedAt).count()
-const cardsCount = await db.table('deletedCards').count()
-setTrashCount(boardsCount + cardsCount)
+// refreshTrashCount（居 useTrash 子 hook，經 useBoardManager 回傳）
+const deletedBoardCount = await db.table('boards').where('deletedAt').above(0).count()  // 走索引
+const deletedCardCount = await db.table('deletedCards').count()
+setTrashCount(deletedBoardCount + deletedCardCount)
 ```
 
 `trashCount` 顯示於側邊欄垃圾桶圖示的 badge。由 `refreshTrashCount` 更新，觸發時機：
