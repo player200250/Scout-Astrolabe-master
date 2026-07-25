@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react'
-import type { BoardRecord } from '../db'
+import React, { useState, useEffect, useCallback } from 'react'
+import type { BoardRecord, BoardTemplateRecord } from '../db'
+import { saveBoardAsTemplate, loadBoardTemplates, deleteBoardTemplate } from '../db'
 import { isRasterThumbnail } from '../utils/boardDb'
 import { formatRelativeDate } from '../utils/date'
 
@@ -8,6 +9,7 @@ interface BoardOverviewProps {
     activeBoardId: string
     onSelect: (id: string) => void
     onNew: () => void
+    onCreateFromTemplate: (template: BoardTemplateRecord) => void
     onRename: (id: string, name: string) => void
     onDelete: (id: string) => void
     onSetStatus: (id: string, status: 'active' | 'archived' | 'pinned') => void
@@ -15,7 +17,7 @@ interface BoardOverviewProps {
     isDark: boolean
 }
 
-export function BoardOverview({ boards, activeBoardId, onSelect, onNew, onRename, onDelete, onSetStatus, onClose, isDark }: BoardOverviewProps) {
+export function BoardOverview({ boards, activeBoardId, onSelect, onNew, onCreateFromTemplate, onRename, onDelete, onSetStatus, onClose, isDark }: BoardOverviewProps) {
     const [searchQuery, setSearchQuery] = useState('')
     const [hoveredId, setHoveredId] = useState<string | null>(null)
     const [renamingId, setRenamingId] = useState<string | null>(null)
@@ -23,6 +25,31 @@ export function BoardOverview({ boards, activeBoardId, onSelect, onNew, onRename
     const [archiveFilter, setArchiveFilter] = useState<'all' | 'archived'>('all')
     const [selectionMode, setSelectionMode] = useState(false)
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+
+    // N19 白板模板
+    const [pickerOpen, setPickerOpen] = useState(false)
+    const [templates, setTemplates] = useState<BoardTemplateRecord[]>([])
+
+    const refreshTemplates = useCallback(async () => {
+        try { setTemplates(await loadBoardTemplates()) }
+        catch { setTemplates([]) }
+    }, [])
+
+    const openPicker = useCallback(() => { refreshTemplates(); setPickerOpen(true) }, [refreshTemplates])
+
+    // 註：Electron 不支援 window.prompt，故用預設名「<板名> 模板」直接存；挑選器可刪除。
+    const saveAsTemplate = useCallback(async (board: BoardRecord, e: React.MouseEvent) => {
+        e.stopPropagation()
+        await saveBoardAsTemplate(board)
+        await refreshTemplates()
+        alert(`已存為白板模板「${board.name} 模板」\n按頂部「⧉ 從模板」即可一鍵新建。`)
+    }, [refreshTemplates])
+
+    const removeTemplate = useCallback(async (id: string, e: React.MouseEvent) => {
+        e.stopPropagation()
+        await deleteBoardTemplate(id)
+        await refreshTemplates()
+    }, [refreshTemplates])
 
     const filtered = boards
         .filter(b => {
@@ -75,13 +102,14 @@ export function BoardOverview({ boards, activeBoardId, onSelect, onNew, onRename
     useEffect(() => {
         const handler = (e: KeyboardEvent) => {
             if (e.key === 'Escape') {
-                if (selectionMode) exitSelectionMode()
+                if (pickerOpen) setPickerOpen(false)
+                else if (selectionMode) exitSelectionMode()
                 else onClose()
             }
         }
         window.addEventListener('keydown', handler)
         return () => window.removeEventListener('keydown', handler)
-    }, [onClose, selectionMode])
+    }, [onClose, selectionMode, pickerOpen])
 
     const overlayBg = isDark ? 'rgba(15,23,42,0.97)' : 'rgba(245,245,243,0.97)'
     const headerBg = isDark ? 'rgba(30,41,59,0.95)' : 'rgba(255,255,255,0.8)'
@@ -189,6 +217,17 @@ export function BoardOverview({ boards, activeBoardId, onSelect, onNew, onRename
                     onMouseEnter={e => { e.currentTarget.style.background = isDark ? 'rgba(224,49,49,0.15)' : '#fff5f5'; e.currentTarget.style.color = '#e03131'; e.currentTarget.style.borderColor = isDark ? '#7f1d1d' : '#ffccc7' }}
                     onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = countColor; e.currentTarget.style.borderColor = inputBorder }}
                 >🧹 清理重複</button>
+                <button
+                    onClick={openPicker}
+                    title="從白板模板一鍵新建"
+                    style={{
+                        display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px',
+                        borderRadius: 8, border: `1px solid ${inputBorder}`, background: 'transparent', color: countColor,
+                        fontSize: 13, cursor: 'pointer', flexShrink: 0,
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.background = isDark ? 'rgba(37,99,235,0.12)' : '#eff6ff'; e.currentTarget.style.color = '#2563eb'; e.currentTarget.style.borderColor = '#2563eb' }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = countColor; e.currentTarget.style.borderColor = inputBorder }}
+                >⧉ 從模板</button>
                 <button
                     onClick={() => { onNew(); onClose() }}
                     style={{
@@ -303,6 +342,7 @@ export function BoardOverview({ boards, activeBoardId, onSelect, onNew, onRename
                                         </div>
                                         {!selectionMode && hoveredId === board.id && (
                                             <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
+                                                <button onClick={e => saveAsTemplate(board, e)} title="存為白板模板" style={{ width: 24, height: 24, borderRadius: 6, border: `1px solid ${inputBorder}`, background: cardBg, cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, color: textPrimary }}>⧉</button>
                                                 <button onClick={e => startRename(board, e)} title="重新命名" style={{ width: 24, height: 24, borderRadius: 6, border: `1px solid ${inputBorder}`, background: cardBg, cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, color: textPrimary }}>✎</button>
                                                 {boards.filter(b => !b.isHome).length > 1 && (
                                                     <button
@@ -370,6 +410,74 @@ export function BoardOverview({ boards, activeBoardId, onSelect, onNew, onRename
                             fontSize: 13, cursor: 'pointer',
                         }}
                     >取消</button>
+                </div>
+            )}
+
+            {/* N19 白板模板挑選器 */}
+            {pickerOpen && (
+                <div
+                    onClick={() => setPickerOpen(false)}
+                    style={{
+                        position: 'absolute', inset: 0, zIndex: 30000,
+                        background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(2px)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
+                    }}
+                >
+                    <div
+                        onClick={e => e.stopPropagation()}
+                        style={{
+                            width: 'min(760px, 92vw)', maxHeight: '82vh', display: 'flex', flexDirection: 'column',
+                            background: isDark ? '#1e293b' : 'white', borderRadius: 14,
+                            border: `1px solid ${isDark ? '#334155' : '#e8e8e6'}`, boxShadow: '0 12px 48px rgba(0,0,0,0.3)', overflow: 'hidden',
+                        }}
+                    >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '14px 20px', borderBottom: `1px solid ${headerBorder}` }}>
+                            <span style={{ fontSize: 15, fontWeight: 600, color: textPrimary }}>⧉ 從白板模板新建</span>
+                            <span style={{ fontSize: 11, color: countColor, background: countBg, borderRadius: 6, padding: '2px 8px' }}>{templates.length}</span>
+                            <div style={{ flex: 1 }} />
+                            <button onClick={() => setPickerOpen(false)} title="關閉 (Esc)" style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${inputBorder}`, background: 'transparent', cursor: 'pointer', fontSize: 14, color: countColor, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>✕</button>
+                        </div>
+                        <div style={{ flex: 1, overflowY: 'auto', padding: 18 }}>
+                            {templates.length === 0 ? (
+                                <div style={{ textAlign: 'center', padding: '48px 16px', color: textMuted, fontSize: 14, lineHeight: 1.8 }}>
+                                    還沒有白板模板。<br />在任一白板卡片上按 <b style={{ color: textPrimary }}>⧉</b> 即可把整塊白板存成模板。
+                                </div>
+                            ) : (
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12 }}>
+                                    {templates.map(t => (
+                                        <div
+                                            key={t.id}
+                                            onClick={() => onCreateFromTemplate(t)}
+                                            title="用此模板新建白板"
+                                            style={{
+                                                borderRadius: 10, border: `1px solid ${cardBorderDefault}`, background: cardBg,
+                                                cursor: 'pointer', overflow: 'hidden', display: 'flex', flexDirection: 'column', position: 'relative',
+                                            }}
+                                            onMouseEnter={e => { e.currentTarget.style.borderColor = '#2563eb'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(37,99,235,0.18)' }}
+                                            onMouseLeave={e => { e.currentTarget.style.borderColor = cardBorderDefault; e.currentTarget.style.boxShadow = 'none' }}
+                                        >
+                                            <div style={{ width: '100%', aspectRatio: '16/10', background: thumbBg, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', borderBottom: `1px solid ${thumbBorder}` }}>
+                                                {isRasterThumbnail(t.thumbnail) ? (
+                                                    <img src={t.thumbnail} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 8, boxSizing: 'border-box' }} alt="" />
+                                                ) : (
+                                                    <span style={{ fontSize: 22, opacity: 0.15 }}>⧉</span>
+                                                )}
+                                                <button
+                                                    onClick={e => removeTemplate(t.id, e)}
+                                                    title="刪除此模板"
+                                                    style={{ position: 'absolute', top: 6, right: 6, width: 22, height: 22, borderRadius: 6, border: 'none', background: 'rgba(0,0,0,0.5)', color: 'white', cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+                                                >✕</button>
+                                            </div>
+                                            <div style={{ padding: '8px 10px' }}>
+                                                <div style={{ fontSize: 13, fontWeight: 500, color: textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.name}</div>
+                                                <div style={{ fontSize: 11, color: textMuted, marginTop: 1 }}>{formatRelativeDate(t.createdAt)}</div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
                 </div>
             )}
         </div>

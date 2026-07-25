@@ -326,6 +326,37 @@ describe('useBoardManager — 導航', () => {
         expect(mocks.saveBoard).toHaveBeenCalledWith(expect.objectContaining({ id: created.id }))
     })
 
+    it('handleCreateBoardFromTemplate 用模板 snapshot 建新板（深拷貝、切板、名稱去重）', async () => {
+        const tmplStore = { 'shape:a': { typeName: 'shape', id: 'shape:a', type: 'card', props: { type: 'text' } } }
+        const template = {
+            id: 'btmpl_1', name: 'GDD 模板', createdAt: 1, thumbnail: 'data:image/png;base64,AAAA',
+            snapshot: { document: { store: tmplStore } } as unknown as BoardRecord['snapshot'],
+        }
+        // 先放一塊同名板，驗證 uniqueName 會加「(2)」
+        mocks.loadAllBoards.mockResolvedValue([board({ id: 'b1', name: 'GDD 模板' })])
+        const { result } = await setup()
+
+        act(() => { result.current.handleCreateBoardFromTemplate(template) })
+
+        const created = result.current.boards.at(-1)!
+        expect(created.name).toBe('GDD 模板 (2)')            // 去重
+        expect(created.thumbnail).toBe(template.thumbnail)   // 縮圖沿用
+        expect(result.current.activeBoardId).toBe(created.id)
+        expect(result.current.navigationStack).toEqual([created.id])
+        // 深拷貝：內容相等但非同一參照（不會與模板/其他板共用）
+        expect(created.snapshot).toEqual(template.snapshot)
+        expect(created.snapshot).not.toBe(template.snapshot)
+        expect(mocks.saveBoard).toHaveBeenCalledWith(expect.objectContaining({ id: created.id, name: 'GDD 模板 (2)' }))
+    })
+
+    it('handleCreateBoardFromTemplate 容許 snapshot 為 null（空白模板）', async () => {
+        const { result } = await setup()
+        act(() => { result.current.handleCreateBoardFromTemplate({ id: 'btmpl_2', name: '空模板', createdAt: 1, thumbnail: null, snapshot: null }) })
+        const created = result.current.boards.at(-1)!
+        expect(created.snapshot).toBeNull()
+        expect(created.name).toBe('空模板')
+    })
+
     it('handleSwitchToChild 把子板推進 navigationStack 並記錄 lastVisitedAt', async () => {
         mocks.loadAllBoards.mockResolvedValue([
             board({ id: 'b1', name: '父' }),

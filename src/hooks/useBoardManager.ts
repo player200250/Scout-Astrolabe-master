@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { db, trimBackups, type BoardRecord } from '../db'
-import type { DeletedCardRecord } from '../db'
+import type { DeletedCardRecord, BoardTemplateRecord } from '../db'
 import { getISOWeekKey } from '../utils/weeklyReviewUtils'
 import { loadAllBoards, saveBoard, deleteBoard, generateId, uniqueName } from '../utils/boardDb'
 import { JUMP_DELAY_MS } from '../constants'
@@ -143,6 +143,18 @@ export function useBoardManager() {
     const handleNew = useCallback(() => {
         const name = uniqueName(`白板 ${boards.length + 1}`, boards)
         const newBoard: BoardRecord = { id: generateId(), name, snapshot: null, thumbnail: null, updatedAt: Date.now() }
+        saveBoard(newBoard)
+        setBoards(prev => [...prev, newBoard])
+        setActiveBoardId(newBoard.id)
+        setNavigationStack([newBoard.id])
+    }, [boards])
+
+    // N19：從白板模板一鍵新建白板。snapshot 深拷貝解耦（避免與模板/其他板共用參照）；
+    // 載入時 WhiteboardTools 會 sanitize，故此處不再處理。
+    const handleCreateBoardFromTemplate = useCallback((template: BoardTemplateRecord) => {
+        const name = uniqueName(template.name, boards)
+        const snapshot = template.snapshot ? structuredClone(template.snapshot) : null
+        const newBoard: BoardRecord = { id: generateId(), name, snapshot, thumbnail: template.thumbnail ?? null, updatedAt: Date.now() }
         saveBoard(newBoard)
         setBoards(prev => [...prev, newBoard])
         setActiveBoardId(newBoard.id)
@@ -325,6 +337,7 @@ export function useBoardManager() {
         handleSetParent,
         handleBack,
         handleNew,
+        handleCreateBoardFromTemplate,
         handleRename,
         handleDelete,
         handleSoftDeleteBoard,

@@ -34,7 +34,7 @@ export default function App() {
         boards, activeBoardId, loading, navigationStack,
         sidebarCollapsed, jumpRef,
         trashCount, refreshTrashCount,
-        handleSaveBoard, handleNew, handleSwitch, handleSwitchToChild,
+        handleSaveBoard, handleNew, handleCreateBoardFromTemplate, handleSwitch, handleSwitchToChild,
         handleSetParent, handleBack, handleRename,
         handleSoftDeleteBoardWithInboxMove, handlePermanentDeleteBoard, handleRestoreBoard,
         handleEmptyTrash, handleCardTrashed,
@@ -331,6 +331,7 @@ export default function App() {
                     activeBoardId={activeBoardId ?? ''}
                     onSelect={handleSwitch}
                     onNew={handleNew}
+                    onCreateFromTemplate={(t) => { handleCreateBoardFromTemplate(t); closePanel('overview') }}
                     onRename={handleRename}
                     onDelete={handleDeleteWithConfirm}
                     onSetStatus={handleSetStatus}

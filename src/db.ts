@@ -45,6 +45,15 @@ export interface TemplateRecord {
     createdAt: number
 }
 
+/** N19：整塊白板存成的模板（snapshot 級，非單一文字卡）。可從此一鍵新建白板。 */
+export interface BoardTemplateRecord {
+    id: string
+    name: string
+    snapshot: TLEditorSnapshot | null
+    thumbnail: string | null
+    createdAt: number
+}
+
 export const db = new Dexie('AstrolabeDB')
 db.version(1).stores({ snapshots: 'id' })
 db.version(2).stores({ snapshots: 'id', boards: 'id' })
@@ -58,6 +67,8 @@ db.version(7)
         if (!('shapeId' in record)) record.shapeId = ''
     }))
 db.version(8).stores({ snapshots: 'id', boards: 'id, deletedAt, folderId', backups: 'id, timestamp', templates: 'id, createdAt', deletedCards: 'id, deletedAt, boardId, shapeId' })
+// v9：N19 白板模板（整塊 snapshot 存為可複用模板）
+db.version(9).stores({ snapshots: 'id', boards: 'id, deletedAt, folderId', backups: 'id, timestamp', templates: 'id, createdAt', deletedCards: 'id, deletedAt, boardId, shapeId', boardTemplates: 'id, createdAt' })
 
 // 每份備份都是「全部白板的完整 snapshot（含 base64 圖片）」的複製。
 // 原本保留 30 份 → 一個含圖片的 vault 會被複製 30 次，輕易把 IndexedDB 撐到數 GB、
@@ -86,4 +97,28 @@ export async function loadBackups(): Promise<BackupRecord[]> {
 
 export async function deleteBackup(id: string): Promise<void> {
     return db.table('backups').delete(id)
+}
+
+// ── 白板模板（N19）──────────────────────────────────────────────
+// snapshot 直接沿用 board 的（Dexie put 會序列化隔離；載入建板時 WhiteboardTools 會 sanitize）。
+// 與匯出/匯入 JSON 同語意：不重生 shape id、不動 board 卡連結。
+
+/** 把一塊白板存成模板。name 省略時預設「<板名> 模板」。 */
+export async function saveBoardAsTemplate(board: BoardRecord, name?: string): Promise<void> {
+    const record: BoardTemplateRecord = {
+        id: `btmpl_${Date.now()}`,
+        name: name?.trim() || `${board.name} 模板`,
+        snapshot: board.snapshot,
+        thumbnail: board.thumbnail,
+        createdAt: Date.now(),
+    }
+    await db.table('boardTemplates').put(record)
+}
+
+export async function loadBoardTemplates(): Promise<BoardTemplateRecord[]> {
+    return db.table('boardTemplates').orderBy('createdAt').reverse().toArray()
+}
+
+export async function deleteBoardTemplate(id: string): Promise<void> {
+    return db.table('boardTemplates').delete(id)
 }
