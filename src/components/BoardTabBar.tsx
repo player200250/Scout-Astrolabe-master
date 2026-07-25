@@ -6,6 +6,7 @@ import {
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import type { BoardRecord } from '../db'
+import { saveBoardAsTemplate } from '../db'
 import type { PanelName } from '../hooks/usePanelState'
 import { isRasterThumbnail } from '../utils/boardDb'
 import { SidebarFooter } from './SidebarFooter'
@@ -644,6 +645,20 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                                     ↩ 移出資料夾
                                 </div>
                             )}
+                            <div style={{ height: 1, background: menuDivider, margin: '4px 0' }} />
+                            <div
+                                onClick={() => {
+                                    saveBoardAsTemplate(targetBoard)
+                                        .then(() => alert(`已存為白板模板「${targetBoard.name} 模板」\n在「所有白板」總覽按「⧉ 從模板」即可一鍵新建。`))
+                                        .catch(() => alert('存為模板失敗，請重試。'))
+                                    setContextMenu(null)
+                                }}
+                                style={{ padding: '7px 14px', cursor: 'pointer', fontSize: 13, color: menuText }}
+                                onMouseEnter={e => (e.currentTarget.style.background = menuItemHover)}
+                                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                            >
+                                ⧉ 存為白板模板
+                            </div>
                             <div style={{ height: 1, background: menuDivider, margin: '4px 0' }} />
                             <div
                                 onClick={() => { onDelete(contextMenu.boardId); setContextMenu(null) }}

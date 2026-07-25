@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import type { BoardRecord, BoardTemplateRecord } from '../db'
-import { saveBoardAsTemplate, loadBoardTemplates, deleteBoardTemplate } from '../db'
+import { saveBoardAsTemplate, loadBoardTemplates, deleteBoardTemplate, renameBoardTemplate } from '../db'
 import { isRasterThumbnail } from '../utils/boardDb'
 import { formatRelativeDate } from '../utils/date'
 
@@ -29,11 +29,26 @@ export function BoardOverview({ boards, activeBoardId, onSelect, onNew, onCreate
     // N19 白板模板
     const [pickerOpen, setPickerOpen] = useState(false)
     const [templates, setTemplates] = useState<BoardTemplateRecord[]>([])
+    const [hoveredTemplateId, setHoveredTemplateId] = useState<string | null>(null)
+    const [renamingTemplateId, setRenamingTemplateId] = useState<string | null>(null)
+    const [templateRenameValue, setTemplateRenameValue] = useState('')
 
     const refreshTemplates = useCallback(async () => {
         try { setTemplates(await loadBoardTemplates()) }
         catch { setTemplates([]) }
     }, [])
+
+    const startTemplateRename = useCallback((t: BoardTemplateRecord, e: React.MouseEvent) => {
+        e.stopPropagation()
+        setRenamingTemplateId(t.id)
+        setTemplateRenameValue(t.name)
+    }, [])
+
+    const commitTemplateRename = useCallback(async (id: string) => {
+        const name = templateRenameValue.trim()
+        setRenamingTemplateId(null)
+        if (name) { await renameBoardTemplate(id, name); await refreshTemplates() }
+    }, [templateRenameValue, refreshTemplates])
 
     const openPicker = useCallback(() => { refreshTemplates(); setPickerOpen(true) }, [refreshTemplates])
 
@@ -444,17 +459,24 @@ export function BoardOverview({ boards, activeBoardId, onSelect, onNew, onCreate
                                 </div>
                             ) : (
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12 }}>
-                                    {templates.map(t => (
+                                    {templates.map(t => {
+                                        const hovered = hoveredTemplateId === t.id
+                                        const renaming = renamingTemplateId === t.id
+                                        return (
                                         <div
                                             key={t.id}
-                                            onClick={() => onCreateFromTemplate(t)}
-                                            title="用此模板新建白板"
+                                            onClick={() => { if (!renaming) onCreateFromTemplate(t) }}
+                                            title={renaming ? undefined : '用此模板新建白板'}
+                                            onMouseEnter={() => setHoveredTemplateId(t.id)}
+                                            onMouseLeave={() => setHoveredTemplateId(null)}
                                             style={{
-                                                borderRadius: 10, border: `1px solid ${cardBorderDefault}`, background: cardBg,
-                                                cursor: 'pointer', overflow: 'hidden', display: 'flex', flexDirection: 'column', position: 'relative',
+                                                borderRadius: 10, background: cardBg,
+                                                border: `1px solid ${hovered && !renaming ? '#2563eb' : cardBorderDefault}`,
+                                                boxShadow: hovered && !renaming ? '0 4px 16px rgba(37,99,235,0.18)' : 'none',
+                                                cursor: renaming ? 'default' : 'pointer', overflow: 'hidden',
+                                                display: 'flex', flexDirection: 'column', position: 'relative',
+                                                transition: 'border-color 0.15s, box-shadow 0.15s',
                                             }}
-                                            onMouseEnter={e => { e.currentTarget.style.borderColor = '#2563eb'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(37,99,235,0.18)' }}
-                                            onMouseLeave={e => { e.currentTarget.style.borderColor = cardBorderDefault; e.currentTarget.style.boxShadow = 'none' }}
                                         >
                                             <div style={{ width: '100%', aspectRatio: '16/10', background: thumbBg, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', borderBottom: `1px solid ${thumbBorder}` }}>
                                                 {isRasterThumbnail(t.thumbnail) ? (
@@ -462,18 +484,33 @@ export function BoardOverview({ boards, activeBoardId, onSelect, onNew, onCreate
                                                 ) : (
                                                     <span style={{ fontSize: 22, opacity: 0.15 }}>⧉</span>
                                                 )}
-                                                <button
-                                                    onClick={e => removeTemplate(t.id, e)}
-                                                    title="刪除此模板"
-                                                    style={{ position: 'absolute', top: 6, right: 6, width: 22, height: 22, borderRadius: 6, border: 'none', background: 'rgba(0,0,0,0.5)', color: 'white', cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
-                                                >✕</button>
+                                                {hovered && !renaming && (
+                                                    <div style={{ position: 'absolute', top: 6, right: 6, display: 'flex', gap: 4 }}>
+                                                        <button onClick={e => startTemplateRename(t, e)} title="重新命名"
+                                                            style={{ width: 22, height: 22, borderRadius: 6, border: 'none', background: 'rgba(0,0,0,0.5)', color: 'white', cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>✎</button>
+                                                        <button onClick={e => removeTemplate(t.id, e)} title="刪除此模板"
+                                                            style={{ width: 22, height: 22, borderRadius: 6, border: 'none', background: 'rgba(0,0,0,0.5)', color: 'white', cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>✕</button>
+                                                    </div>
+                                                )}
                                             </div>
                                             <div style={{ padding: '8px 10px' }}>
-                                                <div style={{ fontSize: 13, fontWeight: 500, color: textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.name}</div>
+                                                {renaming ? (
+                                                    <input
+                                                        autoFocus value={templateRenameValue}
+                                                        onChange={e => setTemplateRenameValue(e.target.value)}
+                                                        onBlur={() => commitTemplateRename(t.id)}
+                                                        onKeyDown={e => { if (e.key === 'Enter') commitTemplateRename(t.id); if (e.key === 'Escape') setRenamingTemplateId(null); e.stopPropagation() }}
+                                                        onClick={e => e.stopPropagation()}
+                                                        style={{ width: '100%', border: 'none', borderBottom: `1.5px solid ${textPrimary}`, outline: 'none', fontSize: 13, fontWeight: 500, background: 'transparent', padding: '1px 0', color: textPrimary, boxSizing: 'border-box' }}
+                                                    />
+                                                ) : (
+                                                    <div style={{ fontSize: 13, fontWeight: 500, color: textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.name}</div>
+                                                )}
                                                 <div style={{ fontSize: 11, color: textMuted, marginTop: 1 }}>{formatRelativeDate(t.createdAt)}</div>
                                             </div>
                                         </div>
-                                    ))}
+                                        )
+                                    })}
                                 </div>
                             )}
                         </div>

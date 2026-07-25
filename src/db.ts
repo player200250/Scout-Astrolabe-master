@@ -122,3 +122,7 @@ export async function loadBoardTemplates(): Promise<BoardTemplateRecord[]> {
 export async function deleteBoardTemplate(id: string): Promise<void> {
     return db.table('boardTemplates').delete(id)
 }
+
+export async function renameBoardTemplate(id: string, name: string): Promise<void> {
+    await db.table('boardTemplates').update(id, { name })
+}
