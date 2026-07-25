@@ -13,7 +13,7 @@
 | 檔案 | 狀態職責 |
 |------|---------|
 | `useBoardManager.ts` | 白板 CRUD、垃圾桶、收件匣、備份、導航 |
-| `App.tsx` + `hooks/usePanelState.ts` | 15 個面板開關集中於 `usePanelState`（`panels`/`openPanel`/`closePanel`/`togglePanel`）；App.tsx 另留 `movingCardShapeIds`/`deletingBoardId`/`isDark` |
+| `App.tsx` + `hooks/usePanelState.ts` | 18 個面板開關集中於 `usePanelState`（`panels`/`openPanel`/`closePanel`/`togglePanel`）；App.tsx 另留 `movingCardShapeIds`/`deletingBoardId`/`isDark` |
 | `WhiteboardTools.tsx` | tldraw editor 操作、事件橋接、自動儲存 |
 | `CardShapeUtil.tsx` | 卡片內部狀態（hover、showTextModal、isEditing） |
 
@@ -164,6 +164,7 @@ recentlyTrashedShapeIds         // 防切板後 Ctrl+Z 同步失效的 Set（現
 | `create-board-card-on` | `useBoardManager.handleSetParent()` | `WhiteboardTools` useEffect | `{ targetBoardId: string; linkedBoardId: string; boardName: string }` |
 | `cleanup-orphan-board-cards` | `useBoardManager.handlePermanentDeleteBoard()` | `WhiteboardTools` useEffect | `{ deletedBoardId: string }` |
 | `delete-shape-from-editor` | `useBoardManager.handleMoveCardsToBoard()`（逐張） | `WhiteboardTools` useEffect | `{ shapeId: string }` |
+| `update-shape-props-in-editor` | `useInboxCards`（Inbox Triage）、`useTags`（標籤改名，逐張） | `WhiteboardTools` useEffect | `{ shapeId: string; props: Record<string, unknown> }` |
 | `permanent-delete-shape` | `TrashPanel.handlePermanentDeleteCard()` | `WhiteboardTools` useEffect | `{ shapeId: string; boardId: string }` |
 | `restore-deleted-card` | `TrashPanel.handleRestoreCard()` | `WhiteboardTools` useEffect | `DeletedCardRecord` |
 | `quick-capture-card` | `useBoardManager.handleAddCardToInbox()` | `WhiteboardTools` useEffect（僅 isInboxBoard） | `{ text: string; x: number; y: number; shapeId: string }` |
@@ -181,7 +182,7 @@ recentlyTrashedShapeIds         // 防切板後 Ctrl+Z 同步失效的 Set（現
 
 ## App.tsx Panel 狀態（2026-06-21 起改用 `usePanelState`，A1/TD1）
 
-15 個面板開關不再是 App.tsx 內的個別 boolean `useState`，而是集中於 **`src/hooks/usePanelState.ts`**：
+18 個面板開關不再是 App.tsx 內的個別 boolean `useState`，而是集中於 **`src/hooks/usePanelState.ts`**：
 
 ```typescript
 // usePanelState 回傳 { panels, openPanel, closePanel, togglePanel }
@@ -189,7 +190,11 @@ type PanelName =
   | 'search' | 'hotkey' | 'overview' | 'taskCenter' | 'filter'
   | 'reviewCenter' | 'backup' | 'knowledgeGraph' | 'cardLibrary'
   | 'quickCapture' | 'onboarding' | 'trash' | 'quickSwitcher' | 'overdueBanner'
-  | 'dataSafety'  // N10 資料安全中心（唯讀統計）
+  | 'dataSafety'        // N10 資料安全中心（唯讀統計）
+  | 'commandPalette'    // Ctrl+K 指令面板
+  | 'inboxTriage'       // Ctrl+Shift+E 收件匣快速分類
+  | 'tagManager'        // 標籤管理
+// 同步維護 PANEL_NAMES 陣列（INITIAL_STATE 由它產生）。
 // 用法：panels.search（讀）、openPanel('search')、closePanel('search')、togglePanel('overview')
 ```
 
@@ -217,21 +222,43 @@ App.tsx 僅另外保留兩個帶 payload 的 modal state（非單純開關）與
 | `Ctrl+Shift+L` | toggleCardLibrary |
 | `Ctrl+Space` | toggleQuickCapture |
 | `Ctrl+Shift+T` | toggleTrash |
-| `Ctrl+P` | openQuickSwitcher（Dashboard 模式備援，防止瀏覽器列印） |
+| `Ctrl+Shift+E` | togglePanel('inboxTriage')（收件匣快速分類） |
+| `Ctrl+P` | openPanel('quickSwitcher')（Dashboard 模式備援，防止瀏覽器列印） |
+| `Ctrl+K` | togglePanel('commandPalette')（指令面板） |
 
-在 `useHotkeys.ts`（WhiteboardTools 層）監聽：
+在 **`src/Usehotkeys.tsx`**（注意：檔名大寫 `U`、`.tsx`、位於 `src/` 根，非 `src/hooks/`；`useHotkeys(editor, actions)` hook，掛在 WhiteboardTools 層）監聽全域 `keydown`。`mod` = Mac 上 `metaKey`／其餘 `ctrlKey`。分三段：
+
+**修飾鍵組（在 input 內也生效）**：
 
 | 快捷鍵 | 動作 |
 |--------|------|
 | `Ctrl+Z` / `Ctrl+Shift+Z` / `Ctrl+Y` | undo / redo |
+| `Ctrl+A` | selectAll（input 內不觸發） |
 | `Ctrl+F` | openSearch |
 | `Ctrl+P` | openQuickSwitcher |
 | `Ctrl+/` | openHotkeyPanel |
-| `N` | createTextCard |
-| `T` | createTodoCard |
+| `Ctrl+=` / `Ctrl++` / `Ctrl+-` / `Ctrl+0` | zoomIn / zoomOut / resetZoom |
+| `Ctrl+D` | 複製選取 shape（input 內不觸發） |
+| `Ctrl+Shift+F` | 有選取→zoomToSelection，否則 zoomToFit |
+| `Ctrl+Delete` / `Ctrl+Backspace` | onDeleteShapes（input 內不觸發） |
+
+**非修飾鍵（僅非 input 時觸發）—— 工具切換**：`V` select、`H` hand、`A` arrow、`E` eraser、`P` draw。
+
+**非修飾鍵 —— 建卡與編輯**：
+
+| 快捷鍵 | 動作 |
+|--------|------|
+| `N` / `Shift+N` | createTextCard / createHeadingCard |
+| `T` / `Shift+T` | createTodoCard / createTableCard |
 | `L` | createLinkCard |
 | `I` | openImageInput |
-| `Delete` | onDeleteShapes（含寫入垃圾桶） |
+| `S` | createStickyCard |
+| `Delete` / `Backspace` | onDeleteShapes（含寫入垃圾桶） |
+| `Escape` | 切回 select 工具 + 取消選取 |
+| `?` | openHotkeyPanel |
+| `↑` / `↓` / `←` / `→` | nudge 選取 shape 1px（`Shift` 為 10px） |
+
+> ⚠️ 選用 action（`createStickyCard`/`createHeadingCard`/`createTableCard`/`openQuickSwitcher`/`onDeleteShapes`）在 `HotkeyActions` 是 optional，未接時該鍵 no-op。
 
 ---
 

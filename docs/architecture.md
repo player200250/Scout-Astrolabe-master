@@ -14,7 +14,7 @@
 |------|------|
 | `src/main.tsx` | React 進入點；`StrictMode` + **根節點 `ErrorBoundary`** 包覆 `<App />`（2026-06-21），並掛 全域 `error`/`unhandledrejection` 浮層，避免無聲白屏 |
 | `src/App.tsx` | 根元件，組合頂層 UI；panel 開關狀態已抽至 `hooks/usePanelState.ts`（A1），另留 `movingCardShapeIds`/`deletingBoardId`/`isDark` |
-| `src/hooks/usePanelState.ts` | 14 個面板開關集中管理（`panels`/`openPanel`/`closePanel`/`togglePanel`）|
+| `src/hooks/usePanelState.ts` | 18 個面板開關集中管理（`panels`/`openPanel`/`closePanel`/`togglePanel`）|
 | `src/hooks/useBoardManager.ts` | 白板狀態機；已拆為 8 個領域 sub-hook 的合成層（對外 API 不變）|
 | `src/components/Whiteboard.tsx` | 單一白板的 tldraw 容器元件（內層另以 ErrorBoundary 包覆）|
 | `src/components/ErrorBoundary.tsx` | React Error Boundary；同時用於根節點（main.tsx）與 Whiteboard 內層 |
@@ -39,9 +39,11 @@
 桌面層     Electron 37
 前端層     React 19 + TypeScript 5.8 + Vite 7
 畫布引擎   tldraw v3（ShapeUtil 擴充：CardShapeUtil）
-富文本     TipTap 2（StarterKit + Underline + TextStyle + Color + CodeBlockLowlight）
-資料持久化 Dexie.js → IndexedDB（schema v7）
-匯出       jsPDF（離線 PDF）、exportToBlob（tldraw 內建 PNG）
+富文本     TipTap 2（StarterKit〔codeBlock 停用〕+ Underline + TextStyle + Color
+           + CodeBlockLowlight + Link + Highlight + Placeholder
+           + 自製 node：Callout / Toggle / MathBlock〔katex〕）
+資料持久化 Dexie.js → IndexedDB（schema v8）
+匯出       jsPDF（離線 PDF）、exportToBlob（tldraw PNG）、exportMarkdown（自製 HTML→MD）
 知識圖譜   react-force-graph-2d
 拖曳排序   @dnd-kit/core + @dnd-kit/sortable
 ```
@@ -53,7 +55,7 @@
 ```
 ┌─────────────────────────────────────────────────────┐
 │  App.tsx（根元件）                                   │
-│  ├─ Panel 開關狀態（searchOpen / taskCenterOpen...） │
+│  ├─ Panel 開關狀態（usePanelState：panels.search…）  │
 │  ├─ 呼叫 useBoardManager → 取得所有白板操作函式      │
 │  ├─ Whiteboard（active board）                       │
 │  └─ BoardTabBar（側邊欄）                            │
@@ -157,7 +159,7 @@ tldraw 預設雙擊 shape 進入編輯模式；此處覆蓋後，雙擊行為完
 
 ### thumbnail 只存 raster
 
-`loadAllBoards()` 在讀取時會把舊的 SVG thumbnail（非 `data:image/png;...` 或 `jpeg`）清除為 `null`，避免 UI 渲染異常。
+`loadAllBoards()` 在讀取時會把舊的 SVG thumbnail（非 `data:image/png;`、`jpeg;` 或 `webp;` base64）清除為 `null`，避免 UI 渲染異常。
 
 ---
 
@@ -165,7 +167,7 @@ tldraw 預設雙擊 shape 進入編輯模式；此處覆蓋後，雙擊行為完
 
 - `WhiteboardTools` 以 `key={activeBoard.id}` 掛載，切換白板時整個元件 re-mount，所有 ref / state 重置。`recentlyTrashedShapeIds` 已特別提升到 `useBoardManager` 避免被重置。
 - `useBoardManager` 中多數 `useCallback` 依賴 `boards`（array reference），每次儲存都會重建 callback；此模式目前可接受，但若效能問題出現，考慮改用 `useReducer` 或 Zustand。
-- Electron 環境下 `window.electronAPI` 存在；純 Web dev 模式（`npm run dev`）下不存在，相關按鈕（儲存）不顯示。
+- Electron 環境下 `window.electronAPI` 存在；純 Web dev 模式（`npm run dev`）下不存在，依賴它的入口（附件上傳、連結預覽等）以 `src/platform/` 接縫的能力守衛隱藏。（工具列「儲存」鈕連同 `save-document` 已於 2026-07-25 整條移除——日常存檔本就走 Dexie 自動存檔，非該鈕。）
 
 ## 待確認
 
