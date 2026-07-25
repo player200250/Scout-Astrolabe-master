@@ -243,6 +243,8 @@ export async function saveDocument(data: string): Promise<void> {
 
 好處：Web 版本和 Electron 版本可共用邏輯，測試時可 mock platform 層。
 
+> **現況更新（2026-07）**：此建議大致已落地＝**S0(a) Electron IPC 平台抽象**，`src/platform/` 現有 `imageStore`／`linkOpener`／`linkPreview`／`fileStore`／`quickCapture` 五接縫（＋能力守衛 `canAttachFile`／`canSaveImage` 等）。**上方 `saveDocument` 只是當年的示意**——該條 IPC（`save-document`）連同工具列「儲存」鈕已於 2026-07-25 整條退場（見 electron-ipc.md），故此範例不代表現有程式碼。
+
 ### 2. Context 替代 prop drilling
 
 `BacklinksContext` 是好的起點。建議延伸：
