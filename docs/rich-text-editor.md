@@ -198,6 +198,8 @@ const newH = Math.max(currentH, estimatedH)  // 只擴大不縮小
 
 高度計算是估算值（每行 28px + 80px padding），不是精確測量。`preventResize` 模式跳過此計算。
 
+> **含 Toggle 的卡片另有 auto-fit（方案 A）**：唯讀時用 `ResizeObserver` 觀察 `.tiptap-readonly` 自然高度，隨展開/收合 `updateShape` 貼合（常數 `TOGGLE_FIT_{MAX_H 800／MIN_H 80／CHROME 28}`）。RO callback 包 `requestAnimationFrame` 消除 ResizeObserver loop 警告。
+
 ---
 
 ## 檢視模式（View Mode）
@@ -216,6 +218,8 @@ const processedHtml = useMemo(() => {
 ```
 
 使用 `dangerouslySetInnerHTML={{ __html: processedHtml }}`。
+
+> `processedHtml` 除了上面的 wiki-link 正則替換，**還會用 `DOMParser` 在每個 `<details>` 的 `<summary>` 開頭注入 `<span class="toggle-caret" data-toggle-caret>▶</span>`**（Toggle 唯讀收合的點擊目標——必須是真實元素，CSS `::before` 無法用 `elementFromPoint` 分辨「點的是三角形還是標題」）。唯讀內容再以 `useMemo([processedHtml])` 鎖成穩定 React 元素，避免 auto-fit 重繪洗掉原生收合狀態。
 
 ### 點擊 wiki-link 的事件攔截
 

@@ -16,8 +16,10 @@
 | `src/CalendarView.tsx` | 月曆視圖（`CalendarContent`，嵌入 `ReviewCenter`） |
 | `src/WeeklyReview.tsx` | 週回顧統計（獨立側邊板 + 可嵌入） |
 | `src/ReviewCenter.tsx` | 三合一復盤中心（月曆 + 日記 + 週回顧） |
-| `src/hooks/useBoardManager.ts` | `handleSaveJournal`、`handleGoToWeeklyCard`、`handleSetJournal` |
-| `src/utils/date.ts` | `toDateStr`、`getTodayStr`、`getISOWeekKey` |
+| `src/hooks/useJournal.ts` | `handleSetJournal`、`handleSaveJournal`（TD2 後居此子 hook，經 useBoardManager 回傳） |
+| `src/hooks/useBoardManager.ts` | `handleGoToWeeklyCard`（跨領域，仍留合成層） |
+| `src/utils/date.ts` | `toDateStr`、`getTodayStr`、`getWeekLaterStr`、`formatDueDate`、`formatRelativeDate` |
+| `src/utils/weeklyReviewUtils.ts` | `getISOWeekKey`、`getWeekRange`（**getISOWeekKey 在此，非 date.ts／WeeklyReview.tsx**） |
 
 ---
 
@@ -30,14 +32,14 @@
 右鍵選單 → 「設為 Journal 白板」→ `handleSetJournal(boardId, true)`
 
 ```typescript
-// useBoardManager.ts — handleSetJournal
+// useJournal.ts — handleSetJournal（TD2 後居此子 hook）
 const handleSetJournal = useCallback((boardId: string, isJournal: boolean) => {
     const board = boards.find(b => b.id === boardId)
     if (!board) return
     const updated = { ...board, isJournal }
-    saveBoard(updated).catch(err => console.error(err))
+    saveBoard(updated)
     setBoards(prev => prev.map(b => b.id === boardId ? updated : b))
-}, [boards])
+}, [boards, setBoards])
 ```
 
 同一時間可以有多個 `isJournal = true` 的白板，但實際上僅有一個時，各功能行為最符合預期：
@@ -70,7 +72,7 @@ const handleSetJournal = useCallback((boardId: string, isJournal: boolean) => {
 `JournalDayView` 在每次自動儲存時呼叫 `onSaveJournal`：
 
 ```typescript
-// useBoardManager.ts — handleSaveJournal
+// useJournal.ts — handleSaveJournal（TD2 後居此子 hook）
 const handleSaveJournal = useCallback((boardId, dateStr, html, shapeId) => {
     const board = boards.find(b => b.id === boardId)
     if (!board) return
@@ -78,29 +80,34 @@ const handleSaveJournal = useCallback((boardId, dateStr, html, shapeId) => {
     const store = snap.document.store
 
     if (shapeId && store[shapeId]) {
-        // 已存在 → 更新 text
-        store[shapeId] = { ...store[shapeId], props: { ...store[shapeId].props, text: html } }
+        // 已存在 → 就地更新 props.text
+        const rec = store[shapeId]
+        if (rec.props) rec.props['text'] = html; else rec.props = { text: html }
     } else {
-        // 不存在 → 建立新 shape
-        const newId = `shape:${generateId()}`
-        store[newId] = {
-            id: newId, typeName: 'shape', type: 'card',
-            parentId: /* pageId */,
+        // 不存在 → 建立新 shape（用 snapshotCards 樣板算 page/index/x）
+        const pageId = ensurePageScaffold(store)
+        const newIndex = lastShapeIndex(store) + 'V'
+        const newShapeId = `shape:jd_${dateStr.replace(/-/g, '')}_${Math.random().toString(36).slice(2, 7)}`  // shape:jd_20260725_ab3xk
+        store[newShapeId] = {
+            typeName: 'shape', id: newShapeId, type: 'card',
+            x: nextAppendX(store), y: 100, index: newIndex, parentId: pageId,
+            rotation: 0, isLocked: false, opacity: 1, meta: {},
             props: {
                 type: 'journal', journalDate: dateStr, text: html,
-                color: 'yellow', state: 'idle', preview: '',
-                w: 480, h: 320,
-                // 其他欄位...
+                color: 'yellow', state: 'idle', preview: '', w: 280, h: 380,
+                image: null, todos: [], url: '', linkEmbedUrl: null,
+                cardStatus: 'none', priority: 'none', tags: [],
             },
-            // x, y 自動計算（避免與現有 shapes 重疊）
         }
     }
 
     const updated = { ...board, snapshot: toTLEditorSnapshot(snap), updatedAt: Date.now() }
-    saveBoard(updated).catch(err => console.error(err))
+    saveBoard(updated)
     setBoards(prev => prev.map(b => b.id === boardId ? updated : b))
-}, [boards])
+}, [boards, setBoards])
 ```
+
+> 新卡 id 前綴 `jd_`＋日期（去橫線）＋random5；尺寸 **w:280 h:380**（非 480×320）；x 由 `nextAppendX` 附加、y 固定 100（不做重疊偵測）——回答了舊「待確認」的 x/y 計算問題。
 
 **建立 vs 更新**：若 `shapeId` 有值且 store 中存在，就更新；否則建立新 shape。
 
@@ -111,7 +118,7 @@ const handleSaveJournal = useCallback((boardId, dateStr, html, shapeId) => {
 ### 週格式計算（`getISOWeekKey`）
 
 ```typescript
-// src/WeeklyReview.tsx
+// src/utils/weeklyReviewUtils.ts（從 WeeklyReview.tsx 拆出；另有 getWeekRange）
 export function getISOWeekKey(date: Date): string {
     const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
     const dayNum = d.getUTCDay() || 7   // 週一=1，週日=7
@@ -288,7 +295,7 @@ type ReviewTab = 'calendar' | 'journal' | 'weekly'
 ## 待確認
 
 - `getISOWeekKey` 在跨年週（如 12/31 屬於下一年第 1 週）的計算是否正確？（程式碼使用 ISO 8601，理論上正確，但需邊緣案例驗證）
-- `handleSaveJournal` 建立新卡片時的 x/y 座標計算邏輯？（summary 階段未完整讀取此部分）
+- ~~`handleSaveJournal` 建立新卡片時的 x/y 座標計算邏輯？~~ **已確認**：x = `nextAppendX(store)`（附加在最右卡之後）、y 固定 100，不做重疊偵測；新卡尺寸 w:280 h:380。
 
 ## 外部參考
 
