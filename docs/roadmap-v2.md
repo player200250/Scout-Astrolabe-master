@@ -379,7 +379,9 @@ Markdown → TipTap 使用 `marked`（新增依賴，或手動解析常見語法
 **工作量**：~1 人天（M）——schema/表＋型別（小）、2 handler（小，套現成 `loadSnapshot`/`sanitizeSnapshot`/`handleCreateBoard`）、UI 挑選器（中）、單元測試（mock Dexie，比照 `boardDb.test.ts` 測 `saveBoardTemplate`/`createBoardFromTemplate` 純資料邏輯）。
 **前置依賴**：無。**優先序**：🟡 中。
 
-> **✅ 實作落地（2026-07-25，`8043580`）**：照上述設計完成。落點：`db.ts`（v9 `boardTemplates` 表＋`BoardTemplateRecord`＋`saveBoardAsTemplate`/`loadBoardTemplates`/`deleteBoardTemplate`）、`useBoardManager.handleCreateBoardFromTemplate`、`BoardOverview`（卡片 hover ⧉ 存模板＋頂部「⧉ 從模板」挑選器）。**兩個實作決定與設計不同**：①**未剔除 board 卡連結**（開放問題 1）——與匯出/匯入 JSON 同語意保持一致，不特別處理；②**存模板不跳名稱輸入**——Electron 不支援 `window.prompt`，改用預設名「<板名> 模板」，挑選器可刪除。build 0、428 測試綠、CDP 驗一輪往返（存 12 卡模板→挑選器→建板→新板 12 卡全對）。
+> **✅ 實作落地（2026-07-25，`8043580`）**：照上述設計完成。落點：`db.ts`（v9 `boardTemplates` 表＋`BoardTemplateRecord`＋`saveBoardAsTemplate`/`loadBoardTemplates`/`deleteBoardTemplate`）、`useBoardManager.handleCreateBoardFromTemplate`、`BoardOverview`（卡片 hover ⧉ 存模板＋頂部「⧉ 從模板」挑選器）。**兩個實作決定與設計不同**：①**未剔除 board 卡連結**（開放問題 1）——與匯出/匯入 JSON 同語意保持一致，不特別處理；②**存模板不跳名稱輸入**——Electron 不支援 `window.prompt`，改用預設名「<板名> 模板」。build 0、428 測試綠、CDP 驗一輪往返（存 12 卡模板→挑選器→建板→新板 12 卡全對）。
+>
+> **擴充（`4547688`）**：③側邊欄白板右鍵選單加「⧉ 存為白板模板」（與 BoardOverview 的 ⧉ 互補）；④模板改名（`renameBoardTemplate`＋挑選器卡 hover ✎ inline input）；⑤挑選器卡 hover ✎/✕、高亮打磨。皆 CDP 眼驗。
 
 ### 三、建議排程（波次）
 
