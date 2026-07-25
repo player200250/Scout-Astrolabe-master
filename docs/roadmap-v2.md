@@ -332,7 +332,7 @@ Markdown → TipTap 使用 `marked`（新增依賴，或手動解析常見語法
 
 ### 二、新增功能候選（AI 提案去重 + 校正後）
 
-> ⚠️ 已實作、勿當新功能重做：**卡片模板系統**（右鍵已有內建+自訂模板）、**Markdown 匯出**（`exportMarkdown.ts`）、**JSON 匯入匯出**、Onboarding modal、暗色模式、Journal 每日自動建卡、週回顧、日曆檢視、Vitest。
+> ⚠️ 已實作、勿當新功能重做：**卡片模板系統**（右鍵已有內建+自訂模板，**注意：只存單一文字卡的 HTML，非整塊白板**——「整板存為模板」是未做的新功能 N19）、**Markdown 匯出**（`exportMarkdown.ts`）、**JSON 匯入匯出**、Onboarding modal、暗色模式、Journal 每日自動建卡、週回顧、日曆檢視、Vitest。
 
 | ID | 功能 | 優先序 | 前置依賴 | 校正 / 落點 |
 |----|------|--------|---------|------------|
@@ -354,6 +354,30 @@ Markdown → TipTap 使用 `marked`（新增依賴，或手動解析常見語法
 | N16 | 完整 Vault Export（.astrolabe 打包） | 🟡 中 | **依賴 E1（v1.4.0）**（TD-IMG ✅ 已完成） | 打包 boards+cards+files+backups+settings；重疊 E1 |
 | N17 | 備份保留數設定 | 🟡 中 | ✅ **TD-IMG 已完成，前置解除** | image 卡已改存實體檔，base64 不再內嵌；放大備份數風險大降，仍建議加容量警告 |
 | N18 | 大型 Vault 效能模式（只載 metadata 安全模式） | 🔴 高（長期） | **依賴 A3-ext**（TD-IMG ✅ 已完成） | 架構級；延遲載入 snapshot、容量偵測；TD-IMG 已拔除 base64 圖片病根，剩 snapshot 常駐待 A3-ext |
+| N19 | **白板模板**（整板存為模板 + 從模板一鍵新建白板） | 🟡 中（2026-07-25 使用者提出） | 無（infra 齊全，見下設計） | 見下方「N19 設計」 |
+
+#### N19 — 白板模板 設計（2026-07-25 記錄，未實作）
+
+**背景**：現有「模板系統」只存**單一文字卡的 HTML**（`templates` 表＋右鍵「從模板新增」生一張文字卡），**存不了整塊白板佈局**。使用者用本 App 做遊戲 GDD（dogfood「星塵拾荒者」12 卡 7 型別）後，想把整塊多卡佈局存成可重複使用的模板。
+
+**零改動的現成替代（先頂著）**：**匯出 / 匯入 JSON 已經是「檔案版白板模板」**——`exportJSON` 存整塊 `{ snapshot }`、`importJSON`→`loadSnapshot` 重建（12 卡連座標一起回來）。N19＝把這條路變成「App 內命名 + 一鍵」，不再手動管 `.json`。
+
+**資料層**：新增 Dexie 表 `boardTemplates`（schema 升到 **v9**），`stores: 'id, createdAt'`；型別 `BoardTemplateRecord { id, name, snapshot: TLEditorSnapshot|null, thumbnail: string|null, createdAt: number }`。
+- **不用** 在 `boards` 加 `isTemplate` 旗標——會污染側欄清單／backups／到處都要 filter；獨立表最乾淨（與現有 `templates`／`backups` 表同構）。
+
+**存模板 handler（`saveBoardTemplate`）**：讀當前板 `snapshot`（`structuredClone` 解耦，比照 `toMutableSnapshot`）＋ `thumbnail` → 寫 `boardTemplates`。入口：`BoardOverview` 卡片選單或 board tab 右鍵「存為白板模板」；name 預設 `board.name + ' 模板'`（modal 可改）。
+
+**建板 handler（`createBoardFromTemplate`）**：`handleCreateBoard(name)` 建新 `BoardRecord` → 其 `snapshot = sanitizeSnapshot(clone(template.snapshot))`（**套 `sanitizeSnapshot`，與 import 同一段**）→ `saveBoard` → 切板。新板的 tldraw store 是隔離的，**shape id 可沿用、不需重生**（不像跨板搬卡）。
+
+**UI（工作量主體）**：白板模板挑選器（縮圖＋名＋刪除鈕，比照文字卡模板已有的刪除）；入口 `BoardOverview` 加「＋ 從模板新建」。
+
+**⚠️ 開放問題（實作前要定）**：
+1. **模板板內若含 `board` 卡**（`linkedBoardId` 指向別板）：clone 後連結指向原板、可能不存在或非本意 → 建議**存模板時把 board 卡的 `linkedBoardId` 設 null 或剔除**。`[[wiki]]` 文字連結無害（就是純文字）。
+2. **`image` 卡的 `storedName`** 指向 `userData/files/`：同機 clone 共用檔案 OK；若日後模板要跨機分享，附件得一起打包（出本功能範圍，見 N16 Vault Export）。
+3. thumbnail 是 base64 PNG，數量少、非 backup×30 情境，OOM 風險低（TD-IMG 後 snapshot 也不含 base64 大圖）。
+
+**工作量**：~1 人天（M）——schema/表＋型別（小）、2 handler（小，套現成 `loadSnapshot`/`sanitizeSnapshot`/`handleCreateBoard`）、UI 挑選器（中）、單元測試（mock Dexie，比照 `boardDb.test.ts` 測 `saveBoardTemplate`/`createBoardFromTemplate` 純資料邏輯）。
+**前置依賴**：無。**優先序**：🟡 中。
 
 ### 三、建議排程（波次）
 
