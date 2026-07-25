@@ -180,6 +180,25 @@ Effects 共 4 個：onboarding 首開、逾期橫幅計時、`data-theme` 套用
 
 ---
 
+### TD8：無 design token，全 inline style（開放，中優先）
+
+**問題**：每個元件都是大段 `style={{…}}` + 寫死色值，主題全靠 `isDark ? '#…' : '#…'` 到處重複（`index.css` 也用字面色值、無 CSS 變數，見記憶 `gotcha_appcss_is_dead`）。新增元件要手動配每個顏色去對齊既有風格。
+**建議**：抽一層 theme token（明暗色值集中），元件改讀 token。**投報最高**——每個元件受惠、順手收掉散落的 `isDark ? :`。詳見 [dev-experience.md](dev-experience.md)。
+
+### TD9：缺共用 `toast` + `inline-input` primitive（開放，中優先）
+
+**問題**：回饋用阻塞式 `alert()`；命名東西（board/folder/template）各自重造 inline input；且 **Electron renderer 不支援 `window.prompt`**（N19 存模板因此只能用預設名）。
+**建議**：做一個非阻塞 toast + 一個共用 inline-input/命名 modal primitive，統一取代散落的 alert 與各處自製輸入框。
+
+### TD10：UI god components（開放，高價值高風險）
+
+**問題**：`WhiteboardTools.tsx` 800+ 行（editor 操作＋建卡＋事件橋接＋自動存檔＋匯出＋工具列全塞一起）；`BoardTabBar`／`ContextMenu` 也偏大。hooks 已拆漂亮，components 未享同等重構。
+**建議**：拆分。⚠️ **風險高**——這些互動碼**零自動測試**（見 [testing-strategy.md](testing-strategy.md)），宜**等 E2E（Playwright）建起再動**，否則沒安全網。
+
+> 以上 TD8–TD10 來自 [dev-experience.md](dev-experience.md)（2026-07-26 開發體驗評估）。
+
+---
+
 ## App.tsx 職責分析
 
 | 職責 | 目前位置 | 建議 |
@@ -197,13 +216,18 @@ Effects 共 4 個：onboarding 首開、逾期橫幅計時、`data-theme` 套用
 
 | 優先度 | 技術債 | 狀態 | 建議時機 |
 |--------|--------|------|---------|
-| 🔴 高 | TD1：App.tsx 面板狀態 | 已盤點未動工（2026-06-20） | 新增第 15 個面板前（目前 13 個，先不動，讓重構跟功能走） |
+| 🔴 高 | TD1：App.tsx 面板狀態 | ✅ 核心已完成（A1，`usePanelState`）；主檔≤200 行未達（現實標準已放寬） | 已集中 18 個面板於 `usePanelState`，新增面板只加名字 |
 | ✅ 完成 | TD2：useBoardManager 拆分 | 已解決（677→303 行，commit `783386d`） | — |
 | ✅ 完成 | TD3：CustomEvent 型別安全 | 已解決 `c7661c8` | — |
 | ✅ 完成 | TD4：useBacklinks 增量更新 | 已解決 `34b0da4`（千板以上觀察 A3-ext） | — |
 | ✅ 完成 | TD5：stripHtml 統一 | 已解決（2026-06-20，7 處 → `utils/stringUtils.ts`） | — |
 | ✅ 完成 | TD6：SearchPanel 防抖＋索引 | 已解決 `ff38071` | — |
 | ✅ 完成 | TD7：孤兒元件清理 | 已解決（2026-06-20，刪 CalendarView/JournalDayView standalone + useFileStorage） | — |
+| 🟡 中 | TD8：無 design token（全 inline style） | 開放（2026-07-26） | **投報最高**，可先做 |
+| 🟡 中 | TD9：缺 toast + inline-input primitive | 開放（2026-07-26） | 連帶解 alert 擾民＋Electron 無 prompt |
+| 🟢 高價值高風險 | TD10：拆 UI god components（WhiteboardTools 800+） | 開放（2026-07-26） | **等 E2E 建起再動**（互動碼無測試網） |
+
+> TD8–TD10 見 [dev-experience.md](dev-experience.md)。
 
 ---
 

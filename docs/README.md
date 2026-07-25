@@ -19,6 +19,7 @@
 | [build-and-release.md](build-and-release.md) | 開發環境、Vite 建置、Windows NSIS 封裝 |
 | [trash-lifecycle.md](trash-lifecycle.md) | 卡片/白板軟刪除、14 天自動清除、Ctrl+Z 同步 |
 | [testing-strategy.md](testing-strategy.md) | 測試現況、高風險脆弱點、自動化測試建議 |
+| [dev-experience.md](dev-experience.md) | **開發體驗評估**：在此 codebase 開發的感受——優點＋做起來卡的系統性小坑＋先修排序（theme token／toast+inline-input／拆 god component） |
 | [search-and-links.md](search-and-links.md) | 全文搜尋、[[]] 雙向連結、BacklinksPanel、知識圖譜 |
 | [rich-text-editor.md](rich-text-editor.md) | TipTap 設定、格式支援、[[]] 自動補全、HTML 儲存格式 |
 | [journal-review.md](journal-review.md) | Journal 白板、每日卡片、週回顧、月曆、ReviewCenter |
