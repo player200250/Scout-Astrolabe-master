@@ -8,7 +8,7 @@ import { useState, useEffect, useCallback } from 'react'
 import type { BoardRecord } from '../db'
 import { db } from '../db'
 import { loadSyncConfig, saveSyncConfig, isSyncConfigured, type SyncConfig } from '../sync/syncConfig'
-import { signIn, signOut, getCurrentSession, resetSupabase } from '../sync/supabaseClient'
+import { signIn, signOut, getCurrentSession } from '../sync/supabaseClient'
 import { pushBoard, pullBoard, listRemoteBoards, decideSync, type RemoteBoardSummary } from '../sync/boardSync'
 import { getCardShapes } from '../utils/snapshot'
 import { showToast } from '../utils/toast'
@@ -65,15 +65,16 @@ export function CloudSyncPanel({ boards, activeBoardId, onClose }: CloudSyncPane
 
     const handleSaveConfig = useCallback(() => {
         saveSyncConfig(config)
-        resetSupabase() // 設定換了，強制下次重建 client
-        setConfig(loadSyncConfig())
+        // 不必 resetSupabase()：getSupabase() 以設定內容為快取鍵，變了會自己重建。
+        // 每次都 reset 反而會一直生新的 GoTrueClient 實例（supabase-js 會警告）。
+        setConfig(loadSyncConfig()) // 讀回正規化後的值，讓使用者看到實際會用的 URL
         showToast('已儲存連線設定', 'success')
     }, [config])
 
     const handleSignIn = useCallback(async () => {
         setBusy('signin')
         saveSyncConfig(config)
-        resetSupabase()
+        setConfig(loadSyncConfig())
         const res = await signIn(email.trim(), password)
         setBusy(null)
         if (!res.ok) { showToast(res.error ?? '登入失敗', 'error'); return }
@@ -84,7 +85,6 @@ export function CloudSyncPanel({ boards, activeBoardId, onClose }: CloudSyncPane
 
     const handleSignOut = useCallback(async () => {
         await signOut()
-        resetSupabase()
         setUserEmail(null)
         setRemote(null)
         setPulled(null)

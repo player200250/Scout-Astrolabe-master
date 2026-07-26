@@ -59,6 +59,10 @@
 | `src/components/CloudSyncPanel.tsx` | 側邊欄 ⋯ →「☁️ 雲端同步」：填設定 → 登入 → 推 / 列 / 取回 → 明確確認後才覆蓋本機 |
 | [cloud-sync-setup.md](cloud-sync-setup.md) | 使用者端的五步設定指南 |
 
+**端到端已驗（2026-07-26，真實 Supabase 專案）**：推一塊有內容的板（6 張卡／6 種型別／18KB 縮圖）→ 列出雲端 → 取回，逐項比對本機 IndexedDB 與雲端列：`name`／`updated_at`／卡片數／卡片型別／縮圖**全部一致**；snapshot 的 `JSON.stringify` 逐字元**不相同**但**遞迴排序鍵後完全相同**（4294 bytes）——即 Postgres `jsonb` 只重排鍵、沒有掉資料。**這正好證實 `decideSync` 只比 `updatedAt`、不比 snapshot 內容的設計是必要的**：逐字元比對必然誤判成有差異。
+
+**設定時踩到的坑（已修）**：Project URL 若貼成 Data API endpoint（`https://xxx.supabase.co/rest/v1`），supabase-js 會再接一段而組出 `/rest/v1/auth/v1/token` → 登入 404。`normalizeSupabaseUrl()` 現在一律砍成 origin，並自動補 scheme。
+
 **尚未做（S0(b) 後續）**：自動同步（存檔後推）、輪詢拉取、全量同步（目前一次一塊板）、活躍板遠端較新時的提示、`deletedAt` 軟刪除的雙向套用、圖片接 Supabase Storage。
 
 **設計取捨備忘**：

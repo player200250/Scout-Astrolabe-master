@@ -43,7 +43,7 @@ S0(b) 的**探路階段**：把一塊白板推上雲、再拉回來。
 
 | 要複製的 | 長相 |
 |---------|------|
-| **Project URL** | `https://xxxxxxxxxxxx.supabase.co` |
+| **Project URL** | `https://xxxxxxxxxxxx.supabase.co`（**只要 origin，後面別帶 `/rest/v1` 之類的路徑**；真的帶了 App 也會自動砍掉） |
 | **anon public** key | `eyJhbGciOiJIUzI1NiIs...`（很長一串） |
 
 > anon key 是**設計上可公開**的值（它會被打包進 App），安全性完全靠步驟 2 的 RLS。
@@ -82,6 +82,7 @@ S0(b) 的**探路階段**：把一塊白板推上雲、再拉回來。
 | 登入時「Email 或密碼錯誤」 | 帳號是在 **Authentication → Users** 建的那組，不是資料庫密碼 |
 | 「這個帳號還沒完成 Email 驗證」 | 建 user 時沒勾 Auto Confirm。後台把該 user 的 email_confirmed 設起來即可 |
 | 「連不上 Supabase」 | Project URL 打錯（要含 `https://`、結尾是 `.supabase.co`），或網路不通 |
+| 登入時 console 出現 `/rest/v1/auth/v1/token 404` | Project URL 貼到帶路徑的 Data API endpoint（`https://xxx.supabase.co/rest/v1`）。App 現在會自動砍掉路徑只留 origin，舊設定重按一次「儲存設定」即可 |
 | 推送時 `new row violates row-level security policy` | 沒登入，或 schema.sql 沒跑完整。重跑步驟 2 |
 | 推送時 `relation "public.boards" does not exist` | 步驟 2 的 SQL 沒執行成功 |
 

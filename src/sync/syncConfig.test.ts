@@ -22,6 +22,31 @@ describe('syncConfig', () => {
         expect(loadSyncConfig().url).toBe('https://abc.supabase.co')
     })
 
+    // 這組是真的踩過的：Supabase 後台有些欄位顯示的是 Data API endpoint
+    // `https://xxx.supabase.co/rest/v1`，貼進來的話 supabase-js 會再接一段，
+    // 組出 /rest/v1/auth/v1/token 而 404。正規化必須把路徑砍掉只留 origin。
+    it('貼到帶路徑的 Data API endpoint（/rest/v1）會被砍成 origin', () => {
+        saveSyncConfig({ url: 'https://abc.supabase.co/rest/v1', anonKey: LONG_KEY })
+        expect(loadSyncConfig().url).toBe('https://abc.supabase.co')
+    })
+
+    it('其他常見誤貼的路徑一樣砍掉（/auth/v1、後台 dashboard 網址）', () => {
+        saveSyncConfig({ url: 'https://abc.supabase.co/auth/v1/', anonKey: LONG_KEY })
+        expect(loadSyncConfig().url).toBe('https://abc.supabase.co')
+        saveSyncConfig({ url: 'https://abc.supabase.co/rest/v1?apikey=xxx', anonKey: LONG_KEY })
+        expect(loadSyncConfig().url).toBe('https://abc.supabase.co')
+    })
+
+    it('沒打 https:// 也能用（自動補上）', () => {
+        saveSyncConfig({ url: 'abc.supabase.co', anonKey: LONG_KEY })
+        expect(loadSyncConfig().url).toBe('https://abc.supabase.co')
+    })
+
+    it('自架 Supabase 的非標準 port 會保留', () => {
+        saveSyncConfig({ url: 'http://localhost:54321/rest/v1', anonKey: LONG_KEY })
+        expect(loadSyncConfig().url).toBe('http://localhost:54321')
+    })
+
     it('前後空白會被清掉（貼上時很容易帶到）', () => {
         saveSyncConfig({ url: '  https://abc.supabase.co  ', anonKey: `  ${LONG_KEY}  ` })
         expect(loadSyncConfig()).toEqual({ url: 'https://abc.supabase.co', anonKey: LONG_KEY })

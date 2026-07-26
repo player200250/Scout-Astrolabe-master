@@ -27,10 +27,30 @@ export function loadSyncConfig(): SyncConfig {
     }
 }
 
+/**
+ * 把使用者貼進來的東西正規化成 supabase-js 要的 **origin**（`https://xxx.supabase.co`）。
+ *
+ * ⚠️ 這裡的重點是**砍掉路徑**：Supabase 後台有些欄位顯示的是 Data API endpoint
+ * `https://xxx.supabase.co/rest/v1`，直接貼進來的話 supabase-js 會在後面再接一段，
+ * 組出 `/rest/v1/auth/v1/token` 這種不存在的路徑，登入就 404（實際踩過）。
+ * 順手補上沒打的 scheme，以及去掉前後空白與尾端斜線。
+ */
+export function normalizeSupabaseUrl(raw: string): string {
+    const trimmed = raw.trim()
+    if (!trimmed) return ''
+    const withScheme = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
+    try {
+        return new URL(withScheme).origin
+    } catch {
+        // 連 URL 都 parse 不了就原樣留著，讓 isSyncConfigured 去擋、使用者自己看得到填錯了
+        return trimmed.replace(/\/+$/, '')
+    }
+}
+
 export function saveSyncConfig(config: SyncConfig): void {
     try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify({
-            url: config.url.trim().replace(/\/+$/, ''), // 去掉尾端斜線，否則組出來的 API path 會多一槓
+            url: normalizeSupabaseUrl(config.url),
             anonKey: config.anonKey.trim(),
         }))
     } catch { /* localStorage 滿了或被禁用：同步設定不存也不該讓 App 掛掉 */ }

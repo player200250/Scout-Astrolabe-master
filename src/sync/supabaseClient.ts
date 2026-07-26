@@ -16,6 +16,9 @@ export function getSupabase(): SupabaseClient | null {
     const config = loadSyncConfig()
     if (!isSyncConfigured(config)) return null
 
+    // 以「設定內容」為快取鍵：設定沒變就重用同一個 client。
+    // ⚠️ 每次 createClient 都會生一個 GoTrueClient，多個實例共用同一個 storage key
+    // 會被 supabase-js 警告（Multiple GoTrueClient instances），所以不能每次登入都重建。
     const key = `${config.url}|${config.anonKey}`
     if (client && clientKey === key) return client
 
