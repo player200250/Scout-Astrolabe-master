@@ -39,12 +39,32 @@
 
 | 階段 | 內容 | 產出 | 估時 |
 |------|------|------|------|
-| **S0 平台抽象 + 同步骨幹** | (a) 把 Electron 專屬呼叫（`window.electronAPI`、檔案 IPC）收進 `src/platform/` 抽象層，web 端走 fallback（= roadmap-v2 P1）。(b) 桌機接 Supabase：推本機變更、拉遠端變更、輪詢更新 `boards` state；單帳號 + RLS | 桌機資料能上雲、能拉回 | 3–4 天 |
+| **S0 平台抽象 + 同步骨幹** | (a) ✅ 已完成（`c438395`）把 Electron 專屬呼叫收進 `src/platform/`。(b) 🟡 **探路段已完成（2026-07-26）**：`src/sync/` + 雲端同步面板，手動推一塊板／拉回、單帳號 + RLS。**尚未做**：自動同步、輪詢、全量同步、衝突提示 | 桌機資料能上雲、能拉回 | 3–4 天 |
 | **S1 手機捕捉** | 極簡 PWA：登入 → 速記丟進收件匣 → 同步回桌機 | **出門速記**（命中最大痛點） | 1.5 天 |
 | **S2 手機檢視** | PWA 讀全部白板、列出卡片（複用桌機卡片擷取邏輯）；唯讀 | 在外**查全部** | 2 天 |
 | **S3 手機簡單編輯** | 改文字、勾待辦、改標籤/狀態/優先級 → patch 回 snapshot → 同步 | **看全部 + 簡單編輯** 達成 | 2–3 天 |
 
 **合計約 9–12 天**，是全專案最大的一塊。
+
+### S0(b) 進度（2026-07-26）
+
+**已完成（探路段）**——目標是先證明整條 本機 → Supabase → 本機 的鏈路在真實服務上通得了，故刻意只做手動動作、不碰既有存檔流程：
+
+| 產出 | 說明 |
+|------|------|
+| `supabase/schema.sql` | 雲端 `boards` 表（鏡像 `BoardRecord`）＋ RLS 政策＋索引。可重複執行 |
+| `src/sync/syncConfig.ts` | 連線設定存 localStorage（不用 `.env`＝改設定免重 build，金鑰不進 git，日後 PWA 同一套填法） |
+| `src/sync/supabaseClient.ts` | lazy client（設定變更可重建）＋ email/密碼登入＋常見錯誤轉中文 |
+| `src/sync/boardSync.ts` | `pushBoard` / `pullBoard` / `listRemoteBoards` / `deleteRemoteBoard`＋純函式 `toRemoteRow`／`fromRemoteRow`／`decideSync`（整板 LWW） |
+| `src/components/CloudSyncPanel.tsx` | 側邊欄 ⋯ →「☁️ 雲端同步」：填設定 → 登入 → 推 / 列 / 取回 → 明確確認後才覆蓋本機 |
+| [cloud-sync-setup.md](cloud-sync-setup.md) | 使用者端的五步設定指南 |
+
+**尚未做（S0(b) 後續）**：自動同步（存檔後推）、輪詢拉取、全量同步（目前一次一塊板）、活躍板遠端較新時的提示、`deletedAt` 軟刪除的雙向套用、圖片接 Supabase Storage。
+
+**設計取捨備忘**：
+- `updated_at` 用**本機的 epoch 毫秒**存成 `bigint`，不是 `timestamptz`——兩端比大小才不會有時區/精度問題。
+- `decideSync` 只比 `updatedAt`，**不比 snapshot 內容**：tldraw snapshot 的鍵順序不保證穩定，逐欄比對會一直誤判成有差異。
+- 覆蓋本機做成「先取回預覽 → 再按覆蓋」兩步，且覆蓋後 `window.location.reload()`——探路階段不處理「畫布正開著這塊板」的即時換頁。
 
 **共用程式碼**：手機 PWA 放進**同一個 repo**，用 Vite web target 編譯，直接 import 桌機的 snapshot 工具。這同時把 roadmap-v2 的 **X2（Web PWA）+ P1（平台抽象）** 一併帶到。
 

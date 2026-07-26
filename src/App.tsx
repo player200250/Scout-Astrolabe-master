@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useBoardManager } from './hooks/useBoardManager'
 import { usePanelState } from './hooks/usePanelState'
 import { ThemeProvider } from './theme/ThemeContext'
+import { CloudSyncPanel } from './components/CloudSyncPanel'
 import { ToastHost } from './components/ui/ToastHost'
 import { PromptHost } from './components/ui/PromptHost'
 import { onTriggerQuickCapture } from './platform/quickCapture'
@@ -450,6 +451,14 @@ export default function App() {
                         >稍後再說</button>
                     </div>
                 </div>
+            )}
+
+            {panels.cloudSync && (
+                <CloudSyncPanel
+                    boards={boards}
+                    activeBoardId={activeBoardId}
+                    onClose={() => closePanel('cloudSync')}
+                />
             )}
 
             {/* TD9：全域 UI primitive 的渲染端。掛一次即可，任何地方都能用
