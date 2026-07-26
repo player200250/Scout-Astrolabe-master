@@ -70,6 +70,26 @@ export interface AppEventPayloads {
         y: number
         shapeId: string
     }
+
+    /**
+     * 顯示一則非阻塞通知（TD9，取代 alert）。
+     * 走事件匯流排是刻意的——這樣 utils/hooks 這些非元件的地方也能像 alert() 一樣隨處呼叫，
+     * 由 App 掛的 <ToastHost/> 統一渲染。請用 utils/toast.ts 的 showToast() 而非直接 emit。
+     */
+    'ui-toast': { message: string; kind: 'info' | 'success' | 'error' }
+
+    /**
+     * 要求使用者輸入一個名稱（TD9，取代 Electron renderer 不支援的 window.prompt）。
+     * payload 帶 resolve callback＝把「一問一答」架在單向事件匯流排上；
+     * 請用 utils/promptName.ts 的 promptName() 取得 Promise 介面，別直接 emit。
+     */
+    'ui-prompt': {
+        title: string
+        defaultValue: string
+        placeholder?: string
+        confirmLabel?: string
+        resolve: (value: string | null) => void
+    }
 }
 
 export type AppEventName = keyof AppEventPayloads

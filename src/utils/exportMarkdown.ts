@@ -1,6 +1,7 @@
 import type { TLShape } from 'tldraw'
 import type { TLCardShape, TLCardProps } from '../components/card-shape/type/CardShape'
 import { stripHtml } from './stringUtils'
+import { showToast } from './toast'
 
 function nodeToMarkdown(node: Node): string {
     if (node.nodeType === Node.TEXT_NODE) return node.textContent ?? ''
@@ -130,11 +131,11 @@ export function exportBoardToMarkdown(shapes: TLShape[], boardName: string): voi
         .map(s => cardToMarkdown((s as unknown as TLCardShape).props))
         .filter((s): s is string => s !== null && s.trim() !== '')
 
-    if (sections.length === 0) { alert('白板沒有可匯出的卡片'); return }
+    if (sections.length === 0) { showToast('白板沒有可匯出的卡片'); return }
     download(sections.join('\n\n---\n\n') + '\n', boardName)
 }
 
 export function exportSelectedToMarkdown(shapes: TLShape[], boardName: string): void {
-    if (shapes.length === 0) { alert('請先選取卡片'); return }
+    if (shapes.length === 0) { showToast('請先選取卡片'); return }
     exportBoardToMarkdown(shapes, boardName)
 }

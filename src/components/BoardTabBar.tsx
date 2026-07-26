@@ -12,6 +12,9 @@ import { isRasterThumbnail } from '../utils/boardDb'
 import { SidebarFooter } from './SidebarFooter'
 import { SIDEBAR_WIDTH, SIDEBAR_COLLAPSED_WIDTH, INBOX_BOARD_ID, Z_MODAL_BACKDROP, Z_MODAL, Z_CLICK_AWAY } from '../constants'
 import { T } from '../theme/tokens'
+import { promptName } from '../utils/promptName'
+import { showToast } from '../utils/toast'
+import { InlineEdit } from './ui/InlineEdit'
 
 interface NavItemDef {
     icon: string
@@ -75,7 +78,6 @@ function SortableBoardItem({ id, children }: { id: string; children: React.React
 export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelete, onOpenPanel, onSetJournal, navigationStack, onBack, onSetParent, onSwitchToChild, collapsed, onToggleCollapse, onSetStatus, onGoToInbox,  onToggleTheme, onReorderBoards, inboxCardCount, overdueCount, todayCount, activePanel, trashCount, onCreateFolder, onSetFolder, onDeleteFolder }: BoardTabBarProps) {
     const [hoveredId, setHoveredId] = useState<string | null>(null)
     const [renamingId, setRenamingId] = useState<string | null>(null)
-    const [renameValue, setRenameValue] = useState('')
     const [contextMenu, setContextMenu] = useState<{ boardId: string; y: number } | null>(null)
     const [selectingParentFor, setSelectingParentFor] = useState<string | null>(null)
     const [archivedOpen, setArchivedOpen] = useState(false)
@@ -92,8 +94,9 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
         useSensor(PointerSensor, { activationConstraint: { delay: 500, tolerance: 8 } })
     )
 
-    const startRename = (board: BoardRecord) => { setRenamingId(board.id); setRenameValue(board.name) }
-    const commitRename = (id: string) => { if (renameValue.trim()) onRename(id, renameValue.trim()); setRenamingId(null) }
+    // 改名的輸入框行為統一由 <InlineEdit/> 負責（TD9），這裡只留「改哪一個」與「改完做什麼」
+    const startRename = (board: BoardRecord) => { setRenamingId(board.id) }
+    const commitRename = (id: string, value: string) => { if (value.trim()) onRename(id, value.trim()); setRenamingId(null) }
 
     const sidebarWidth = collapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_WIDTH
 
@@ -345,13 +348,11 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                                     }
                                 </div>
                                 {renamingId === board.id ? (
-                                    <input
-                                        autoFocus value={renameValue}
-                                        onChange={e => setRenameValue(e.target.value)}
-                                        onBlur={() => commitRename(board.id)}
-                                        onKeyDown={e => { if (e.key === 'Enter') commitRename(board.id); if (e.key === 'Escape') setRenamingId(null); e.stopPropagation() }}
-                                        onClick={e => e.stopPropagation()}
-                                        style={{ flex: 1, border: 'none', borderBottom: `1px solid ${T.borderMid}`, outline: 'none', fontSize: 12, background: 'transparent', padding: '1px 0', minWidth: 0, color: 'var(--text-primary)' }}
+                                    <InlineEdit
+                                        value={board.name}
+                                        onCommit={v => commitRename(board.id, v)}
+                                        onCancel={() => setRenamingId(null)}
+                                        style={{ flex: 1, border: 'none', borderBottom: `1px solid ${T.borderMid}`, fontSize: 12, padding: '1px 0', minWidth: 0 }}
                                     />
                                 ) : (
                                     <span
@@ -492,17 +493,15 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                                                 >
                                                     <span style={{ fontSize: 8, color: 'var(--text-muted)', transition: 'transform 0.15s', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block', flexShrink: 0 }}>▶</span>
                                                     {renamingId === folder.id ? (
-                                                        <input
-                                                            autoFocus value={renameValue}
-                                                            onChange={e => setRenameValue(e.target.value)}
-                                                            onBlur={() => { if (renameValue.trim()) onRename(folder.id, renameValue.trim()); setRenamingId(null) }}
-                                                            onKeyDown={e => { if (e.key === 'Enter') { if (renameValue.trim()) onRename(folder.id, renameValue.trim()); setRenamingId(null) } if (e.key === 'Escape') setRenamingId(null); e.stopPropagation() }}
-                                                            onClick={e => e.stopPropagation()}
-                                                            style={{ flex: 1, border: 'none', borderBottom: `1px solid ${T.borderMid}`, outline: 'none', fontSize: 10, background: 'transparent', padding: '1px 0', color: 'var(--text-primary)', fontWeight: 700, letterSpacing: '0.7px', textTransform: 'uppercase' }}
+                                                        <InlineEdit
+                                                            value={folder.name}
+                                                            onCommit={v => commitRename(folder.id, v)}
+                                                            onCancel={() => setRenamingId(null)}
+                                                            style={{ flex: 1, border: 'none', borderBottom: `1px solid ${T.borderMid}`, fontSize: 10, padding: '1px 0', fontWeight: 700, letterSpacing: '0.7px', textTransform: 'uppercase' }}
                                                         />
                                                     ) : (
                                                         <span
-                                                            onDoubleClick={e => { e.stopPropagation(); setRenamingId(folder.id); setRenameValue(folder.name) }}
+                                                            onDoubleClick={e => { e.stopPropagation(); setRenamingId(folder.id) }}
                                                             style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.7px', textTransform: 'uppercase', userSelect: 'none', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
                                                         >
                                                             📁 {folder.name}{folderBoards.length > 0 ? ` (${folderBoards.length})` : ''}
@@ -647,10 +646,22 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                             <div style={{ height: 1, background: menuDivider, margin: '4px 0' }} />
                             <div
                                 onClick={() => {
-                                    saveBoardAsTemplate(targetBoard)
-                                        .then(() => alert(`已存為白板模板「${targetBoard.name} 模板」\n在「所有白板」總覽按「⧉ 從模板」即可一鍵新建。`))
-                                        .catch(() => alert('存為模板失敗，請重試。'))
                                     setContextMenu(null)
+                                    void (async () => {
+                                        const name = await promptName({
+                                            title: '存為白板模板',
+                                            defaultValue: `${targetBoard.name} 模板`,
+                                            placeholder: '模板名稱',
+                                            confirmLabel: '儲存',
+                                        })
+                                        if (name === null) return
+                                        try {
+                                            await saveBoardAsTemplate(targetBoard, name)
+                                            showToast(`已存為白板模板「${name}」\n在「所有白板」總覽按「⧉ 從模板」即可一鍵新建。`, 'success')
+                                        } catch {
+                                            showToast('存為模板失敗，請重試。', 'error')
+                                        }
+                                    })()
                                 }}
                                 style={{ padding: '7px 14px', cursor: 'pointer', fontSize: 13, color: menuText }}
                                 onMouseEnter={e => (e.currentTarget.style.background = menuItemHover)}
@@ -677,13 +688,11 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                                                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                                             >
                                                 {renamingId === child.id ? (
-                                                    <input
-                                                        autoFocus defaultValue={child.name}
-                                                        onBlur={() => commitRename(child.id)}
-                                                        onKeyDown={e => { if (e.key === 'Enter') commitRename(child.id); if (e.key === 'Escape') setRenamingId(null); e.stopPropagation() }}
-                                                        onChange={e => setRenameValue(e.target.value)}
-                                                        onClick={e => e.stopPropagation()}
-                                                        style={{ flex: 1, border: 'none', borderBottom: `1px solid ${menuMuted}`, outline: 'none', fontSize: 13, background: 'transparent', padding: '4px 0', color: menuText }}
+                                                    <InlineEdit
+                                                        value={child.name}
+                                                        onCommit={v => commitRename(child.id, v)}
+                                                        onCancel={() => setRenamingId(null)}
+                                                        style={{ flex: 1, border: 'none', borderBottom: `1px solid ${menuMuted}`, fontSize: 13, padding: '4px 0', color: menuText }}
                                                     />
                                                 ) : (
                                                     <div
@@ -732,7 +741,7 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                         <div style={{ position: 'fixed', inset: 0, zIndex: Z_CLICK_AWAY }} onClick={() => setFolderContextMenu(null)} />
                         <div style={{ position: 'fixed', right: sidebarWidth, top: folderContextMenu.y, background: menuBg, borderRadius: 10, padding: '4px 0', boxShadow: menuShadow, border: `1px solid ${menuBorderC}`, zIndex: Z_MODAL, minWidth: 160 }}>
                             <div style={{ padding: '4px 12px 6px', fontSize: 11, color: menuMuted, borderBottom: `1px solid ${menuDivider}`, marginBottom: 4 }}>{folder.name}</div>
-                            <div onClick={() => { setRenamingId(folder.id); setRenameValue(folder.name); setFolderContextMenu(null) }} style={{ padding: '7px 14px', cursor: 'pointer', fontSize: 13, color: menuText }} onMouseEnter={e => (e.currentTarget.style.background = menuItemHover)} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>✎ 重新命名</div>
+                            <div onClick={() => { setRenamingId(folder.id); setFolderContextMenu(null) }} style={{ padding: '7px 14px', cursor: 'pointer', fontSize: 13, color: menuText }} onMouseEnter={e => (e.currentTarget.style.background = menuItemHover)} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>✎ 重新命名</div>
                             <div style={{ height: 1, background: menuDivider, margin: '4px 0' }} />
                             <div onClick={() => { onDeleteFolder(folderContextMenu.folderId); setFolderContextMenu(null) }} style={{ padding: '7px 14px', cursor: 'pointer', fontSize: 13, color: '#e03131' }} onMouseEnter={e => (e.currentTarget.style.background = deleteHover)} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>🗑️ 刪除資料夾</div>
                         </div>

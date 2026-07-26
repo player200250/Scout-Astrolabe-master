@@ -4,6 +4,7 @@ import { db, type BoardRecord } from '../db'
 import { deleteBoard, saveBoard } from '../utils/boardDb'
 import { cleanupOrphanBoardCards } from '../utils/boardSanitize'
 import { onAppEvent } from '../utils/appEvents'
+import { showToast } from '../utils/toast'
 
 /** useTrash 需共用的核心 board state（由 useBoardManager 傳入） */
 export interface TrashSharedState {
@@ -51,7 +52,7 @@ export function useTrash(state: TrashSharedState) {
         // Dexie doesn't remove the field on put; explicitly delete via update
         const updated = await db.table('boards').update(id, { deletedAt: undefined })
         if (updated === 0) {
-            alert('還原失敗，請重試。')
+            showToast('還原失敗，請重試。', 'error')
             return
         }
         setBoards(prev => [...prev, restored])

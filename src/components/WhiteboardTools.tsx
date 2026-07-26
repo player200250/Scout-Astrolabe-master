@@ -24,6 +24,7 @@ import { exportBtnStyle } from '../utils/whiteboardUtils'
 import { EXAMPLE_CARDS, EXAMPLE_SEED_FLAG } from '../utils/exampleBoard'
 import * as imageStore from '../platform/imageStore'
 import { T } from '../theme/tokens'
+import { showToast } from '../utils/toast'
 
 function isCardShape(s: { type: string }): s is TLCardShape {
     return s.type === 'card'
@@ -525,7 +526,7 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
         const allIds = Array.from(editor.getCurrentPageShapeIds())
         const selectedIds = Array.from(editor.getSelectedShapeIds())
         const ids = selectedOnly ? selectedIds : allIds
-        if (ids.length === 0) { alert(selectedOnly ? '請先選取卡片' : '白板沒有卡片'); return }
+        if (ids.length === 0) { showToast(selectedOnly ? '請先選取卡片' : '白板沒有卡片'); return }
         const blob = await exportToBlob({ editor, ids, format: 'png', opts: { background: true, scale: 2 } })
         const url = URL.createObjectURL(blob)
         const a = document.createElement('a')
@@ -537,7 +538,7 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
         const allIds = Array.from(editor.getCurrentPageShapeIds())
         const selectedIds = Array.from(editor.getSelectedShapeIds())
         const ids = selectedOnly ? selectedIds : allIds
-        if (ids.length === 0) { alert(selectedOnly ? '請先選取卡片' : '白板沒有卡片'); return }
+        if (ids.length === 0) { showToast(selectedOnly ? '請先選取卡片' : '白板沒有卡片'); return }
         const blob = await exportToBlob({ editor, ids, format: 'png', opts: { background: true, scale: 2 } })
         const imgUrl = URL.createObjectURL(blob)
         const img = new Image()

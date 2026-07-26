@@ -29,7 +29,7 @@
 ## 先修（投報高 → 低）
 
 1. ~~**抽一層 theme token**~~ **✅ 已完成（2026-07-26）**：集中明暗色值，順手收掉散落的 `isDark ? :`，並修好 83 處一直靜默失效的 `var(--…)`（定義在死檔 App.css）。
-2. **共用 `toast` + `inline-input` primitive**（← 現在的第一順位）：連帶解掉 `alert()` 擾民（阻塞式原生視窗）與 **Electron 不支援 `window.prompt`**（N19 存模板就因此改用預設名）。目前 board/folder/template 各自重造 inline input。
+2. ~~**共用 `toast` + `inline-input` primitive**~~ **✅ 已完成（2026-07-26，TD9）**：`showToast()` 取代 11 處阻塞式 `alert()`；`promptName()` 補上 Electron 缺的 `window.prompt`（實機確認它會丟 `prompt() is not supported.`，這正是 N19 存模板只能用預設名的原因）；`<InlineEdit/>` 收斂 board/folder/template/tag 共 5 處各自重造的改名輸入框。
 3. **拆 `WhiteboardTools`**：價值高但**風險也高（互動碼沒測試網）**，宜等 E2E（Playwright）建起來再動。
 
 ## 不是「修」得掉的（要接受並管理）
@@ -42,4 +42,4 @@
 
 **當工具用很穩、當開發對象有兩個系統性小坑**——(1) 缺 theme token、(2) 缺共用 toast/inline-input primitive。兩者補起來成本不高、每個新功能都受惠，是投報最高的下一步基礎建設。
 
-> **2026-07-26 更新**：(1) 已完成（TD8，見 [refactor-roadmap.md](refactor-roadmap.md)）。(2) TD9 仍開放，現為投報最高的下一項。
+> **2026-07-26 更新**：兩項**都已完成**（TD8 design token、TD9 toast+inline-input primitive，見 [refactor-roadmap.md](refactor-roadmap.md)）。剩下的結構性項目是 TD10（拆 god components），但那要等 E2E 測試網建起來才動。

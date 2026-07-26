@@ -22,6 +22,7 @@ import { useFolder } from './useFolder'
 import { useJournal } from './useJournal'
 import { useInboxCards } from './useInboxCards'
 import { useTags } from './useTags'
+import { showToast } from '../utils/toast'
 
 const TRASH_EXPIRE_MS = 14 * 86400000
 
@@ -166,7 +167,7 @@ export function useBoardManager() {
             await deleteBoard(id)
         } catch (err) {
             console.error('[handlePermanentDeleteBoard] DB 刪除失敗', err)
-            alert('刪除失敗，請重試。')
+            showToast('刪除失敗，請重試。', 'error')
             return
         }
 

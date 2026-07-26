@@ -169,6 +169,10 @@ recentlyTrashedShapeIds         // 防切板後 Ctrl+Z 同步失效的 Set（現
 | `restore-deleted-card` | `TrashPanel.handleRestoreCard()` | `WhiteboardTools` useEffect | `DeletedCardRecord` |
 | `quick-capture-card` | `useBoardManager.handleAddCardToInbox()` | `WhiteboardTools` useEffect（僅 isInboxBoard） | `{ text: string; x: number; y: number; shapeId: string }` |
 | `trash-count-changed` | `WhiteboardTools`（Ctrl+Z undo sync）、`TrashPanel.handlePermanentDeleteCard()` | `useBoardManager` useEffect | `undefined`（無 payload） |
+| `ui-toast` | `utils/toast.ts` 的 `showToast()`（TD9） | `components/ui/ToastHost`（App 掛載一次） | `{ message: string; kind: 'info' \| 'success' \| 'error' }` |
+| `ui-prompt` | `utils/promptName.ts` 的 `promptName()`（TD9） | `components/ui/PromptHost`（App 掛載一次） | `{ title, defaultValue, placeholder?, confirmLabel?, resolve: (v: string \| null) => void }` |
+
+（共 13 個事件，快照日期 2026-07-26）
 
 ### 特別說明
 
@@ -177,6 +181,9 @@ recentlyTrashedShapeIds         // 防切板後 Ctrl+Z 同步失效的 Set（現
 2. `{ targetName }`：依白板名稱切換（`boards.find(b => b.name.toLowerCase() === targetName.toLowerCase())`）
 
 **`quick-capture-card`** 只有當前板為 inbox 時才在 editor 建立 shape；非 inbox 板會忽略。`useBoardManager.handleAddCardToInbox()` 同時更新 inbox 的 snapshot（供非 inbox 板的 inboxCardCount 計算），以及發送事件（供 inbox 板的 editor 即時顯示）。
+
+**`ui-toast` / `ui-prompt`（TD9）** 是刻意走事件匯流排的 UI primitive：這樣 `utils/`、`hooks/` 這些**非元件**的程式碼也能像從前呼叫 `alert()` 一樣隨處通知使用者。呼叫端請用 `showToast()` / `promptName()`，不要直接 `emitAppEvent`。
+`ui-prompt` 的 payload 帶 `resolve` callback＝把「一問一答」架在單向匯流排上，`promptName()` 對外包成 Promise；**取消時 resolve(null) 而非永遠 pending**，否則呼叫端的 `await` 會卡死。
 
 ---
 

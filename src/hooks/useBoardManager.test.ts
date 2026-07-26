@@ -671,17 +671,18 @@ describe('useBoardManager — 垃圾桶', () => {
     })
 
     it('handleRestoreBoard DB 更新回 0（失敗）時跳警告且不放回清單', async () => {
-        const alertSpy = vi.fn()
-        vi.stubGlobal('alert', alertSpy)
+        // TD9 後警告改走非阻塞 toast（appEvents），不再是阻塞式 alert
+        const toastSpy = vi.fn()
+        const offToast = onAppEvent('ui-toast', toastSpy)
         const { result } = await setup()
         tbl().get.mockResolvedValueOnce(board({ id: 'r1', name: '還原板', deletedAt: 123 }))
         tbl().update.mockResolvedValueOnce(0) // 更新 0 筆 = 失敗
 
         await act(async () => { await result.current.handleRestoreBoard('r1') })
 
-        expect(alertSpy).toHaveBeenCalled()
+        expect(toastSpy).toHaveBeenCalledWith({ message: '還原失敗，請重試。', kind: 'error' })
         expect(result.current.boards.find(b => b.id === 'r1')).toBeUndefined()
-        vi.unstubAllGlobals()
+        offToast()
     })
 })
 

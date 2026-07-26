@@ -16,6 +16,7 @@ import { hexToRgba } from '../utils/cardMeta'
 import { Z_PANEL } from '../constants'
 import { T } from '../theme/tokens'
 import { useIsDark } from '../theme/ThemeContext'
+import { InlineEdit } from './ui/InlineEdit'
 
 export interface TagManagerProps {
     boards: BoardRecord[]
@@ -29,6 +30,7 @@ export function TagManager({ boards, onRewriteTag, onClose }: TagManagerProps) {
     const stats = useMemo(() => collectTagStats(boards), [boards])
     const [colors, setColors] = useState<TagColorMap>(() => loadTagColors())
     const [editing, setEditing] = useState<string | null>(null)
+    // 旁邊那顆「儲存」鈕需要拿到目前輸入值 → 用 InlineEdit 的 onChange 同步一份
     const [draft, setDraft] = useState('')
     const [error, setError] = useState<string | null>(null)
     const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
@@ -56,7 +58,7 @@ export function TagManager({ boards, onRewriteTag, onClose }: TagManagerProps) {
         })
     }, [])
 
-    const commitRename = useCallback((tag: string) => {
+    const commitRename = useCallback((tag: string, draft: string) => {
         const next = normalizeTagName(draft)
         const err = validateTagName(draft, tag)
         if (err) {
@@ -75,7 +77,7 @@ export function TagManager({ boards, onRewriteTag, onClose }: TagManagerProps) {
             return updated
         })
         setEditing(null)
-    }, [draft, existingTags, onRewriteTag])
+    }, [existingTags, onRewriteTag])
 
     const commitDelete = useCallback((tag: string) => {
         onRewriteTag(tag, null)
@@ -132,18 +134,18 @@ export function TagManager({ boards, onRewriteTag, onClose }: TagManagerProps) {
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                 <span style={{ width: 9, height: 9, borderRadius: '50%', background: color, flexShrink: 0 }} />
                                 {isEditing ? (
-                                    <input
-                                        autoFocus
-                                        value={draft}
-                                        onChange={e => { setDraft(e.target.value); setError(null) }}
-                                        onKeyDown={e => {
-                                            if (e.key === 'Enter') { e.preventDefault(); commitRename(stat.tag) }
-                                            if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setEditing(null) }
-                                        }}
+                                    <InlineEdit
+                                        value={stat.tag}
+                                        onCommit={v => commitRename(stat.tag, v)}
+                                        onCancel={() => setEditing(null)}
+                                        onChange={v => { setDraft(v); setError(null) }}
+                                        /* 有驗證的欄位不能失焦即送出——錯誤訊息還沒看到就被關掉了 */
+                                        commitOnBlur={false}
+                                        hasError={!!error}
                                         style={{
                                             flex: 1, minWidth: 0, fontSize: 13, padding: '4px 8px',
-                                            borderRadius: 6, border: `1.5px solid ${error ? '#dc2626' : '#2563eb'}`,
-                                            background: inputBg, color: titleColor, outline: 'none',
+                                            borderRadius: 6, border: `1.5px solid ${T.accent}`,
+                                            background: inputBg, color: titleColor,
                                         }}
                                     />
                                 ) : (
@@ -182,7 +184,7 @@ export function TagManager({ boards, onRewriteTag, onClose }: TagManagerProps) {
                                     </div>
                                     <div style={{ display: 'flex', gap: 6 }}>
                                         <button
-                                            onClick={() => commitRename(stat.tag)}
+                                            onClick={() => commitRename(stat.tag, draft)}
                                             style={{ flex: 1, padding: '5px 0', borderRadius: 7, border: 'none', background: '#2563eb', color: 'white', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
                                         >儲存</button>
                                         <button

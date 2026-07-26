@@ -4,6 +4,9 @@ import { saveBoardAsTemplate, loadBoardTemplates, deleteBoardTemplate, renameBoa
 import { isRasterThumbnail } from '../utils/boardDb'
 import { formatRelativeDate } from '../utils/date'
 import { T } from '../theme/tokens'
+import { showToast } from '../utils/toast'
+import { promptName } from '../utils/promptName'
+import { InlineEdit } from './ui/InlineEdit'
 
 interface BoardOverviewProps {
     boards: BoardRecord[]
@@ -21,7 +24,6 @@ export function BoardOverview({ boards, activeBoardId, onSelect, onNew, onCreate
     const [searchQuery, setSearchQuery] = useState('')
     const [hoveredId, setHoveredId] = useState<string | null>(null)
     const [renamingId, setRenamingId] = useState<string | null>(null)
-    const [renameValue, setRenameValue] = useState('')
     const [archiveFilter, setArchiveFilter] = useState<'all' | 'archived'>('all')
     const [selectionMode, setSelectionMode] = useState(false)
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -31,7 +33,6 @@ export function BoardOverview({ boards, activeBoardId, onSelect, onNew, onCreate
     const [templates, setTemplates] = useState<BoardTemplateRecord[]>([])
     const [hoveredTemplateId, setHoveredTemplateId] = useState<string | null>(null)
     const [renamingTemplateId, setRenamingTemplateId] = useState<string | null>(null)
-    const [templateRenameValue, setTemplateRenameValue] = useState('')
 
     const refreshTemplates = useCallback(async () => {
         try { setTemplates(await loadBoardTemplates()) }
@@ -41,23 +42,29 @@ export function BoardOverview({ boards, activeBoardId, onSelect, onNew, onCreate
     const startTemplateRename = useCallback((t: BoardTemplateRecord, e: React.MouseEvent) => {
         e.stopPropagation()
         setRenamingTemplateId(t.id)
-        setTemplateRenameValue(t.name)
     }, [])
 
-    const commitTemplateRename = useCallback(async (id: string) => {
-        const name = templateRenameValue.trim()
+    const commitTemplateRename = useCallback(async (id: string, value: string) => {
+        const name = value.trim()
         setRenamingTemplateId(null)
         if (name) { await renameBoardTemplate(id, name); await refreshTemplates() }
-    }, [templateRenameValue, refreshTemplates])
+    }, [refreshTemplates])
 
     const openPicker = useCallback(() => { refreshTemplates(); setPickerOpen(true) }, [refreshTemplates])
 
-    // 註：Electron 不支援 window.prompt，故用預設名「<板名> 模板」直接存；挑選器可刪除。
     const saveAsTemplate = useCallback(async (board: BoardRecord, e: React.MouseEvent) => {
         e.stopPropagation()
-        await saveBoardAsTemplate(board)
+        // TD9 起可以真的問名字了（Electron 沒有 window.prompt，先前只能用預設名）
+        const name = await promptName({
+            title: '存為白板模板',
+            defaultValue: `${board.name} 模板`,
+            placeholder: '模板名稱',
+            confirmLabel: '儲存',
+        })
+        if (name === null) return
+        await saveBoardAsTemplate(board, name)
         await refreshTemplates()
-        alert(`已存為白板模板「${board.name} 模板」\n按頂部「⧉ 從模板」即可一鍵新建。`)
+        showToast(`已存為白板模板「${name}」\n按頂部「⧉ 從模板」即可一鍵新建。`, 'success')
     }, [refreshTemplates])
 
     const removeTemplate = useCallback(async (id: string, e: React.MouseEvent) => {
@@ -81,11 +88,10 @@ export function BoardOverview({ boards, activeBoardId, onSelect, onNew, onCreate
     const startRename = (board: BoardRecord, e: React.MouseEvent) => {
         e.stopPropagation()
         setRenamingId(board.id)
-        setRenameValue(board.name)
     }
 
-    const commitRename = (id: string) => {
-        if (renameValue.trim()) onRename(id, renameValue.trim())
+    const commitRename = (id: string, value: string) => {
+        if (value.trim()) onRename(id, value.trim())
         setRenamingId(null)
     }
 
@@ -218,7 +224,7 @@ export function BoardOverview({ boards, activeBoardId, onSelect, onNew, onCreate
                                 return empties.length > 0 ? empties : []
                             })
                         if (toDelete.length === 0) {
-                            alert('沒有發現重複的空白板。')
+                            showToast('沒有發現重複的空白板。')
                             return
                         }
                         toDelete.forEach(b => onDelete(b.id))
@@ -341,13 +347,11 @@ export function BoardOverview({ boards, activeBoardId, onSelect, onNew, onCreate
 
                             <div style={{ padding: '9px 11px', display: 'flex', alignItems: 'center', gap: 6, minHeight: 42 }}>
                                 {renamingId === board.id ? (
-                                    <input
-                                        autoFocus value={renameValue}
-                                        onChange={e => setRenameValue(e.target.value)}
-                                        onBlur={() => commitRename(board.id)}
-                                        onKeyDown={e => { if (e.key === 'Enter') commitRename(board.id); if (e.key === 'Escape') setRenamingId(null); e.stopPropagation() }}
-                                        onClick={e => e.stopPropagation()}
-                                        style={{ flex: 1, border: 'none', borderBottom: `1.5px solid ${textPrimary}`, outline: 'none', fontSize: 13, fontWeight: 500, background: 'transparent', padding: '2px 0', color: textPrimary }}
+                                    <InlineEdit
+                                        value={board.name}
+                                        onCommit={v => commitRename(board.id, v)}
+                                        onCancel={() => setRenamingId(null)}
+                                        style={{ flex: 1, border: 'none', borderBottom: `1.5px solid ${textPrimary}`, fontSize: 13, fontWeight: 500, padding: '2px 0' }}
                                     />
                                 ) : (
                                     <>
@@ -495,13 +499,11 @@ export function BoardOverview({ boards, activeBoardId, onSelect, onNew, onCreate
                                             </div>
                                             <div style={{ padding: '8px 10px' }}>
                                                 {renaming ? (
-                                                    <input
-                                                        autoFocus value={templateRenameValue}
-                                                        onChange={e => setTemplateRenameValue(e.target.value)}
-                                                        onBlur={() => commitTemplateRename(t.id)}
-                                                        onKeyDown={e => { if (e.key === 'Enter') commitTemplateRename(t.id); if (e.key === 'Escape') setRenamingTemplateId(null); e.stopPropagation() }}
-                                                        onClick={e => e.stopPropagation()}
-                                                        style={{ width: '100%', border: 'none', borderBottom: `1.5px solid ${textPrimary}`, outline: 'none', fontSize: 13, fontWeight: 500, background: 'transparent', padding: '1px 0', color: textPrimary, boxSizing: 'border-box' }}
+                                                    <InlineEdit
+                                                        value={t.name}
+                                                        onCommit={v => commitTemplateRename(t.id, v)}
+                                                        onCancel={() => setRenamingTemplateId(null)}
+                                                        style={{ width: '100%', border: 'none', borderBottom: `1.5px solid ${textPrimary}`, fontSize: 13, fontWeight: 500, padding: '1px 0', boxSizing: 'border-box' }}
                                                     />
                                                 ) : (
                                                     <div style={{ fontSize: 13, fontWeight: 500, color: textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.name}</div>

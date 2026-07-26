@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useBoardManager } from './hooks/useBoardManager'
 import { usePanelState } from './hooks/usePanelState'
 import { ThemeProvider } from './theme/ThemeContext'
+import { ToastHost } from './components/ui/ToastHost'
+import { PromptHost } from './components/ui/PromptHost'
 import { onTriggerQuickCapture } from './platform/quickCapture'
 import { Whiteboard } from './components/Whiteboard'
 import { BoardTabBar } from './components/BoardTabBar'
@@ -449,6 +451,11 @@ export default function App() {
                     </div>
                 </div>
             )}
+
+            {/* TD9：全域 UI primitive 的渲染端。掛一次即可，任何地方都能用
+                showToast() / promptName() 觸發（含 utils、hooks 等非元件的程式碼）。 */}
+            <ToastHost />
+            <PromptHost />
         </ThemeProvider>
     )
 }

@@ -1,4 +1,5 @@
 import type { TLEditorSnapshot } from 'tldraw'
+import { showToast } from './toast'
 
 interface WhiteboardData { snapshot: TLEditorSnapshot | null }
 
@@ -17,7 +18,7 @@ export const importJSON = (file: File, onLoad: (data: WhiteboardData) => void) =
     const reader = new FileReader()
     reader.onload = e => {
         try { onLoad(JSON.parse(e.target!.result as string)) }
-        catch { alert('匯入失敗，檔案格式錯誤') }
+        catch { showToast('匯入失敗，檔案格式錯誤', 'error') }
     }
     reader.readAsText(file)
 }

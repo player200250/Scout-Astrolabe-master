@@ -3,11 +3,12 @@
 //
 // boardExport 兩個函式都帶瀏覽器副作用，需要 jsdom + 替身：
 //   - exportJSON：產生 Blob → URL.createObjectURL → 建 <a> → click → revokeObjectURL
-//   - importJSON：用 FileReader 讀檔，成功就 onLoad(解析結果)，JSON 壞掉就 alert
-// 重點：用假 FileReader 同步觸發 onload，讓「壞檔走 alert」這條分支能確定性驗證。
+//   - importJSON：用 FileReader 讀檔，成功就 onLoad(解析結果)，JSON 壞掉就發 error toast
+// 重點：用假 FileReader 同步觸發 onload，讓「壞檔走 toast」這條分支能確定性驗證。
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { TLEditorSnapshot } from 'tldraw'
 import { exportJSON, importJSON } from './boardExport'
+import { onAppEvent } from './appEvents'
 
 describe('exportJSON', () => {
     // 捕捉傳進 Blob 的內容
@@ -88,15 +89,17 @@ describe('importJSON', () => {
         expect(onLoad).toHaveBeenCalledWith({ snapshot: { hello: 1 } })
     })
 
-    it('壞掉的 JSON → 不呼叫 onLoad，改跳 alert', () => {
+    it('壞掉的 JSON → 不呼叫 onLoad，改發 error toast', () => {
         injectedText = '這不是 JSON{'
-        const alertSpy = vi.fn()
-        vi.stubGlobal('alert', alertSpy)
+        // TD9 後改用非阻塞 toast（走 appEvents 匯流排）取代 alert
+        const toastSpy = vi.fn()
+        const off = onAppEvent('ui-toast', toastSpy)
         const onLoad = vi.fn()
 
         importJSON({} as File, onLoad)
 
         expect(onLoad).not.toHaveBeenCalled()
-        expect(alertSpy).toHaveBeenCalledWith('匯入失敗，檔案格式錯誤')
+        expect(toastSpy).toHaveBeenCalledWith({ message: '匯入失敗，檔案格式錯誤', kind: 'error' })
+        off()
     })
 })

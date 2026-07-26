@@ -195,17 +195,25 @@ Effects 共 4 個：onboarding 首開、逾期橫幅計時、`data-theme` 套用
 
 **驗證**：build 0、428 測試綠、真實 App 亮/暗雙主題改前改後截圖比對無異常、CDP 確認 13 個 token 都解析出實際色值。
 
-### TD9：缺共用 `toast` + `inline-input` primitive（開放，中優先）
+### TD9：缺共用 `toast` + `inline-input` primitive（✅ 已完成 2026-07-26）
 
 **問題**：回饋用阻塞式 `alert()`；命名東西（board/folder/template）各自重造 inline input；且 **Electron renderer 不支援 `window.prompt`**（N19 存模板因此只能用預設名）。
-**建議**：做一個非阻塞 toast + 一個共用 inline-input/命名 modal primitive，統一取代散落的 alert 與各處自製輸入框。
+
+**交付（`src/components/ui/` + `src/utils/`）**：
+- **`showToast(msg, kind?)`（`utils/toast.ts`）＋ `<ToastHost/>`**：非阻塞通知，取代全部 **11 處 `alert()`**。刻意走 `appEvents` 匯流排，所以 `utils/`、`hooks/` 這些非元件的程式碼也能像 alert 一樣隨處呼叫。一般 3.5 秒、錯誤 6 秒後自動消失，可點掉；`Z_TOAST`（本來就預留、一直沒人用）終於接上。
+- **`promptName(opts)`（`utils/promptName.ts`）＋ `<PromptHost/>`**：命名對話框，Promise 介面。**實機確認 Electron 的 `window.prompt` 會直接丟 `prompt() is not supported.`**——這就是 N19 當初只能用預設名的原因。現在「存為白板模板」（總覽 hover ⧉ 與側邊欄右鍵兩個入口）都會真的問名字。取消時 `resolve(null)`，呼叫端不會卡住。
+- **`<InlineEdit/>`（`components/ui/InlineEdit.tsx`）**：就地改名輸入框，取代 **5 處**重複實作（BoardTabBar 白板／資料夾／子板、BoardOverview 白板／模板、TagManager 標籤）。行為統一：Enter 送出、Escape 取消、失焦送出（`commitOnBlur={false}` 可關，給有驗證的欄位）、**擋事件冒泡**（這些輸入框長在 tldraw 畫布／側邊欄裡，不擋會被全域快捷鍵吃掉）。值由元件自己保管，呼叫端因此少了 3 個 `renameValue` state。
+
+**驗證**：build 0、**452 測試綠（+24，三個 primitive 各有測試檔）**；真實 App CDP 眼驗——toast 疊在最上層且不阻塞 renderer、命名對話框預設值自動全選、改名往返（雙擊→改→Enter 進 DB→改回→Escape 取消不寫入）全數正確。
+
+> ⚠️ 量測註記：在被遮蔽的視窗裡 Chromium 會**節流 setTimeout**（實測 3500ms 跑成 4371ms），所以 toast 自動消失的秒數請看單元測試（fake timers），別用實機碼錶量。
 
 ### TD10：UI god components（開放，高價值高風險）
 
 **問題**：`WhiteboardTools.tsx` 800+ 行（editor 操作＋建卡＋事件橋接＋自動存檔＋匯出＋工具列全塞一起）；`BoardTabBar`／`ContextMenu` 也偏大。hooks 已拆漂亮，components 未享同等重構。
 **建議**：拆分。⚠️ **風險高**——這些互動碼**零自動測試**（見 [testing-strategy.md](testing-strategy.md)），宜**等 E2E（Playwright）建起再動**，否則沒安全網。
 
-> 以上 TD8–TD10 來自 [dev-experience.md](dev-experience.md)（2026-07-26 開發體驗評估）。
+> 以上 TD8–TD10 來自 [dev-experience.md](dev-experience.md)（2026-07-26 開發體驗評估）。TD8／TD9 已於同日完成，TD10 仍開放（等 E2E）。
 
 ---
 
@@ -234,7 +242,7 @@ Effects 共 4 個：onboarding 首開、逾期橫幅計時、`data-theme` 套用
 | ✅ 完成 | TD6：SearchPanel 防抖＋索引 | 已解決 `ff38071` | — |
 | ✅ 完成 | TD7：孤兒元件清理 | 已解決（2026-06-20，刪 CalendarView/JournalDayView standalone + useFileStorage） | — |
 | ✅ 完成 | TD8：無 design token（全 inline style） | 已解決（2026-07-26）：`src/theme/` token 層，449→23 處 `isDark ?` | — |
-| 🟡 中 | TD9：缺 toast + inline-input primitive | 開放（2026-07-26） | 連帶解 alert 擾民＋Electron 無 prompt |
+| ✅ 完成 | TD9：缺 toast + inline-input primitive | 已解決（2026-07-26）：`src/components/ui/` 三個 primitive，11 處 alert／5 處自製 input 退場 | — |
 | 🟢 高價值高風險 | TD10：拆 UI god components（WhiteboardTools 800+） | 開放（2026-07-26） | **等 E2E 建起再動**（互動碼無測試網） |
 
 > TD8–TD10 見 [dev-experience.md](dev-experience.md)。

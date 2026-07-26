@@ -24,7 +24,7 @@ export const THUMBNAIL_MIN_INTERVAL_MS = 15000
 // 200   : overlay backdrop（SidebarFooter 小選單背景）
 // Z_MODAL_BACKDROP : modal 半透明遮罩
 // Z_MODAL          : modal 本體
-// Z_TOAST          : 最高層通知（目前未使用）
+// Z_TOAST          : 最高層通知（TD9 起由 ToastHost 使用，永遠疊在所有 modal 之上）
 export const Z_TOOL_SUBMENU   = 9999    // 白板工具列的子選單
 export const Z_PANEL          = 19999   // 側邊 Panel（TaskCenter / FilterPanel / WeeklyReview）
 export const Z_BACKUP_PANEL   = 29999   // 備份 Panel
@@ -33,3 +33,5 @@ export const Z_CLICK_AWAY     = Z_MODAL_BACKDROP - 1  // 浮動選單的透明�
 export const Z_MODAL          = 99999   // Modal 本體
 // ContextMenu 的重命名 inline dialog，需疊在 context menu（99999）之上
 export const Z_ABOVE_MODAL    = 999999
+// Toast：非阻塞通知，必須看得到＝疊在包含 Z_ABOVE_MODAL 在內的一切之上
+export const Z_TOAST          = 1000000
