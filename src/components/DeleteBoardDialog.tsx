@@ -5,13 +5,13 @@ import { getCardShapes } from '../utils/snapshot'
 import type { SnapshotCardShape } from '../utils/snapshot'
 import { Z_MODAL_BACKDROP, Z_MODAL } from '../constants'
 import { stripHtml } from '../utils/stringUtils'
+import { T } from '../theme/tokens'
 
 interface DeleteBoardDialogProps {
     board: BoardRecord
     hasInbox: boolean
     onConfirm: (moveToInbox: boolean) => void
     onCancel: () => void
-    isDark: boolean
 }
 
 function getTypeIcon(type: string | undefined): string {
@@ -40,7 +40,7 @@ function getCardPreview(card: SnapshotCardShape): { text: string; extra?: string
 
 const MAX_PREVIEW = 20
 
-export function DeleteBoardDialog({ board, hasInbox, onConfirm, onCancel, isDark }: DeleteBoardDialogProps) {
+export function DeleteBoardDialog({ board, hasInbox, onConfirm, onCancel }: DeleteBoardDialogProps) {
     const [expanded, setExpanded] = useState(false)
     const [moveToInbox, setMoveToInbox] = useState(false)
     const confirmRef = useRef<HTMLButtonElement>(null)
@@ -59,13 +59,13 @@ export function DeleteBoardDialog({ board, hasInbox, onConfirm, onCancel, isDark
         return () => window.removeEventListener('keydown', handler)
     }, [onConfirm, onCancel, moveToInbox])
 
-    const bg = isDark ? '#1e293b' : '#ffffff'
-    const text = isDark ? '#e2e8f0' : '#1a1a1a'
-    const muted = isDark ? '#94a3b8' : '#666'
-    const border = isDark ? '#334155' : '#e5e7eb'
-    const listBg = isDark ? '#0f172a' : '#f8fafc'
-    const itemBg = isDark ? '#1e293b' : '#ffffff'
-    const checkBg = isDark ? '#1e293b' : '#f8fafc'
+    const bg = T.bgPanel
+    const text = T.textPrimary
+    const muted = T.textSecondary
+    const border = T.borderLight
+    const listBg = T.bgApp
+    const itemBg = T.bgPanel
+    const checkBg = T.bgApp
 
     return createPortal(
         <>
@@ -99,7 +99,7 @@ export function DeleteBoardDialog({ board, hasInbox, onConfirm, onCancel, isDark
                                 alignSelf: 'flex-start',
                                 background: 'transparent', border: 'none',
                                 cursor: 'pointer', fontSize: 13,
-                                color: isDark ? '#60a5fa' : '#2563eb',
+                                color: T.accent,
                                 padding: 0, display: 'flex', alignItems: 'center', gap: 4,
                             }}
                         >

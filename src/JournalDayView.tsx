@@ -8,6 +8,7 @@ import { Color } from '@tiptap/extension-color'
 import type { BoardRecord } from './db'
 import { getSnapshotStore } from './utils/snapshot'
 import { SAVE_STATUS_RESET_MS } from './constants'
+import { T } from './theme/tokens'
 
 function toDateStr(d: Date): string {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -49,10 +50,9 @@ interface JournalDayContentProps {
     onSaveJournal: (boardId: string, dateStr: string, html: string, shapeId: string | null) => void
     onDateChange: (date: Date) => void
     onClose?: () => void
-    isDark: boolean
 }
 
-export function JournalDayContent({ date, boards, onSaveJournal, onDateChange, onClose, isDark }: JournalDayContentProps) {
+export function JournalDayContent({ date, boards, onSaveJournal, onDateChange, onClose }: JournalDayContentProps) {
     const ds = toDateStr(date)
     const card = findCard(boards, ds)
     const journalBoardId = boards.find(b => b.isJournal)?.id ?? null
@@ -115,14 +115,14 @@ export function JournalDayContent({ date, boards, onSaveJournal, onDateChange, o
     const statusColor = saveStatus === 'pending' ? '#f59e0b' : saveStatus === 'saving' ? '#aaa' : '#22c55e'
     const statusText  = saveStatus === 'pending' ? '未儲存' : saveStatus === 'saving' ? '儲存中…' : '已儲存'
 
-    const navBorder  = isDark ? '#334155' : '#f0f0ee'
-    const titleColor = isDark ? '#e2e8f0' : '#1a1a1a'
-    const btnBorder  = isDark ? '#334155' : '#e8e8e8'
-    const btnColor   = isDark ? '#94a3b8' : '#666'
-    const separatorColor = isDark ? '#334155' : '#e8e8e8'
-    const toolbarBg  = isDark ? '#0f172a' : '#fafafa'
-    const toolbarBorder = isDark ? '#334155' : '#f5f5f5'
-    const editorColor = isDark ? '#e2e8f0' : '#1a1a1a'
+    const navBorder  = T.borderLight
+    const titleColor = T.textPrimary
+    const btnBorder  = T.borderLight
+    const btnColor   = T.textSecondary
+    const separatorColor = T.borderLight
+    const toolbarBg  = T.bgApp
+    const toolbarBorder = T.borderLight
+    const editorColor = T.textPrimary
 
     const navBtnStyle: React.CSSProperties = {
         padding: '4px 10px', borderRadius: 8, border: `1px solid ${btnBorder}`,
@@ -136,7 +136,7 @@ export function JournalDayContent({ date, boards, onSaveJournal, onDateChange, o
                 <button onClick={() => onDateChange(addDays(date, -1))} title="前一天 (Ctrl+←)" style={navBtnStyle}>←</button>
                 <div style={{ flex: 1, textAlign: 'center' }}>
                     <span style={{ fontSize: 14, fontWeight: 600, color: titleColor }}>{formatDate(date)}</span>
-                    {isToday && <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, background: isDark ? '#2563eb' : '#1a1a1a', color: 'white', borderRadius: 4, padding: '1px 5px' }}>今天</span>}
+                    {isToday && <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, background: T.bgActive, color: 'white', borderRadius: 4, padding: '1px 5px' }}>今天</span>}
                 </div>
                 <button onClick={() => onDateChange(addDays(date, 1))} title="後一天 (Ctrl+→)" style={navBtnStyle}>→</button>
                 {onClose && (
@@ -162,8 +162,8 @@ export function JournalDayContent({ date, boards, onSaveJournal, onDateChange, o
                             onMouseDown={e => { e.preventDefault(); btn.cmd() }}
                             style={{
                                 padding: '2px 7px', fontSize: 12, border: 'none', borderRadius: 5, cursor: 'pointer',
-                                background: btn.active ? (isDark ? '#1e3a5f' : '#e8f0fe') : 'transparent',
-                                color: btn.active ? (isDark ? '#60a5fa' : '#1971c2') : (isDark ? '#94a3b8' : '#888'),
+                                background: btn.active ? (T.accentBg) : 'transparent',
+                                color: btn.active ? (T.accent) : (T.textSecondary),
                                 ...btn.style,
                             }}
                         >{btn.label}</button>

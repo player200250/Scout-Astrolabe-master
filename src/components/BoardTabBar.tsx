@@ -11,6 +11,7 @@ import type { PanelName } from '../hooks/usePanelState'
 import { isRasterThumbnail } from '../utils/boardDb'
 import { SidebarFooter } from './SidebarFooter'
 import { SIDEBAR_WIDTH, SIDEBAR_COLLAPSED_WIDTH, INBOX_BOARD_ID, Z_MODAL_BACKDROP, Z_MODAL, Z_CLICK_AWAY } from '../constants'
+import { T } from '../theme/tokens'
 
 interface NavItemDef {
     icon: string
@@ -38,7 +39,6 @@ interface BoardTabBarProps {
     onToggleCollapse: () => void
     onSetStatus: (boardId: string, status: 'active' | 'archived' | 'pinned') => void
     onGoToInbox: () => void
-    isDark: boolean
     onToggleTheme: () => void
     onReorderBoards: (activeId: string, overId: string) => void
     inboxCardCount: number
@@ -72,7 +72,7 @@ function SortableBoardItem({ id, children }: { id: string; children: React.React
     )
 }
 
-export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelete, onOpenPanel, onSetJournal, navigationStack, onBack, onSetParent, onSwitchToChild, collapsed, onToggleCollapse, onSetStatus, onGoToInbox, isDark, onToggleTheme, onReorderBoards, inboxCardCount, overdueCount, todayCount, activePanel, trashCount, onCreateFolder, onSetFolder, onDeleteFolder }: BoardTabBarProps) {
+export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelete, onOpenPanel, onSetJournal, navigationStack, onBack, onSetParent, onSwitchToChild, collapsed, onToggleCollapse, onSetStatus, onGoToInbox,  onToggleTheme, onReorderBoards, inboxCardCount, overdueCount, todayCount, activePanel, trashCount, onCreateFolder, onSetFolder, onDeleteFolder }: BoardTabBarProps) {
     const [hoveredId, setHoveredId] = useState<string | null>(null)
     const [renamingId, setRenamingId] = useState<string | null>(null)
     const [renameValue, setRenameValue] = useState('')
@@ -97,7 +97,7 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
 
     const sidebarWidth = collapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_WIDTH
 
-    const hoverBg = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)'
+    const hoverBg = T.bgHoverSoft
 
     const handleDragEnd = (event: DragEndEvent) => {
         const { active, over } = event
@@ -203,13 +203,13 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                                             style={{
                                                 width: 28, height: 28, borderRadius: 7,
                                                 border: item.isActive ? '2px solid #2563eb' : '1.5px solid transparent',
-                                                background: item.isActive ? (isDark ? 'rgba(37,99,235,0.2)' : 'rgba(37,99,235,0.08)') : 'transparent',
+                                                background: item.isActive ? (T.accentBg) : 'transparent',
                                                 cursor: 'pointer', fontSize: 14,
                                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                                                 padding: 0,
                                             }}
                                             onMouseEnter={e => { if (!item.isActive) e.currentTarget.style.background = hoverBg }}
-                                            onMouseLeave={e => { e.currentTarget.style.background = item.isActive ? (isDark ? 'rgba(37,99,235,0.2)' : 'rgba(37,99,235,0.08)') : 'transparent' }}
+                                            onMouseLeave={e => { e.currentTarget.style.background = item.isActive ? (T.accentBg) : 'transparent' }}
                                         >
                                             {item.icon}
                                         </button>
@@ -235,7 +235,7 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                                         display: 'flex', alignItems: 'center', gap: 0,
                                         padding: 0,
                                         border: 'none', borderLeft: `2.5px solid ${item.isActive ? '#2563eb' : 'transparent'}`,
-                                        background: item.isActive ? (isDark ? 'rgba(37,99,235,0.12)' : 'rgba(37,99,235,0.07)') : 'transparent',
+                                        background: item.isActive ? (T.accentBg) : 'transparent',
                                         cursor: 'pointer', textAlign: 'left',
                                         transition: 'background 0.1s', flexShrink: 0,
                                     }}
@@ -334,8 +334,8 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                             >
                                 <div style={{
                                     width: 20, height: 14, borderRadius: 3, overflow: 'hidden',
-                                    background: isDark ? '#2d3748' : '#e8e8e8',
-                                    border: `1px solid ${isDark ? '#4a5568' : '#ddd'}`,
+                                    background: T.bgHover,
+                                    border: `1px solid ${T.borderMid}`,
                                     flexShrink: 0,
                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                                 }}>
@@ -351,7 +351,7 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                                         onBlur={() => commitRename(board.id)}
                                         onKeyDown={e => { if (e.key === 'Enter') commitRename(board.id); if (e.key === 'Escape') setRenamingId(null); e.stopPropagation() }}
                                         onClick={e => e.stopPropagation()}
-                                        style={{ flex: 1, border: 'none', borderBottom: `1px solid ${isDark ? '#94a3b8' : '#333'}`, outline: 'none', fontSize: 12, background: 'transparent', padding: '1px 0', minWidth: 0, color: 'var(--text-primary)' }}
+                                        style={{ flex: 1, border: 'none', borderBottom: `1px solid ${T.borderMid}`, outline: 'none', fontSize: 12, background: 'transparent', padding: '1px 0', minWidth: 0, color: 'var(--text-primary)' }}
                                     />
                                 ) : (
                                     <span
@@ -425,8 +425,8 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                                             style={{
                                                 width: 26, height: 20, margin: '0 auto',
                                                 borderRadius: 4, overflow: 'hidden',
-                                                border: isActive ? '2px solid #4a6cf7' : `1.5px solid ${isDark ? '#334155' : '#e0e0e0'}`,
-                                                background: isDark ? '#2d3748' : '#f5f5f5',
+                                                border: isActive ? '2px solid #4a6cf7' : `1.5px solid ${T.borderLight}`,
+                                                background: T.bgHover,
                                                 cursor: 'pointer', flexShrink: 0,
                                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                                                 opacity: board.status === 'archived' ? 0.5 : 1,
@@ -498,7 +498,7 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                                                             onBlur={() => { if (renameValue.trim()) onRename(folder.id, renameValue.trim()); setRenamingId(null) }}
                                                             onKeyDown={e => { if (e.key === 'Enter') { if (renameValue.trim()) onRename(folder.id, renameValue.trim()); setRenamingId(null) } if (e.key === 'Escape') setRenamingId(null); e.stopPropagation() }}
                                                             onClick={e => e.stopPropagation()}
-                                                            style={{ flex: 1, border: 'none', borderBottom: `1px solid ${isDark ? '#94a3b8' : '#333'}`, outline: 'none', fontSize: 10, background: 'transparent', padding: '1px 0', color: 'var(--text-primary)', fontWeight: 700, letterSpacing: '0.7px', textTransform: 'uppercase' }}
+                                                            style={{ flex: 1, border: 'none', borderBottom: `1px solid ${T.borderMid}`, outline: 'none', fontSize: 10, background: 'transparent', padding: '1px 0', color: 'var(--text-primary)', fontWeight: 700, letterSpacing: '0.7px', textTransform: 'uppercase' }}
                                                         />
                                                     ) : (
                                                         <span
@@ -510,7 +510,7 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                                                     )}
                                                 </div>
                                                 {isOpen && folderBoards.length > 0 && (
-                                                    <div style={{ borderLeft: `2px solid ${isDark ? '#334155' : '#e5e7eb'}`, marginLeft: 14, paddingLeft: 2 }}>
+                                                    <div style={{ borderLeft: `2px solid ${T.borderLight}`, marginLeft: 14, paddingLeft: 2 }}>
                                                         {folderBoards.map(b => renderBoardCard(b))}
                                                     </div>
                                                 )}
@@ -552,7 +552,6 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                 {!collapsed && (
                     <SidebarFooter
                         onOpenPanel={onOpenPanel}
-                        isDark={isDark}
                         onToggleTheme={onToggleTheme}
                     />
                 )}
@@ -562,14 +561,14 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
             {contextMenu && (() => {
                 const targetBoard = boards.find(b => b.id === contextMenu.boardId)
                 if (!targetBoard) return null
-                const menuBg      = isDark ? '#1e293b' : '#ffffff'
-                const menuShadow  = isDark ? '0 4px 20px rgba(0,0,0,0.5)' : '0 4px 20px rgba(0,0,0,0.12)'
-                const menuBorderC = isDark ? '#334155' : 'rgba(0,0,0,0.08)'
-                const menuItemHover = isDark ? '#334155' : '#f5f5f5'
-                const menuText    = isDark ? '#e2e8f0' : '#1a1a1a'
-                const menuMuted   = isDark ? '#64748b' : '#999'
-                const menuDivider = isDark ? '#334155' : '#f0f0f0'
-                const deleteHover = isDark ? '#3f1f1f' : '#fff5f5'
+                const menuBg      = T.bgPanel
+                const menuShadow  = T.shadowLg
+                const menuBorderC = T.borderLight
+                const menuItemHover = T.bgHover
+                const menuText    = T.textPrimary
+                const menuMuted   = T.textMuted
+                const menuDivider = T.borderLight
+                const deleteHover = T.dangerBgSoft
                 return (
                     <>
                         <div style={{ position: 'fixed', inset: 0, zIndex: Z_CLICK_AWAY }} onClick={() => setContextMenu(null)} />
@@ -720,14 +719,14 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
             {folderContextMenu && (() => {
                 const folder = boards.find(b => b.id === folderContextMenu.folderId)
                 if (!folder) return null
-                const menuBg      = isDark ? '#1e293b' : '#ffffff'
-                const menuShadow  = isDark ? '0 4px 20px rgba(0,0,0,0.5)' : '0 4px 20px rgba(0,0,0,0.12)'
-                const menuBorderC = isDark ? '#334155' : 'rgba(0,0,0,0.08)'
-                const menuItemHover = isDark ? '#334155' : '#f5f5f5'
-                const menuText    = isDark ? '#e2e8f0' : '#1a1a1a'
-                const menuMuted   = isDark ? '#64748b' : '#999'
-                const menuDivider = isDark ? '#334155' : '#f0f0f0'
-                const deleteHover = isDark ? '#3f1f1f' : '#fff5f5'
+                const menuBg      = T.bgPanel
+                const menuShadow  = T.shadowLg
+                const menuBorderC = T.borderLight
+                const menuItemHover = T.bgHover
+                const menuText    = T.textPrimary
+                const menuMuted   = T.textMuted
+                const menuDivider = T.borderLight
+                const deleteHover = T.dangerBgSoft
                 return (
                     <>
                         <div style={{ position: 'fixed', inset: 0, zIndex: Z_CLICK_AWAY }} onClick={() => setFolderContextMenu(null)} />
@@ -745,8 +744,8 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
             {selectingFolderFor && (() => {
                 const target = boards.find(b => b.id === selectingFolderFor)
                 const folderList = boards.filter(b => b.isFolder && !b.deletedAt)
-                const dialogBg = isDark ? '#1e293b' : 'white'
-                const hoverBgD = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)'
+                const dialogBg = T.bgPanel
+                const hoverBgD = T.bgHoverSoft
                 return (
                     <>
                         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: Z_MODAL_BACKDROP }} onClick={() => setSelectingFolderFor(null)} />
@@ -772,7 +771,7 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
 
             {/* 建立資料夾 dialog */}
             {creatingFolder && (() => {
-                const dialogBg = isDark ? '#1e293b' : 'white'
+                const dialogBg = T.bgPanel
                 const commit = () => {
                     if (newFolderName.trim()) onCreateFolder(newFolderName.trim())
                     setCreatingFolder(false)
@@ -814,7 +813,7 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                         .flatMap(b => [{ board: b, depth }, ...buildTree(b.id, depth + 1)])
                 }
                 const tree = buildTree(null, 0)
-                const dialogBg = isDark ? '#1e293b' : 'white'
+                const dialogBg = T.bgPanel
                 return (
                     <>
                         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: Z_MODAL_BACKDROP }} onClick={() => setSelectingParentFor(null)} />

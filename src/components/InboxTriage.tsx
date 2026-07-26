@@ -16,6 +16,8 @@ import {
 import { TYPE_ICON, TYPE_LABEL, TYPE_COLOR, hexToRgba } from '../utils/cardMeta'
 import { MoveCardModal } from './MoveCardModal'
 import { Z_MODAL } from '../constants'
+import { T } from '../theme/tokens'
+import { useIsDark } from '../theme/ThemeContext'
 
 export interface InboxTriageProps {
     boards: BoardRecord[]
@@ -23,7 +25,6 @@ export interface InboxTriageProps {
     onUpdateCardProps: (shapeId: string, patch: Partial<SnapshotShapeProps>) => void
     onTrashCard: (shapeId: string) => void
     onClose: () => void
-    isDark: boolean
 }
 
 const kbdStyle: React.CSSProperties = {
@@ -37,7 +38,8 @@ const kbdStyle: React.CSSProperties = {
     marginLeft: 6,
 }
 
-export function InboxTriage({ boards, onMoveCard, onUpdateCardProps, onTrashCard, onClose, isDark }: InboxTriageProps) {
+export function InboxTriage({ boards, onMoveCard, onUpdateCardProps, onTrashCard, onClose }: InboxTriageProps) {
+    const isDark = useIsDark()
     // 佇列只在開啟時建一次：處理途中 boards 會隨每個決策更新，跟著重算會讓卡片在眼前跳位
     const [queue] = useState(() => buildTriageQueue(boards.find(b => b.isInbox)?.snapshot ?? null))
     const [cursor, setCursor] = useState(0)
@@ -96,13 +98,13 @@ export function InboxTriage({ boards, onMoveCard, onUpdateCardProps, onTrashCard
         return () => window.removeEventListener('keydown', handler, true)
     }, [picking, done, total, onClose, handleTask, handleTrash, decide])
 
-    const bg = isDark ? '#1e293b' : '#ffffff'
-    const border = isDark ? '#334155' : 'rgba(0,0,0,0.08)'
-    const textColor = isDark ? '#e2e8f0' : '#0f172a'
-    const mutedColor = isDark ? '#94a3b8' : '#64748b'
-    const hintColor = isDark ? '#475569' : '#94a3b8'
-    const cardBg = isDark ? '#0f172a' : '#f8fafc'
-    const trackBg = isDark ? '#334155' : '#e2e8f0'
+    const bg = T.bgPanel
+    const border = T.borderLight
+    const textColor = T.textPrimary
+    const mutedColor = T.textSecondary
+    const hintColor = T.textMuted
+    const cardBg = T.bgApp
+    const trackBg = T.bgMuted
 
     const actionBtn = (label: string, hint: string, color: string, onClick: () => void): React.ReactNode => (
         <button
@@ -232,7 +234,6 @@ export function InboxTriage({ boards, onMoveCard, onUpdateCardProps, onTrashCard
                     boards={boards}
                     onSelect={handlePick}
                     onClose={() => setPicking(false)}
-                    isDark={isDark}
                 />
             )}
         </>

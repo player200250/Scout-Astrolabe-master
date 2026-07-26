@@ -29,7 +29,7 @@ function renderDialog(over: Partial<Parameters<typeof DeleteBoardDialog>[0]> = {
     render(
         <DeleteBoardDialog
             board={board()} hasInbox={false}
-            onConfirm={onConfirm} onCancel={onCancel} isDark={false}
+            onConfirm={onConfirm} onCancel={onCancel}
             {...over}
         />,
     )

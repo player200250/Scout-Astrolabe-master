@@ -6,6 +6,7 @@ import type { BoardRecord } from './db'
 import type { Command } from './utils/commands'
 import { filterCommands } from './utils/commands'
 import { Z_MODAL_BACKDROP, Z_MODAL } from './constants'
+import { T } from './theme/tokens'
 
 interface CommandPaletteProps {
     commands: Command[]
@@ -13,7 +14,6 @@ interface CommandPaletteProps {
     activeBoardId: string
     onSwitchBoard: (id: string) => void
     onClose: () => void
-    isDark: boolean
 }
 
 /** 統一的可執行項（命令或白板切換）。 */
@@ -37,7 +37,7 @@ function boardIcon(b: BoardRecord): string {
     return b.isHome ? '🏠' : b.isInbox ? '📥' : b.isJournal ? '📔' : '📋'
 }
 
-export function CommandPalette({ commands, boards, activeBoardId, onSwitchBoard, onClose, isDark }: CommandPaletteProps) {
+export function CommandPalette({ commands, boards, activeBoardId, onSwitchBoard, onClose }: CommandPaletteProps) {
     const [query, setQuery] = useState('')
     const [selectedIdx, setSelectedIdx] = useState(0)
     const inputRef = useRef<HTMLInputElement>(null)
@@ -97,12 +97,12 @@ export function CommandPalette({ commands, boards, activeBoardId, onSwitchBoard,
         }
     }
 
-    const bg     = isDark ? '#1e293b' : '#fff'
-    const text   = isDark ? '#e2e8f0' : '#1a1a1a'
-    const muted   = isDark ? '#64748b' : '#9ca3af'
-    const border  = isDark ? '#334155' : '#e5e7eb'
-    const selBg   = isDark ? 'rgba(59,130,246,0.15)' : '#eff6ff'
-    const kbdBg    = isDark ? '#0f172a' : '#f1f5f9'
+    const bg     = T.bgPanel
+    const text   = T.textPrimary
+    const muted   = T.textMuted
+    const border  = T.borderLight
+    const selBg   = T.accentBg
+    const kbdBg    = T.bgApp
 
     let lastGroup = ''
 
@@ -114,9 +114,7 @@ export function CommandPalette({ commands, boards, activeBoardId, onSwitchBoard,
                 position: 'fixed', top: '15%', left: '50%', transform: 'translateX(-50%)',
                 width: 520, maxWidth: '92vw',
                 background: bg, borderRadius: 14, overflow: 'hidden',
-                boxShadow: isDark
-                    ? '0 16px 64px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.07)'
-                    : '0 16px 64px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.06)',
+                boxShadow: `${T.shadowModal}, 0 0 0 1px ${T.ringSubtle}`,
                 zIndex: Z_MODAL,
             }}>
                 {/* Search row */}
@@ -172,7 +170,7 @@ export function CommandPalette({ commands, boards, activeBoardId, onSwitchBoard,
                                         {item.title}
                                     </span>
                                     {isActiveBoard && (
-                                        <span style={{ fontSize: 10, flexShrink: 0, color: '#3b82f6', background: isDark ? 'rgba(59,130,246,0.2)' : '#dbeafe', borderRadius: 4, padding: '1px 5px' }}>目前</span>
+                                        <span style={{ fontSize: 10, flexShrink: 0, color: '#3b82f6', background: T.accentBgStrong, borderRadius: 4, padding: '1px 5px' }}>目前</span>
                                     )}
                                     {item.shortcut && (
                                         <span style={{ fontSize: 11, color: muted, background: kbdBg, borderRadius: 4, padding: '2px 6px', flexShrink: 0 }}>{item.shortcut}</span>

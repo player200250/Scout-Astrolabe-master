@@ -1,7 +1,7 @@
 import { useState, useContext } from 'react'
-import { useIsDarkMode } from '@tldraw/editor'
 import { BacklinksContext, extractCardName, type BacklinkEntry } from '../../../hooks/useBacklinks'
 import { emitAppEvent } from '../../../utils/appEvents'
+import { T } from '../../../theme/tokens'
 
 interface BacklinksPanelProps {
     shapeId: string
@@ -10,7 +10,6 @@ interface BacklinksPanelProps {
 
 export function BacklinksPanel({ shapeId, htmlContent }: BacklinksPanelProps) {
     const { forwardLinks, backlinks, currentBoardName } = useContext(BacklinksContext)
-    const isDark = useIsDarkMode()
     const [expanded, setExpanded] = useState(false)
 
     const cardName = extractCardName(htmlContent)
@@ -39,9 +38,9 @@ export function BacklinksPanel({ shapeId, htmlContent }: BacklinksPanelProps) {
                 onPointerDown={e => { e.stopPropagation(); e.preventDefault(); setExpanded(v => !v) }}
                 style={{
                     padding: '3px 12px 4px',
-                    background: isDark ? 'rgba(15,23,42,0.96)' : 'rgba(255,255,255,0.94)',
+                    background: T.bgOverlay,
                     backdropFilter: 'blur(4px)',
-                    borderTop: `1px solid ${isDark ? '#334155' : '#e8e8e8'}`,
+                    borderTop: `1px solid ${T.borderLight}`,
                     display: 'flex', alignItems: 'center', gap: 10,
                     cursor: 'pointer',
                     userSelect: 'none',
@@ -64,10 +63,10 @@ export function BacklinksPanel({ shapeId, htmlContent }: BacklinksPanelProps) {
                     style={{
                         position: 'absolute',
                         bottom: '100%', left: 0, right: 0,
-                        background: isDark ? '#1e293b' : 'white',
-                        border: `1px solid ${isDark ? '#334155' : '#e8e8e8'}`,
+                        background: T.bgPanel,
+                        border: `1px solid ${T.borderLight}`,
                         borderRadius: '12px 12px 0 0',
-                        boxShadow: isDark ? '0 -4px 20px rgba(0,0,0,0.4)' : '0 -4px 20px rgba(0,0,0,0.1)',
+                        boxShadow: T.shadowUp,
                         maxHeight: 220,
                         overflowY: 'auto',
                         zIndex: 20,
@@ -92,7 +91,7 @@ export function BacklinksPanel({ shapeId, htmlContent }: BacklinksPanelProps) {
                                         setExpanded(false)
                                     }}
                                     style={{ padding: '6px 12px', cursor: 'pointer', fontSize: 12, color: '#3b82f6', display: 'flex', alignItems: 'center', gap: 6 }}
-                                    onMouseEnter={e => (e.currentTarget.style.background = isDark ? '#1e3a5f' : '#eff6ff')}
+                                    onMouseEnter={e => (e.currentTarget.style.background = T.accentBg)}
                                     onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                                 >
                                     <span style={{ fontSize: 13 }}>📋</span> {name}
@@ -107,7 +106,7 @@ export function BacklinksPanel({ shapeId, htmlContent }: BacklinksPanelProps) {
                                 padding: '5px 12px 3px',
                                 fontSize: 10, fontWeight: 600, color: '#888',
                                 letterSpacing: '0.3px',
-                                borderTop: fwdLinks.length > 0 ? `1px solid ${isDark ? '#334155' : '#f5f5f5'}` : 'none',
+                                borderTop: fwdLinks.length > 0 ? `1px solid ${T.borderLight}` : 'none',
                             }}>
                                 ← 被引用
                             </div>
@@ -126,16 +125,16 @@ export function BacklinksPanel({ shapeId, htmlContent }: BacklinksPanelProps) {
                                         setExpanded(false)
                                     }}
                                     style={{ padding: '6px 12px', cursor: 'pointer', fontSize: 12 }}
-                                    onMouseEnter={e => (e.currentTarget.style.background = isDark ? '#243447' : '#f7f7f7')}
+                                    onMouseEnter={e => (e.currentTarget.style.background = T.bgHover)}
                                     onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                                 >
                                     <div style={{
-                                        color: isDark ? '#e2e8f0' : '#1a1a1a', overflow: 'hidden',
+                                        color: T.textPrimary, overflow: 'hidden',
                                         textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                                     }}>
                                         {entry.preview || '(無預覽)'}
                                     </div>
-                                    <div style={{ fontSize: 10, color: isDark ? '#64748b' : '#bbb', marginTop: 2 }}>
+                                    <div style={{ fontSize: 10, color: T.textMuted, marginTop: 2 }}>
                                         {entry.boardName}
                                     </div>
                                 </div>

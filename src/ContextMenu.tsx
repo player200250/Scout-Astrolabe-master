@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { CARD_COLORS, STICKY_COLORS, STICKY_COLOR_LIST } from './components/card-shape/type/CardShape'
 import type { CardColor } from './components/card-shape/type/CardShape'
 import { Z_CLICK_AWAY, Z_MODAL, Z_ABOVE_MODAL } from './constants'
+import { T } from './theme/tokens'
 
 export interface MenuItem {
     label: string
@@ -21,24 +22,23 @@ interface ContextMenuProps {
     showColorPicker?: boolean
     onColorPick?: (color: CardColor) => void
     currentColor?: CardColor
-    isDark?: boolean
     isSticky?: boolean
 }
 
 // ── ContextMenuUI ───────────────────────────────────────────────────────────
 
-export function ContextMenuUI({ x, y, items, onClose, showColorPicker, onColorPick, currentColor, isDark, isSticky }: ContextMenuProps) {
+export function ContextMenuUI({ x, y, items, onClose, showColorPicker, onColorPick, currentColor,  isSticky }: ContextMenuProps) {
     const ref = useRef<HTMLDivElement>(null)
     const itemRefs = useRef<(HTMLDivElement | null)[]>([])
     const [pos, setPos] = useState({ x, y })
     const [activeSubIdx, setActiveSubIdx] = useState<number | null>(null)
     const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-    const bg = isDark ? '#1e293b' : '#fff'
-    const textColor = isDark ? '#e2e8f0' : '#1a1a1a'
-    const dividerColor = isDark ? '#334155' : '#f0f0f0'
-    const hoverBg = isDark ? '#2d3748' : '#f5f5f5'
-    const mutedColor = isDark ? '#64748b' : '#999'
+    const bg = T.bgPanel
+    const textColor = T.textPrimary
+    const dividerColor = T.borderLight
+    const hoverBg = T.bgHover
+    const mutedColor = T.textMuted
 
     const cancelClose = () => {
         if (closeTimerRef.current) { clearTimeout(closeTimerRef.current); closeTimerRef.current = null }
@@ -73,9 +73,7 @@ export function ContextMenuUI({ x, y, items, onClose, showColorPicker, onColorPi
 
     const menuBoxStyle = {
         background: bg, borderRadius: 10,
-        boxShadow: isDark
-            ? '0 4px 24px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.06)'
-            : '0 4px 24px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.06)',
+        boxShadow: `${T.shadowPanel}, 0 0 0 1px ${T.ringSubtle}`,
         zIndex: Z_MODAL, minWidth: 180, padding: '4px 0',
         userSelect: 'none' as const, pointerEvents: 'auto' as const,
     }
@@ -119,7 +117,7 @@ export function ContextMenuUI({ x, y, items, onClose, showColorPicker, onColorPi
                             onMouseEnter={e => {
                                 cancelClose()
                                 e.currentTarget.style.background = sub.danger
-                                    ? (isDark ? 'rgba(255,77,79,0.15)' : '#fff1f0')
+                                    ? (T.dangerBgSoft)
                                     : hoverBg
                             }}
                             onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
@@ -153,7 +151,7 @@ export function ContextMenuUI({ x, y, items, onClose, showColorPicker, onColorPi
                                     onClick={() => { onColorPick(key); onClose() }}
                                     style={{
                                         width: 22, height: 22, borderRadius: '50%', cursor: 'pointer',
-                                        backgroundColor: key === 'none' ? (isDark ? '#334155' : '#f0f0f0') : val.accent,
+                                        backgroundColor: key === 'none' ? (T.bgHover) : val.accent,
                                         border: currentColor === key ? `2px solid ${textColor}` : '2px solid transparent',
                                         boxSizing: 'border-box', transition: 'transform 0.1s',
                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -214,7 +212,7 @@ export function ContextMenuUI({ x, y, items, onClose, showColorPicker, onColorPi
                                 cancelClose()
                                 setActiveSubIdx(item.submenu ? idx : null)
                                 e.currentTarget.style.background = item.danger
-                                    ? (isDark ? 'rgba(255,77,79,0.15)' : '#fff1f0')
+                                    ? (T.dangerBgSoft)
                                     : hoverBg
                             }}
                             onMouseLeave={e => {
@@ -247,10 +245,9 @@ export interface SaveTemplateModalProps {
     cardContent: string
     onConfirm: (name: string, content: string) => void
     onClose: () => void
-    isDark: boolean
 }
 
-export function SaveTemplateModal({ defaultName, cardContent, onConfirm, onClose, isDark }: SaveTemplateModalProps) {
+export function SaveTemplateModal({ defaultName, cardContent, onConfirm, onClose }: SaveTemplateModalProps) {
     const [name, setName] = useState(defaultName)
     const inputRef = useRef<HTMLInputElement>(null)
 
@@ -263,9 +260,9 @@ export function SaveTemplateModal({ defaultName, cardContent, onConfirm, onClose
 
     const handleConfirm = () => { if (name.trim()) onConfirm(name.trim(), cardContent) }
 
-    const bg = isDark ? '#1e293b' : '#fff'
-    const text = isDark ? '#e2e8f0' : '#1a1a1a'
-    const border = isDark ? '1px solid #475569' : '1px solid #e0e0e0'
+    const bg = T.bgPanel
+    const text = T.textPrimary
+    const border = `1px solid ${T.borderLight}`
 
     return (
         <div
@@ -286,7 +283,7 @@ export function SaveTemplateModal({ defaultName, cardContent, onConfirm, onClose
                     style={{
                         width: '100%', boxSizing: 'border-box',
                         padding: '9px 13px', borderRadius: 9, fontSize: 14,
-                        border, background: isDark ? '#0f172a' : '#f9f9f9',
+                        border, background: T.bgApp,
                         color: text, outline: 'none',
                     }}
                 />
@@ -311,10 +308,9 @@ export interface BatchAddTagModalProps {
     count: number
     onConfirm: (tag: string) => void
     onClose: () => void
-    isDark: boolean
 }
 
-export function BatchAddTagModal({ count, onConfirm, onClose, isDark }: BatchAddTagModalProps) {
+export function BatchAddTagModal({ count, onConfirm, onClose }: BatchAddTagModalProps) {
     const [tag, setTag] = useState('')
     const inputRef = useRef<HTMLInputElement>(null)
 
@@ -327,9 +323,9 @@ export function BatchAddTagModal({ count, onConfirm, onClose, isDark }: BatchAdd
 
     const handleConfirm = () => { const t = tag.trim(); if (t) onConfirm(t) }
 
-    const bg = isDark ? '#1e293b' : '#fff'
-    const text = isDark ? '#e2e8f0' : '#1a1a1a'
-    const border = isDark ? '1px solid #475569' : '1px solid #e0e0e0'
+    const bg = T.bgPanel
+    const text = T.textPrimary
+    const border = `1px solid ${T.borderLight}`
 
     return (
         <div
@@ -350,7 +346,7 @@ export function BatchAddTagModal({ count, onConfirm, onClose, isDark }: BatchAdd
                     style={{
                         width: '100%', boxSizing: 'border-box',
                         padding: '9px 13px', borderRadius: 9, fontSize: 14,
-                        border, background: isDark ? '#0f172a' : '#f9f9f9',
+                        border, background: T.bgApp,
                         color: text, outline: 'none',
                     }}
                 />

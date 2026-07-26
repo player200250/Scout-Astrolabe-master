@@ -3,6 +3,7 @@ import { db } from './db'
 import type { BoardRecord, DeletedCardRecord } from './db'
 import { emitAppEvent, onAppEvent } from './utils/appEvents'
 import { deleteStoredFile } from './platform/fileStore'
+import { T } from './theme/tokens'
 
 interface TrashPanelProps {
     onClose: () => void
@@ -10,7 +11,6 @@ interface TrashPanelProps {
     onPermanentDeleteBoard: (id: string) => void
     onEmptyTrash: () => void
     onCardRestored: () => void
-    isDark: boolean
 }
 
 type Tab = 'cards' | 'boards'
@@ -33,7 +33,6 @@ export function TrashPanel({
     onPermanentDeleteBoard,
     onEmptyTrash,
     onCardRestored,
-    isDark,
 }: TrashPanelProps) {
     const [tab, setTab] = useState<Tab>('cards')
     const [deletedCards, setDeletedCards] = useState<DeletedCardRecord[]>([])
@@ -41,14 +40,14 @@ export function TrashPanel({
     const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null)
     const confirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-    const bg      = isDark ? '#0f172a' : '#f8f8f7'
-    const panelBg = isDark ? '#1e293b' : '#ffffff'
-    const text    = isDark ? '#e2e8f0' : '#1a1a1a'
-    const muted   = isDark ? '#64748b' : '#999'
-    const border  = isDark ? '#334155' : '#e8e8e6'
-    const hoverBg = isDark ? '#334155' : '#f1f5f9'
-    const tabActive = isDark ? '#e2e8f0' : '#1a1a1a'
-    const tabInactive = isDark ? '#64748b' : '#aaa'
+    const bg      = T.bgApp
+    const panelBg = T.bgPanel
+    const text    = T.textPrimary
+    const muted   = T.textMuted
+    const border  = T.borderLight
+    const hoverBg = T.bgApp
+    const tabActive = T.textPrimary
+    const tabInactive = T.textMuted
 
     const requestConfirm = useCallback((id: string) => {
         if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current)
@@ -173,7 +172,7 @@ export function TrashPanel({
                 >×</button>
                 <span style={{ fontSize: 18, fontWeight: 700, color: text }}>🗑️ 垃圾桶</span>
                 <span style={{
-                    fontSize: 11, background: isDark ? '#334155' : '#f1f5f9',
+                    fontSize: 11, background: T.bgApp,
                     color: muted, borderRadius: 99, padding: '2px 8px',
                 }}>
                     {totalCount} 個項目
@@ -206,7 +205,7 @@ export function TrashPanel({
                             onClick={() => requestConfirm('__empty__')}
                             style={{
                                 padding: '7px 14px', borderRadius: 8, border: 'none',
-                                background: isDark ? '#3f1f1f' : '#fee2e2',
+                                background: T.dangerBg,
                                 color: '#dc2626', cursor: 'pointer', fontSize: 13, fontWeight: 600,
                             }}
                         >
@@ -243,7 +242,7 @@ export function TrashPanel({
             <div style={{ flex: 1, overflowY: 'auto', padding: '16px 24px' }}>
                 {tab === 'cards' && (
                     deletedCards.length === 0
-                        ? <Empty isDark={isDark} label="沒有已刪除的卡片" />
+                        ? <Empty label="沒有已刪除的卡片" />
                         : (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                                 {deletedCards.map(card => (
@@ -255,7 +254,7 @@ export function TrashPanel({
                                     }}>
                                         <div style={{
                                             width: 40, height: 40, borderRadius: 8, flexShrink: 0,
-                                            background: isDark ? '#334155' : '#f1f5f9',
+                                            background: T.bgApp,
                                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                                             fontSize: 18,
                                         }}>
@@ -314,7 +313,7 @@ export function TrashPanel({
                                                     style={{
                                                         padding: '6px 12px', borderRadius: 7,
                                                         border: 'none',
-                                                        background: isDark ? '#3f1f1f' : '#fee2e2',
+                                                        background: T.dangerBg,
                                                         cursor: 'pointer', fontSize: 12, color: '#dc2626',
                                                     }}
                                                 >
@@ -330,7 +329,7 @@ export function TrashPanel({
 
                 {tab === 'boards' && (
                     deletedBoards.length === 0
-                        ? <Empty isDark={isDark} label="沒有已刪除的白板" />
+                        ? <Empty label="沒有已刪除的白板" />
                         : (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                                 {deletedBoards.map(board => (
@@ -342,7 +341,7 @@ export function TrashPanel({
                                     }}>
                                         <div style={{
                                             width: 48, height: 32, borderRadius: 6, flexShrink: 0,
-                                            background: isDark ? '#334155' : '#f1f5f9',
+                                            background: T.bgApp,
                                             border: `1px solid ${border}`,
                                             overflow: 'hidden',
                                             display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -398,7 +397,7 @@ export function TrashPanel({
                                                     style={{
                                                         padding: '6px 12px', borderRadius: 7,
                                                         border: 'none',
-                                                        background: isDark ? '#3f1f1f' : '#fee2e2',
+                                                        background: T.dangerBg,
                                                         cursor: 'pointer', fontSize: 12, color: '#dc2626',
                                                     }}
                                                 >
@@ -417,14 +416,14 @@ export function TrashPanel({
     )
 }
 
-function Empty({ isDark, label }: { isDark: boolean; label: string }) {
+function Empty({ label }: { label: string }) {
     return (
         <div style={{
             display: 'flex', flexDirection: 'column', alignItems: 'center',
             justifyContent: 'center', height: 240, gap: 12,
         }}>
             <span style={{ fontSize: 48 }}>🗑️</span>
-            <span style={{ fontSize: 14, color: isDark ? '#64748b' : '#aaa' }}>{label}</span>
+            <span style={{ fontSize: 14, color: T.textMuted }}>{label}</span>
         </div>
     )
 }

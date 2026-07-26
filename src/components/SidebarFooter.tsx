@@ -1,21 +1,23 @@
 import { useState } from 'react'
 import { Z_CLICK_AWAY, Z_MODAL_BACKDROP } from '../constants'
 import type { PanelName } from '../hooks/usePanelState'
+import { T } from '../theme/tokens'
+import { useIsDark } from '../theme/ThemeContext'
 
 interface SidebarFooterProps {
     onOpenPanel: (name: PanelName) => void
-    isDark: boolean
     onToggleTheme: () => void
 }
 
-export function SidebarFooter({ onOpenPanel, isDark, onToggleTheme }: SidebarFooterProps) {
+export function SidebarFooter({ onOpenPanel,  onToggleTheme }: SidebarFooterProps) {
+    const isDark = useIsDark()
     const [moreMenuOpen, setMoreMenuOpen] = useState(false)
     const iconBtnStyle = {
         width: 28, height: 28, borderRadius: 7, border: 'none',
         background: 'transparent', cursor: 'pointer', fontSize: 14,
         display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
     } as const
-    const iconHoverBg = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'
+    const iconHoverBg = T.bgHoverSoft
 
     return (
         <div style={{ borderTop: '1px solid var(--border-light)', flexShrink: 0, paddingBottom: 2 }}>
@@ -58,8 +60,8 @@ export function SidebarFooter({ onOpenPanel, isDark, onToggleTheme }: SidebarFoo
                             <div style={{ position: 'fixed', inset: 0, zIndex: Z_CLICK_AWAY }} onClick={() => setMoreMenuOpen(false)} />
                             <div style={{
                                 position: 'absolute', bottom: 34, right: 0,
-                                background: isDark ? '#1e293b' : 'white',
-                                border: `1px solid ${isDark ? '#334155' : 'rgba(0,0,0,0.08)'}`,
+                                background: T.bgPanel,
+                                border: `1px solid ${T.borderLight}`,
                                 borderRadius: 10, padding: '4px 0',
                                 boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
                                 zIndex: Z_MODAL_BACKDROP, minWidth: 160,
@@ -78,7 +80,7 @@ export function SidebarFooter({ onOpenPanel, isDark, onToggleTheme }: SidebarFoo
                                             display: 'flex', alignItems: 'center', gap: 8,
                                             borderRadius: 6,
                                         }}
-                                        onMouseEnter={e => (e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.06)' : '#f5f5f5')}
+                                        onMouseEnter={e => (e.currentTarget.style.background = T.bgHoverSoft)}
                                         onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                                     >
                                         {icon} {label}

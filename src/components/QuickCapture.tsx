@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { Z_MODAL } from '../constants'
+import { T } from '../theme/tokens'
 
 interface QuickCaptureProps {
     onSave: (text: string) => void
     onClose: () => void
-    isDark: boolean
 }
 
 const kbdStyle: React.CSSProperties = {
@@ -17,7 +17,7 @@ const kbdStyle: React.CSSProperties = {
     opacity: 0.65,
 }
 
-export function QuickCapture({ onSave, onClose, isDark }: QuickCaptureProps) {
+export function QuickCapture({ onSave, onClose }: QuickCaptureProps) {
     const [text, setText] = useState('')
     const textareaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -44,13 +44,13 @@ export function QuickCapture({ onSave, onClose, isDark }: QuickCaptureProps) {
         }
     }
 
-    const bg = isDark ? '#1e293b' : '#ffffff'
-    const border = isDark ? '#334155' : 'rgba(0,0,0,0.08)'
-    const inputBg = isDark ? '#0f172a' : '#f8fafc'
-    const inputColor = isDark ? '#e2e8f0' : '#0f172a'
-    const inputBorder = isDark ? '#334155' : '#e2e8f0'
-    const hintColor = isDark ? '#475569' : '#94a3b8'
-    const titleColor = isDark ? '#94a3b8' : '#64748b'
+    const bg = T.bgPanel
+    const border = T.borderLight
+    const inputBg = T.bgApp
+    const inputColor = T.textPrimary
+    const inputBorder = T.borderLight
+    const hintColor = T.textMuted
+    const titleColor = T.textSecondary
 
     return (
         <div

@@ -2,13 +2,13 @@
 import { useEffect, useRef, useState, useMemo } from 'react'
 import type { BoardRecord } from './db'
 import { Z_MODAL_BACKDROP, Z_MODAL } from './constants'
+import { T } from './theme/tokens'
 
 interface QuickSwitcherProps {
     boards: BoardRecord[]
     activeBoardId: string
     onSwitch: (id: string) => void
     onClose: () => void
-    isDark: boolean
 }
 
 function relativeTime(ts: number): string {
@@ -25,7 +25,7 @@ function relativeTime(ts: number): string {
     return `${Math.floor(months / 12)} 年前`
 }
 
-export function QuickSwitcher({ boards, activeBoardId, onSwitch, onClose, isDark }: QuickSwitcherProps) {
+export function QuickSwitcher({ boards, activeBoardId, onSwitch, onClose }: QuickSwitcherProps) {
     const [query, setQuery] = useState('')
     const [selectedIdx, setSelectedIdx] = useState(0)
     const inputRef = useRef<HTMLInputElement>(null)
@@ -68,13 +68,13 @@ export function QuickSwitcher({ boards, activeBoardId, onSwitch, onClose, isDark
         }
     }
 
-    const bg      = isDark ? '#1e293b' : '#fff'
-    const text    = isDark ? '#e2e8f0' : '#1a1a1a'
-    const muted   = isDark ? '#64748b' : '#9ca3af'
-    const border  = isDark ? '#334155' : '#e5e7eb'
-    const thumbBg = isDark ? '#334155' : '#f1f5f9'
-    const thumbBorder = isDark ? '#475569' : '#e2e8f0'
-    const selBg   = isDark ? 'rgba(59,130,246,0.15)' : '#eff6ff'
+    const bg      = T.bgPanel
+    const text    = T.textPrimary
+    const muted   = T.textMuted
+    const border  = T.borderLight
+    const thumbBg = T.bgApp
+    const thumbBorder = T.borderLight
+    const selBg   = T.accentBg
 
     return (
         <>
@@ -89,9 +89,7 @@ export function QuickSwitcher({ boards, activeBoardId, onSwitch, onClose, isDark
                 position: 'fixed', top: '18%', left: '50%', transform: 'translateX(-50%)',
                 width: 480, maxWidth: '92vw',
                 background: bg, borderRadius: 14, overflow: 'hidden',
-                boxShadow: isDark
-                    ? '0 16px 64px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.07)'
-                    : '0 16px 64px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.06)',
+                boxShadow: `${T.shadowModal}, 0 0 0 1px ${T.ringSubtle}`,
                 zIndex: Z_MODAL,
             }}>
                 {/* Search row */}
@@ -173,7 +171,7 @@ export function QuickSwitcher({ boards, activeBoardId, onSwitch, onClose, isDark
                                     {isActive && (
                                         <span style={{
                                             fontSize: 10, flexShrink: 0, color: '#3b82f6',
-                                            background: isDark ? 'rgba(59,130,246,0.2)' : '#dbeafe',
+                                            background: T.accentBgStrong,
                                             borderRadius: 4, padding: '1px 5px',
                                         }}>目前</span>
                                     )}

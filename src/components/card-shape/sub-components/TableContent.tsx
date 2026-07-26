@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import type { ReactNode } from 'react'
-import { useIsDarkMode } from '@tldraw/editor'
 import { useEditor } from 'tldraw'
 import {
     DndContext, closestCenter, PointerSensor, useSensor, useSensors,
@@ -9,6 +8,7 @@ import {
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import type { TLCardShape, TableRow } from '../type/CardShape'
+import { T } from '../../../theme/tokens'
 
 interface TableContentProps {
     shape: TLCardShape
@@ -54,7 +54,6 @@ function SortableRow({ id, onMouseEnter, onMouseLeave, children }: {
 
 export function TableContent({ shape }: TableContentProps) {
     const editor = useEditor()
-    const isDark = useIsDarkMode()
     const p = shape.props
     const cols = p.tableCols ?? 3
     // 未設視為開啟（向後相容：既有表格維持首列標題樣式）
@@ -162,11 +161,11 @@ export function TableContent({ shape }: TableContentProps) {
         editor.updateShape({ id: shape.id, type: 'card', props: { tableData: newData } })
     }, [editor, shape.id, tableData])
 
-    const borderColor = isDark ? '#334155' : '#e8e8e8'
-    const headerBg = isDark ? '#334155' : '#f5f5f5'
-    const oddRowBg = isDark ? '#1e293b' : '#fafafa'
-    const textColor = isDark ? '#e2e8f0' : '#1a1a1a'
-    const mutedColor = isDark ? '#64748b' : '#aaa'
+    const borderColor = T.borderLight
+    const headerBg = T.bgHover
+    const oddRowBg = T.bgApp
+    const textColor = T.textPrimary
+    const mutedColor = T.textMuted
 
     return (
         <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -178,7 +177,7 @@ export function TableContent({ shape }: TableContentProps) {
                                 {tableData.map((row, rowIdx) => {
                                     const isHeader = headerRow && rowIdx === 0
                                     const isOdd = rowIdx % 2 === 1
-                                    const rowBg = isHeader ? headerBg : isOdd ? oddRowBg : (isDark ? 'transparent' : '#ffffff')
+                                    const rowBg = isHeader ? headerBg : isOdd ? oddRowBg : (T.bgPanel)
                                     const showRowControls = hoveredRow === rowIdx && tableData.length > 1
 
                                     return (
@@ -221,7 +220,7 @@ export function TableContent({ shape }: TableContentProps) {
                                                                     border: 'none',
                                                                     outline: `2px solid #3b82f6`,
                                                                     outlineOffset: -2,
-                                                                    background: isDark ? '#1e3a5f' : '#eff6ff',
+                                                                    background: T.accentBg,
                                                                     padding: '0 12px',
                                                                     fontSize: 13,
                                                                     fontWeight: isHeader ? 500 : 400,
@@ -311,7 +310,7 @@ export function TableContent({ shape }: TableContentProps) {
                     borderTop: `1px solid ${borderColor}`,
                     color: isHoveringFooter ? '#3b82f6' : mutedColor,
                     fontSize: 12, fontWeight: 500,
-                    background: isHoveringFooter ? (isDark ? 'rgba(59,130,246,0.08)' : '#eff6ff') : 'transparent',
+                    background: isHoveringFooter ? (T.accentBg) : 'transparent',
                     transition: 'color 0.15s, background 0.15s',
                     userSelect: 'none',
                 }}

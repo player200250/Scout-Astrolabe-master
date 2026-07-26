@@ -2,12 +2,12 @@ import { useState, useEffect, useMemo } from 'react'
 import type { BoardRecord, BackupRecord } from '../db'
 import { loadBackups, MAX_BACKUPS } from '../db'
 import { computeVaultStats, formatBytes } from '../utils/dataSafetyStats'
+import { T } from '../theme/tokens'
 
 interface DataSafetyPanelProps {
     boards: BoardRecord[]
     onClose: () => void
     onOpenBackup: () => void
-    isDark: boolean
 }
 
 const TYPE_LABEL: Record<string, string> = {
@@ -16,7 +16,7 @@ const TYPE_LABEL: Record<string, string> = {
     color: '顏色', file: '檔案',
 }
 
-export function DataSafetyPanel({ boards, onClose, onOpenBackup, isDark }: DataSafetyPanelProps) {
+export function DataSafetyPanel({ boards, onClose, onOpenBackup }: DataSafetyPanelProps) {
     const [backups, setBackups] = useState<BackupRecord[]>([])
     const [estimate, setEstimate] = useState<{ usage: number; quota: number } | null>(null)
 
@@ -39,12 +39,12 @@ export function DataSafetyPanel({ boards, onClose, onOpenBackup, isDark }: DataS
 
     const stats = useMemo(() => computeVaultStats(boards, backups), [boards, backups])
 
-    const overlayBg = isDark ? 'rgba(15,23,42,0.97)' : 'rgba(245,245,243,0.97)'
-    const cardBg = isDark ? '#1e293b' : 'white'
-    const border = isDark ? '#334155' : '#e8e8e6'
-    const textPrimary = isDark ? '#e2e8f0' : '#1a1a1a'
-    const textMuted = isDark ? '#94a3b8' : '#888'
-    const trackBg = isDark ? '#0f172a' : '#f0f0ee'
+    const overlayBg = T.bgOverlay
+    const cardBg = T.bgPanel
+    const border = T.borderLight
+    const textPrimary = T.textPrimary
+    const textMuted = T.textSecondary
+    const trackBg = T.bgApp
 
     const usagePct = estimate && estimate.quota > 0
         ? Math.min(100, (estimate.usage / estimate.quota) * 100)
@@ -129,7 +129,7 @@ export function DataSafetyPanel({ boards, onClose, onOpenBackup, isDark }: DataS
                 </Section>
 
                 {/* 說明 + 入口 */}
-                <div style={{ background: isDark ? 'rgba(37,99,235,0.12)' : '#eff6ff', border: `1px solid ${isDark ? '#1e40af' : '#bfdbfe'}`, borderRadius: 12, padding: '14px 16px', fontSize: 13, color: isDark ? '#bfdbfe' : '#1e40af', lineHeight: 1.7 }}>
+                <div style={{ background: T.accentBg, border: `1px solid ${T.accentBorder}`, borderRadius: 12, padding: '14px 16px', fontSize: 13, color: T.accent, lineHeight: 1.7 }}>
                     目前為<strong>唯讀統計</strong>——清理舊備份、移除無用縮圖等操作尚未開放。備份保留上限為 {MAX_BACKUPS} 份（見 OOM 治理）。
                     <button
                         onClick={onOpenBackup}

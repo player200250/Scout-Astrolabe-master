@@ -20,9 +20,10 @@ import { JUMP_DELAY_MS, Z_TOOL_SUBMENU, THUMBNAIL_SHAPE_LIMIT, THUMBNAIL_MIN_INT
 import { emitAppEvent, onAppEvent } from '../utils/appEvents'
 import { resolveLinkTarget } from '../utils/cardLinks'
 import { BacklinksContext } from '../hooks/useBacklinks'
-import { getExportBtnStyle } from '../utils/whiteboardUtils'
+import { exportBtnStyle } from '../utils/whiteboardUtils'
 import { EXAMPLE_CARDS, EXAMPLE_SEED_FLAG } from '../utils/exampleBoard'
 import * as imageStore from '../platform/imageStore'
+import { T } from '../theme/tokens'
 
 function isCardShape(s: { type: string }): s is TLCardShape {
     return s.type === 'card'
@@ -71,12 +72,11 @@ interface WhiteboardToolsProps {
     onSwitchBoard: (id: string) => void
     isInboxBoard: boolean
     onMoveCard: (shapeIds: string[]) => void
-    isDark: boolean
     onCardTrashed?: () => void
     recentlyTrashedShapeIds: React.MutableRefObject<Set<string>>
 }
 
-export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSearch, onOpenHotkey, onOpenQuickSwitcher, onCreateBoard, onSwitchBoard, isInboxBoard, onMoveCard, isDark, onCardTrashed, recentlyTrashedShapeIds }: WhiteboardToolsProps) {
+export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSearch, onOpenHotkey, onOpenQuickSwitcher, onCreateBoard, onSwitchBoard, isInboxBoard, onMoveCard,  onCardTrashed, recentlyTrashedShapeIds }: WhiteboardToolsProps) {
     const editor = useEditor()
     const { cardIndex } = useContext(BacklinksContext)
     const initialized = useRef(false)
@@ -301,7 +301,6 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
         createTextCardWithContent,
         isInboxBoard,
         onMoveCard,
-        isDark,
         boardId: board.id,
         boardName: board.name,
         onCardTrashed,
@@ -728,32 +727,32 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
 
     return (
         <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-            <TldrawToolPanel {...cardCreators} isDark={isDark} />
+            <TldrawToolPanel {...cardCreators} />
             <div style={{ position: 'absolute', top: 10, right: 10, display: 'flex', gap: 6, pointerEvents: 'auto', zIndex: 100 }}>
                 <button
                     onClick={() => exportJSON(getSnapshot(editor.store) as TLEditorSnapshot, board.name)}
-                    style={getExportBtnStyle(isDark)}
-                    onMouseEnter={e => (e.currentTarget.style.background = isDark ? '#2d3748' : '#f0f0f0')}
-                    onMouseLeave={e => (e.currentTarget.style.background = isDark ? 'rgba(30,41,59,0.92)' : 'rgba(255,255,255,0.92)')}
+                    style={exportBtnStyle}
+                    onMouseEnter={e => (e.currentTarget.style.background = T.bgHover)}
+                    onMouseLeave={e => (e.currentTarget.style.background = T.bgOverlay)}
                 >匯出 JSON</button>
                 <button
                     onClick={() => jsonInputRef.current?.click()}
-                    style={getExportBtnStyle(isDark)}
-                    onMouseEnter={e => (e.currentTarget.style.background = isDark ? '#2d3748' : '#f0f0f0')}
-                    onMouseLeave={e => (e.currentTarget.style.background = isDark ? 'rgba(30,41,59,0.92)' : 'rgba(255,255,255,0.92)')}
+                    style={exportBtnStyle}
+                    onMouseEnter={e => (e.currentTarget.style.background = T.bgHover)}
+                    onMouseLeave={e => (e.currentTarget.style.background = T.bgOverlay)}
                 >匯入 JSON</button>
                 <div style={{ position: 'relative' }}>
                     <button
                         onClick={() => setShowExportMenu(v => !v)}
-                        style={{ ...getExportBtnStyle(isDark), display: 'flex', alignItems: 'center', gap: 4 }}
-                        onMouseEnter={e => (e.currentTarget.style.background = isDark ? '#2d3748' : '#f0f0f0')}
-                        onMouseLeave={e => (e.currentTarget.style.background = isDark ? 'rgba(30,41,59,0.92)' : 'rgba(255,255,255,0.92)')}
+                        style={{ ...exportBtnStyle, display: 'flex', alignItems: 'center', gap: 4 }}
+                        onMouseEnter={e => (e.currentTarget.style.background = T.bgHover)}
+                        onMouseLeave={e => (e.currentTarget.style.background = T.bgOverlay)}
                     >匯出圖片 ▾</button>
                     {showExportMenu && (
                         <div style={{
                             position: 'absolute', top: '110%', right: 0, borderRadius: 10, padding: '4px 0',
-                            background: isDark ? '#1e293b' : 'white',
-                            boxShadow: isDark ? '0 4px 20px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.06)' : '0 4px 20px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.06)',
+                            background: T.bgPanel,
+                            boxShadow: `${T.shadowLg}, 0 0 0 1px ${T.ringSubtle}`,
                             minWidth: 180, zIndex: Z_TOOL_SUBMENU, whiteSpace: 'nowrap',
                         }} onMouseLeave={() => setShowExportMenu(false)}>
                             {[
@@ -765,8 +764,8 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
                                 { label: '📝 選取卡片 → Markdown', fn: () => exportMarkdown(true) },
                             ].map(({ label, fn }) => (
                                 <div key={label} onClick={() => { fn(); setShowExportMenu(false) }}
-                                    style={{ padding: '8px 16px', cursor: 'pointer', fontSize: 13, color: isDark ? '#e2e8f0' : '#1a1a1a' }}
-                                    onMouseEnter={e => (e.currentTarget.style.background = isDark ? '#2d3748' : '#f5f5f5')}
+                                    style={{ padding: '8px 16px', cursor: 'pointer', fontSize: 13, color: T.textPrimary }}
+                                    onMouseEnter={e => (e.currentTarget.style.background = T.bgHover)}
                                     onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                                 >{label}</div>
                             ))}

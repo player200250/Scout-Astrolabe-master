@@ -29,6 +29,7 @@ function toStickyColor(color: string): StickyColor {
 import { TextContent } from './sub-components/TextContent'
 import { CardContent } from './sub-components/CardContent'
 import { CardPropsBar } from './sub-components/CardPropsBar'
+import { T } from '../../theme/tokens'
 
 /* ----------------------------------------------------------------- 卡片屬性常數 */
 const STATUS_BADGE: Record<string, { label: string; color: string; bg: string }> = {
@@ -145,7 +146,7 @@ function CardShapeComponent({ shape, editor }: { shape: TLCardShape; editor: Edi
                         overflow: 'hidden',
                         display: 'flex', flexDirection: 'column',
                         borderRadius: 12,
-                        border: (p.type === 'heading' || isSticky) ? 'none' : isEditing ? '1.5px solid #2563eb' : isDark ? '1px solid #334155' : '1px solid #f0f0f0',
+                        border: (p.type === 'heading' || isSticky) ? 'none' : isEditing ? '1.5px solid #2563eb' : `1px solid ${T.borderLight}`,
                         padding: 0, boxSizing: 'border-box',
                         pointerEvents: capturePointerEvents ? 'auto' : 'none',
                         cursor: capturePointerEvents ? 'default' : 'grab',
@@ -157,7 +158,7 @@ function CardShapeComponent({ shape, editor }: { shape: TLCardShape; editor: Edi
                                 ? '0 0 0 3px rgba(37,99,235,0.18), 0 4px 20px rgba(37,99,235,0.10)'
                                 : 'none',
                         transition: 'box-shadow 0.15s ease-in-out, border-color 0.15s ease-in-out',
-                        backgroundColor: p.type === 'heading' ? 'transparent' : isSticky ? (isDark ? stickyStyle!.darkBg : stickyStyle!.bg) : p.color === 'dark' ? '#1a1a2e' : (!p.color || p.color === 'none') ? (isDark ? '#1e293b' : '#ffffff') : colorStyle.bg,
+                        backgroundColor: p.type === 'heading' ? 'transparent' : isSticky ? (isDark ? stickyStyle!.darkBg : stickyStyle!.bg) : p.color === 'dark' ? '#1a1a2e' : (!p.color || p.color === 'none') ? (T.bgCard) : colorStyle.bg,
                     }}
                 >
                     {p.color && p.color !== 'none' && p.type !== 'image' && !isSticky && (
@@ -332,8 +333,8 @@ function CardShapeComponent({ shape, editor }: { shape: TLCardShape; editor: Edi
                     <div
                         style={{
                             width: '680px', maxWidth: '90vw', maxHeight: '80vh',
-                            background: isDark ? '#1e293b' : 'white', borderRadius: 16,
-                            boxShadow: isDark ? '0 24px 60px rgba(0,0,0,0.5)' : '0 24px 60px rgba(0,0,0,0.2)',
+                            background: T.bgPanel, borderRadius: 16,
+                            boxShadow: T.shadowXl,
                             display: 'flex', flexDirection: 'column',
                             overflow: 'hidden',
                         }}

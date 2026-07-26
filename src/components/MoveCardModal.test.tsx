@@ -21,7 +21,7 @@ const board = (over: Partial<BoardRecord> & { id: string; name: string }): Board
 function renderModal(over: Partial<Parameters<typeof MoveCardModal>[0]> = {}) {
     const onSelect = vi.fn()
     const onClose = vi.fn()
-    render(<MoveCardModal boards={[]} onSelect={onSelect} onClose={onClose} isDark={false} {...over} />)
+    render(<MoveCardModal boards={[]} onSelect={onSelect} onClose={onClose} {...over} />)
     return { onSelect, onClose }
 }
 

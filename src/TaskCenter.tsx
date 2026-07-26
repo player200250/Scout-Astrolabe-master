@@ -4,6 +4,7 @@ import type { BoardRecord } from './db'
 import { getTodayStr, getWeekLaterStr, formatDueDate } from './utils/date'
 import { getCardShapes } from './utils/snapshot'
 import { Z_PANEL } from './constants'
+import { T } from './theme/tokens'
 
 interface TaskItem {
     boardId: string
@@ -66,15 +67,14 @@ interface TaskItemRowProps {
     todayStr: string
     weekStr: string
     onJump: (boardId: string, shapeId: string, x: number, y: number) => void
-    isDark: boolean
 }
 
-function TaskItemRow({ item, todayStr, weekStr, onJump, isDark }: TaskItemRowProps) {
+function TaskItemRow({ item, todayStr, weekStr, onJump }: TaskItemRowProps) {
     const [hovered, setHovered] = useState(false)
     const groupKey = getGroupKey(item.dueDate || undefined, todayStr, weekStr)
     const config = GROUP_CONFIG[groupKey]
-    const hoverBg = isDark ? '#243447' : '#f7f7f7'
-    const textColor = isDark ? '#e2e8f0' : '#1a1a1a'
+    const hoverBg = T.bgHover
+    const textColor = T.textPrimary
 
     return (
         <div
@@ -113,9 +113,9 @@ function TaskItemRow({ item, todayStr, weekStr, onJump, isDark }: TaskItemRowPro
                             flexShrink: 0, maxWidth: 140,
                             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                             fontSize: 10, lineHeight: 1.5,
-                            color: isDark ? '#93c5fd' : '#2563eb',
-                            background: isDark ? 'rgba(59,130,246,0.14)' : '#eff6ff',
-                            border: `1px solid ${isDark ? 'rgba(59,130,246,0.30)' : '#dbeafe'}`,
+                            color: T.accent,
+                            background: T.accentBg,
+                            border: `1px solid ${T.accentBorder}`,
                             borderRadius: 4, padding: '1px 6px',
                         }}
                     >🗂 {item.boardName}</span>
@@ -142,10 +142,9 @@ interface TaskCenterProps {
     boards: BoardRecord[]
     onJump: (boardId: string, shapeId: string, x: number, y: number) => void
     onClose: () => void
-    isDark: boolean
 }
 
-export function TaskCenter({ boards, onJump, onClose, isDark }: TaskCenterProps) {
+export function TaskCenter({ boards, onJump, onClose }: TaskCenterProps) {
     const [tab, setTab] = useState<FilterTab>('active')
     const [showNoDueDate, setShowNoDueDate] = useState(false)
 
@@ -195,15 +194,15 @@ export function TaskCenter({ boards, onJump, onClose, isDark }: TaskCenterProps)
     const totalActive   = allItems.filter(t => !t.checked).length
     const totalComplete = allItems.filter(t => t.checked).length
 
-    const panelBg    = isDark ? '#1e293b' : 'rgba(255,255,255,0.98)'
-    const borderCol  = isDark ? '#334155' : '#eee'
-    const headerBorder = isDark ? '#334155' : '#f0f0f0'
-    const titleColor = isDark ? '#e2e8f0' : '#1a1a1a'
-    const tabActiveBg = isDark ? '#2563eb' : '#1a1a1a'
-    const tabInactiveColor = isDark ? '#94a3b8' : '#666'
-    const tabHoverBg = isDark ? '#243447' : '#f5f5f5'
-    const btnBorder  = isDark ? '#334155' : '#e8e8e8'
-    const footerBorder = isDark ? '#334155' : '#f0f0f0'
+    const panelBg    = T.bgPanel
+    const borderCol  = T.borderLight
+    const headerBorder = T.borderLight
+    const titleColor = T.textPrimary
+    const tabActiveBg = T.bgActive
+    const tabInactiveColor = T.textSecondary
+    const tabHoverBg = T.bgHover
+    const btnBorder  = T.borderLight
+    const footerBorder = T.borderLight
 
     const tabs: { key: FilterTab; label: string; count?: number }[] = [
         { key: 'active',  label: '待辦',  count: activeCount },
@@ -257,7 +256,7 @@ export function TaskCenter({ boards, onJump, onClose, isDark }: TaskCenterProps)
                             {t.count !== undefined && t.count > 0 && (
                                 <span style={{
                                     fontSize: 10,
-                                    background: tab === t.key ? 'rgba(255,255,255,0.25)' : (isDark ? '#334155' : '#f0f0f0'),
+                                    background: tab === t.key ? 'rgba(255,255,255,0.25)' : (T.bgMuted),
                                     borderRadius: 8, padding: '0 5px', lineHeight: '16px',
                                     color: tab === t.key ? 'white' : (t.key === 'overdue' ? '#ff4d4f' : tabInactiveColor),
                                 }}>
@@ -289,7 +288,7 @@ export function TaskCenter({ boards, onJump, onClose, isDark }: TaskCenterProps)
                                 <TaskItemRow
                                     key={`${item.boardId}_${item.shapeId}_${item.todoId}`}
                                     item={item} todayStr={todayStr} weekStr={weekStr}
-                                    onJump={onJump} isDark={isDark}
+                                    onJump={onJump}
                                 />
                             ))}
                         </div>
@@ -320,7 +319,7 @@ export function TaskCenter({ boards, onJump, onClose, isDark }: TaskCenterProps)
                 fontSize: 11, color: '#bbb', flexShrink: 0, display: 'flex', gap: 10,
             }}>
                 <span>待辦 {totalActive}</span>
-                <span style={{ color: isDark ? '#475569' : '#e0e0e0' }}>·</span>
+                <span style={{ color: T.textMuted }}>·</span>
                 <span>已完成 {totalComplete}</span>
                 <span style={{ flex: 1 }} />
                 <span>點擊跳轉到卡片</span>

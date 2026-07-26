@@ -9,7 +9,6 @@ afterEach(cleanup)
 function renderFooter(over: Partial<Parameters<typeof SidebarFooter>[0]> = {}) {
     const props = {
         onOpenPanel: vi.fn(),
-        isDark: false,
         onToggleTheme: vi.fn(),
         ...over,
     }
@@ -29,7 +28,7 @@ describe('SidebarFooter', () => {
     })
 
     it('亮色模式時主題鈕顯示 🌙、點擊呼叫 onToggleTheme', () => {
-        const p = renderFooter({ isDark: false })
+        const p = renderFooter({})
         fireEvent.click(screen.getByTitle('切換暗色模式'))
         expect(p.onToggleTheme).toHaveBeenCalledTimes(1)
     })

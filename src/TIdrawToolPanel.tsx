@@ -6,6 +6,7 @@ import { GeoShapeGeoStyle } from "@tldraw/tlschema"
 import type { TLGeoShapeGeoStyle } from "@tldraw/tlschema"
 import type { TLCardShape, CardType } from "./components/card-shape/type/CardShape"
 import { canAttachFile } from "./platform/fileStore"
+import { T } from './theme/tokens'
 
 /* ─── Style constants ─── */
 const DRAW_COLORS: { id: TLDefaultColorStyle; css: string; label: string }[] = [
@@ -187,7 +188,6 @@ export interface CardCreators {
     createColorCard: () => void
     createFileCard?: () => void
     openImageInput: () => void
-    isDark?: boolean
 }
 
 /* ─── Shared tooltip ─── */
@@ -215,10 +215,9 @@ function Tooltip({ label }: { label: string }) {
    表格卡片按鈕（點擊彈出欄數選單）
 ================================================ */
 function TableCardButton({
-    createTableCard, isDark, btnHover, onDragStart: onDragStartCb, onDragEnd: onDragEndCb,
+    createTableCard, btnHover, onDragStart: onDragStartCb, onDragEnd: onDragEndCb,
 }: {
     createTableCard: (cols: number) => void
-    isDark?: boolean
     btnHover?: string
     onDragStart?: () => void
     onDragEnd?: () => void
@@ -227,8 +226,8 @@ function TableCardButton({
     const [hovered, setHovered] = useState(false)
     const [dragging, setDragging] = useState(false)
     const hBg = btnHover ?? '#f0f0f0'
-    const panelBg = isDark ? '#1e293b' : '#ffffff'
-    const panelBorder = isDark ? '#334155' : '#e5e7eb'
+    const panelBg = T.bgPanel
+    const panelBorder = T.borderLight
 
     return (
         <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
@@ -252,10 +251,10 @@ function TableCardButton({
                 onDragEnd={() => { setDragging(false); onDragEndCb?.() }}
                 style={{
                     width: 36, height: 36, borderRadius: 8, border: 'none',
-                    background: open || dragging ? (isDark ? 'rgba(37,99,235,0.25)' : '#e8f0fe') : hovered ? hBg : 'transparent',
+                    background: open || dragging ? (T.accentBg) : hovered ? hBg : 'transparent',
                     cursor: 'grab',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: open ? (isDark ? '#93c5fd' : '#2563eb') : (isDark ? '#94a3b8' : '#888'),
+                    color: open ? (T.accent) : (T.textSecondary),
                     transition: 'background 0.12s, color 0.12s',
                     padding: 0, opacity: dragging ? 0.5 : 1,
                 }}
@@ -267,11 +266,11 @@ function TableCardButton({
                 <div style={{
                     position: 'absolute', left: 44, top: 0,
                     background: panelBg, borderRadius: 10,
-                    boxShadow: isDark ? '0 4px 20px rgba(0,0,0,0.5)' : '0 4px 20px rgba(0,0,0,0.15)',
+                    boxShadow: T.shadowLg,
                     border: `1px solid ${panelBorder}`,
                     padding: '4px 0', zIndex: Z_MODAL, minWidth: 90,
                 }}>
-                    <div style={{ fontSize: 11, color: isDark ? '#94a3b8' : '#9ca3af', padding: '6px 12px 4px', fontWeight: 600, letterSpacing: '0.04em' }}>欄數</div>
+                    <div style={{ fontSize: 11, color: T.textMuted, padding: '6px 12px 4px', fontWeight: 600, letterSpacing: '0.04em' }}>欄數</div>
                     {[2, 3, 4].map(cols => (
                         <button
                             key={cols}
@@ -281,9 +280,9 @@ function TableCardButton({
                                 padding: '7px 14px', border: 'none',
                                 background: 'transparent', cursor: 'pointer',
                                 fontSize: 13, textAlign: 'left',
-                                color: isDark ? '#e2e8f0' : '#1a1a1a',
+                                color: T.textPrimary,
                             }}
-                            onMouseEnter={e => (e.currentTarget.style.background = isDark ? '#2d3748' : '#f5f5f5')}
+                            onMouseEnter={e => (e.currentTarget.style.background = T.bgHover)}
                             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                         >{cols} 欄{cols === 3 ? '（預設）' : ''}</button>
                     ))}
@@ -299,7 +298,7 @@ function TableCardButton({
 function DraggableCardButton({
     icon, label, cardType, onClick,
     onDragStart: onDragStartCb, onDragEnd: onDragEndCb,
-    isDark, btnHover,
+    btnHover,
 }: {
     icon: ReactNode
     label: string
@@ -307,7 +306,6 @@ function DraggableCardButton({
     onClick: () => void
     onDragStart?: () => void
     onDragEnd?: () => void
-    isDark?: boolean
     btnHover?: string
 }) {
     const [hovered, setHovered] = useState(false)
@@ -337,11 +335,11 @@ function DraggableCardButton({
                 style={{
                     width: 36, height: 36, borderRadius: 8, border: 'none',
                     background: dragging
-                        ? (isDark ? 'rgba(37,99,235,0.25)' : '#e8f0fe')
+                        ? (T.accentBg)
                         : hovered ? hBg : 'transparent',
                     cursor: 'grab',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: isDark ? '#94a3b8' : '#888',
+                    color: T.textSecondary,
                     transition: 'background 0.12s, color 0.12s',
                     padding: 0, opacity: dragging ? 0.5 : 1,
                 }}
@@ -357,14 +355,13 @@ function DraggableCardButton({
    一般工具按鈕
 ================================================ */
 function SidebarButton({
-    icon, label, onClick, isActive, isDark,
+    icon, label, onClick, isActive, 
     btnHover, btnActive, btnColor, btnActiveColor,
 }: {
     icon: ReactNode
     label: string
     onClick: () => void
     isActive?: boolean
-    isDark?: boolean
     btnHover?: string
     btnActive?: string
     btnColor?: string
@@ -387,7 +384,7 @@ function SidebarButton({
                     background: isActive ? aBg : hovered ? hBg : 'transparent',
                     cursor: 'pointer',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: isActive ? aColor : hovered ? (isDark ? '#e2e8f0' : '#444') : color,
+                    color: isActive ? aColor : hovered ? (T.textPrimary) : color,
                     transition: 'background 0.12s, color 0.12s',
                     padding: 0,
                 }}
@@ -402,9 +399,8 @@ function SidebarButton({
 /* ================================================
    對齊子選單
 ================================================ */
-function AlignSubmenu({ onAlign, isDark, alignMenuBg, alignMenuBorder, btnHover }: {
+function AlignSubmenu({ onAlign, alignMenuBg, alignMenuBorder, btnHover }: {
     onAlign: (dir: 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom') => void
-    isDark?: boolean
     alignMenuBg?: string
     alignMenuBorder?: string
     btnHover?: string
@@ -433,13 +429,13 @@ function AlignSubmenu({ onAlign, isDark, alignMenuBg, alignMenuBorder, btnHover 
                 style={{
                     width: 36, height: 36, borderRadius: 8, border: 'none',
                     background: open
-                        ? (isDark ? 'rgba(37,99,235,0.3)' : '#e8f0fe')
+                        ? (T.accentBg)
                         : hovered ? hBg : 'transparent',
                     cursor: 'pointer',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     color: open
-                        ? (isDark ? '#93c5fd' : '#2563eb')
-                        : hovered ? (isDark ? '#e2e8f0' : '#444') : (isDark ? '#94a3b8' : '#888'),
+                        ? (T.accent)
+                        : hovered ? (T.textPrimary) : (T.textPrimary),
                     transition: 'background 0.12s, color 0.12s', padding: 0,
                 }}
             >
@@ -452,7 +448,7 @@ function AlignSubmenu({ onAlign, isDark, alignMenuBg, alignMenuBorder, btnHover 
                 <div style={{
                     position: 'absolute', left: 44, top: 0,
                     background: menuBg, borderRadius: 10,
-                    boxShadow: isDark ? '0 4px 16px rgba(0,0,0,0.4)' : '0 4px 16px rgba(0,0,0,0.12)',
+                    boxShadow: T.shadowMd,
                     border: `1px solid ${menuBorder}`, padding: 6,
                     display: 'grid', gridTemplateColumns: '1fr 1fr 1fr',
                     gap: 4, zIndex: Z_MODAL,
@@ -466,7 +462,7 @@ function AlignSubmenu({ onAlign, isDark, alignMenuBg, alignMenuBorder, btnHover 
                                 width: 32, height: 32, borderRadius: 6, border: 'none',
                                 background: 'transparent', cursor: 'pointer', fontSize: 16,
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                color: isDark ? '#e2e8f0' : '#444',
+                                color: T.textPrimary,
                             }}
                             onMouseEnter={e => (e.currentTarget.style.background = hBg)}
                             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
@@ -483,7 +479,7 @@ function AlignSubmenu({ onAlign, isDark, alignMenuBg, alignMenuBorder, btnHover 
 ================================================ */
 function DrawButton({
     isOpen, onToggle, drawColor, drawSize, onColorChange, onSizeChange,
-    isActive, isDark, btnHover, btnActive, btnColor, btnActiveColor,
+    isActive, btnHover, btnActive, btnColor, btnActiveColor,
 }: {
     isOpen: boolean
     onToggle: () => void
@@ -492,7 +488,6 @@ function DrawButton({
     onColorChange: (c: TLDefaultColorStyle) => void
     onSizeChange: (s: TLDefaultSizeStyle) => void
     isActive: boolean
-    isDark?: boolean
     btnHover?: string
     btnActive?: string
     btnColor?: string
@@ -503,8 +498,8 @@ function DrawButton({
     const aBg  = btnActive     ?? '#e8f0fe'
     const col  = btnColor      ?? '#888'
     const aCol = btnActiveColor ?? '#2563eb'
-    const panelBg     = isDark ? '#1e293b' : '#ffffff'
-    const panelBorder = isDark ? '#334155' : '#e5e7eb'
+    const panelBg     = T.bgPanel
+    const panelBorder = T.borderLight
     const dotCss = DRAW_COLORS.find(c => c.id === drawColor)?.css ?? '#1d1d1d'
     const showActive = isActive || isOpen
 
@@ -519,7 +514,7 @@ function DrawButton({
                     background: showActive ? aBg : hovered ? hBg : 'transparent',
                     cursor: 'pointer',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: showActive ? aCol : hovered ? (isDark ? '#e2e8f0' : '#444') : col,
+                    color: showActive ? aCol : hovered ? (T.textPrimary) : col,
                     transition: 'background 0.12s, color 0.12s',
                     padding: 0, position: 'relative',
                 }}
@@ -530,7 +525,7 @@ function DrawButton({
                     position: 'absolute', bottom: 4, right: 4,
                     width: 6, height: 6, borderRadius: '50%',
                     background: dotCss,
-                    border: `1.5px solid ${isDark ? '#1e293b' : 'white'}`,
+                    border: `1.5px solid ${T.bgPanel}`,
                     pointerEvents: 'none',
                 }} />
             </button>
@@ -541,11 +536,11 @@ function DrawButton({
                 <div style={{
                     position: 'absolute', left: 44, top: 0,
                     background: panelBg, borderRadius: 12,
-                    boxShadow: isDark ? '0 4px 20px rgba(0,0,0,0.5)' : '0 4px 20px rgba(0,0,0,0.15)',
+                    boxShadow: T.shadowLg,
                     border: `1px solid ${panelBorder}`,
                     padding: '10px 12px', zIndex: Z_MODAL, minWidth: 184,
                 }}>
-                    <div style={{ fontSize: 11, color: isDark ? '#94a3b8' : '#9ca3af', marginBottom: 8, fontWeight: 600, letterSpacing: '0.04em' }}>顏色</div>
+                    <div style={{ fontSize: 11, color: T.textMuted, marginBottom: 8, fontWeight: 600, letterSpacing: '0.04em' }}>顏色</div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, marginBottom: 12 }}>
                         {DRAW_COLORS.map(c => (
                             <button
@@ -556,17 +551,17 @@ function DrawButton({
                                     width: 28, height: 28, borderRadius: 6,
                                     background: c.css, cursor: 'pointer', padding: 0,
                                     border: drawColor === c.id
-                                        ? `2.5px solid ${isDark ? '#93c5fd' : '#2563eb'}`
+                                        ? `2.5px solid ${T.accent}`
                                         : '2px solid transparent',
                                     outline: 'none', transition: 'transform 0.1s',
-                                    boxShadow: c.id === 'white' ? `inset 0 0 0 1px ${isDark ? '#475569' : '#d1d5db'}` : 'none',
+                                    boxShadow: c.id === 'white' ? `inset 0 0 0 1px ${T.borderMid}` : 'none',
                                 }}
                                 onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.15)' }}
                                 onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)' }}
                             />
                         ))}
                     </div>
-                    <div style={{ fontSize: 11, color: isDark ? '#94a3b8' : '#9ca3af', marginBottom: 8, fontWeight: 600, letterSpacing: '0.04em' }}>大小</div>
+                    <div style={{ fontSize: 11, color: T.textMuted, marginBottom: 8, fontWeight: 600, letterSpacing: '0.04em' }}>大小</div>
                     <div style={{ display: 'flex', gap: 5 }}>
                         {SIZE_OPTIONS.map(s => (
                             <button
@@ -575,12 +570,12 @@ function DrawButton({
                                 style={{
                                     flex: 1, height: 28, borderRadius: 6, border: 'none', cursor: 'pointer',
                                     background: drawSize === s.id
-                                        ? (isDark ? 'rgba(37,99,235,0.35)' : '#dbeafe')
-                                        : (isDark ? '#2d3748' : '#f3f4f6'),
+                                        ? (T.accentBgStrong)
+                                        : (T.bgHover),
                                     fontSize: 11, fontWeight: 700,
                                     color: drawSize === s.id
-                                        ? (isDark ? '#93c5fd' : '#2563eb')
-                                        : (isDark ? '#94a3b8' : '#6b7280'),
+                                        ? (T.accent)
+                                        : (T.textSecondary),
                                     transition: 'background 0.1s, color 0.1s',
                                 }}
                             >{s.label}</button>
@@ -597,14 +592,13 @@ function DrawButton({
 ================================================ */
 function EraserButton({
     isOpen, onToggle, eraserSize, onSizeChange,
-    isActive, isDark, btnHover, btnActive, btnColor, btnActiveColor,
+    isActive, btnHover, btnActive, btnColor, btnActiveColor,
 }: {
     isOpen: boolean
     onToggle: () => void
     eraserSize: TLDefaultSizeStyle
     onSizeChange: (s: TLDefaultSizeStyle) => void
     isActive: boolean
-    isDark?: boolean
     btnHover?: string
     btnActive?: string
     btnColor?: string
@@ -615,8 +609,8 @@ function EraserButton({
     const aBg  = btnActive     ?? '#e8f0fe'
     const col  = btnColor      ?? '#888'
     const aCol = btnActiveColor ?? '#2563eb'
-    const panelBg     = isDark ? '#1e293b' : '#ffffff'
-    const panelBorder = isDark ? '#334155' : '#e5e7eb'
+    const panelBg     = T.bgPanel
+    const panelBorder = T.borderLight
     const showActive = isActive || isOpen
 
     return (
@@ -630,7 +624,7 @@ function EraserButton({
                     background: showActive ? aBg : hovered ? hBg : 'transparent',
                     cursor: 'pointer',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: showActive ? aCol : hovered ? (isDark ? '#e2e8f0' : '#444') : col,
+                    color: showActive ? aCol : hovered ? (T.textPrimary) : col,
                     transition: 'background 0.12s, color 0.12s', padding: 0,
                 }}
             >
@@ -640,7 +634,7 @@ function EraserButton({
                         position: 'absolute', bottom: 4, right: 4,
                         width: 5, height: 5, borderRadius: '50%',
                         background: aCol,
-                        border: `1.5px solid ${isDark ? '#1e293b' : 'white'}`,
+                        border: `1.5px solid ${T.bgPanel}`,
                         pointerEvents: 'none',
                     }} />
                 )}
@@ -652,11 +646,11 @@ function EraserButton({
                 <div style={{
                     position: 'absolute', left: 44, top: 0,
                     background: panelBg, borderRadius: 12,
-                    boxShadow: isDark ? '0 4px 20px rgba(0,0,0,0.5)' : '0 4px 20px rgba(0,0,0,0.15)',
+                    boxShadow: T.shadowLg,
                     border: `1px solid ${panelBorder}`,
                     padding: '10px 12px', zIndex: Z_MODAL, minWidth: 152,
                 }}>
-                    <div style={{ fontSize: 11, color: isDark ? '#94a3b8' : '#9ca3af', marginBottom: 8, fontWeight: 600, letterSpacing: '0.04em' }}>大小</div>
+                    <div style={{ fontSize: 11, color: T.textMuted, marginBottom: 8, fontWeight: 600, letterSpacing: '0.04em' }}>大小</div>
                     <div style={{ display: 'flex', gap: 5 }}>
                         {SIZE_OPTIONS.map(s => (
                             <button
@@ -665,12 +659,12 @@ function EraserButton({
                                 style={{
                                     flex: 1, height: 28, borderRadius: 6, border: 'none', cursor: 'pointer',
                                     background: eraserSize === s.id
-                                        ? (isDark ? 'rgba(37,99,235,0.35)' : '#dbeafe')
-                                        : (isDark ? '#2d3748' : '#f3f4f6'),
+                                        ? (T.accentBgStrong)
+                                        : (T.bgHover),
                                     fontSize: 11, fontWeight: 700,
                                     color: eraserSize === s.id
-                                        ? (isDark ? '#93c5fd' : '#2563eb')
-                                        : (isDark ? '#94a3b8' : '#6b7280'),
+                                        ? (T.accent)
+                                        : (T.textSecondary),
                                     transition: 'background 0.1s, color 0.1s',
                                 }}
                             >{s.label}</button>
@@ -687,14 +681,13 @@ function EraserButton({
 ================================================ */
 function HighlightButton({
     isOpen, onToggle, highlightSize, onSizeChange,
-    isActive, isDark, btnHover, btnActive, btnColor, btnActiveColor,
+    isActive, btnHover, btnActive, btnColor, btnActiveColor,
 }: {
     isOpen: boolean
     onToggle: () => void
     highlightSize: TLDefaultSizeStyle
     onSizeChange: (s: TLDefaultSizeStyle) => void
     isActive: boolean
-    isDark?: boolean
     btnHover?: string
     btnActive?: string
     btnColor?: string
@@ -705,8 +698,8 @@ function HighlightButton({
     const aBg  = btnActive     ?? '#e8f0fe'
     const col  = btnColor      ?? '#888'
     const aCol = btnActiveColor ?? '#2563eb'
-    const panelBg     = isDark ? '#1e293b' : '#ffffff'
-    const panelBorder = isDark ? '#334155' : '#e5e7eb'
+    const panelBg     = T.bgPanel
+    const panelBorder = T.borderLight
     const showActive = isActive || isOpen
 
     return (
@@ -720,7 +713,7 @@ function HighlightButton({
                     background: showActive ? aBg : hovered ? hBg : 'transparent',
                     cursor: 'pointer',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: showActive ? aCol : hovered ? (isDark ? '#e2e8f0' : '#444') : col,
+                    color: showActive ? aCol : hovered ? (T.textPrimary) : col,
                     transition: 'background 0.12s, color 0.12s', padding: 0,
                 }}
             >
@@ -730,7 +723,7 @@ function HighlightButton({
                         position: 'absolute', bottom: 4, right: 4,
                         width: 5, height: 5, borderRadius: '50%',
                         background: aCol,
-                        border: `1.5px solid ${isDark ? '#1e293b' : 'white'}`,
+                        border: `1.5px solid ${T.bgPanel}`,
                         pointerEvents: 'none',
                     }} />
                 )}
@@ -742,11 +735,11 @@ function HighlightButton({
                 <div style={{
                     position: 'absolute', left: 44, top: 0,
                     background: panelBg, borderRadius: 12,
-                    boxShadow: isDark ? '0 4px 20px rgba(0,0,0,0.5)' : '0 4px 20px rgba(0,0,0,0.15)',
+                    boxShadow: T.shadowLg,
                     border: `1px solid ${panelBorder}`,
                     padding: '10px 12px', zIndex: Z_MODAL, minWidth: 152,
                 }}>
-                    <div style={{ fontSize: 11, color: isDark ? '#94a3b8' : '#9ca3af', marginBottom: 8, fontWeight: 600, letterSpacing: '0.04em' }}>大小</div>
+                    <div style={{ fontSize: 11, color: T.textMuted, marginBottom: 8, fontWeight: 600, letterSpacing: '0.04em' }}>大小</div>
                     <div style={{ display: 'flex', gap: 5 }}>
                         {SIZE_OPTIONS.map(s => (
                             <button
@@ -755,12 +748,12 @@ function HighlightButton({
                                 style={{
                                     flex: 1, height: 28, borderRadius: 6, border: 'none', cursor: 'pointer',
                                     background: highlightSize === s.id
-                                        ? (isDark ? 'rgba(37,99,235,0.35)' : '#dbeafe')
-                                        : (isDark ? '#2d3748' : '#f3f4f6'),
+                                        ? (T.accentBgStrong)
+                                        : (T.bgHover),
                                     fontSize: 11, fontWeight: 700,
                                     color: highlightSize === s.id
-                                        ? (isDark ? '#93c5fd' : '#2563eb')
-                                        : (isDark ? '#94a3b8' : '#6b7280'),
+                                        ? (T.accent)
+                                        : (T.textSecondary),
                                     transition: 'background 0.1s, color 0.1s',
                                 }}
                             >{s.label}</button>
@@ -777,7 +770,7 @@ function HighlightButton({
 ================================================ */
 export default function TldrawToolPanel({
     createTextCard, createTodoCard, createLinkCard,
-    createBoardCard, createColumnCard, createHeadingCard, createStickyCard, createTableCard, createColorCard, createFileCard, openImageInput, isDark,
+    createBoardCard, createColumnCard, createHeadingCard, createStickyCard, createTableCard, createColorCard, createFileCard, openImageInput, 
 }: CardCreators) {
     const editor = useEditor()
     const currentTool = editor.getCurrentToolId()
@@ -934,17 +927,17 @@ export default function TldrawToolPanel({
     }
 
     /* ── Theme tokens ── */
-    const panelBg      = isDark ? 'rgba(30,41,59,0.97)' : 'rgba(255,255,255,0.97)'
-    const panelBorder  = isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.07)'
-    const dividerColor = isDark ? '#1e293b' : '#ebebeb'
-    const btnHover     = isDark ? '#2d3748' : '#f0f0f0'
-    const btnActive    = isDark ? 'rgba(37,99,235,0.3)' : '#e8f0fe'
-    const btnColor     = isDark ? '#94a3b8' : '#888'
-    const btnActiveColor  = isDark ? '#93c5fd' : '#2563eb'
-    const alignMenuBg     = isDark ? '#1e293b' : 'white'
-    const alignMenuBorder = isDark ? '#334155' : '#e8e8e8'
+    const panelBg      = T.bgPanel
+    const panelBorder  = `1px solid ${T.borderLight}`
+    const dividerColor = T.borderLight
+    const btnHover     = T.bgHover
+    const btnActive    = T.accentBgStrong
+    const btnColor     = T.textSecondary
+    const btnActiveColor  = T.accent
+    const alignMenuBg     = T.bgPanel
+    const alignMenuBorder = T.borderLight
 
-    const shared = { isDark, btnHover, btnActive, btnColor, btnActiveColor }
+    const shared = {  btnHover, btnActive, btnColor, btnActiveColor }
 
     return (
         <>
@@ -959,27 +952,25 @@ export default function TldrawToolPanel({
                     padding: '12px 6px',
                     width: 48,
                     boxSizing: 'border-box',
-                    boxShadow: isDark
-                        ? '0 4px 24px rgba(0,0,0,0.45), 0 1px 3px rgba(0,0,0,0.3)'
-                        : '0 4px 20px rgba(0,0,0,0.09), 0 1px 3px rgba(0,0,0,0.05)',
+                    boxShadow: T.shadowPanel,
                     border: panelBorder,
                     pointerEvents: 'auto', zIndex: Z_TOOL_SUBMENU,
                 }}
                 onDragOver={(e) => e.preventDefault()}
             >
                 {/* ── 卡片工具組 ── */}
-                <DraggableCardButton icon={IcoTextCard}   label="文字卡片（拖曳或點擊）" cardType="text"   onClick={createTextCard}   isDark={isDark} btnHover={btnHover} onDragStart={() => { draggingCardType.current = 'text' }}   onDragEnd={() => {}} />
-                <DraggableCardButton icon={IcoImageCard}  label="圖片卡片（拖曳或點擊）" cardType="image"  onClick={openImageInput}   isDark={isDark} btnHover={btnHover} onDragStart={() => { draggingCardType.current = 'image' }}  onDragEnd={() => {}} />
-                <DraggableCardButton icon={IcoTodoCard}   label="待辦卡片（拖曳或點擊）" cardType="todo"   onClick={createTodoCard}   isDark={isDark} btnHover={btnHover} onDragStart={() => { draggingCardType.current = 'todo' }}   onDragEnd={() => {}} />
-                <DraggableCardButton icon={IcoLinkCard}   label="連結卡片（拖曳或點擊）" cardType="link"   onClick={createLinkCard}   isDark={isDark} btnHover={btnHover} onDragStart={() => { draggingCardType.current = 'link' }}   onDragEnd={() => {}} />
-                <DraggableCardButton icon={IcoBoardCard}  label="子白板（拖曳或點擊）"   cardType="board"  onClick={createBoardCard}  isDark={isDark} btnHover={btnHover} onDragStart={() => { draggingCardType.current = 'board' }}  onDragEnd={() => {}} />
-                <DraggableCardButton icon={IcoColumnCard} label="欄位分組（拖曳或點擊）" cardType="column" onClick={createColumnCard} isDark={isDark} btnHover={btnHover} onDragStart={() => { draggingCardType.current = 'column' }} onDragEnd={() => {}} />
-                <DraggableCardButton icon={IcoHeadingCard} label="標題卡片（拖曳或點擊）" cardType="heading" onClick={createHeadingCard} isDark={isDark} btnHover={btnHover} onDragStart={() => { draggingCardType.current = 'heading' }} onDragEnd={() => {}} />
-                <DraggableCardButton icon={IcoStickyCard} label="便利貼（拖曳或點擊）" cardType="sticky" onClick={createStickyCard} isDark={isDark} btnHover={btnHover} onDragStart={() => { draggingCardType.current = 'sticky' }} onDragEnd={() => {}} />
-                <TableCardButton createTableCard={createTableCard} isDark={isDark} btnHover={btnHover} onDragStart={() => { draggingCardType.current = 'table' }} onDragEnd={() => {}} />
-                <DraggableCardButton icon={IcoColorCard} label="顏色樣本（拖曳或點擊）" cardType="color" onClick={createColorCard} isDark={isDark} btnHover={btnHover} onDragStart={() => { draggingCardType.current = 'color' }} onDragEnd={() => {}} />
+                <DraggableCardButton icon={IcoTextCard}   label="文字卡片（拖曳或點擊）" cardType="text"   onClick={createTextCard} btnHover={btnHover} onDragStart={() => { draggingCardType.current = 'text' }}   onDragEnd={() => {}} />
+                <DraggableCardButton icon={IcoImageCard}  label="圖片卡片（拖曳或點擊）" cardType="image"  onClick={openImageInput} btnHover={btnHover} onDragStart={() => { draggingCardType.current = 'image' }}  onDragEnd={() => {}} />
+                <DraggableCardButton icon={IcoTodoCard}   label="待辦卡片（拖曳或點擊）" cardType="todo"   onClick={createTodoCard} btnHover={btnHover} onDragStart={() => { draggingCardType.current = 'todo' }}   onDragEnd={() => {}} />
+                <DraggableCardButton icon={IcoLinkCard}   label="連結卡片（拖曳或點擊）" cardType="link"   onClick={createLinkCard} btnHover={btnHover} onDragStart={() => { draggingCardType.current = 'link' }}   onDragEnd={() => {}} />
+                <DraggableCardButton icon={IcoBoardCard}  label="子白板（拖曳或點擊）"   cardType="board"  onClick={createBoardCard} btnHover={btnHover} onDragStart={() => { draggingCardType.current = 'board' }}  onDragEnd={() => {}} />
+                <DraggableCardButton icon={IcoColumnCard} label="欄位分組（拖曳或點擊）" cardType="column" onClick={createColumnCard} btnHover={btnHover} onDragStart={() => { draggingCardType.current = 'column' }} onDragEnd={() => {}} />
+                <DraggableCardButton icon={IcoHeadingCard} label="標題卡片（拖曳或點擊）" cardType="heading" onClick={createHeadingCard} btnHover={btnHover} onDragStart={() => { draggingCardType.current = 'heading' }} onDragEnd={() => {}} />
+                <DraggableCardButton icon={IcoStickyCard} label="便利貼（拖曳或點擊）" cardType="sticky" onClick={createStickyCard} btnHover={btnHover} onDragStart={() => { draggingCardType.current = 'sticky' }} onDragEnd={() => {}} />
+                <TableCardButton createTableCard={createTableCard} btnHover={btnHover} onDragStart={() => { draggingCardType.current = 'table' }} onDragEnd={() => {}} />
+                <DraggableCardButton icon={IcoColorCard} label="顏色樣本（拖曳或點擊）" cardType="color" onClick={createColorCard} btnHover={btnHover} onDragStart={() => { draggingCardType.current = 'color' }} onDragEnd={() => {}} />
                 {createFileCard && canAttachFile() && (
-                    <DraggableCardButton icon={IcoFileCard} label="上傳檔案（點擊）" cardType="file" onClick={createFileCard} isDark={isDark} btnHover={btnHover} onDragStart={() => {}} onDragEnd={() => {}} />
+                    <DraggableCardButton icon={IcoFileCard} label="上傳檔案（點擊）" cardType="file" onClick={createFileCard} btnHover={btnHover} onDragStart={() => {}} onDragEnd={() => {}} />
                 )}
 
                 <div style={{ height: 1, background: dividerColor, margin: '6px 0' }} />
@@ -1015,7 +1006,7 @@ export default function TldrawToolPanel({
 
                 {/* ── 對齊工具 ── */}
                 <AlignSubmenu
-                    onAlign={alignSelected} isDark={isDark}
+                    onAlign={alignSelected}
                     alignMenuBg={alignMenuBg} alignMenuBorder={alignMenuBorder} btnHover={btnHover}
                 />
             </div>

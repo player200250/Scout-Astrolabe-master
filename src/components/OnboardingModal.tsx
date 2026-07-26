@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { T } from '../theme/tokens'
 
 const STEPS = [
     {
@@ -26,10 +27,9 @@ const STEPS = [
 
 interface OnboardingModalProps {
     onClose: () => void
-    isDark: boolean
 }
 
-export function OnboardingModal({ onClose, isDark }: OnboardingModalProps) {
+export function OnboardingModal({ onClose }: OnboardingModalProps) {
     const [step, setStep] = useState(0)
 
     const handleComplete = useCallback(() => {
@@ -59,11 +59,10 @@ export function OnboardingModal({ onClose, isDark }: OnboardingModalProps) {
     const current = STEPS[step]
     const isLast = step === STEPS.length - 1
 
-    const cardBg = isDark ? '#1e293b' : '#ffffff'
-    const textColor = isDark ? '#f1f5f9' : '#1e293b'
-    const mutedColor = isDark ? '#94a3b8' : '#64748b'
-    const borderColor = isDark ? '#334155' : '#e2e8f0'
-    const prevBtnBg = isDark ? 'transparent' : 'transparent'
+    const cardBg = T.bgPanel
+    const textColor = T.textPrimary
+    const mutedColor = T.textSecondary
+    const borderColor = T.borderLight
 
     return (
         <div
@@ -89,7 +88,7 @@ export function OnboardingModal({ onClose, isDark }: OnboardingModalProps) {
                             style={{
                                 width: i === step ? 22 : 8, height: 8,
                                 borderRadius: 4,
-                                background: i === step ? '#2563eb' : (isDark ? '#334155' : '#e2e8f0'),
+                                background: i === step ? '#2563eb' : (T.bgMuted),
                                 transition: 'all 0.2s cubic-bezier(0.4,0,0.2,1)',
                                 cursor: 'pointer',
                             }}
@@ -145,12 +144,12 @@ export function OnboardingModal({ onClose, isDark }: OnboardingModalProps) {
                                 style={{
                                     padding: '8px 16px', borderRadius: 8,
                                     border: `1px solid ${borderColor}`,
-                                    background: prevBtnBg, cursor: 'pointer',
+                                    background: 'transparent', cursor: 'pointer',
                                     fontSize: 13, color: mutedColor,
                                     transition: 'background 0.15s',
                                 }}
-                                onMouseEnter={e => (e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.06)' : '#f8fafc')}
-                                onMouseLeave={e => (e.currentTarget.style.background = prevBtnBg)}
+                                onMouseEnter={e => (e.currentTarget.style.background = T.bgHoverSoft)}
+                                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                             >
                                 ← 上一步
                             </button>

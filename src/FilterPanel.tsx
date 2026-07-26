@@ -6,6 +6,8 @@ import { Z_PANEL } from './constants'
 import { stripHtml } from './utils/stringUtils'
 import { loadTagColors, getTagColor, type TagColorMap } from './utils/tagColors'
 import { hexToRgba } from './utils/cardMeta'
+import { T } from './theme/tokens'
+import { useIsDark } from './theme/ThemeContext'
 
 type CardStatusType = 'none' | 'todo' | 'in-progress' | 'done'
 type PriorityType   = 'none' | 'low'  | 'medium'      | 'high'
@@ -29,7 +31,6 @@ interface FilterPanelProps {
     boards: BoardRecord[]
     onJump: (boardId: string, shapeId: string, x: number, y: number) => void
     onClose: () => void
-    isDark: boolean
 }
 
 const STATUS_CONFIG: Record<CardStatusType, { label: string; color: string; bg: string }> = {
@@ -100,17 +101,17 @@ function scanCards(
 interface FilterResultRowProps {
     result: FilterResult
     onJump: (boardId: string, shapeId: string, x: number, y: number) => void
-    isDark: boolean
     tagColors: TagColorMap
 }
 
-function FilterResultRow({ result, onJump, isDark, tagColors }: FilterResultRowProps) {
+function FilterResultRow({ result, onJump,  tagColors }: FilterResultRowProps) {
+    const isDark = useIsDark()
     const [hovered, setHovered] = useState(false)
     const sCfg = STATUS_CONFIG[result.cardStatus]
     const pCfg = PRIORITY_CONFIG[result.priority]
-    const hoverBg = isDark ? '#243447' : '#f7f7f7'
-    const rowBorder = isDark ? '#334155' : '#f5f5f5'
-    const textColor = isDark ? '#e2e8f0' : '#1a1a1a'
+    const hoverBg = T.bgHover
+    const rowBorder = T.borderLight
+    const textColor = T.textPrimary
 
     return (
         <div
@@ -154,7 +155,8 @@ function FilterResultRow({ result, onJump, isDark, tagColors }: FilterResultRowP
     )
 }
 
-export function FilterPanel({ boards, onJump, onClose, isDark }: FilterPanelProps) {
+export function FilterPanel({ boards, onJump, onClose }: FilterPanelProps) {
+    const isDark = useIsDark()
     const [filterStatuses,   setFilterStatuses]   = useState<Set<CardStatusType>>(new Set())
     const [filterPriorities, setFilterPriorities] = useState<Set<PriorityType>>(new Set())
     const [filterTag,        setFilterTag]        = useState<string | null>(null)
@@ -179,17 +181,17 @@ export function FilterPanel({ boards, onJump, onClose, isDark }: FilterPanelProp
         return () => window.removeEventListener('keydown', handler)
     }, [onClose])
 
-    const panelBg    = isDark ? '#1e293b' : 'rgba(255,255,255,0.98)'
-    const headerBorder = isDark ? '#334155' : '#f0f0f0'
-    const titleColor = isDark ? '#e2e8f0' : '#1a1a1a'
-    const btnBorder  = isDark ? '#334155' : '#e8e8e8'
-    const hoverBg    = isDark ? '#243447' : '#f5f5f5'
+    const panelBg    = T.bgPanel
+    const headerBorder = T.borderLight
+    const titleColor = T.textPrimary
+    const btnBorder  = T.borderLight
+    const hoverBg    = T.bgHover
 
     const chipStyle = (active: boolean, color: string, bg: string): React.CSSProperties => ({
         fontSize: 11, borderRadius: 6, padding: '3px 8px', cursor: 'pointer',
         border: `1px solid ${active ? color : btnBorder}`,
         background: active ? bg : 'transparent',
-        color: active ? color : (isDark ? '#94a3b8' : '#666'),
+        color: active ? color : (T.textSecondary),
         fontWeight: active ? 600 : 400,
         transition: 'all 0.1s',
     })
@@ -283,7 +285,7 @@ export function FilterPanel({ boards, onJump, onClose, isDark }: FilterPanelProp
                     <>
                         <div style={{ padding: '7px 16px 2px', fontSize: 11, color: '#bbb' }}>共 {results.length} 張卡片 點擊跳轉</div>
                         {results.map(r => (
-                            <FilterResultRow key={`${r.boardId}_${r.shapeId}`} result={r} onJump={onJump} isDark={isDark} tagColors={tagColors} />
+                            <FilterResultRow key={`${r.boardId}_${r.shapeId}`} result={r} onJump={onJump} tagColors={tagColors} />
                         ))}
                     </>
                 )}

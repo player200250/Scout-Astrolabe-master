@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useBoardManager } from './hooks/useBoardManager'
 import { usePanelState } from './hooks/usePanelState'
+import { ThemeProvider } from './theme/ThemeContext'
 import { onTriggerQuickCapture } from './platform/quickCapture'
 import { Whiteboard } from './components/Whiteboard'
 import { BoardTabBar } from './components/BoardTabBar'
@@ -28,6 +29,7 @@ import { SIDEBAR_WIDTH, SIDEBAR_COLLAPSED_WIDTH, INBOX_BOARD_ID, JUMP_DELAY_MS, 
 import { getCardShapes } from './utils/snapshot'
 import { getTodayStr } from './utils/date'
 import 'tldraw/tldraw.css'
+import { T } from './theme/tokens'
 
 export default function App() {
     const {
@@ -207,7 +209,7 @@ export default function App() {
     if (loading) return <div style={{ height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>Loading...</div>
 
     return (
-        <>
+        <ThemeProvider value={isDark}>
             {activeBoard && (
                 <Whiteboard
                     key={activeBoard.id}
@@ -223,7 +225,6 @@ export default function App() {
                     sidebarWidth={sidebarWidth}
                     isInboxBoard={activeBoardId === INBOX_BOARD_ID}
                     onMoveCard={shapeIds => setMovingCardShapeIds(shapeIds)}
-                    isDark={isDark}
                     onOpenTaskCenter={() => openPanel('taskCenter')}
                     onOpenReviewCenter={() => openPanel('reviewCenter')}
                     onOpenKnowledgeGraph={() => openPanel('knowledgeGraph')}
@@ -252,7 +253,6 @@ export default function App() {
                 onToggleCollapse={handleToggleCollapse}
                 onSetStatus={handleSetStatus}
                 onGoToInbox={handleGoToInbox}
-                isDark={isDark}
                 onToggleTheme={toggleTheme}
                 onReorderBoards={handleReorderBoards}
                 inboxCardCount={inboxCardCount}
@@ -271,7 +271,6 @@ export default function App() {
                     excludeBoardId={activeBoardId ?? undefined}
                     onSelect={targetBoardId => { handleMoveCardsToBoard(movingCardShapeIds, targetBoardId, activeBoardId ?? undefined); setMovingCardShapeIds(null) }}
                     onClose={() => setMovingCardShapeIds(null)}
-                    isDark={isDark}
                 />
             )}
 
@@ -280,7 +279,6 @@ export default function App() {
                     boards={boards}
                     onJump={(boardId, shapeId, x, y) => { closePanel('search'); handleJump(boardId, shapeId, x, y) }}
                     onClose={() => closePanel('search')}
-                    isDark={isDark}
                 />
             )}
             {panels.hotkey && <HotkeyPanel onClose={() => closePanel('hotkey')} />}
@@ -289,7 +287,6 @@ export default function App() {
                     boards={boards}
                     onJump={(boardId, shapeId, x, y) => { closePanel('taskCenter'); handleJump(boardId, shapeId, x, y) }}
                     onClose={() => closePanel('taskCenter')}
-                    isDark={isDark}
                 />
             )}
             {panels.filter && (
@@ -297,7 +294,6 @@ export default function App() {
                     boards={boards}
                     onJump={(boardId, shapeId, x, y) => { closePanel('filter'); handleJump(boardId, shapeId, x, y) }}
                     onClose={() => closePanel('filter')}
-                    isDark={isDark}
                 />
             )}
             {panels.tagManager && (
@@ -305,7 +301,6 @@ export default function App() {
                     boards={boards}
                     onRewriteTag={handleRewriteTag}
                     onClose={() => closePanel('tagManager')}
-                    isDark={isDark}
                 />
             )}
             {panels.backup && (
@@ -314,7 +309,6 @@ export default function App() {
                     onClose={() => closePanel('backup')}
                     onRestore={async (restoredBoards) => { await handleRestore(restoredBoards); closePanel('backup') }}
                     onMigrateImages={migrateAllNow}
-                    isDark={isDark}
                 />
             )}
             {panels.dataSafety && (
@@ -322,7 +316,6 @@ export default function App() {
                     boards={boards}
                     onClose={() => closePanel('dataSafety')}
                     onOpenBackup={() => { closePanel('dataSafety'); openPanel('backup') }}
-                    isDark={isDark}
                 />
             )}
             {panels.overview && (
@@ -336,7 +329,6 @@ export default function App() {
                     onDelete={handleDeleteWithConfirm}
                     onSetStatus={handleSetStatus}
                     onClose={() => closePanel('overview')}
-                    isDark={isDark}
                 />
             )}
             {panels.reviewCenter && (
@@ -346,7 +338,6 @@ export default function App() {
                     onJumpToBoard={handleSwitch}
                     onSaveJournal={handleSaveJournal}
                     onGoToWeeklyCard={() => { closePanel('reviewCenter'); handleGoToWeeklyCard() }}
-                    isDark={isDark}
                 />
             )}
             {panels.knowledgeGraph && (
@@ -369,14 +360,12 @@ export default function App() {
                     boards={boards}
                     onJump={(boardId, shapeId, x, y) => { closePanel('cardLibrary'); handleJump(boardId, shapeId, x, y) }}
                     onClose={() => closePanel('cardLibrary')}
-                    isDark={isDark}
                 />
             )}
             {panels.quickCapture && (
                 <QuickCapture
                     onSave={text => { handleAddCardToInbox(text); closePanel('quickCapture') }}
                     onClose={() => closePanel('quickCapture')}
-                    isDark={isDark}
                 />
             )}
             {panels.inboxTriage && (
@@ -386,13 +375,11 @@ export default function App() {
                     onUpdateCardProps={handleUpdateInboxCardProps}
                     onTrashCard={handleTrashInboxCard}
                     onClose={() => closePanel('inboxTriage')}
-                    isDark={isDark}
                 />
             )}
             {panels.onboarding && (
                 <OnboardingModal
                     onClose={() => closePanel('onboarding')}
-                    isDark={isDark}
                 />
             )}
             {deletingBoardId && (() => {
@@ -408,7 +395,6 @@ export default function App() {
                             setDeletingBoardId(null)
                         }}
                         onCancel={() => setDeletingBoardId(null)}
-                        isDark={isDark}
                     />
                 )
             })()}
@@ -418,7 +404,6 @@ export default function App() {
                     activeBoardId={activeBoardId ?? ''}
                     onSwitch={handleSwitch}
                     onClose={() => closePanel('quickSwitcher')}
-                    isDark={isDark}
                 />
             )}
             {panels.commandPalette && (
@@ -428,7 +413,6 @@ export default function App() {
                     activeBoardId={activeBoardId ?? ''}
                     onSwitchBoard={handleSwitch}
                     onClose={() => closePanel('commandPalette')}
-                    isDark={isDark}
                 />
             )}
             {panels.trash && (
@@ -438,20 +422,19 @@ export default function App() {
                     onPermanentDeleteBoard={handlePermanentDeleteBoard}
                     onEmptyTrash={handleEmptyTrash}
                     onCardRestored={() => { refreshTrashCount() }}
-                    isDark={isDark}
                 />
             )}
             {panels.overdueBanner && (
                 <div style={{
                     position: 'fixed', bottom: 24, left: 24, zIndex: Z_MODAL_BACKDROP,
-                    background: isDark ? '#1e293b' : 'white',
-                    border: `1px solid ${isDark ? '#475569' : '#fecaca'}`,
+                    background: T.bgPanel,
+                    border: `1px solid ${T.dangerBorder}`,
                     borderRadius: 14, padding: '14px 18px',
                     boxShadow: '0 8px 32px rgba(0,0,0,0.25)',
                     display: 'flex', flexDirection: 'column', gap: 10,
                     width: 270,
                 }}>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: isDark ? '#fca5a5' : '#dc2626' }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: T.danger }}>
                         ⚠️ 你有 {overdueCount} 個逾期任務
                     </div>
                     <div style={{ display: 'flex', gap: 8 }}>
@@ -461,11 +444,11 @@ export default function App() {
                         >查看任務中心</button>
                         <button
                             onClick={() => closePanel('overdueBanner')}
-                            style={{ flex: 1, padding: '6px 0', borderRadius: 7, border: `1px solid ${isDark ? '#475569' : '#e2e8f0'}`, background: 'transparent', color: isDark ? '#94a3b8' : '#64748b', cursor: 'pointer', fontSize: 12 }}
+                            style={{ flex: 1, padding: '6px 0', borderRadius: 7, border: `1px solid ${T.borderLight}`, background: 'transparent', color: T.textSecondary, cursor: 'pointer', fontSize: 12 }}
                         >稍後再說</button>
                     </div>
                 </div>
             )}
-        </>
+        </ThemeProvider>
     )
 }

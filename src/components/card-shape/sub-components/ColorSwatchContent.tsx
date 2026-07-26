@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { useEditor } from 'tldraw'
-import { useIsDarkMode } from '@tldraw/editor'
 import type { TLCardShape, ColorSwatch } from '../type/CardShape'
 import { getContrastColor } from '../../../utils/colorSwatchUtils'
+import { T } from '../../../theme/tokens'
 
 function genId() {
     return `sw_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
@@ -24,7 +24,6 @@ interface ColorSwatchContentProps {
 
 export function ColorSwatchContent({ shape }: ColorSwatchContentProps) {
     const editor = useEditor()
-    const isDark = useIsDarkMode()
     const swatches = useMemo(() => (shape.props.swatches ?? []) as ColorSwatch[], [shape.props.swatches])
     const mainSwatch = swatches[0]
     const extraSwatches = swatches.slice(1)
@@ -100,12 +99,12 @@ export function ColorSwatchContent({ shape }: ColorSwatchContentProps) {
 
     const mainHex = mainSwatch.hex
     const mainTextColor = getContrastColor(mainHex)
-    const border = isDark ? '#334155' : '#f0f0f0'
-    const textColor = isDark ? '#e2e8f0' : '#1a1a1a'
-    const mutedColor = isDark ? '#64748b' : '#9ca3af'
-    const pickerBg = isDark ? '#1e293b' : '#ffffff'
-    const pickerBorder = isDark ? '#475569' : '#e0e0e0'
-    const inputBg = isDark ? '#0f172a' : '#f8f8f8'
+    const border = T.borderLight
+    const textColor = T.textPrimary
+    const mutedColor = T.textMuted
+    const pickerBg = T.bgPanel
+    const pickerBorder = T.borderLight
+    const inputBg = T.bgApp
 
     return (
         <div
@@ -203,7 +202,7 @@ export function ColorSwatchContent({ shape }: ColorSwatchContentProps) {
                         borderTop: `1px solid ${border}`,
                         color: footerHovered ? '#3b82f6' : mutedColor,
                         fontSize: 12, fontWeight: 500, cursor: 'pointer',
-                        background: footerHovered ? (isDark ? 'rgba(59,130,246,0.08)' : '#eff6ff') : 'transparent',
+                        background: footerHovered ? (T.accentBg) : 'transparent',
                         transition: 'color 0.15s, background 0.15s',
                         userSelect: 'none',
                     }}
@@ -222,7 +221,7 @@ export function ColorSwatchContent({ shape }: ColorSwatchContentProps) {
                         padding: '10px 12px 12px',
                         boxSizing: 'border-box',
                         zIndex: 10,
-                        boxShadow: isDark ? '0 -4px 12px rgba(0,0,0,0.3)' : '0 -4px 12px rgba(0,0,0,0.08)',
+                        boxShadow: T.shadowUp,
                     }}
                     onPointerDown={(e) => e.stopPropagation()}
                     onPointerUp={(e) => e.stopPropagation()}
@@ -290,8 +289,8 @@ export function ColorSwatchContent({ shape }: ColorSwatchContentProps) {
                             style={{
                                 padding: '5px 14px', borderRadius: 7, fontSize: 12, fontWeight: 600,
                                 border: 'none',
-                                background: isValidHex(pickerHex) ? '#3b82f6' : (isDark ? '#334155' : '#e5e7eb'),
-                                color: isValidHex(pickerHex) ? '#fff' : (isDark ? '#475569' : '#9ca3af'),
+                                background: isValidHex(pickerHex) ? '#3b82f6' : (T.bgMuted),
+                                color: isValidHex(pickerHex) ? '#fff' : (T.textMuted),
                                 cursor: isValidHex(pickerHex) ? 'pointer' : 'not-allowed',
                             }}
                         >確認</button>

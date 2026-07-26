@@ -9,7 +9,7 @@ beforeEach(() => localStorage.clear())
 
 function renderOnboarding() {
     const onClose = vi.fn()
-    render(<OnboardingModal onClose={onClose} isDark={false} />)
+    render(<OnboardingModal onClose={onClose} />)
     return { onClose }
 }
 

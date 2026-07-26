@@ -4,6 +4,7 @@ import type { BoardRecord } from './db'
 import { CalendarContent } from './CalendarView'
 import { JournalDayContent } from './JournalDayView'
 import { WeeklyReviewContent } from './WeeklyReview'
+import { T } from './theme/tokens'
 
 type ReviewTab = 'calendar' | 'journal' | 'weekly'
 
@@ -13,7 +14,6 @@ interface ReviewCenterProps {
     onJumpToBoard: (boardId: string) => void
     onSaveJournal: (boardId: string, dateStr: string, html: string, shapeId: string | null) => void
     onGoToWeeklyCard: () => void
-    isDark: boolean
 }
 
 const TABS: { key: ReviewTab; label: string }[] = [
@@ -22,7 +22,7 @@ const TABS: { key: ReviewTab; label: string }[] = [
     { key: 'weekly',   label: '📊 週回顧' },
 ]
 
-export function ReviewCenter({ boards, onClose, onJumpToBoard, onSaveJournal, onGoToWeeklyCard, isDark }: ReviewCenterProps) {
+export function ReviewCenter({ boards, onClose, onJumpToBoard, onSaveJournal, onGoToWeeklyCard }: ReviewCenterProps) {
     const [tab, setTab] = useState<ReviewTab>('calendar')
     const [journalDate, setJournalDate] = useState<Date>(new Date())
 
@@ -37,14 +37,14 @@ export function ReviewCenter({ boards, onClose, onJumpToBoard, onSaveJournal, on
         setTab('journal')
     }
 
-    const outerBg   = isDark ? 'rgba(15,23,42,0.98)' : 'rgba(245,245,243,0.98)'
-    const headerBg  = isDark ? 'rgba(30,41,59,0.95)' : 'rgba(255,255,255,0.9)'
-    const borderCol = isDark ? '#334155' : '#e8e8e6'
-    const titleColor = isDark ? '#e2e8f0' : '#1a1a1a'
-    const tabInactiveColor = isDark ? '#94a3b8' : '#666'
-    const tabHoverBg = isDark ? '#243447' : '#f0f0ee'
-    const btnBorder  = isDark ? '#334155' : '#e0e0de'
-    const bodyBg     = isDark ? '#1e293b' : 'white'
+    const outerBg   = T.bgOverlay
+    const headerBg  = T.bgOverlay
+    const borderCol = T.borderLight
+    const titleColor = T.textPrimary
+    const tabInactiveColor = T.textSecondary
+    const tabHoverBg = T.bgApp
+    const btnBorder  = T.borderLight
+    const bodyBg     = T.bgPanel
 
     return (
         <div style={{
@@ -68,7 +68,7 @@ export function ReviewCenter({ boards, onClose, onJumpToBoard, onSaveJournal, on
                             onClick={() => setTab(t.key)}
                             style={{
                                 padding: '5px 18px', borderRadius: 8, border: 'none',
-                                background: tab === t.key ? (isDark ? '#2563eb' : '#1a1a1a') : 'transparent',
+                                background: tab === t.key ? (T.bgActive) : 'transparent',
                                 color: tab === t.key ? 'white' : tabInactiveColor,
                                 fontSize: 13, fontWeight: tab === t.key ? 600 : 400,
                                 cursor: 'pointer', transition: 'background 0.12s',
@@ -98,14 +98,14 @@ export function ReviewCenter({ boards, onClose, onJumpToBoard, onSaveJournal, on
             <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', background: bodyBg }}>
                 {tab === 'calendar' && (
                     <CalendarContent
-                        boards={boards} isDark={isDark}
+                        boards={boards}
                         onJumpToBoard={id => { onClose(); onJumpToBoard(id) }}
                         onOpenJournalDay={handleOpenJournalDay}
                     />
                 )}
                 {tab === 'journal' && (
                     <JournalDayContent
-                        date={journalDate} boards={boards} isDark={isDark}
+                        date={journalDate} boards={boards}
                         onSaveJournal={onSaveJournal} onDateChange={setJournalDate}
                     />
                 )}
@@ -114,7 +114,7 @@ export function ReviewCenter({ boards, onClose, onJumpToBoard, onSaveJournal, on
                         <div style={{ flex: 1, overflowY: 'auto', display: 'flex', justifyContent: 'center' }}>
                             <div style={{ width: '100%', maxWidth: 440, display: 'flex', flexDirection: 'column' }}>
                                 <WeeklyReviewContent
-                                    boards={boards} isDark={isDark}
+                                    boards={boards}
                                     onGoToWeeklyCard={() => { onClose(); onGoToWeeklyCard() }}
                                 />
                             </div>

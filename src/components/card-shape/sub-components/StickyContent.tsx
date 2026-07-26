@@ -3,6 +3,7 @@ import { useIsDarkMode } from '@tldraw/editor'
 import { useEditor } from 'tldraw'
 import type { TLCardShape, StickyColor } from '../type/CardShape'
 import { STICKY_COLORS, STICKY_COLOR_LIST } from '../type/CardShape'
+import { T } from '../../../theme/tokens'
 
 interface StickyContentProps {
     shape: TLCardShape
@@ -23,7 +24,7 @@ export function StickyContent({ shape, isEditing, exitEdit }: StickyContentProps
     const stickyColor = toStickyColor(p.color)
     const colorStyle = STICKY_COLORS[stickyColor]
     const bgColor = isDark ? colorStyle.darkBg : colorStyle.bg
-    const textColor = isDark ? '#ffffff' : '#1a1a1a'
+    const textColor = T.textPrimary
 
     useEffect(() => {
         if (isEditing && textareaRef.current) {

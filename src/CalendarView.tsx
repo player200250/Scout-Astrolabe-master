@@ -4,6 +4,7 @@ import React from 'react'
 import type { BoardRecord } from './db'
 import { toDateStr as dateStr } from './utils/date'
 import { getCardShapes } from './utils/snapshot'
+import { T } from './theme/tokens'
 
 function sameDay(a: Date, b: Date) {
     return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
@@ -78,10 +79,9 @@ interface CalendarContentProps {
     boards: BoardRecord[]
     onJumpToBoard: (boardId: string) => void
     onOpenJournalDay: (date: Date) => void
-    isDark: boolean
 }
 
-export function CalendarContent({ boards, onJumpToBoard, onOpenJournalDay, isDark }: CalendarContentProps) {
+export function CalendarContent({ boards, onJumpToBoard, onOpenJournalDay }: CalendarContentProps) {
     const today = new Date()
     const [viewYear, setViewYear]     = useState(today.getFullYear())
     const [viewMonth, setViewMonth]   = useState(today.getMonth())
@@ -102,14 +102,14 @@ export function CalendarContent({ boards, onJumpToBoard, onOpenJournalDay, isDar
     const hasJournal = boards.some(b => b.isJournal)
     const selLabel = `${selectedDate.getMonth() + 1} 月 ${selectedDate.getDate()} 日 ${WEEKDAY_FULL[selectedDate.getDay()]}`
 
-    const calBg     = isDark ? '#1e293b' : 'white'
-    const borderCol = isDark ? '#334155' : '#e8e8e6'
-    const cellBorder = isDark ? '#334155' : '#fafaf8'
-    const headerBorder = isDark ? '#334155' : '#f0f0ee'
-    const textPrimary = isDark ? '#e2e8f0' : '#1a1a1a'
-    const selCellBg  = isDark ? '#1e3a5f' : '#f0f4ff'
-    const hoverCellBg = isDark ? '#243447' : '#f7f7f7'
-    const navBtnBorder = isDark ? '#334155' : '#e8e8e8'
+    const calBg     = T.bgPanel
+    const borderCol = T.borderLight
+    const cellBorder = T.borderLight
+    const headerBorder = T.borderLight
+    const textPrimary = T.textPrimary
+    const selCellBg  = T.accentBg
+    const hoverCellBg = T.bgHover
+    const navBtnBorder = T.borderLight
 
     const navBtnStyle: React.CSSProperties = {
         width: 28, height: 28, borderRadius: 8, border: `1px solid ${navBtnBorder}`,
@@ -162,7 +162,7 @@ export function CalendarContent({ boards, onJumpToBoard, onOpenJournalDay, isDar
                                 <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 2 }}>
                                     <div style={{
                                         width: 24, height: 24, borderRadius: '50%',
-                                        background: isSel ? '#2563eb' : isToday ? (isDark ? '#334155' : '#1a1a1a') : 'transparent',
+                                        background: isSel ? '#2563eb' : isToday ? (T.bgActive) : 'transparent',
                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                                         fontSize: 12, fontWeight: isSel || isToday ? 700 : 400,
                                         color: isSel || isToday ? 'white' : isSun ? '#e03131' : isSat ? '#2563eb' : textPrimary,
@@ -172,7 +172,7 @@ export function CalendarContent({ boards, onJumpToBoard, onOpenJournalDay, isDar
                                     <div style={{ height: 18, borderRadius: 3, padding: '0 4px', background: '#fef3c7', color: '#92400e', fontSize: 10, lineHeight: '18px', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', flexShrink: 0 }}>📔 日記</div>
                                 )}
                                 {visibleTodos.map((t, i) => (
-                                    <div key={i} style={{ height: 18, borderRadius: 3, padding: '0 4px', background: t.checked ? (isDark ? '#334155' : '#f5f5f5') : '#fee2e2', color: t.checked ? '#aaa' : '#991b1b', fontSize: 10, lineHeight: '18px', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', textDecoration: t.checked ? 'line-through' : 'none', flexShrink: 0 }}>{t.text.slice(0, 12) || '（無標題）'}</div>
+                                    <div key={i} style={{ height: 18, borderRadius: 3, padding: '0 4px', background: t.checked ? (T.bgHover) : '#fee2e2', color: t.checked ? '#aaa' : '#991b1b', fontSize: 10, lineHeight: '18px', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', textDecoration: t.checked ? 'line-through' : 'none', flexShrink: 0 }}>{t.text.slice(0, 12) || '（無標題）'}</div>
                                 ))}
                                 {extraCount > 0 && (
                                     <div style={{ fontSize: 10, color: '#bbb', paddingLeft: 4, lineHeight: '16px' }}>+{extraCount} 更多</div>
@@ -186,16 +186,16 @@ export function CalendarContent({ boards, onJumpToBoard, onOpenJournalDay, isDar
             {/* Agenda — 60% */}
             <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: textPrimary, marginBottom: 20 }}>{selLabel}</div>
-                <Section label="📔 Journal" isDark={isDark}>
+                <Section label="📔 Journal">
                     {agenda.journalCard ? (
-                        <AgendaRow onClick={() => onOpenJournalDay(selectedDate)} isDark={isDark}>
-                            <span style={{ flex: 1, fontSize: 13, color: isDark ? '#94a3b8' : '#444', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <AgendaRow onClick={() => onOpenJournalDay(selectedDate)}>
+                            <span style={{ flex: 1, fontSize: 13, color: T.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                 {agenda.journalCard.text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60) || '（空白）'}
                             </span>
                             <Tag>開啟 →</Tag>
                         </AgendaRow>
                     ) : hasJournal ? (
-                        <AgendaRow onClick={() => onOpenJournalDay(selectedDate)} muted isDark={isDark}>
+                        <AgendaRow onClick={() => onOpenJournalDay(selectedDate)} muted>
                             <span style={{ fontSize: 13, color: '#aaa' }}>尚無日記，點擊建立</span>
                             <Tag>建立 →</Tag>
                         </AgendaRow>
@@ -203,18 +203,18 @@ export function CalendarContent({ boards, onJumpToBoard, onOpenJournalDay, isDar
                         <EmptyNote>尚未設定 Journal 白板</EmptyNote>
                     )}
                 </Section>
-                <Section label="✅ 待辦到期" isDark={isDark}>
+                <Section label="✅ 待辦到期">
                     {agenda.todos.length === 0 ? <EmptyNote>無到期待辦</EmptyNote> : agenda.todos.map((t, i) => (
-                        <AgendaRow key={i} onClick={() => onJumpToBoard(t.boardId)} isDark={isDark}>
+                        <AgendaRow key={i} onClick={() => onJumpToBoard(t.boardId)}>
                             <span style={{ fontSize: 11, marginTop: 1, color: t.checked ? '#bbb' : '#d0d0d0', flexShrink: 0 }}>{t.checked ? '☑' : '☐'}</span>
                             <span style={{ flex: 1, fontSize: 13, color: t.checked ? '#aaa' : textPrimary, textDecoration: t.checked ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.todoText}</span>
                             <span style={{ fontSize: 11, color: '#bbb', flexShrink: 0 }}>{t.boardName}</span>
                         </AgendaRow>
                     ))}
                 </Section>
-                <Section label="📋 白板活動" isDark={isDark}>
+                <Section label="📋 白板活動">
                     {agenda.activeBoards.length === 0 ? <EmptyNote>無白板活動</EmptyNote> : agenda.activeBoards.map(b => (
-                        <AgendaRow key={b.boardId} onClick={() => onJumpToBoard(b.boardId)} isDark={isDark}>
+                        <AgendaRow key={b.boardId} onClick={() => onJumpToBoard(b.boardId)}>
                             <span style={{ flex: 1, fontSize: 13, color: textPrimary }}>{b.boardName}</span>
                             <Tag>前往 →</Tag>
                         </AgendaRow>
@@ -226,20 +226,20 @@ export function CalendarContent({ boards, onJumpToBoard, onOpenJournalDay, isDar
 }
 
 /* ------------------------------------------------------------------ sub-components */
-function Section({ label, children, isDark }: { label: string; children: React.ReactNode; isDark: boolean }) {
+function Section({ label, children }: { label: string; children: React.ReactNode }) {
     return (
         <div style={{ marginBottom: 24 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: isDark ? '#64748b' : '#aaa', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: 6 }}>{label}</div>
+            <div style={{ fontSize: 11, fontWeight: 600, color: T.textMuted, letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: 6 }}>{label}</div>
             <div>{children}</div>
         </div>
     )
 }
 
-function AgendaRow({ onClick, children, muted, isDark }: { onClick: () => void; children: React.ReactNode; muted?: boolean; isDark: boolean }) {
+function AgendaRow({ onClick, children, muted }: { onClick: () => void; children: React.ReactNode; muted?: boolean }) {
     return (
         <div
             onClick={onClick}
-            style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', cursor: 'pointer', borderBottom: `1px solid ${isDark ? '#334155' : '#f5f5f3'}`, opacity: muted ? 0.7 : 1 }}
+            style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', cursor: 'pointer', borderBottom: `1px solid ${T.borderLight}`, opacity: muted ? 0.7 : 1 }}
             onMouseEnter={e => (e.currentTarget.style.opacity = '0.75')}
             onMouseLeave={e => (e.currentTarget.style.opacity = muted ? '0.7' : '1')}
         >{children}</div>

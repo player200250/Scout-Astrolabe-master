@@ -9,7 +9,7 @@ afterEach(cleanup)
 function renderQC(over: Partial<Parameters<typeof QuickCapture>[0]> = {}) {
     const onSave = vi.fn()
     const onClose = vi.fn()
-    render(<QuickCapture onSave={onSave} onClose={onClose} isDark={false} {...over} />)
+    render(<QuickCapture onSave={onSave} onClose={onClose} {...over} />)
     const textarea = screen.getByPlaceholderText('輸入任何想法、任務或筆記...')
     return { onSave, onClose, textarea }
 }

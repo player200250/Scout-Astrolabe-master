@@ -23,6 +23,7 @@ import { emitAppEvent } from '../../../utils/appEvents'
 import { buildSlashCommands, matchSlashQuery, groupSlashCommands, type SlashCommand } from '../../../utils/slashCommands'
 import { filterCommands } from '../../../utils/commands'
 import { buildLinkTargets, filterLinkTargets, groupLinkTargets, type LinkTarget } from '../../../utils/cardLinks'
+import { T } from '../../../theme/tokens'
 
 // registry 是純資料、與元件無關 → 模組層建一次即可，不隨每次 render 重算
 const SLASH_COMMANDS = buildSlashCommands()
@@ -53,7 +54,7 @@ function ToolbarButton({
     active,
     title,
     children,
-    isDark,
+    
 }: {
     onClick: () => void
     active?: boolean
@@ -72,8 +73,8 @@ function ToolbarButton({
                 padding: '3px 7px',
                 fontSize: 13,
                 fontWeight: active ? 700 : 400,
-                background: active ? (isDark ? '#1e3a5f' : '#e8f0fe') : 'transparent',
-                color: active ? '#60a5fa' : (isDark ? '#cbd5e1' : '#333'),
+                background: active ? (T.accentBg) : 'transparent',
+                color: active ? '#60a5fa' : (T.textPrimary),
                 border: 'none',
                 borderRadius: 4,
                 cursor: 'pointer',
@@ -97,8 +98,8 @@ function Toolbar({ tiptap, isDark }: { tiptap: ReturnType<typeof useTiptap>; isD
                 alignItems: 'center',
                 gap: 2,
                 padding: '4px 8px',
-                borderBottom: `1px solid ${isDark ? '#334155' : '#eee'}`,
-                background: isDark ? '#0f172a' : '#fafafa',
+                borderBottom: `1px solid ${T.borderLight}`,
+                background: T.bgApp,
                 borderRadius: '12px 12px 0 0',
                 flexShrink: 0,
             }}
@@ -130,7 +131,7 @@ function Toolbar({ tiptap, isDark }: { tiptap: ReturnType<typeof useTiptap>; isD
                 <u>U</u>
             </ToolbarButton>
 
-            <span style={{ width: 1, height: 16, background: isDark ? '#475569' : '#ddd', margin: '0 4px' }} />
+            <span style={{ width: 1, height: 16, background: T.borderMid, margin: '0 4px' }} />
 
             <ToolbarButton
                 onClick={() => tiptap.chain().focus().toggleHeading({ level: 1 }).run()}
@@ -150,7 +151,7 @@ function Toolbar({ tiptap, isDark }: { tiptap: ReturnType<typeof useTiptap>; isD
                 H2
             </ToolbarButton>
 
-            <span style={{ width: 1, height: 16, background: isDark ? '#475569' : '#ddd', margin: '0 4px' }} />
+            <span style={{ width: 1, height: 16, background: T.borderMid, margin: '0 4px' }} />
 
             <ToolbarButton
                 onClick={() => tiptap.chain().focus().toggleBulletList().run()}
@@ -170,7 +171,7 @@ function Toolbar({ tiptap, isDark }: { tiptap: ReturnType<typeof useTiptap>; isD
                 1≡
             </ToolbarButton>
 
-            <span style={{ width: 1, height: 16, background: isDark ? '#475569' : '#ddd', margin: '0 4px' }} />
+            <span style={{ width: 1, height: 16, background: T.borderMid, margin: '0 4px' }} />
 
             <ToolbarButton
                 onClick={() => tiptap.chain().focus().toggleCodeBlock().run()}
@@ -190,7 +191,7 @@ function Toolbar({ tiptap, isDark }: { tiptap: ReturnType<typeof useTiptap>; isD
                 <mark style={{ background: '#fef08a', padding: '0 2px', borderRadius: 2 }}>H</mark>
             </ToolbarButton>
 
-            <span style={{ width: 1, height: 16, background: isDark ? '#475569' : '#ddd', margin: '0 4px' }} />
+            <span style={{ width: 1, height: 16, background: T.borderMid, margin: '0 4px' }} />
 
             {COLORS.map((color) => (
                 <button
@@ -242,7 +243,7 @@ interface SlashState {
 
 /** 補全下拉的共用外殼（`[[]]` 與 `/` 兩處共用，避免複製一份定位/配色） */
 function SuggestPopup({
-    coords, isDark, footer, children,
+    coords, footer, children,
 }: {
     coords: { x: number; y: number }
     isDark: boolean
@@ -257,10 +258,10 @@ function SuggestPopup({
                 left: coords.x,
                 top: coords.y,
                 zIndex: Z_MODAL,
-                background: isDark ? '#1e293b' : 'white',
-                border: `1px solid ${isDark ? '#334155' : '#e0e0e0'}`,
+                background: T.bgPanel,
+                border: `1px solid ${T.borderLight}`,
                 borderRadius: 8,
-                boxShadow: isDark ? '0 4px 16px rgba(0,0,0,0.4)' : '0 4px 16px rgba(0,0,0,0.12)',
+                boxShadow: T.shadowMd,
                 minWidth: 180,
                 maxWidth: 280,
                 maxHeight: 320,
@@ -271,9 +272,9 @@ function SuggestPopup({
             {children}
             <div style={{
                 padding: '3px 12px', fontSize: 10,
-                color: isDark ? '#64748b' : '#bbb',
-                borderTop: `1px solid ${isDark ? '#334155' : '#f0f0f0'}`,
-                background: isDark ? '#0f172a' : '#fafafa',
+                color: T.textMuted,
+                borderTop: `1px solid ${T.borderLight}`,
+                background: T.bgApp,
                 position: 'sticky', bottom: 0,
             }}>
                 {footer}
@@ -788,7 +789,7 @@ export function TextContent({ editor: tldrawEditor, shape, isEditing, exitEdit, 
                         <div key={group}>
                             <div style={{
                                 padding: '5px 12px 2px', fontSize: 10, fontWeight: 700,
-                                letterSpacing: '0.5px', color: isDark ? '#64748b' : '#aaa',
+                                letterSpacing: '0.5px', color: T.textMuted,
                             }}>{group}</div>
                             {items.map(t => {
                                 // index 是對 suggest.matches 的全域序號，分組顯示時要換算回去
@@ -802,8 +803,8 @@ export function TextContent({ editor: tldrawEditor, shape, isEditing, exitEdit, 
                                             padding: '6px 12px',
                                             cursor: 'pointer',
                                             display: 'flex', alignItems: 'center', gap: 8,
-                                            background: active ? (isDark ? '#1e3a5f' : '#eff6ff') : 'transparent',
-                                            color: active ? '#60a5fa' : (isDark ? '#cbd5e1' : '#1a1a1a'),
+                                            background: active ? (T.accentBg) : 'transparent',
+                                            color: active ? '#60a5fa' : (T.textPrimary),
                                             borderLeft: active ? '2px solid #3b82f6' : '2px solid transparent',
                                             whiteSpace: 'nowrap',
                                             overflow: 'hidden',
@@ -827,7 +828,7 @@ export function TextContent({ editor: tldrawEditor, shape, isEditing, exitEdit, 
                         <div key={group}>
                             <div style={{
                                 padding: '5px 12px 2px', fontSize: 10, fontWeight: 700,
-                                letterSpacing: '0.5px', color: isDark ? '#64748b' : '#aaa',
+                                letterSpacing: '0.5px', color: T.textMuted,
                             }}>{group}</div>
                             {items.map(cmd => {
                                 // index 是對 slash.matches 的全域序號，分組顯示時要換算回去
@@ -841,8 +842,8 @@ export function TextContent({ editor: tldrawEditor, shape, isEditing, exitEdit, 
                                             padding: '6px 12px',
                                             cursor: 'pointer',
                                             display: 'flex', alignItems: 'center', gap: 9,
-                                            background: active ? (isDark ? '#1e3a5f' : '#eff6ff') : 'transparent',
-                                            color: active ? '#60a5fa' : (isDark ? '#cbd5e1' : '#1a1a1a'),
+                                            background: active ? (T.accentBg) : 'transparent',
+                                            color: active ? '#60a5fa' : (T.textPrimary),
                                             borderLeft: active ? '2px solid #3b82f6' : '2px solid transparent',
                                         }}
                                     >
@@ -851,7 +852,7 @@ export function TextContent({ editor: tldrawEditor, shape, isEditing, exitEdit, 
                                             fontSize: 11, fontFamily: 'monospace',
                                             color: cmd.id.startsWith('color-')
                                                 ? cmd.id.slice(6)
-                                                : (isDark ? '#94a3b8' : '#888'),
+                                                : (T.textSecondary),
                                         }}>{cmd.icon}</span>
                                         <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                             {cmd.title}
@@ -859,7 +860,7 @@ export function TextContent({ editor: tldrawEditor, shape, isEditing, exitEdit, 
                                         {cmd.hint && (
                                             <span style={{
                                                 flexShrink: 0, fontSize: 10, fontFamily: 'monospace',
-                                                color: isDark ? '#475569' : '#c0c0c0',
+                                                color: T.textMuted,
                                             }}>{cmd.hint}</span>
                                         )}
                                     </div>

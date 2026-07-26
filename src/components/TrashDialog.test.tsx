@@ -9,7 +9,7 @@ afterEach(cleanup)
 function renderDialog(over: Partial<Parameters<typeof TrashDialog>[0]> = {}) {
     const onConfirm = vi.fn()
     const onCancel = vi.fn()
-    render(<TrashDialog message="確定刪除？" onConfirm={onConfirm} onCancel={onCancel} isDark={false} {...over} />)
+    render(<TrashDialog message="確定刪除？" onConfirm={onConfirm} onCancel={onCancel} {...over} />)
     return { onConfirm, onCancel }
 }
 

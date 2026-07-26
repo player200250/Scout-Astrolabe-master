@@ -1,18 +1,17 @@
 import { useState, useRef, useCallback } from 'react'
 import { FrameShapeUtil, HTMLContainer, useEditor } from 'tldraw'
-import { useIsDarkMode } from '@tldraw/editor'
 import type { TLFrameShape } from '@tldraw/editor'
+import { T } from '../theme/tokens'
 
 /* ─── 獨立 React function component，Hooks 在此呼叫合法 ─── */
 // eslint-disable-next-line react-refresh/only-export-components
 function CustomFrameComponent({ shape }: { shape: TLFrameShape }) {
     const editor = useEditor()
-    const isDark = useIsDarkMode()
     const isEditing = editor.getEditingShapeId() === shape.id
 
-    const borderColor = isDark ? '#334155' : '#d1d5db'
-    const bgColor = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)'
-    const titleColor = isDark ? '#e2e8f0' : '#374151'
+    const borderColor = T.borderMid
+    const bgColor = T.bgHoverSoft
+    const titleColor = T.textPrimary
 
     const [draft, setDraft] = useState(shape.props.name)
     const inputRef = useRef<HTMLInputElement>(null)

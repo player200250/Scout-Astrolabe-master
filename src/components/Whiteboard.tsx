@@ -8,6 +8,7 @@ import { useBacklinks } from '../hooks/useBacklinks'
 import { WhiteboardTools } from './WhiteboardTools'
 import { Dashboard } from './Dashboard'
 import { ErrorBoundary } from './ErrorBoundary'
+import { useIsDark } from '../theme/ThemeContext'
 
 class CustomSelectTool extends SelectTool {
     static id = 'select' as const
@@ -18,7 +19,8 @@ const customTools = defaultTools.map(tool =>
     tool.id === 'select' ? CustomSelectTool : tool
 )
 
-function ThemeSync({ isDark }: { isDark: boolean }) {
+function ThemeSync() {
+    const isDark = useIsDark()
     const editor = useEditor()
     useEffect(() => {
         editor.user.updateUserPreferences({ colorScheme: isDark ? 'dark' : 'light' })
@@ -39,7 +41,6 @@ interface WhiteboardProps {
     sidebarWidth: number
     isInboxBoard: boolean
     onMoveCard: (shapeIds: string[]) => void
-    isDark: boolean
     onOpenTaskCenter: () => void
     onOpenReviewCenter: () => void
     onOpenKnowledgeGraph: () => void
@@ -52,7 +53,7 @@ interface WhiteboardProps {
 
 export function Whiteboard({
     board, boards, onSaveBoard, jumpRef, onOpenSearch, onOpenHotkey, onOpenQuickSwitcher,
-    onCreateBoard, onSwitchBoard, sidebarWidth, isInboxBoard, onMoveCard, isDark,
+    onCreateBoard, onSwitchBoard, sidebarWidth, isInboxBoard, onMoveCard, 
     onOpenTaskCenter, onOpenReviewCenter, onOpenKnowledgeGraph,
     onOpenCardLibrary, onOpenOverview, onQuickCapture, onCardTrashed,
     recentlyTrashedShapeIds,
@@ -79,7 +80,6 @@ export function Whiteboard({
                 onOpenCardLibrary={onOpenCardLibrary}
                 onOpenOverview={onOpenOverview}
                 onQuickCapture={onQuickCapture}
-                isDark={isDark}
                 sidebarWidth={sidebarWidth}
             />
         )
@@ -101,7 +101,7 @@ export function Whiteboard({
                 <BacklinksContext.Provider value={backlinksValue}>
                     <BoardsContext.Provider value={boardInfos}>
                         <Tldraw hideUi={true} tools={customTools} shapeUtils={[CardShapeUtil, CustomFrameShapeUtil]}>
-                            <ThemeSync isDark={isDark} />
+                            <ThemeSync />
                             <WhiteboardTools
                                 board={board}
                                 boards={boards}
@@ -114,7 +114,6 @@ export function Whiteboard({
                                 onSwitchBoard={onSwitchBoard}
                                 isInboxBoard={isInboxBoard}
                                 onMoveCard={onMoveCard}
-                                isDark={isDark}
                                 onCardTrashed={onCardTrashed}
                                 recentlyTrashedShapeIds={recentlyTrashedShapeIds}
                             />

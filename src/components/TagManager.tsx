@@ -14,16 +14,18 @@ import {
 } from '../utils/tagColors'
 import { hexToRgba } from '../utils/cardMeta'
 import { Z_PANEL } from '../constants'
+import { T } from '../theme/tokens'
+import { useIsDark } from '../theme/ThemeContext'
 
 export interface TagManagerProps {
     boards: BoardRecord[]
     /** to 為 null＝刪除；目標已存在＝合併 */
     onRewriteTag: (from: string, to: string | null) => void
     onClose: () => void
-    isDark: boolean
 }
 
-export function TagManager({ boards, onRewriteTag, onClose, isDark }: TagManagerProps) {
+export function TagManager({ boards, onRewriteTag, onClose }: TagManagerProps) {
+    const isDark = useIsDark()
     const stats = useMemo(() => collectTagStats(boards), [boards])
     const [colors, setColors] = useState<TagColorMap>(() => loadTagColors())
     const [editing, setEditing] = useState<string | null>(null)
@@ -86,13 +88,13 @@ export function TagManager({ boards, onRewriteTag, onClose, isDark }: TagManager
         setEditing(null)
     }, [onRewriteTag])
 
-    const panelBg = isDark ? '#1e293b' : 'rgba(255,255,255,0.98)'
-    const border = isDark ? '#334155' : '#e8e8e8'
-    const headerBorder = isDark ? '#334155' : '#f0f0f0'
-    const titleColor = isDark ? '#e2e8f0' : '#1a1a1a'
-    const mutedColor = isDark ? '#94a3b8' : '#888'
-    const hoverBg = isDark ? '#243447' : '#f7f7f7'
-    const inputBg = isDark ? '#0f172a' : '#f8fafc'
+    const panelBg = T.bgPanel
+    const border = T.borderLight
+    const headerBorder = T.borderLight
+    const titleColor = T.textPrimary
+    const mutedColor = T.textSecondary
+    const hoverBg = T.bgHover
+    const inputBg = T.bgApp
 
     return (
         <div style={{

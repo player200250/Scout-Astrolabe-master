@@ -1,0 +1,122 @@
+/* ================================================
+   Design Token — 全 App 唯一的顏色來源（TD8）
+   ================================================
+   為什麼是 CSS 變數而不是 JS 物件：
+   主題切換只要換 <html data-theme>（App.tsx 已在做），不必讓每個元件都拿到 isDark
+   再自己配一次 `isDark ? A : B`。元件端一律寫 `style={{ background: T.bgPanel }}`，
+   型別安全的取用介面見同目錄 tokens.ts。
+
+   ⚠️ 本檔由 main.tsx import。這些變數名以前也在 src/App.css 定義過一份，但那個檔案
+   從來沒被任何地方 import＝死檔（見記憶 gotcha_appcss_is_dead），所以全 App 的
+   `var(--text-primary)` 等其實一直解析失敗、靜默失效。該檔已於 TD8 刪除，這裡是唯一來源。
+   ================================================ */
+
+:root {
+    /* ---- 表面 ---- */
+    --bg-canvas: #ffffff;        /* 畫布 */
+    --bg-dot: #d8d8d8;           /* 畫布點陣 */
+    --bg-app: #f8fafc;           /* 頁面底層（比 panel 更沉） */
+    --bg-panel: #ffffff;         /* 面板／對話框／卡片 */
+    --bg-card: #ffffff;          /* = bg-panel，卡片語意別名 */
+    --bg-sidebar: #ffffff;       /* 側邊欄 */
+    --bg-hover: #f5f5f5;         /* hover／次要底 */
+    --bg-card-hover: #f5f5f5;    /* = bg-hover，卡片語意別名 */
+    --bg-hover-soft: rgba(0, 0, 0, 0.04);   /* 半透明 hover（疊在任意底色上） */
+    --bg-muted: #e5e7eb;         /* 停用／未選中的填色（進度條底、步驟點、停用鈕） */
+    --bg-overlay: rgba(255, 255, 255, 0.95); /* 浮層／毛玻璃底 */
+    --bg-active: #1a1a1a;        /* 選中態實心底（分頁、chip） */
+    --text-on-active: #ffffff;   /* 疊在 bg-active 上的字 */
+
+    /* ---- 邊框 ---- */
+    --border-light: #e5e7eb;     /* 一般分隔線／輸入框 */
+    --border-mid: #d1d5db;       /* 較明顯的邊框、直立分隔條 */
+
+    /* ---- 文字（三級） ---- */
+    --text-primary: #1a1a1a;
+    --text-secondary: #6b7280;
+    --text-muted: #9ca3af;
+
+    /* ---- 強調色（藍） ---- */
+    --accent: #2563eb;
+    --accent-bg: #eff6ff;
+    --accent-light: #eff6ff;     /* = accent-bg，舊名別名 */
+    --accent-bg-strong: #dbeafe;
+    --accent-border: #bfdbfe;
+
+    /* ---- 狀態色 ---- */
+    --danger: #dc2626;
+    --danger-bg: #fee2e2;
+    --danger-bg-soft: #fff5f5;
+    --danger-border: #fecaca;
+    --warn-bg: #fff7ed;
+    --success-bg: #f8fff8;
+
+    /* ---- 陰影 ---- */
+    --shadow-hairline: 0 1px 0 rgba(0, 0, 0, 0.06);
+    --shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.08);
+    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.12);
+    --shadow-lg: 0 4px 20px rgba(0, 0, 0, 0.15);
+    --shadow-xl: 0 24px 60px rgba(0, 0, 0, 0.2);
+    --shadow-modal: 0 16px 64px rgba(0, 0, 0, 0.18);
+    --shadow-up: 0 -4px 20px rgba(0, 0, 0, 0.1);
+    --ring-subtle: rgba(0, 0, 0, 0.06);  /* 浮層外緣的 1px 描邊，配合 shadow 使用 */
+    --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.06), 0 4px 12px rgba(0, 0, 0, 0.04);
+    --shadow-panel: 0 4px 24px rgba(0, 0, 0, 0.10), 0 1px 4px rgba(0, 0, 0, 0.06);
+
+    /* ---- 圓角 ---- */
+    --radius-sm: 8px;
+    --radius-card: 12px;
+}
+
+:root[data-theme="dark"] {
+    /* ---- 表面 ---- */
+    --bg-canvas: #0f172a;
+    --bg-dot: #1e293b;
+    --bg-app: #0f172a;
+    --bg-panel: #1e293b;
+    --bg-card: #1e293b;
+    --bg-sidebar: #1e293b;
+    --bg-hover: #243447;
+    --bg-card-hover: #243447;
+    --bg-hover-soft: rgba(255, 255, 255, 0.06);
+    --bg-muted: #334155;
+    --bg-overlay: rgba(15, 23, 42, 0.97);
+    --bg-active: #2563eb;
+    --text-on-active: #0f172a;
+
+    /* ---- 邊框 ---- */
+    --border-light: #334155;
+    --border-mid: #475569;
+
+    /* ---- 文字 ---- */
+    --text-primary: #e2e8f0;
+    --text-secondary: #94a3b8;
+    --text-muted: #64748b;
+
+    /* ---- 強調色 ---- */
+    --accent: #93c5fd;
+    --accent-bg: rgba(37, 99, 235, 0.14);
+    --accent-light: rgba(37, 99, 235, 0.14);
+    --accent-bg-strong: rgba(37, 99, 235, 0.28);
+    --accent-border: rgba(59, 130, 246, 0.35);
+
+    /* ---- 狀態色 ---- */
+    --danger: #fca5a5;
+    --danger-bg: #3f1f1f;
+    --danger-bg-soft: rgba(220, 38, 38, 0.14);
+    --danger-border: #7f1d1d;
+    --warn-bg: #431407;
+    --success-bg: #1a2e1a;
+
+    /* ---- 陰影（暗色需要更重才看得出層次） ---- */
+    --shadow-hairline: 0 1px 0 rgba(0, 0, 0, 0.3);
+    --shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 4px 20px rgba(0, 0, 0, 0.5);
+    --shadow-xl: 0 24px 60px rgba(0, 0, 0, 0.5);
+    --shadow-modal: 0 16px 64px rgba(0, 0, 0, 0.6);
+    --shadow-up: 0 -4px 20px rgba(0, 0, 0, 0.4);
+    --ring-subtle: rgba(255, 255, 255, 0.07);
+    --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.3), 0 4px 12px rgba(0, 0, 0, 0.2);
+    --shadow-panel: 0 4px 24px rgba(0, 0, 0, 0.4), 0 1px 4px rgba(0, 0, 0, 0.3);
+}

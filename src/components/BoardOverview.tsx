@@ -3,6 +3,7 @@ import type { BoardRecord, BoardTemplateRecord } from '../db'
 import { saveBoardAsTemplate, loadBoardTemplates, deleteBoardTemplate, renameBoardTemplate } from '../db'
 import { isRasterThumbnail } from '../utils/boardDb'
 import { formatRelativeDate } from '../utils/date'
+import { T } from '../theme/tokens'
 
 interface BoardOverviewProps {
     boards: BoardRecord[]
@@ -14,10 +15,9 @@ interface BoardOverviewProps {
     onDelete: (id: string) => void
     onSetStatus: (id: string, status: 'active' | 'archived' | 'pinned') => void
     onClose: () => void
-    isDark: boolean
 }
 
-export function BoardOverview({ boards, activeBoardId, onSelect, onNew, onCreateFromTemplate, onRename, onDelete, onSetStatus, onClose, isDark }: BoardOverviewProps) {
+export function BoardOverview({ boards, activeBoardId, onSelect, onNew, onCreateFromTemplate, onRename, onDelete, onSetStatus, onClose }: BoardOverviewProps) {
     const [searchQuery, setSearchQuery] = useState('')
     const [hoveredId, setHoveredId] = useState<string | null>(null)
     const [renamingId, setRenamingId] = useState<string | null>(null)
@@ -126,23 +126,23 @@ export function BoardOverview({ boards, activeBoardId, onSelect, onNew, onCreate
         return () => window.removeEventListener('keydown', handler)
     }, [onClose, selectionMode, pickerOpen])
 
-    const overlayBg = isDark ? 'rgba(15,23,42,0.97)' : 'rgba(245,245,243,0.97)'
-    const headerBg = isDark ? 'rgba(30,41,59,0.95)' : 'rgba(255,255,255,0.8)'
-    const headerBorder = isDark ? '#334155' : '#e8e8e6'
-    const cardBg = isDark ? '#1e293b' : 'white'
-    const cardBorderActive = isDark ? '#e2e8f0' : '#1a1a1a'
-    const cardBorderHover = isDark ? '#475569' : '#d0d0ce'
-    const cardBorderDefault = isDark ? '#334155' : '#e8e8e6'
-    const thumbBg = isDark ? '#0f172a' : '#f7f7f5'
-    const thumbBorder = isDark ? '#334155' : '#f0f0ee'
-    const filterBg = isDark ? '#0f172a' : '#f5f5f3'
-    const filterBtnActive = isDark ? '#1e293b' : 'white'
-    const inputBg = isDark ? '#0f172a' : '#fafaf8'
-    const inputBorder = isDark ? '#334155' : '#e0e0de'
-    const textPrimary = isDark ? '#e2e8f0' : '#1a1a1a'
-    const textMuted = isDark ? '#64748b' : '#bbb'
-    const countBg = isDark ? '#1e293b' : '#f0f0ee'
-    const countColor = isDark ? '#64748b' : '#999'
+    const overlayBg = T.bgOverlay
+    const headerBg = T.bgOverlay
+    const headerBorder = T.borderLight
+    const cardBg = T.bgPanel
+    const cardBorderActive = T.textPrimary
+    const cardBorderHover = T.borderMid
+    const cardBorderDefault = T.borderLight
+    const thumbBg = T.bgApp
+    const thumbBorder = T.borderLight
+    const filterBg = T.bgApp
+    const filterBtnActive = T.bgPanel
+    const inputBg = T.bgApp
+    const inputBorder = T.borderLight
+    const textPrimary = T.textPrimary
+    const textMuted = T.textMuted
+    const countBg = T.bgApp
+    const countColor = T.textMuted
 
     return (
         <div style={{
@@ -199,7 +199,7 @@ export function BoardOverview({ boards, activeBoardId, onSelect, onNew, onCreate
                     style={{
                         display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px',
                         borderRadius: 8, border: `1px solid ${selectionMode ? '#2563eb' : inputBorder}`,
-                        background: selectionMode ? (isDark ? 'rgba(37,99,235,0.2)' : '#eff6ff') : 'transparent',
+                        background: selectionMode ? (T.accentBg) : 'transparent',
                         color: selectionMode ? '#2563eb' : countColor,
                         fontSize: 13, cursor: 'pointer', flexShrink: 0,
                     }}
@@ -229,7 +229,7 @@ export function BoardOverview({ boards, activeBoardId, onSelect, onNew, onCreate
                         borderRadius: 8, border: `1px solid ${inputBorder}`, background: 'transparent', color: countColor,
                         fontSize: 13, cursor: 'pointer', flexShrink: 0,
                     }}
-                    onMouseEnter={e => { e.currentTarget.style.background = isDark ? 'rgba(224,49,49,0.15)' : '#fff5f5'; e.currentTarget.style.color = '#e03131'; e.currentTarget.style.borderColor = isDark ? '#7f1d1d' : '#ffccc7' }}
+                    onMouseEnter={e => { e.currentTarget.style.background = T.dangerBgSoft; e.currentTarget.style.color = '#e03131'; e.currentTarget.style.borderColor = T.dangerBorder }}
                     onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = countColor; e.currentTarget.style.borderColor = inputBorder }}
                 >🧹 清理重複</button>
                 <button
@@ -240,14 +240,14 @@ export function BoardOverview({ boards, activeBoardId, onSelect, onNew, onCreate
                         borderRadius: 8, border: `1px solid ${inputBorder}`, background: 'transparent', color: countColor,
                         fontSize: 13, cursor: 'pointer', flexShrink: 0,
                     }}
-                    onMouseEnter={e => { e.currentTarget.style.background = isDark ? 'rgba(37,99,235,0.12)' : '#eff6ff'; e.currentTarget.style.color = '#2563eb'; e.currentTarget.style.borderColor = '#2563eb' }}
+                    onMouseEnter={e => { e.currentTarget.style.background = T.accentBg; e.currentTarget.style.color = '#2563eb'; e.currentTarget.style.borderColor = '#2563eb' }}
                     onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = countColor; e.currentTarget.style.borderColor = inputBorder }}
                 >⧉ 從模板</button>
                 <button
                     onClick={() => { onNew(); onClose() }}
                     style={{
                         display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px',
-                        borderRadius: 8, border: 'none', background: isDark ? '#e2e8f0' : '#1a1a1a', color: isDark ? '#0f172a' : 'white',
+                        borderRadius: 8, border: 'none', background: T.bgActive, color: T.textOnActive,
                         fontSize: 13, fontWeight: 500, cursor: 'pointer', flexShrink: 0,
                     }}
                 >+ 新增白板</button>
@@ -300,8 +300,8 @@ export function BoardOverview({ boards, activeBoardId, onSelect, onNew, onCreate
                                     style={{
                                         position: 'absolute', top: 8, left: 8, zIndex: 1,
                                         width: 20, height: 20, borderRadius: 6,
-                                        background: isSelected ? '#2563eb' : (isDark ? 'rgba(30,41,59,0.8)' : 'rgba(255,255,255,0.9)'),
-                                        border: isSelected ? '2px solid #2563eb' : `2px solid ${isDark ? '#475569' : '#d0d0ce'}`,
+                                        background: isSelected ? '#2563eb' : (T.bgOverlay),
+                                        border: isSelected ? '2px solid #2563eb' : `2px solid ${T.borderMid}`,
                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                                         fontSize: 12, color: 'white',
                                         backdropFilter: 'blur(4px)',
@@ -323,7 +323,7 @@ export function BoardOverview({ boards, activeBoardId, onSelect, onNew, onCreate
                                     <span style={{ fontSize: 24, opacity: 0.15 }}>□</span>
                                 )}
                                 {activeBoardId === board.id && (
-                                    <div style={{ position: 'absolute', top: 7, right: 7, background: isDark ? '#e2e8f0' : '#1a1a1a', color: isDark ? '#0f172a' : 'white', fontSize: 10, fontWeight: 600, padding: '2px 6px', borderRadius: 4 }}>使用中</div>
+                                    <div style={{ position: 'absolute', top: 7, right: 7, background: T.bgActive, color: T.textOnActive, fontSize: 10, fontWeight: 600, padding: '2px 6px', borderRadius: 4 }}>使用中</div>
                                 )}
                                 {!selectionMode && parentName(board.parentId) && (
                                     <div title={`子板 · 隸屬「${parentName(board.parentId)}」`} style={{ position: 'absolute', top: 7, left: 7, maxWidth: 'calc(100% - 14px)', display: 'flex', alignItems: 'center', gap: 3, background: 'rgba(37,99,235,0.9)', color: 'white', fontSize: 10, fontWeight: 500, padding: '2px 6px', borderRadius: 4 }}>
@@ -387,8 +387,8 @@ export function BoardOverview({ boards, activeBoardId, onSelect, onNew, onCreate
                 <div style={{
                     position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)',
                     display: 'flex', alignItems: 'center', gap: 10,
-                    background: isDark ? '#1e293b' : 'white',
-                    border: `1px solid ${isDark ? '#334155' : '#e8e8e6'}`,
+                    background: T.bgPanel,
+                    border: `1px solid ${T.borderLight}`,
                     borderRadius: 12, padding: '10px 16px',
                     boxShadow: '0 4px 24px rgba(0,0,0,0.2)',
                     zIndex: 10,
@@ -401,7 +401,7 @@ export function BoardOverview({ boards, activeBoardId, onSelect, onNew, onCreate
                         disabled={selectedIds.size === 0}
                         style={{
                             padding: '6px 14px', borderRadius: 8, border: 'none',
-                            background: selectedIds.size > 0 ? '#f59e0b' : (isDark ? '#334155' : '#f5f5f3'),
+                            background: selectedIds.size > 0 ? '#f59e0b' : (T.bgApp),
                             color: selectedIds.size > 0 ? 'white' : textMuted,
                             fontSize: 13, cursor: selectedIds.size > 0 ? 'pointer' : 'default', fontWeight: 500,
                         }}
@@ -411,7 +411,7 @@ export function BoardOverview({ boards, activeBoardId, onSelect, onNew, onCreate
                         disabled={selectedIds.size === 0}
                         style={{
                             padding: '6px 14px', borderRadius: 8, border: 'none',
-                            background: selectedIds.size > 0 ? '#ef4444' : (isDark ? '#334155' : '#f5f5f3'),
+                            background: selectedIds.size > 0 ? '#ef4444' : (T.bgApp),
                             color: selectedIds.size > 0 ? 'white' : textMuted,
                             fontSize: 13, cursor: selectedIds.size > 0 ? 'pointer' : 'default', fontWeight: 500,
                         }}
@@ -420,7 +420,7 @@ export function BoardOverview({ boards, activeBoardId, onSelect, onNew, onCreate
                         onClick={exitSelectionMode}
                         style={{
                             padding: '6px 14px', borderRadius: 8,
-                            border: `1px solid ${isDark ? '#334155' : '#e8e8e6'}`,
+                            border: `1px solid ${T.borderLight}`,
                             background: 'transparent', color: textMuted,
                             fontSize: 13, cursor: 'pointer',
                         }}
@@ -442,8 +442,8 @@ export function BoardOverview({ boards, activeBoardId, onSelect, onNew, onCreate
                         onClick={e => e.stopPropagation()}
                         style={{
                             width: 'min(760px, 92vw)', maxHeight: '82vh', display: 'flex', flexDirection: 'column',
-                            background: isDark ? '#1e293b' : 'white', borderRadius: 14,
-                            border: `1px solid ${isDark ? '#334155' : '#e8e8e6'}`, boxShadow: '0 12px 48px rgba(0,0,0,0.3)', overflow: 'hidden',
+                            background: T.bgPanel, borderRadius: 14,
+                            border: `1px solid ${T.borderLight}`, boxShadow: '0 12px 48px rgba(0,0,0,0.3)', overflow: 'hidden',
                         }}
                     >
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '14px 20px', borderBottom: `1px solid ${headerBorder}` }}>

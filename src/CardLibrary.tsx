@@ -6,6 +6,8 @@ import { getCardShapes } from './utils/snapshot'
 import { splitTitleBody } from './utils/stringUtils'
 import { TYPE_ICON, TYPE_LABEL, TYPE_COLOR, hexToRgba } from './utils/cardMeta'
 import { loadTagColors, getTagColor, type TagColorMap } from './utils/tagColors'
+import { T } from './theme/tokens'
+import { useIsDark } from './theme/ThemeContext'
 
 /* ─── Types ─── */
 type LibCardType = 'text' | 'todo' | 'link' | 'journal' | 'heading' | 'sticky' | 'table' | 'color' | 'file'
@@ -33,7 +35,6 @@ export interface CardLibraryProps {
     boards: BoardRecord[]
     onJump: (boardId: string, shapeId: string, x: number, y: number) => void
     onClose: () => void
-    isDark: boolean
 }
 
 /* ─── Constants ─── */
@@ -94,7 +95,8 @@ function getBoardColor(id: string): string {
 const COLLAPSE_KEY = 'card-library-section-collapsed'
 
 /* ─── Component ─── */
-export function CardLibrary({ boards, onJump, onClose, isDark }: CardLibraryProps) {
+export function CardLibrary({ boards, onJump, onClose }: CardLibraryProps) {
+    const isDark = useIsDark()
     const [search, setSearch]           = useState('')
     const [sortKey, setSortKey]         = useState<SortKey>('updatedAt-desc')
     const [viewMode, setViewMode]       = useState<ViewMode>('list')
@@ -246,21 +248,21 @@ export function CardLibrary({ boards, onJump, onClose, isDark }: CardLibraryProp
     })
 
     /* ── Theme tokens ── */
-    const bg         = isDark ? '#0f172a' : '#f1f5f9'
-    const sidebarBg  = isDark ? '#1e293b' : '#ffffff'
-    const mainBg     = isDark ? '#0f172a' : '#f1f5f9'
-    const border     = isDark ? '#334155' : '#e2e8f0'
-    const textPrim   = isDark ? '#e2e8f0' : '#1e293b'
-    const textMuted  = isDark ? '#94a3b8' : '#64748b'
-    const cardBg     = isDark ? '#1e293b' : '#ffffff'
-    const cardHover  = isDark ? '#263149' : '#f8fafc'
-    const inputBg    = isDark ? '#0f172a' : '#f8fafc'
-    const pillActive    = isDark ? 'rgba(59,130,246,0.35)' : '#bfdbfe'
+    const bg         = T.bgApp
+    const sidebarBg  = T.bgPanel
+    const mainBg     = T.bgApp
+    const border     = T.borderLight
+    const textPrim   = T.textPrimary
+    const textMuted  = T.textSecondary
+    const cardBg     = T.bgPanel
+    const cardHover  = T.bgHover
+    const inputBg    = T.bgApp
+    const pillActive    = T.accentBgStrong
     const pillActColor  = '#2563eb'
     const pillInactColor = textMuted
 
     /* ─── Sidebar helpers ─── */
-    const hoverBg = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)'
+    const hoverBg = T.bgHoverSoft
 
     const sectionHeader = (label: string, key: string) => (
         <button
@@ -274,10 +276,10 @@ export function CardLibrary({ boards, onJump, onClose, isDark }: CardLibraryProp
             onMouseEnter={e => (e.currentTarget.style.background = hoverBg)}
             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
         >
-            <span style={{ fontSize: 10, fontWeight: 700, color: isDark ? '#475569' : '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+            <span style={{ fontSize: 10, fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
                 {label}
             </span>
-            <span style={{ fontSize: 8, color: isDark ? '#475569' : '#94a3b8', lineHeight: 1 }}>
+            <span style={{ fontSize: 8, color: T.textMuted, lineHeight: 1 }}>
                 {collapsed[key] ? '▶' : '▼'}
             </span>
         </button>
@@ -312,7 +314,7 @@ export function CardLibrary({ boards, onJump, onClose, isDark }: CardLibraryProp
     const jumpBadge = (shapeId: string) => hoveredShapeId === shapeId ? (
         <div style={{
             position: 'absolute', bottom: 10, right: 14,
-            background: isDark ? 'rgba(37,99,235,0.18)' : '#dbeafe',
+            background: T.accentBgStrong,
             color: '#2563eb', fontSize: 11, fontWeight: 600,
             padding: '2px 8px', borderRadius: 5,
             pointerEvents: 'none', userSelect: 'none',
@@ -335,7 +337,7 @@ export function CardLibrary({ boards, onJump, onClose, isDark }: CardLibraryProp
                     display: 'flex', alignItems: 'flex-start', gap: 14,
                     padding: '14px 18px', cursor: 'pointer', borderRadius: 10,
                     background: isHovered ? cardHover : cardBg,
-                    border: `1px solid ${isHovered ? (isDark ? '#475569' : '#cbd5e1') : border}`,
+                    border: `1px solid ${isHovered ? (T.borderMid) : border}`,
                     height: '100%', boxSizing: 'border-box',
                     transition: 'background 0.12s, border-color 0.12s',
                 }}
@@ -378,7 +380,7 @@ export function CardLibrary({ boards, onJump, onClose, isDark }: CardLibraryProp
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                         <span style={{
                             fontSize: 11, color: textMuted, flexShrink: 0,
-                            background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+                            background: T.bgHoverSoft,
                             padding: '1px 7px', borderRadius: 5,
                         }}>{card.boardName}</span>
                         {card.status !== 'none' && (
@@ -399,7 +401,7 @@ export function CardLibrary({ boards, onJump, onClose, isDark }: CardLibraryProp
                                 </span>
                             )
                         })}
-                        <span style={{ fontSize: 11, color: isDark ? '#475569' : '#94a3b8', marginLeft: 'auto', flexShrink: 0 }}>{timeAgo(card.boardUpdatedAt)}</span>
+                        <span style={{ fontSize: 11, color: T.textMuted, marginLeft: 'auto', flexShrink: 0 }}>{timeAgo(card.boardUpdatedAt)}</span>
                     </div>
                 </div>
                 {jumpBadge(card.shapeId)}
@@ -418,7 +420,7 @@ export function CardLibrary({ boards, onJump, onClose, isDark }: CardLibraryProp
                     position: 'relative',
                     background: isHovered ? cardHover : cardBg,
                     borderRadius: 10,
-                    border: `1px solid ${isHovered ? (isDark ? '#475569' : '#cbd5e1') : border}`,
+                    border: `1px solid ${isHovered ? (T.borderMid) : border}`,
                     padding: '14px 16px', cursor: 'pointer', flex: 1, minWidth: 0,
                     display: 'flex', flexDirection: 'column', gap: 8,
                     transition: 'background 0.12s, border-color 0.12s',
@@ -463,7 +465,7 @@ export function CardLibrary({ boards, onJump, onClose, isDark }: CardLibraryProp
                 )}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: `1px solid ${border}`, paddingTop: 8 }}>
                     <span style={{ fontSize: 11, color: textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '65%' }}>{card.boardName}</span>
-                    <span style={{ fontSize: 10, color: isDark ? '#475569' : '#94a3b8', flexShrink: 0 }}>{timeAgo(card.boardUpdatedAt)}</span>
+                    <span style={{ fontSize: 10, color: T.textMuted, flexShrink: 0 }}>{timeAgo(card.boardUpdatedAt)}</span>
                 </div>
                 {jumpBadge(card.shapeId)}
             </div>
@@ -490,7 +492,7 @@ export function CardLibrary({ boards, onJump, onClose, isDark }: CardLibraryProp
                 padding: '0 20px',
                 background: sidebarBg,
                 borderBottom: `1px solid ${border}`,
-                boxShadow: isDark ? '0 1px 0 rgba(0,0,0,0.3)' : '0 1px 0 rgba(0,0,0,0.06)',
+                boxShadow: T.shadowHairline,
             }}>
                 {/* Title */}
                 <span style={{ fontSize: 16, fontWeight: 700, color: textPrim, flexShrink: 0, userSelect: 'none' }}>
@@ -543,7 +545,7 @@ export function CardLibrary({ boards, onJump, onClose, isDark }: CardLibraryProp
                             fontSize: 12, fontWeight: 600, cursor: 'pointer',
                             flexShrink: 0, whiteSpace: 'nowrap',
                         }}
-                        onMouseEnter={e => (e.currentTarget.style.background = isDark ? 'rgba(37,99,235,0.12)' : '#eff6ff')}
+                        onMouseEnter={e => (e.currentTarget.style.background = T.accentBg)}
                         onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                     >
                         清除篩選
@@ -590,7 +592,7 @@ export function CardLibrary({ boards, onJump, onClose, isDark }: CardLibraryProp
                         color: textMuted, flexShrink: 0,
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}
-                    onMouseEnter={e => (e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)')}
+                    onMouseEnter={e => (e.currentTarget.style.background = T.bgHoverSoft)}
                     onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                 >✕</button>
             </div>
@@ -607,7 +609,7 @@ export function CardLibrary({ boards, onJump, onClose, isDark }: CardLibraryProp
                 }}>
                     {/* P7 — 篩選欄標題 */}
                     <div style={{
-                        fontSize: 10, fontWeight: 700, color: isDark ? '#475569' : '#94a3b8',
+                        fontSize: 10, fontWeight: 700, color: T.textMuted,
                         textTransform: 'uppercase', letterSpacing: '0.07em',
                         padding: '0 4px 8px',
                         borderBottom: `1px solid ${border}`,

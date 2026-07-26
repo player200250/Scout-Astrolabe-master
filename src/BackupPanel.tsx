@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { loadBackups, deleteBackup, type BackupRecord, type BoardRecord } from './db'
 import { Z_PANEL, Z_BACKUP_PANEL } from './constants'
 import { canSaveImage } from './platform/imageStore'
+import { T } from './theme/tokens'
 
 interface BackupPanelProps {
     sidebarWidth: number
@@ -10,7 +11,6 @@ interface BackupPanelProps {
     onRestore: (boards: BoardRecord[]) => void
     /** 立即把所有白板的舊 base64 圖片遷移成存檔格式；回傳遷移的白板數。 */
     onMigrateImages?: () => Promise<number>
-    isDark: boolean
 }
 
 function formatDate(ts: number): string {
@@ -31,7 +31,7 @@ function formatFull(ts: number): string {
     return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`
 }
 
-export function BackupPanel({ sidebarWidth, onClose, onRestore, onMigrateImages, isDark }: BackupPanelProps) {
+export function BackupPanel({ sidebarWidth, onClose, onRestore, onMigrateImages }: BackupPanelProps) {
     const [backups, setBackups] = useState<BackupRecord[]>([])
     const [loading, setLoading] = useState(true)
     const [restoringId, setRestoringId] = useState<string | null>(null)
@@ -75,18 +75,18 @@ export function BackupPanel({ sidebarWidth, onClose, onRestore, onMigrateImages,
         setDeletingId(null)
     }
 
-    const panelBg     = isDark ? '#1e293b' : 'white'
-    const borderCol   = isDark ? '#334155' : '#e8e8e8'
-    const headerBorder = isDark ? '#334155' : '#f0f0f0'
-    const titleColor  = isDark ? '#e2e8f0' : '#1a1a1a'
-    const rowBorder   = isDark ? '#334155' : '#f5f5f5'
-    const hoverBg     = isDark ? '#243447' : '#f5f5f5'
-    const restoreBtnBg     = isDark ? '#243447' : 'white'
-    const restoreBtnBorder = isDark ? '#334155' : '#d1d5db'
-    const restoreBtnColor  = isDark ? '#e2e8f0' : '#374151'
-    const dialogBg    = isDark ? '#1e293b' : 'white'
-    const cancelBg    = isDark ? '#243447' : 'white'
-    const cancelBorder = isDark ? '#334155' : '#e0e0e0'
+    const panelBg     = T.bgPanel
+    const borderCol   = T.borderLight
+    const headerBorder = T.borderLight
+    const titleColor  = T.textPrimary
+    const rowBorder   = T.borderLight
+    const hoverBg     = T.bgHover
+    const restoreBtnBg     = T.bgPanel
+    const restoreBtnBorder = T.borderMid
+    const restoreBtnColor  = T.textPrimary
+    const dialogBg    = T.bgPanel
+    const cancelBg    = T.bgPanel
+    const cancelBorder = T.borderLight
 
     return (
         <>
@@ -104,7 +104,7 @@ export function BackupPanel({ sidebarWidth, onClose, onRestore, onMigrateImages,
                         border: `1px solid ${borderCol}`,
                     }}>
                         <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8, color: titleColor }}>⚠️ 確認還原備份</div>
-                        <div style={{ fontSize: 13, color: isDark ? '#94a3b8' : '#555', lineHeight: 1.6, marginBottom: 16 }}>
+                        <div style={{ fontSize: 13, color: T.textSecondary, lineHeight: 1.6, marginBottom: 16 }}>
                             還原至 <strong>{formatFull(confirmRestore.timestamp)}</strong> 的備份。
                             <br /><br />
                             <span style={{ color: '#e03131', fontWeight: 500 }}>還原後目前所有白板資料會被覆蓋，此操作無法復原。</span>
@@ -158,7 +158,7 @@ export function BackupPanel({ sidebarWidth, onClose, onRestore, onMigrateImages,
                                 style={{
                                     padding: '12px 16px', borderBottom: `1px solid ${rowBorder}`,
                                     display: 'flex', alignItems: 'center', gap: 10,
-                                    background: idx === 0 ? (isDark ? '#1a2e1a' : '#f8fff8') : 'transparent',
+                                    background: idx === 0 ? (T.successBg) : 'transparent',
                                 }}
                             >
                                 <div style={{ flex: 1, minWidth: 0 }}>

@@ -3,6 +3,7 @@ import type { BoardRecord } from '../db'
 import { getCardShapes } from '../utils/snapshot'
 import { getTodayStr, formatRelativeDate, toDateStr } from '../utils/date'
 import { stripHtml } from '../utils/stringUtils'
+import { T } from '../theme/tokens'
 
 interface DashboardProps {
     boards: BoardRecord[]
@@ -13,7 +14,6 @@ interface DashboardProps {
     onOpenCardLibrary: () => void
     onOpenOverview: () => void
     onQuickCapture: () => void
-    isDark: boolean
     sidebarWidth: number
 }
 
@@ -65,7 +65,7 @@ const CARD_TYPE_ICON: Record<string, string> = {
 export function Dashboard({
     boards, onSwitch, onOpenTaskCenter, onOpenReviewCenter,
     onOpenKnowledgeGraph, onOpenCardLibrary, onOpenOverview,
-    onQuickCapture, isDark, sidebarWidth,
+    onQuickCapture, sidebarWidth,
 }: DashboardProps) {
     const todayStr = getTodayStr()
     const { start: weekStart, end: weekEnd } = useMemo(() => getWeekRange(), [])
@@ -139,14 +139,14 @@ export function Dashboard({
         [inboxBoard]
     )
 
-    const bg = isDark ? '#0f172a' : '#f9f9f7'
-    const cardBg = isDark ? '#1e293b' : '#ffffff'
-    const cardBgHover = isDark ? '#243447' : '#f4f4f4'
-    const border = isDark ? '#334155' : '#ebebeb'
-    const textPrimary = isDark ? '#e2e8f0' : '#1a1a1a'
-    const textSecondary = isDark ? '#94a3b8' : '#555'
-    const textMuted = isDark ? '#64748b' : '#999'
-    const accentColor = isDark ? '#60a5fa' : '#2563eb'
+    const bg = T.bgApp
+    const cardBg = T.bgPanel
+    const cardBgHover = T.bgHover
+    const border = T.borderLight
+    const textPrimary = T.textPrimary
+    const textSecondary = T.textSecondary
+    const textMuted = T.textMuted
+    const accentColor = T.accent
 
     const sectionLabel: React.CSSProperties = {
         fontSize: 11, fontWeight: 700, color: textMuted,
@@ -274,8 +274,8 @@ export function Dashboard({
                                         <span style={{
                                             fontSize: 11, padding: '2px 6px', borderRadius: 4, flexShrink: 0,
                                             background: item.isOverdue
-                                                ? (isDark ? '#450a0a' : '#fef2f2')
-                                                : (isDark ? '#431407' : '#fff7ed'),
+                                                ? (T.dangerBgSoft)
+                                                : (T.warnBg),
                                             color: item.isOverdue ? '#ef4444' : '#f97316',
                                         }}>
                                             {item.isOverdue ? '逾期' : '今天'}

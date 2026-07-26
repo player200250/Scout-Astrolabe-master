@@ -220,7 +220,6 @@ export interface UseContextMenuOptions {
     createTextCardWithContent: (x: number, y: number, content: string, w?: number, h?: number) => void
     isInboxBoard?: boolean
     onMoveCard?: (shapeIds: string[]) => void
-    isDark?: boolean
     boardId?: string
     boardName?: string
     onCardTrashed?: () => void
@@ -241,7 +240,6 @@ export function useContextMenu({
     createTextCardWithContent,
     isInboxBoard,
     onMoveCard,
-    isDark,
     boardId,
     boardName,
     onCardTrashed,
@@ -619,7 +617,6 @@ export function useContextMenu({
                     showColorPicker={menu.showColorPicker}
                     onColorPick={menu.onColorPick}
                     currentColor={menu.currentColor}
-                    isDark={isDark}
                     isSticky={menu.isSticky}
                 />
             )}
@@ -629,7 +626,6 @@ export function useContextMenu({
                     cardContent={saveTemplateState.cardContent}
                     onConfirm={handleSaveTemplate}
                     onClose={() => setSaveTemplateState(null)}
-                    isDark={isDark ?? false}
                 />
             )}
             {batchTagState && editor && (
@@ -640,7 +636,6 @@ export function useContextMenu({
                         setBatchTagState(null)
                     }}
                     onClose={() => setBatchTagState(null)}
-                    isDark={isDark ?? false}
                 />
             )}
         </>

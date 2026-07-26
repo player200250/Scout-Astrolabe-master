@@ -1,5 +1,6 @@
 import { useIsDarkMode } from '@tldraw/editor'
 import type { TLCardShape } from '../type/CardShape'
+import { T } from '../../../theme/tokens'
 
 interface FileIconConfig {
     icon: string
@@ -34,9 +35,9 @@ export function FileContent({ shape }: { shape: TLCardShape }) {
     const fileName = p.originalName ?? '未知檔案'
     const fileSize = p.fileSize != null ? formatSize(p.fileSize) : ''
 
-    const cardBg = isDark ? '#1e293b' : '#ffffff'
-    const textPrim = isDark ? '#e2e8f0' : '#1e293b'
-    const textMuted = isDark ? '#94a3b8' : '#64748b'
+    const cardBg = T.bgPanel
+    const textPrim = T.textPrimary
+    const textMuted = T.textSecondary
 
     return (
         <div style={{
@@ -87,7 +88,7 @@ export function FileContent({ shape }: { shape: TLCardShape }) {
             {fileSize && (
                 <div style={{
                     fontSize: 10, color: textMuted,
-                    background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)',
+                    background: T.bgHoverSoft,
                     padding: '2px 8px', borderRadius: 5,
                 }}>
                     {fileSize}

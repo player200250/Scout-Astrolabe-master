@@ -17,7 +17,7 @@
 
 ## 做起來卡的（依「會不會咬到下一個開發者」排序）
 
-1. **全 inline style、寫死色值、無 design token** — 日常最有感。每個元件都是大段 `style={{…}}`，顏色全是 `isDark ? '#1e293b' : 'white'` 一路重複。加一個元件（如 N19 模板挑選器）就得**每個顏色手動配一次 `isDark ? X : Y`** 去對齊。主題邏輯散在每檔、色值到處複製、元件又臭又長。一層 token/CSS 變數能砍掉一大堆。
+1. ~~**全 inline style、寫死色值、無 design token**~~ — **✅ 已解決（2026-07-26，TD8）**。原況：每個元件大段 `style={{…}}`，顏色全是 `isDark ? '#1e293b' : 'white'` 一路重複，加一個元件就得每個顏色手動配一次。現況：`src/theme/tokens.css` 33 個語意 token ＋ `T` 取用介面，`isDark ?` 449→23 處，`isDark` prop 全面退場。**仍是 inline style（沒改成 CSS class），但色值已集中**。詳見 [refactor-roadmap.md TD8](refactor-roadmap.md)。
 2. **三套事件系統疊加、只能實測不能推理** — tldraw／React／ProseMirror 各在不同階段攔事件、無仲裁者、有 6 處 capture 逃生艙（見 [state-and-events.md](state-and-events.md)、記憶 `arch_three_event_systems`）。碰任何互動（toggle 三角形／pointer／雙擊進編輯）都得開 CDP 實測才敢下結論＝**互動層最重的認知稅**。
 3. **UI god components** — `WhiteboardTools.tsx` 800+ 行（editor 操作＋建卡＋事件橋接＋自動存檔＋匯出＋工具列全塞一起）；`BoardTabBar`／`ContextMenu` 也偏大。**hooks 拆得漂亮，components 還沒享受到同等重構。**
 4. **snapshot 操作是型別黑洞** — 到處 `as unknown as MutableSnapshot`，型別系統保護不到改 snapshot 的地方，錯誤只在 runtime 才炸（sanitize 層就是為此存在的網）。動 snapshot 像在無型別地帶走路。
@@ -28,8 +28,8 @@
 
 ## 先修（投報高 → 低）
 
-1. **抽一層 theme token**（投報最高）：集中明暗色值，每個元件受惠，順手收掉散落的 `isDark ? :`。
-2. **共用 `toast` + `inline-input` primitive**：連帶解掉 `alert()` 擾民（阻塞式原生視窗）與 **Electron 不支援 `window.prompt`**（N19 存模板就因此改用預設名）。目前 board/folder/template 各自重造 inline input。
+1. ~~**抽一層 theme token**~~ **✅ 已完成（2026-07-26）**：集中明暗色值，順手收掉散落的 `isDark ? :`，並修好 83 處一直靜默失效的 `var(--…)`（定義在死檔 App.css）。
+2. **共用 `toast` + `inline-input` primitive**（← 現在的第一順位）：連帶解掉 `alert()` 擾民（阻塞式原生視窗）與 **Electron 不支援 `window.prompt`**（N19 存模板就因此改用預設名）。目前 board/folder/template 各自重造 inline input。
 3. **拆 `WhiteboardTools`**：價值高但**風險也高（互動碼沒測試網）**，宜等 E2E（Playwright）建起來再動。
 
 ## 不是「修」得掉的（要接受並管理）
@@ -41,3 +41,5 @@
 ## 一句話
 
 **當工具用很穩、當開發對象有兩個系統性小坑**——(1) 缺 theme token、(2) 缺共用 toast/inline-input primitive。兩者補起來成本不高、每個新功能都受惠，是投報最高的下一步基礎建設。
+
+> **2026-07-26 更新**：(1) 已完成（TD8，見 [refactor-roadmap.md](refactor-roadmap.md)）。(2) TD9 仍開放，現為投報最高的下一項。

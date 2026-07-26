@@ -2,26 +2,26 @@ import { useEffect } from 'react'
 import type { BoardRecord } from '../db'
 import { isRasterThumbnail } from '../utils/boardDb'
 import { Z_MODAL_BACKDROP, Z_MODAL } from '../constants'
+import { T } from '../theme/tokens'
 
 interface MoveCardModalProps {
     boards: BoardRecord[]
     onSelect: (targetBoardId: string) => void
     onClose: () => void
-    isDark: boolean
     /** 排除的板（通常是來源板，避免移到自己） */
     excludeBoardId?: string
 }
 
-export function MoveCardModal({ boards, onSelect, onClose, isDark, excludeBoardId }: MoveCardModalProps) {
+export function MoveCardModal({ boards, onSelect, onClose, excludeBoardId }: MoveCardModalProps) {
     const targets = boards.filter(b => !b.isHome && !b.isInbox && b.status !== 'archived' && b.id !== excludeBoardId)
 
-    const bg = isDark ? '#1e293b' : 'white'
-    const textColor = isDark ? '#e2e8f0' : '#1a1a1a'
-    const borderColor = isDark ? '#334155' : '#f0f0f0'
-    const hoverBg = isDark ? '#2d3748' : '#f5f5f5'
-    const thumbBg = isDark ? '#334155' : '#f0f0f0'
-    const thumbBorder = isDark ? '#475569' : '#eee'
-    const mutedColor = isDark ? '#64748b' : '#aaa'
+    const bg = T.bgPanel
+    const textColor = T.textPrimary
+    const borderColor = T.borderLight
+    const hoverBg = T.bgHover
+    const thumbBg = T.bgHover
+    const thumbBorder = T.borderLight
+    const mutedColor = T.textMuted
 
     useEffect(() => {
         const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }

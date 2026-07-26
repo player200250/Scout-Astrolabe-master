@@ -2,22 +2,22 @@
 // 白板工具列相關 utilities（從 WhiteboardTools.tsx 拆出）
 
 import type React from 'react'
+import { T } from '../theme/tokens'
 
-/** 依 dark mode 回傳白板右上角按鈕的通用樣式 */
-export const getExportBtnStyle = (isDark: boolean): React.CSSProperties => ({
+/** 白板右上角按鈕的通用樣式。
+ *  TD8 後色值全走 design token（由 <html data-theme> 決定明暗），
+ *  故不再需要 isDark 參數——原本的 getExportBtnStyle(isDark) 已收斂成這個常數。 */
+export const exportBtnStyle: React.CSSProperties = {
     padding: '5px 11px',
     fontSize: 12,
     fontWeight: 500,
-    color: isDark ? '#e2e8f0' : '#333',
-    background: isDark ? 'rgba(30,41,59,0.92)' : 'rgba(255,255,255,0.92)',
-    border: isDark ? '1px solid #475569' : '1px solid #e0e0e0',
+    color: T.textPrimary,
+    background: T.bgOverlay,
+    border: `1px solid ${T.borderLight}`,
     borderRadius: 8,
     cursor: 'pointer',
     backdropFilter: 'blur(4px)',
-    boxShadow: isDark ? '0 1px 4px rgba(0,0,0,0.3)' : '0 1px 4px rgba(0,0,0,0.08)',
+    boxShadow: T.shadowSm,
     transition: 'background 0.15s',
     whiteSpace: 'nowrap' as const,
-})
-
-/** @deprecated 請改用 getExportBtnStyle(isDark) */
-export const exportBtnStyle: React.CSSProperties = getExportBtnStyle(false)
+}

@@ -1,8 +1,8 @@
 import { useRef, useEffect } from 'react'
-import { useIsDarkMode } from '@tldraw/editor'
 import { useEditor } from 'tldraw'
 import type { TLCardShape } from '../type/CardShape'
 import { CARD_COLORS } from '../type/CardShape'
+import { T } from '../../../theme/tokens'
 
 interface HeadingContentProps {
     shape: TLCardShape
@@ -12,13 +12,12 @@ interface HeadingContentProps {
 
 export function HeadingContent({ shape, isEditing, exitEdit }: HeadingContentProps) {
     const editor = useEditor()
-    const isDark = useIsDarkMode()
     const p = shape.props
     const inputRef = useRef<HTMLInputElement>(null)
 
     const colorStyle = CARD_COLORS[p.color ?? 'none']
     const hasColor = p.color && p.color !== 'none'
-    const textColor = hasColor ? colorStyle.accent : (isDark ? '#f1f5f9' : '#1a1a1a')
+    const textColor = hasColor ? colorStyle.accent : (T.textPrimary)
 
     useEffect(() => {
         if (isEditing && inputRef.current) {

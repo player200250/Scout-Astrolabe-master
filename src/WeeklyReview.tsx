@@ -4,6 +4,8 @@ import type { BoardRecord } from './db'
 import { getCardShapes } from './utils/snapshot'
 import { Z_PANEL } from './constants'
 import { getWeekRange } from './utils/weeklyReviewUtils'
+import { T } from './theme/tokens'
+import { useIsDark } from './theme/ThemeContext'
 
 /* ------------------------------------------------------------------ Stats */
 interface WeekStats {
@@ -40,10 +42,10 @@ function computeWeekStats(boards: BoardRecord[], weekStart: Date, weekEnd: Date)
 interface WeeklyReviewContentProps {
     boards: BoardRecord[]
     onGoToWeeklyCard: () => void
-    isDark: boolean
 }
 
-export function WeeklyReviewContent({ boards, onGoToWeeklyCard, isDark }: WeeklyReviewContentProps) {
+export function WeeklyReviewContent({ boards, onGoToWeeklyCard }: WeeklyReviewContentProps) {
+    const isDark = useIsDark()
     // 週期邊界以 useMemo 穩定化，避免每次 render 產生新 Date 物件影響 deps
     const { start: weekStart, end: weekEnd, weekNum } = useMemo(
         () => getWeekRange(new Date()),
@@ -58,11 +60,11 @@ export function WeeklyReviewContent({ boards, onGoToWeeklyCard, isDark }: Weekly
     const endLabel   = `${weekEnd.getMonth() + 1}/${weekEnd.getDate()}`
     const hasJournalBoard = boards.some(b => b.isJournal)
 
-    const textPrimary   = isDark ? '#e2e8f0' : '#1a1a1a'
-    const textSecondary = isDark ? '#94a3b8' : '#666'
-    const cardsBg       = isDark ? '#1e3a5f' : '#f0f4ff'
-    const noteBg        = isDark ? '#0f172a' : '#fafafa'
-    const noteBorder    = isDark ? '#334155' : '#f0f0f0'
+    const textPrimary   = T.textPrimary
+    const textSecondary = T.textSecondary
+    const cardsBg       = T.accentBg
+    const noteBg        = T.bgApp
+    const noteBorder    = T.borderLight
 
     const statCard = (bg: string, darkBg: string, icon: string, label: string, value: string | number, valueColor: string) => (
         <div style={{ background: isDark ? darkBg : bg, borderRadius: 10, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
@@ -119,8 +121,8 @@ export function WeeklyReviewContent({ boards, onGoToWeeklyCard, isDark }: Weekly
                     disabled={!hasJournalBoard}
                     style={{
                         width: '100%', padding: '10px', borderRadius: 10, border: 'none',
-                        background: hasJournalBoard ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : (isDark ? '#334155' : '#e5e7eb'),
-                        color: hasJournalBoard ? 'white' : (isDark ? '#64748b' : '#9ca3af'),
+                        background: hasJournalBoard ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : (T.bgMuted),
+                        color: hasJournalBoard ? 'white' : (T.textMuted),
                         fontSize: 13, fontWeight: 600,
                         cursor: hasJournalBoard ? 'pointer' : 'not-allowed',
                         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
@@ -142,20 +144,19 @@ interface WeeklyReviewProps {
     sidebarWidth: number
     onClose: () => void
     onGoToWeeklyCard: () => void
-    isDark: boolean
 }
 
-export function WeeklyReview({ boards, sidebarWidth, onClose, onGoToWeeklyCard, isDark }: WeeklyReviewProps) {
+export function WeeklyReview({ boards, sidebarWidth, onClose, onGoToWeeklyCard }: WeeklyReviewProps) {
     const today = new Date()
     const { start: weekStart, end: weekEnd, weekNum } = getWeekRange(today)
     const startLabel = `${weekStart.getMonth() + 1}/${weekStart.getDate()}`
     const endLabel   = `${weekEnd.getMonth() + 1}/${weekEnd.getDate()}`
 
-    const panelBg    = isDark ? '#1e293b' : 'white'
-    const borderCol  = isDark ? '#334155' : '#e8e8e8'
-    const headerBorder = isDark ? '#334155' : '#f0f0f0'
-    const titleColor = isDark ? '#e2e8f0' : '#1a1a1a'
-    const hoverBg    = isDark ? '#243447' : '#f5f5f5'
+    const panelBg    = T.bgPanel
+    const borderCol  = T.borderLight
+    const headerBorder = T.borderLight
+    const titleColor = T.textPrimary
+    const hoverBg    = T.bgHover
 
     return (
         <>
@@ -178,7 +179,7 @@ export function WeeklyReview({ boards, sidebarWidth, onClose, onGoToWeeklyCard, 
                         onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                     >×</button>
                 </div>
-                <WeeklyReviewContent boards={boards} onGoToWeeklyCard={onGoToWeeklyCard} isDark={isDark} />
+                <WeeklyReviewContent boards={boards} onGoToWeeklyCard={onGoToWeeklyCard} />
             </div>
         </>
     )

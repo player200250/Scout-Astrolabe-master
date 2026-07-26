@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import type { Editor } from '@tldraw/editor'
 import type { TLCardShape } from '../type/CardShape'
 import type { CardStatusType, PriorityType } from '../type/CardShape'
+import { T } from '../../../theme/tokens'
 
 export interface CardPropsBarProps {
     editor: Editor
@@ -33,10 +34,10 @@ export function CardPropsBar({ editor, shape, isDark = false }: CardPropsBarProp
 
     const selectStyle: React.CSSProperties = {
         fontSize: 11,
-        border: `1px solid ${isDark ? '#475569' : '#e0e0e0'}`,
+        border: `1px solid ${T.borderLight}`,
         borderRadius: 4,
         padding: '2px 4px',
-        background: isDark ? '#2d3748' : 'white',
+        background: T.bgPanel,
         color: isDark ? '#e2e8f0' : 'inherit',
         cursor: 'pointer',
     }
@@ -46,8 +47,8 @@ export function CardPropsBar({ editor, shape, isDark = false }: CardPropsBarProp
             onPointerDown={e => e.stopPropagation()}
             style={{
                 display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 4,
-                padding: '4px 8px', borderBottom: `1px solid ${isDark ? '#334155' : '#f0f0f0'}`,
-                background: isDark ? '#1a2035' : '#fafafa', flexShrink: 0, minHeight: 30,
+                padding: '4px 8px', borderBottom: `1px solid ${T.borderLight}`,
+                background: T.bgApp, flexShrink: 0, minHeight: 30,
             }}
         >
             <select value={currentStatus} onChange={e => setStatus(e.target.value as CardStatusType)}
@@ -96,7 +97,7 @@ export function CardPropsBar({ editor, shape, isDark = false }: CardPropsBarProp
                 }}
                 onPointerDown={e => e.stopPropagation()}
                 placeholder="+ 標籤"
-                style={{ border: 'none', outline: 'none', fontSize: 10, background: 'transparent', minWidth: 44, color: isDark ? '#64748b' : '#aaa' }}
+                style={{ border: 'none', outline: 'none', fontSize: 10, background: 'transparent', minWidth: 44, color: T.textMuted }}
             />
         </div>
     )

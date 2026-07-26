@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import type { TLEditorSnapshot } from 'tldraw'
 import { Z_MODAL_BACKDROP, Z_MODAL } from './constants'
 import { stripHtml } from './utils/stringUtils'
+import { T } from './theme/tokens'
 
 // ── 資料型別 ────────────────────────────────────────────────────────────────
 
@@ -28,7 +29,6 @@ interface SearchPanelProps {
     boards: BoardRecord[]
     onJump: (boardId: string, shapeId: string, x: number, y: number) => void
     onClose: () => void
-    isDark: boolean
 }
 
 interface SearchTodo {
@@ -177,7 +177,7 @@ const typeIcon: Record<string, string> = {
     text: '📝', todo: '✅', link: '🔗', image: '🖼️', journal: '📔',
 }
 
-export function SearchPanel({ boards, onJump, onClose, isDark }: SearchPanelProps) {
+export function SearchPanel({ boards, onJump, onClose }: SearchPanelProps) {
     const [query, setQuery] = useState('')
     const [debouncedQuery, setDebouncedQuery] = useState('')
     const [selectedIdx, setSelectedIdx] = useState(0)
@@ -214,14 +214,14 @@ export function SearchPanel({ boards, onJump, onClose, isDark }: SearchPanelProp
         }
     }, [results, selectedIdx, onClose, onJump])
 
-    const bg = isDark ? '#1e293b' : '#fff'
-    const textPrimary = isDark ? '#e2e8f0' : '#1a1a1a'
-    const border = isDark ? '#334155' : '#f0f0f0'
-    const rowBorder = isDark ? '#334155' : '#f5f5f5'
-    const hoverBg = isDark ? '#1e3a5f' : '#f0f4ff'
-    const clearBg = isDark ? '#334155' : '#f0f0f0'
-    const clearColor = isDark ? '#94a3b8' : '#666'
-    const mutedColor = isDark ? '#94a3b8' : '#aaa'
+    const bg = T.bgPanel
+    const textPrimary = T.textPrimary
+    const border = T.borderLight
+    const rowBorder = T.borderLight
+    const hoverBg = T.accentBg
+    const clearBg = T.bgHover
+    const clearColor = T.textSecondary
+    const mutedColor = T.textMuted
 
     const hasMore = total > MAX_RESULTS
 

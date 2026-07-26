@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { Z_MODAL_BACKDROP, Z_MODAL } from '../constants'
+import { T } from '../theme/tokens'
 
 interface TrashDialogProps {
     message: string
@@ -8,7 +9,6 @@ interface TrashDialogProps {
     confirmLabel?: string
     onConfirm: () => void
     onCancel: () => void
-    isDark: boolean
 }
 
 export function TrashDialog({
@@ -17,7 +17,7 @@ export function TrashDialog({
     confirmLabel = '移至垃圾桶',
     onConfirm,
     onCancel,
-    isDark,
+    
 }: TrashDialogProps) {
     const confirmRef = useRef<HTMLButtonElement>(null)
 
@@ -31,10 +31,10 @@ export function TrashDialog({
         return () => window.removeEventListener('keydown', handler)
     }, [onConfirm, onCancel])
 
-    const bg     = isDark ? '#1e293b' : '#ffffff'
-    const text   = isDark ? '#e2e8f0' : '#1a1a1a'
-    const muted  = isDark ? '#94a3b8' : '#666'
-    const border = isDark ? '#334155' : '#e5e7eb'
+    const bg     = T.bgPanel
+    const text   = T.textPrimary
+    const muted  = T.textSecondary
+    const border = T.borderLight
 
     return createPortal(
         <>
