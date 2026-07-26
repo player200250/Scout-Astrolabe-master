@@ -8,7 +8,7 @@
 
 ## 一句話結論
 
-**這個棧約 9 成是 web-native**（React / tldraw / TipTap / Dexie / 所有功能庫都跑在瀏覽器裡）——App 本質是「包在 Electron 殼裡的 web app」，因此 **PWA 方向本身可行**。摩擦集中在 **Electron IPC 那一層**（圖片/檔案/連結/托盤/熱鍵），要靠 `src/platform/` 抽象補完；真正未蓋、風險最高的是 **Supabase 同步層本身**（屬工程實作，非選型問題）。
+**這個棧約 9 成是 web-native**（React / tldraw / TipTap / Dexie / 所有功能庫都跑在瀏覽器裡）——App 本質是「包在 Electron 殼裡的 web app」，因此 **PWA 方向本身可行**。摩擦集中在 **Electron IPC 那一層**（圖片/檔案/連結/托盤/熱鍵），要靠 `src/platform/` 抽象補完；真正未蓋、風險最高的曾是 **Supabase 同步層本身**（屬工程實作，非選型問題）。**2026-07-26 更新：該層的探路段已在真實 Supabase 專案上跑通**（推一塊板上雲→列出→取回，snapshot 經 `jsonb` 往返無損），最大的未知數已消除，剩下的是工程量。
 
 版本快照（`package.json`，2026-07-19）：React 19.2、tldraw 3.15、TipTap 2.27、Dexie 4.2、Electron 37.3、Vite 7.1、Vitest 3.2、TypeScript 5.8。
 
@@ -27,7 +27,7 @@
 | 技術 | 角色 | 健康度／風險 | PWA＋同步可行性 |
 |---|---|---|---|
 | **Dexie 4.2 / IndexedDB** | 本機資料真相 | 穩、瀏覽器原生。見 [adr/0003](adr/0003-use-dexie-indexeddb.md)、[data-model.md](data-model.md) | **完美可攜**（PWA 也用 IndexedDB）。但它只是本機層——同步要另建。「整板一筆 snapshot」使 **LWW 粒度粗**（已知並接受：單人雙裝置＋同步前自動備份兜底）|
-| **Supabase**（尚未進 deps） | 規劃中的雲端後端 | 自用選型合理（Postgres＋Auth＋免費額度、免自架）。**最大未建風險** | 整個方向的核心工程：推/拉、整板 LWW、image→Supabase Storage。**選型無虞，難在實作**|
+| **Supabase**（`@supabase/supabase-js`，2026-07-26 進 deps） | 雲端同步後端 | 選型如預期可行。**探路段已跑通真實服務**（推/列/取回、RLS、單帳號）| 剩下的是工程量而非未知數：自動同步、輪詢、全量同步、image→Supabase Storage |
 | **electron-store 10** | 桌面設定（托盤偏好等） | 小、穩 | ⚠️ **Electron-only** → PWA 需 localStorage/IndexedDB fallback（platform 抽象處理）|
 
 ## Electron 殼（移植摩擦都在這）
@@ -78,7 +78,7 @@
 
 ## 剩餘要盯的風險（不是選型，是工程）
 
-1. **Supabase 同步層（最大）** — 全新、風險最高。建議照 roadmap 先做 **S0+S1** 走通「本機↔雲↔手機」最小鏈路驗架構，再往上疊。
+1. ~~**Supabase 同步層（最大）**~~ — **S0(b) 探路段已完成並在真實服務驗過（2026-07-26，commit `33411e3`＋`4763a2a`）**：`src/sync/` 三檔＋`supabase/schema.sql`（含 RLS）＋雲端同步面板。實測 snapshot 經 Postgres `jsonb` 往返**遞迴排序鍵後完全相同**＝無資料遺失。**剩餘工程**：自動同步、輪詢拉取、全量同步、活躍板衝突提示、`deletedAt` 雙向套用、image→Storage。
 2. **Electron IPC 抽象化：主體已完成（B1–B5，2026-07-23）** — renderer 對 IPC 的直接依賴已收進 `src/platform/` 六接縫並補 web fallback。死碼 load/open-document 已於 2026-07-25 清除；剩餘僅 `saveImage` 兩處呼叫端未走 imageStore（見 electron-ipc.md）。
 
 ## 待確認 / 待評估項

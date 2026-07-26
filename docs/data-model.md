@@ -39,6 +39,10 @@ v9  boardTemplates(id, createdAt)       — 白板模板（N19，整塊 snapshot
 
 ## Table：boards
 
+> **雲端鏡像（S0(b)，2026-07-26）**：啟用雲端同步時，`BoardRecord` 會整筆鏡像到 Supabase 的 `public.boards` 表（欄名轉 snake_case、`snapshot` 存 `jsonb`）。欄位對映與 RLS 政策見 [`supabase/schema.sql`](../supabase/schema.sql)，對映的純函式與測試在 `src/sync/boardSync.ts`。
+> ⚠️ 雲端 `updated_at` 沿用本機的 **epoch 毫秒**（型別 `bigint`）而非 `timestamptz`——整板 last-write-wins 就靠它比大小。
+> ⚠️ Postgres `jsonb` 會**重排鍵順序**，所以 snapshot 往返後 `JSON.stringify` 必然不同（實測遞迴排序鍵後完全相同、無資料遺失）。判斷同步方向一律比 `updatedAt`，**不要比 snapshot 內容**。
+
 ### 主要 TypeScript 介面
 
 ```typescript

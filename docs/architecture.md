@@ -26,7 +26,12 @@
 | `src/utils/contextMenuUtils.tsx` | `useContextMenu` hook、`BUILTIN_TEMPLATES` 常數、`alignShapes`/`distributeShapes`（從 ContextMenu.tsx 分離） |
 | `src/utils/trashUtils.ts` | `saveCardToTrash`、`getCardPreview`（從 TrashPanel.tsx 分離） |
 | `src/utils/weeklyReviewUtils.ts` | `getISOWeekKey`、`getWeekRange`（從 WeeklyReview.tsx 分離） |
-| `src/utils/whiteboardUtils.ts` | `getExportBtnStyle`、`exportBtnStyle`（從 WhiteboardTools.tsx 分離） |
+| `src/utils/whiteboardUtils.ts` | `exportBtnStyle`（從 WhiteboardTools.tsx 分離；TD8 後不再隨主題變，已由 `getExportBtnStyle(isDark)` 收斂成常數） |
+| `src/utils/toast.ts` | `showToast()`——非阻塞通知的發送端（TD9，取代 `alert`）|
+| `src/utils/promptName.ts` | `promptName()`——命名對話框的 Promise 介面（TD9，補 Electron 缺的 `window.prompt`）|
+| **`src/theme/`** | **Design token 層（TD8）**：`tokens.css`（唯一顏色來源，`:root` / `:root[data-theme="dark"]` 各 41 個 CSS 變數＝40 個語意 token ＋ 1 個相容舊用法的別名 `--accent-light`）、`tokens.ts`（型別安全取用介面 `T`）、`ThemeContext.tsx`（`useIsDark()`，給少數真的需要布林值的地方）|
+| **`src/components/ui/`** | **共用 UI primitive（TD9）**：`ToastHost`、`PromptHost`、`InlineEdit` |
+| **`src/sync/`** | **雲端同步層（S0(b)）**：`syncConfig.ts`（連線設定存 localStorage＋URL 正規化）、`supabaseClient.ts`（lazy client＋登入）、`boardSync.ts`（push/pull/list＋純函式對映與 `decideSync`）。對應雲端 schema 見 `supabase/schema.sql` |
 | `src/db.ts` | Dexie 實例定義，schema 版本歷史（v1–v9） |
 | `main.js` | Electron 主程序：BrowserWindow、選單、`electronAPI` |
 | `preload.js` | contextBridge，暴露 `window.electronAPI` |

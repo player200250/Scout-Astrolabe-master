@@ -8,7 +8,7 @@
 ## 做得好的（實際受惠的優點）
 
 - **hooks 拆解乾淨**：`useBoardManager` 拆成 8 個領域子 hook（TD2），新功能有明確落點——加 N19 的 `handleCreateBoardFromTemplate` 時跟著 `handleNew` 抄即可。
-- **純函式＋單測的紀律**：`snapshot`／`cardLinks`／`knowledgeGraph`／`slashCommands`／`tagManager` 等抽成純函式配單測，428 測試多為此類 → 改資料層有安全網。
+- **純函式＋單測的紀律**：`snapshot`／`cardLinks`／`knowledgeGraph`／`slashCommands`／`tagManager` 等抽成純函式配單測，479 測試多為此類 → 改資料層有安全網。
 - **snapshot 的 sanitize 三層**：明知 tldraw 型別是黑箱，用防禦性補值兜住（frame/arrow/page/document 缺欄位）＝務實。
 - **平台接縫 `src/platform/`**：把 Electron 依賴收進葉節點接縫（S0(a)），降耦合、為 PWA 鋪路。
 - **文件量紮實 + 眼驗文化**：17 份技術文件 + 「測試綠 ≠ 對，要開真實 App 眼驗」的習慣，多數自用專案沒有。
@@ -17,7 +17,7 @@
 
 ## 做起來卡的（依「會不會咬到下一個開發者」排序）
 
-1. ~~**全 inline style、寫死色值、無 design token**~~ — **✅ 已解決（2026-07-26，TD8）**。原況：每個元件大段 `style={{…}}`，顏色全是 `isDark ? '#1e293b' : 'white'` 一路重複，加一個元件就得每個顏色手動配一次。現況：`src/theme/tokens.css` 33 個語意 token ＋ `T` 取用介面，`isDark ?` 449→23 處，`isDark` prop 全面退場。**仍是 inline style（沒改成 CSS class），但色值已集中**。詳見 [refactor-roadmap.md TD8](refactor-roadmap.md)。
+1. ~~**全 inline style、寫死色值、無 design token**~~ — **✅ 已解決（2026-07-26，TD8）**。原況：每個元件大段 `style={{…}}`，顏色全是 `isDark ? '#1e293b' : 'white'` 一路重複，加一個元件就得每個顏色手動配一次。現況：`src/theme/tokens.css` 40 個語意 token ＋ `T` 取用介面，`isDark ?` 449→23 處，`isDark` prop 全面退場。**仍是 inline style（沒改成 CSS class），但色值已集中**。詳見 [refactor-roadmap.md TD8](refactor-roadmap.md)。
 2. **三套事件系統疊加、只能實測不能推理** — tldraw／React／ProseMirror 各在不同階段攔事件、無仲裁者、有 6 處 capture 逃生艙（見 [state-and-events.md](state-and-events.md)、記憶 `arch_three_event_systems`）。碰任何互動（toggle 三角形／pointer／雙擊進編輯）都得開 CDP 實測才敢下結論＝**互動層最重的認知稅**。
 3. **UI god components** — `WhiteboardTools.tsx` 800+ 行（editor 操作＋建卡＋事件橋接＋自動存檔＋匯出＋工具列全塞一起）；`BoardTabBar`／`ContextMenu` 也偏大。**hooks 拆得漂亮，components 還沒享受到同等重構。**
 4. **snapshot 操作是型別黑洞** — 到處 `as unknown as MutableSnapshot`，型別系統保護不到改 snapshot 的地方，錯誤只在 runtime 才炸（sanitize 層就是為此存在的網）。動 snapshot 像在無型別地帶走路。

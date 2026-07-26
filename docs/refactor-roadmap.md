@@ -185,7 +185,7 @@ Effects 共 4 個：onboarding 首開、逾期橫幅計時、`data-theme` 套用
 **問題**：每個元件都是大段 `style={{…}}` + 寫死色值，主題全靠 `isDark ? '#…' : '#…'` 到處重複。新增元件要手動配每個顏色去對齊既有風格。
 
 **交付**：
-- **`src/theme/tokens.css`**＝唯一顏色來源。`:root`（亮）／`:root[data-theme="dark"]`（暗）兩組，**33 個語意 token**（表面／邊框／文字三級／強調／狀態／陰影／圓角）。`data-theme` 早已由 `App.tsx` 掛在 `<html>`，這次只是把變數補上。
+- **`src/theme/tokens.css`**＝唯一顏色來源。`:root`（亮）／`:root[data-theme="dark"]`（暗）兩組，**40 個語意 token**（表面／邊框／文字三級／強調／狀態／陰影／圓角；數字為 `tokens.ts` 的 `T` 鍵數，快照 2026-07-26）。`data-theme` 早已由 `App.tsx` 掛在 `<html>`，這次只是把變數補上。
 - **`src/theme/tokens.ts`**＝型別安全取用介面 `T`，元件寫 `style={{ background: T.bgPanel }}`。
 - **`src/theme/ThemeContext.tsx`**＝`useIsDark()`。少數真的需要布林值的地方（☀️/🌙 切換鈕、`hexToRgba(色, isDark ? 0.22 : 0.12)` 這種動態透明度標籤、tldraw `colorScheme`）改用 hook 取，不再層層傳 prop。
 - **遷移 449 → 剩 23 處**（`isDark ?` 由 449 降到 23，`isDark` 提及 467 → 81）。剩下的全是「不是固定色值表達得了」的：動態標籤透明度、卡片色盤（sticky/file）、主題切換鈕本身。
@@ -241,7 +241,7 @@ Effects 共 4 個：onboarding 首開、逾期橫幅計時、`data-theme` 套用
 | ✅ 完成 | TD5：stripHtml 統一 | 已解決（2026-06-20，7 處 → `utils/stringUtils.ts`） | — |
 | ✅ 完成 | TD6：SearchPanel 防抖＋索引 | 已解決 `ff38071` | — |
 | ✅ 完成 | TD7：孤兒元件清理 | 已解決（2026-06-20，刪 CalendarView/JournalDayView standalone + useFileStorage） | — |
-| ✅ 完成 | TD8：無 design token（全 inline style） | 已解決（2026-07-26）：`src/theme/` token 層，449→23 處 `isDark ?` | — |
+| ✅ 完成 | TD8：無 design token（全 inline style） | 已解決（2026-07-26）：`src/theme/` token 層（40 token），449→23 處 `isDark ?` | — |
 | ✅ 完成 | TD9：缺 toast + inline-input primitive | 已解決（2026-07-26）：`src/components/ui/` 三個 primitive，11 處 alert／5 處自製 input 退場 | — |
 | 🟢 高價值高風險 | TD10：拆 UI god components（WhiteboardTools 800+） | 開放（2026-07-26） | **等 E2E 建起再動**（互動碼無測試網） |
 
