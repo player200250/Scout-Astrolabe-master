@@ -7,7 +7,8 @@ import { useState, useEffect, useCallback } from 'react'
 import type { BoardRecord } from '../db'
 import { db } from '../db'
 import {
-    loadSyncConfig, saveSyncConfig, isSyncConfigured, setAutoSync, type SyncConfig,
+    loadSyncConfig, saveSyncConfig, isSyncConfigured, setAutoSync,
+    buildMobileConfigLink, type SyncConfig,
 } from '../sync/syncConfig'
 import { signIn, signOut, getCurrentSession } from '../sync/supabaseClient'
 import { pushBoard, pullBoard, listRemoteBoards, decideSync, type RemoteBoardSummary } from '../sync/boardSync'
@@ -95,6 +96,21 @@ export function CloudSyncPanel({ boards, activeBoardId, onClose }: CloudSyncPane
         restartSyncEngine()
         showToast(next ? '自動同步已開啟' : '自動同步已關閉（仍可手動同步）')
     }, [autoSync])
+
+    const handleCopyMobileLink = useCallback(async () => {
+        const link = buildMobileConfigLink(config)
+        try {
+            await navigator.clipboard.writeText(link)
+            showToast(
+                config.mobileUrl?.trim()
+                    ? '已複製手機設定連結，傳到手機點一下就會填好設定'
+                    : '已複製設定片段。請接在你的手機端網址後面（或先在上面填手機端網址）',
+                'success',
+            )
+        } catch {
+            showToast('複製失敗，請手動選取下方的連結', 'error')
+        }
+    }, [config])
 
     const handleSyncNow = useCallback(async () => {
         setBusy('syncnow')
@@ -224,6 +240,23 @@ export function CloudSyncPanel({ boards, activeBoardId, onClose }: CloudSyncPane
                     <div style={{ fontSize: 10.5, color: T.textMuted, marginTop: 8, lineHeight: 1.6 }}>
                         兩個值都在 Supabase 後台 <b>Project Settings → API</b>。
                         anon key 是設計上可公開的值，資料安全靠 RLS（<code>supabase/schema.sql</code> 已設定）。
+                    </div>
+
+                    {/* 手機端交接：在手機上手打那串 anon key 很痛苦 */}
+                    <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px dashed ${T.borderLight}` }}>
+                        <label style={label}>手機速記 PWA 的網址（可留空）</label>
+                        <input
+                            style={input} placeholder="https://xxx.github.io/Scout-Astrolabe-master/"
+                            value={config.mobileUrl ?? ''}
+                            onChange={e => setConfig(c => ({ ...c, mobileUrl: e.target.value }))}
+                        />
+                        <button onClick={() => void handleCopyMobileLink()} style={{ ...btnGhost, marginTop: 8 }}>
+                            📱 複製手機設定連結
+                        </button>
+                        <div style={{ fontSize: 10.5, color: T.textMuted, marginTop: 8, lineHeight: 1.6 }}>
+                            連結把設定放在 <code>#</code> 之後，<b>不會隨請求送到任何伺服器</b>；
+                            手機端讀完會立刻從網址列清掉。傳到自己手機點一下，就不必手打 anon key。
+                        </div>
                     </div>
                 </div>
 

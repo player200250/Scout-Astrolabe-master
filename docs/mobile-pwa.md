@@ -101,6 +101,15 @@ npx vite preview --config vite.config.mobile.ts --host 0.0.0.0 --port 4173
 
 ## 3. 手機上怎麼用
 
+**最省事的做法（推薦）**：桌機的雲端同步面板 →「1. 連線設定」最下面填手機端網址 →
+按 **📱 複製手機設定連結** → 用任何方式傳到自己手機 → 點一下就填好，只剩登入。
+
+那個連結把設定放在 `#` 之後。選 fragment 而不是 query string 是有理由的：
+**`#` 後面的內容不會隨 HTTP 請求送出**，所以 anon key 不會出現在任何伺服器或代理的存取紀錄裡；
+手機端讀完會立刻 `history.replaceState` 把它從網址列清掉。
+
+手動填也可以：
+
 1. 開網址 → 「☁️ 連線設定」
 2. 填**與桌機同一組** Project URL 與 anon key（Supabase 後台 Project Settings → API）
 3. 用同一個帳號登入
