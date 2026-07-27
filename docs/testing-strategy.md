@@ -21,9 +21,9 @@
 
 ## 目前測試現況
 
-**單元測試已導入（Vitest 3.2.6），目前 48 檔 566 案例全綠（快照日期 2026-07-27；持續成長，以 `npm test` 實跑為準）。** 設定寫在 `vite.config.ts` 的 `test` 區塊（`include: src/**/*.{test,spec}.{ts,tsx}`）；指令 `npm test`（`vitest run`）、`npm run test:watch`、`npm run test:coverage`。已裝 `jsdom`、`@testing-library/react`、`@testing-library/dom`（未裝 `@testing-library/jest-dom`，斷言用 `.toBeTruthy()`/`.toBeNull()`）。純函式測試跑 node 環境、需要 DOM 的單檔以 `// @vitest-environment jsdom` 切換。
+**單元測試已導入（Vitest 3.2.6），目前 49 檔 599 案例全綠（快照日期 2026-07-28；持續成長，以 `npm test` 實跑為準）。** 設定寫在 `vite.config.ts` 的 `test` 區塊（`include: src/**/*.{test,spec}.{ts,tsx}`）；指令 `npm test`（`vitest run`）、`npm run test:watch`、`npm run test:coverage`。已裝 `jsdom`、`@testing-library/react`、`@testing-library/dom`（未裝 `@testing-library/jest-dom`，斷言用 `.toBeTruthy()`/`.toBeNull()`）。純函式測試跑 node 環境、需要 DOM 的單檔以 `// @vitest-environment jsdom` 切換。
 
-> **下表是 2026-06-21 的快照（約 24 檔）**；此後隨功能陸續新增，現已 48 檔 566 案例。表未逐一列出的新增檔包括：`cardLinks`／`slashCommands`／`knowledgeGraph`／`tagManager`／`tagColors`／`commands`／`inboxTriage`／`dataSafetyStats`／`homeBoardMigration`／`imageMigration`／`exampleBoard`（utils）、`platform/imageStore`、`card-shape/extensions/Toggle`，以及 2026-07-26 新增的 `components/ui/{InlineEdit,ToastHost,PromptHost}`（TD9 primitive）。**雲端同步與手機端的 8 個測試檔另見下方獨立章節。** 逐檔案例數會漂移，以 `npm test` 實跑為準。
+> **下表是 2026-06-21 的快照（約 24 檔）**；此後隨功能陸續新增，現已 49 檔 599 案例。表未逐一列出的新增檔包括：`cardLinks`／`slashCommands`／`knowledgeGraph`／`tagManager`／`tagColors`／`commands`／`inboxTriage`／`dataSafetyStats`／`homeBoardMigration`／`imageMigration`／`exampleBoard`（utils）、`platform/imageStore`、`card-shape/extensions/Toggle`，以及 2026-07-26 新增的 `components/ui/{InlineEdit,ToastHost,PromptHost}`（TD9 primitive）。**雲端同步與手機端的 8 個測試檔另見下方獨立章節。** 逐檔案例數會漂移，以 `npm test` 實跑為準。
 
 已覆蓋的測試檔（2026-06-21 快照）：
 
@@ -43,6 +43,7 @@
 | `utils/snapshotCards.test.ts` | 10 | `ensurePageScaffold`/`nextAppendX`/`lastShapeIndex`（空 store、不覆蓋既有 page/document、缺 x/w 預設、忽略非 shape）|
 | `utils/stringUtils.test.ts` | 7 | `stripHtml`（區塊邊界插空格、行內不插、具名/數值 entity 解碼、collapse/trim、`[[wiki]]` 保留）|
 | `components/card-shape/utils/embedUtils.test.ts` | 14 | `getEmbedData`（YouTube/Bilibili/Vimeo/一般網域/邊界）|
+| `SearchPanel.test.ts`（2026-07-28 新增） | 25 | **每種 CardType 各一條**（曾經有 6 種搜不到）＋型別篩選與 chip 計數 |
 
 **Hooks**
 
@@ -78,7 +79,7 @@
 
 ## 雲端同步與手機端（PWA）的測試
 
-> 快照日期 2026-07-27。相關程式碼見 [roadmap-mobile.md](roadmap-mobile.md)（同步設計）與 [mobile-pwa.md](mobile-pwa.md)（手機端）。
+> 快照日期 2026-07-28。相關程式碼見 [roadmap-mobile.md](roadmap-mobile.md)（同步設計）與 [mobile-pwa.md](mobile-pwa.md)（手機端）。
 
 同步是這個專案第一個**跨裝置、跨網路、且失敗會靜默丟資料**的功能，測試策略也因此與其他部分不同：
 **不去測網路層，專測「決策規則」**——什麼時候該推什麼、拉回來的東西怎麼套用、失敗了會怎樣。
@@ -88,7 +89,7 @@
 | 檔案 | 案例 | 重點 |
 |------|------|------|
 | `sync/boardSync.test.ts` | 15 | `toRemoteRow`/`fromRemoteRow` 欄位對映、`decideSync`（整板 LWW 判斷） |
-| `sync/syncConfig.test.ts` | 17 | URL 正規化（`/rest/v1` 那個真實踩過的坑）、`autoSync` 開關、舊設定無欄位視為開啟 |
+| `sync/syncConfig.test.ts` | 25 | URL 正規化（`/rest/v1` 那個真實踩過的坑）、`autoSync` 開關、舊設定無欄位視為開啟、**手機設定連結**往返與壞輸入 |
 | `sync/syncState.test.ts` | 23 | dirty 判斷、換帳號作廢、縮圖指紋（省流量的安全條件） |
 | `sync/syncStatus.test.ts` | 7 | 各階段顯示文字、`signed-out` 與 `disabled` 的區分、相對時間 |
 | `sync/syncEngine.test.ts` | 24 | **引擎決策規則**（見下） |

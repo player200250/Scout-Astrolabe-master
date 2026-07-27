@@ -41,23 +41,65 @@
 function buildSearchIndex(boards: BoardRecord[]): SearchIndex[]
 ```
 
+**全部 11 種 CardType 都會進索引**（2026-07-28 修正，見下方警告）。逐型別的可搜文字由純函式
+`buildCardSearchText(props, boardNameById)` 決定：
+
 | 卡片類型 | 索引內容（預先 lowercase） |
 |---------|---------|
-| `text` / `journal` | `stripHtml(props.text)` 純文字 |
+| `text` / `journal` / `heading` / `sticky` | `stripHtml(props.text)` 純文字（便利貼的換行會被收成空白）|
 | `todo` | `props.text`（標題）+ `props.todos[].text` 每個項目 |
 | `link` | `props.url` + `props.text` + `props.title` |
 | `image` | `props.text`（圖片說明文字） |
+| `table` | `props.tableData[].cells[].content` 逐格內容 |
+| `color` | `props.swatches[].name` + `.hex`（色碼也可搜）|
+| `file` | `props.originalName` + `props.fileExt` |
+| `board` | **被連到的白板名稱**（board 卡本身沒有文字，用 `linkedBoardId` 反查）|
+| 未知型別 | fallback 取 `stripHtml(props.text)` |
+| **所有型別** | 額外附加 `props.tags`（搜「閱讀」找得到標了 `#閱讀` 的卡）|
+
+完全沒有可搜文字的卡（例如空的色票）不進索引——它永遠不會被任何關鍵字命中，
+留著只會讓型別篩選的計數看起來不對。
 
 `stripHtml` 在建立索引時執行一次（不在搜尋時重複執行）。
+
+> ### ⚠️ 曾經只索引 5 種型別（2026-07-28 修正）
+>
+> 舊版 `buildSearchIndex` 只處理 `text`/`todo`/`link`/`image`/`journal`，其餘 **6 種**
+> （`heading`／`sticky`／`table`／`color`／`board`／`file`）被 `continue` **直接跳過＝根本搜不到**。
+>
+> 這個 bug 不報錯、不當機，只會讓人覺得「我明明記過這件事」然後懷疑自己記錯。
+> **實測影響**：搜「同步」原本 14 筆、修正後 19 筆，多出來的 5 筆全是便利貼——
+> 而便利貼是使用最頻繁的型別之一。
+>
+> **日後新增 `CardType` 時，`buildCardSearchText` 的 switch 是必改的地方之一。**
+> 有 `default` 分支兜底（至少保留 `text`），但那只是防止整張卡消失，不是正確的索引內容。
 
 #### 2. 搜尋（`searchFromIndex`）
 
 ```typescript
 // 只做 string.includes，無重複 HTML parse
-function searchFromIndex(index: SearchIndex[], query: string): SearchResult[]
+function searchFromIndex(
+    index: SearchIndexEntry[],
+    keyword: string,
+    typeFilter: CardType | null = null,
+): { results: SearchResult[]; total: number }
 ```
 
 - 最多回傳 **50 筆**結果，超過顯示「還有 N 筆未顯示」
+- `typeFilter` 為 B3 型別篩選（見下）；`null` = 全部型別
+
+#### 2b. 型別篩選（B3，2026-07-28）
+
+輸入框下方的 chip 列，由 `typeCountsFor(index, keyword)` 決定要顯示哪些：
+
+- **只列「這次關鍵字真的搜得到的型別」**，不是固定列出全部 11 種——
+  列出永遠 0 筆的 chip 只會讓人以為篩選壞了
+- 命中型別**只有一種時整列不顯示**（沒有篩選的意義）
+- 每個 chip 顯示該型別的命中筆數；計數**不受目前選了哪個影響**，否則選下去整列會塌掉
+- 換關鍵字後若原本選的型別一筆都沒有，自動退回「全部」
+- 圖示與標籤取自共用的 `utils/cardMeta.ts`（`TYPE_ICON`／`TYPE_LABEL`），
+  **不要再在面板內自建對照表**——SearchPanel 原本就有一份只涵蓋 5 種型別的私有版本，
+  正是 `cardMeta.ts` 註解說要避免的重複
 
 #### 3. 防抖（debounce）
 
@@ -67,7 +109,7 @@ function searchFromIndex(index: SearchIndex[], query: string): SearchResult[]
 
 ### 結果格式與互動
 
-- `SearchResult`：`{ boardId, boardName, shapeId, type, preview（前 80 字）, x, y }`
+- `SearchResult`：`{ boardId, boardName, shapeId, type: CardType, preview（前 80 字）, x, y }`
 - 結果列表最多顯示 400px 高度（`maxHeight: 400, overflowY: auto`）
 - `↑↓` 鍵導航 → `Enter` 鍵跳轉（呼叫 `onJump(boardId, shapeId, x, y)`）
 - `onJump` 對應 `handleJump`（`useBoardManager`）：若目標板非當前板，先切板再跳轉
@@ -75,6 +117,8 @@ function searchFromIndex(index: SearchIndex[], query: string): SearchResult[]
 ### 注意
 
 各處的 `stripHtml` 已統一到 `src/utils/stringUtils.ts`（2026-06-20，TD5/WO3）：以 `DOMParser` 解碼所有 HTML entity，並只在區塊邊界插空格（行內標籤不插，避免 CJK 被誤拆）。`SearchPanel` 等 7 處皆 import 此單一實作。
+
+`buildCardSearchText`／`buildSearchIndex`／`searchFromIndex`／`typeCountsFor` 皆為 `export`（純函式，為可測性匯出、邏輯未動），測試見 `src/SearchPanel.test.ts`（25 案例，每種型別各有一條）。
 
 ---
 
