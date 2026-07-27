@@ -84,6 +84,9 @@ Service worker 與「加到主畫面」**需要安全來源**（HTTPS，或 loca
 ⚠️ 部署後任何人都能開那個網址，但**看不到任何資料**——所有內容都要登入才拿得到，
 而資料存取由 Supabase 的 RLS 把關（見 `supabase/schema.sql`）。anon key 本來就是設計上可公開的值。
 
+> 測試流程、逐項驗證清單與已知陷阱寫在 [testing-strategy.md](testing-strategy.md) 的
+> 「雲端同步與手機端（PWA）的測試」專章。
+
 ### 區網快速試（不必先找主機）
 
 ```bash
