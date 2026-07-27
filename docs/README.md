@@ -29,6 +29,7 @@
 | [roadmap-v2.md](roadmap-v2.md) | v1.2.0–v2.0.0 開發路線圖（功能清單、工作量、依賴關係） |
 | [roadmap-mobile.md](roadmap-mobile.md) | 行動端（PWA）與雲端同步路線圖（階段、技術、風險）— 自用定位 |
 | [cloud-sync-setup.md](cloud-sync-setup.md) | 雲端同步（Supabase）的實際設定步驟：開專案 → 貼 schema.sql → 建帳號 → 填進 App |
+| [mobile-pwa.md](mobile-pwa.md) | 手機速記 PWA（S1）：建置、部署、離線 outbox、一個帳號只綁一份 vault 的限制 |
 | [product-analysis.md](product-analysis.md) | 產品定位、檔案/功能高層分析（與 architecture.md 部分重疊，待整併） |
 | [product-redesign-2026-07.md](product-redesign-2026-07.md) | **功能全景盤點**＋D1/D7 重設計討論記錄（死線視角全死、兩個中心的分類法錯誤、Heptabase/Milanote/Notion 對照、月曆為何無用） |
 | [ux-audit-2026-07-23.md](ux-audit-2026-07-23.md) | **UI/UX 盤點報告**：真實 App 逐畫面截圖眼驗；跨畫面主軸（水平空間死白、面板樣式不一致、主題不一致、空狀態冷淡、導覽冗餘）＋逐畫面觀察＋優先級（挑著做，非待辦） |

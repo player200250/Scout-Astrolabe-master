@@ -169,10 +169,14 @@ recentlyTrashedShapeIds         // 防切板後 Ctrl+Z 同步失效的 Set（現
 | `restore-deleted-card` | `TrashPanel.handleRestoreCard()` | `WhiteboardTools` useEffect | `DeletedCardRecord` |
 | `quick-capture-card` | `useBoardManager.handleAddCardToInbox()` | `WhiteboardTools` useEffect（僅 isInboxBoard） | `{ text: string; x: number; y: number; shapeId: string }` |
 | `trash-count-changed` | `WhiteboardTools`（Ctrl+Z undo sync）、`TrashPanel.handlePermanentDeleteCard()` | `useBoardManager` useEffect | `undefined`（無 payload） |
-| `ui-toast` | `utils/toast.ts` 的 `showToast()`（TD9） | `components/ui/ToastHost`（App 掛載一次） | `{ message: string; kind: 'info' \| 'success' \| 'error' }` |
+| `ui-toast` | `utils/toast.ts` 的 `showToast()`（TD9） | `components/ui/ToastHost`（App 掛載一次） | `{ message: string; kind: 'info' \| 'success' \| 'error'; action?: { label, run }; durationMs?: number \| null }` |
 | `ui-prompt` | `utils/promptName.ts` 的 `promptName()`（TD9） | `components/ui/PromptHost`（App 掛載一次） | `{ title, defaultValue, placeholder?, confirmLabel?, resolve: (v: string \| null) => void }` |
 
-（共 13 個事件，快照日期 2026-07-26）
+| `sync-status-changed` | `sync/syncEngine.ts` | `hooks/useCloudSync`、`CloudSyncPanel` | `SyncStatus`（phase／pendingCount／lastSyncedAt／lastError） |
+| `sync-boards-updated` | `sync/syncEngine.ts`（拉回並寫入 IndexedDB 之後） | `hooks/useCloudSync` | `{ boards: BoardRecord[] }`（可能含 `deletedAt` 有值者＝另一端刪掉的） |
+| `sync-remote-newer` | `sync/syncEngine.ts`（活躍板遠端較新時） | `hooks/useCloudSync` | `{ boardId, boardName, remoteUpdatedAt, apply: () => Promise<void> }` |
+
+（共 16 個事件，快照日期 2026-07-27）
 
 ### 特別說明
 
@@ -184,6 +188,9 @@ recentlyTrashedShapeIds         // 防切板後 Ctrl+Z 同步失效的 Set（現
 
 **`ui-toast` / `ui-prompt`（TD9）** 是刻意走事件匯流排的 UI primitive：這樣 `utils/`、`hooks/` 這些**非元件**的程式碼也能像從前呼叫 `alert()` 一樣隨處通知使用者。呼叫端請用 `showToast()` / `promptName()`，不要直接 `emitAppEvent`。
 `ui-prompt` 的 payload 帶 `resolve` callback＝把「一問一答」架在單向匯流排上，`promptName()` 對外包成 Promise；**取消時 resolve(null) 而非永遠 pending**，否則呼叫端的 `await` 會卡死。
+
+**`sync-*`（S0(b)）** 讓同步引擎不必認識 React：`sync/syncEngine.ts` 只管排程、網路與 IndexedDB，結果一律用事件丟出來，由 `hooks/useCloudSync` 翻譯成 boards state 的更新與提示。
+`sync-remote-newer` 沿用 `ui-prompt` 的 callback 手法（payload 帶 `apply`），因為「要不要用雲端版本蓋掉你正在編輯的板」必須等使用者點下去才能執行——這是整個引擎唯一會覆蓋活躍板的路徑。
 
 ---
 

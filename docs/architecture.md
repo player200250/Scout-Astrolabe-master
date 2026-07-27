@@ -31,7 +31,8 @@
 | `src/utils/promptName.ts` | `promptName()`——命名對話框的 Promise 介面（TD9，補 Electron 缺的 `window.prompt`）|
 | **`src/theme/`** | **Design token 層（TD8）**：`tokens.css`（唯一顏色來源，`:root` / `:root[data-theme="dark"]` 各 41 個 CSS 變數＝40 個語意 token ＋ 1 個相容舊用法的別名 `--accent-light`）、`tokens.ts`（型別安全取用介面 `T`）、`ThemeContext.tsx`（`useIsDark()`，給少數真的需要布林值的地方）|
 | **`src/components/ui/`** | **共用 UI primitive（TD9）**：`ToastHost`、`PromptHost`、`InlineEdit` |
-| **`src/sync/`** | **雲端同步層（S0(b)）**：`syncConfig.ts`（連線設定存 localStorage＋URL 正規化）、`supabaseClient.ts`（lazy client＋登入）、`boardSync.ts`（push/pull/list＋純函式對映與 `decideSync`）。對應雲端 schema 見 `supabase/schema.sql` |
+| **`src/sync/`** | **雲端同步層（S0(b)）**：`syncConfig.ts`（連線設定存 localStorage＋URL 正規化＋自動同步開關）、`supabaseClient.ts`（lazy client＋登入）、`boardSync.ts`（push/pull/list＋純函式對映與 `decideSync`）、`syncState.ts`（哪些板還沒推，綁 userId）、`syncEngine.ts`（自動同步排程與套用規則）、`syncStatus.ts`（狀態型別／顯示文字）。對應雲端 schema 見 `supabase/schema.sql`；引擎與 React 的接線在 `hooks/useCloudSync.ts` |
+| **`src/mobile/`** | **手機速記 PWA（S1）**：`main.tsx`／`MobileApp.tsx`／`mobileCapture.ts`（離線 outbox）／`mobile.css`。第二個 Vite 進入點（`mobile/index.html` + `vite.config.mobile.ts` → `dist-mobile/`），**不載入 tldraw**。見 [mobile-pwa.md](mobile-pwa.md) |
 | `src/db.ts` | Dexie 實例定義，schema 版本歷史（v1–v9） |
 | `main.js` | Electron 主程序：BrowserWindow、選單、`electronAPI` |
 | `preload.js` | contextBridge，暴露 `window.electronAPI` |
