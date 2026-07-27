@@ -11,6 +11,7 @@ interface ToastItem {
     id: number
     message: string
     kind: ToastKind
+    action?: { label: string; run: () => void }
 }
 
 /** 一般訊息 3.5 秒、錯誤 6 秒（錯誤通常要讀完＋可能想截圖回報）。 */
@@ -30,10 +31,14 @@ export function ToastHost() {
     }, [])
 
     useEffect(() => {
-        return onAppEvent('ui-toast', ({ message, kind }) => {
+        return onAppEvent('ui-toast', ({ message, kind, action, durationMs }) => {
             const id = nextId++
-            setItems(prev => [...prev, { id, message, kind }])
-            setTimeout(() => setItems(prev => prev.filter(t => t.id !== id)), DURATION[kind])
+            setItems(prev => [...prev, { id, message, kind, action }])
+            // durationMs 明確傳 null＝不自動消失（需要使用者做決定的提示，例如同步衝突）
+            const ms = durationMs === undefined ? DURATION[kind] : durationMs
+            if (ms !== null) {
+                setTimeout(() => setItems(prev => prev.filter(t => t.id !== id)), ms)
+            }
         })
     }, [])
 
@@ -70,6 +75,23 @@ export function ToastHost() {
                 >
                     <span style={{ fontSize: 14, flexShrink: 0 }}>{ICON[t.kind]}</span>
                     <span>{t.message}</span>
+                    {t.action && (
+                        <button
+                            onClick={e => {
+                                // 不讓點擊冒泡到外層的「點一下關閉」——否則關閉與動作會同時發生，
+                                // 看起來沒差但動作若失敗就沒有 toast 可以顯示錯誤了
+                                e.stopPropagation()
+                                dismiss(t.id)
+                                t.action!.run()
+                            }}
+                            style={{
+                                flexShrink: 0, marginLeft: 4, padding: '4px 10px',
+                                fontSize: 12, fontWeight: 600, borderRadius: 6, cursor: 'pointer',
+                                border: `1px solid ${ACCENT[t.kind]}`, background: 'transparent',
+                                color: ACCENT[t.kind], fontFamily: 'inherit',
+                            }}
+                        >{t.action.label}</button>
+                    )}
                 </div>
             ))}
         </div>

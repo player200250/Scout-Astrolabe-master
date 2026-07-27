@@ -5,6 +5,7 @@ import { deleteBoard, saveBoard } from '../utils/boardDb'
 import { cleanupOrphanBoardCards } from '../utils/boardSanitize'
 import { onAppEvent } from '../utils/appEvents'
 import { showToast } from '../utils/toast'
+import { notifyBoardSaved } from '../sync/syncEngine'
 
 /** useTrash 需共用的核心 board state（由 useBoardManager 傳入） */
 export interface TrashSharedState {
@@ -33,7 +34,10 @@ export function useTrash(state: TrashSharedState) {
     const handleSoftDeleteBoard = useCallback(async (id: string) => {
         const board = boards.find(b => b.id === id)
         if (!board) return
-        const updated = { ...board, deletedAt: Date.now() }
+        // updatedAt 也要推進：雲端同步是整板 last-write-wins，刪除若沿用舊的 updatedAt，
+        // 另一端一筆較新的普通編輯就會贏過這次刪除 → 板子在下一輪同步復活（見 sync/syncEngine.ts）
+        const now = Date.now()
+        const updated = { ...board, deletedAt: now, updatedAt: now }
         await saveBoard(updated)
         const next = boards.filter(b => b.id !== id)
         if (activeBoardId === id) setActiveBoardId(next[0]?.id ?? null)
@@ -48,13 +52,18 @@ export function useTrash(state: TrashSharedState) {
     const handleRestoreBoard = useCallback(async (id: string) => {
         const record: BoardRecord | undefined = await db.table('boards').get(id)
         if (!record) return
-        const restored = { ...record, deletedAt: undefined }
+        // 還原同樣要推進 updatedAt，否則這次「取消刪除」會輸給另一端那筆較新的刪除記錄
+        const now = Date.now()
+        const restored = { ...record, deletedAt: undefined, updatedAt: now }
         // Dexie doesn't remove the field on put; explicitly delete via update
-        const updated = await db.table('boards').update(id, { deletedAt: undefined })
+        const updated = await db.table('boards').update(id, { deletedAt: undefined, updatedAt: now })
         if (updated === 0) {
             showToast('還原失敗，請重試。', 'error')
             return
         }
+        // 這條路徑刻意用 db.update（put 不會移除欄位）而繞過了 saveBoard，
+        // 所以同步引擎收不到通知——這裡補一次，不然還原不會同步到另一台裝置
+        try { notifyBoardSaved(restored) } catch (err) { console.error('[sync] 通知還原失敗', err) }
         setBoards(prev => [...prev, restored])
         refreshTrashCount()
     }, [refreshTrashCount, setBoards])

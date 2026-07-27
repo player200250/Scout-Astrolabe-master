@@ -12,16 +12,27 @@ export interface SyncConfig {
     url: string
     /** Supabase anon (public) key */
     anonKey: string
+    /**
+     * 自動同步（存檔後推送＋定時拉取）。**省略或 undefined 一律視為開啟**——
+     * S0(b) 探路期存的舊設定沒有這個欄位，不該因此變成沒在同步。
+     * 關掉之後 syncEngine 完全不排程，只剩雲端同步面板裡的手動動作可用。
+     */
+    autoSync?: boolean
 }
 
-const EMPTY: SyncConfig = { url: '', anonKey: '' }
+const EMPTY: SyncConfig = { url: '', anonKey: '', autoSync: true }
 
 export function loadSyncConfig(): SyncConfig {
     try {
         const raw = localStorage.getItem(STORAGE_KEY)
         if (!raw) return EMPTY
         const parsed = JSON.parse(raw) as Partial<SyncConfig>
-        return { url: parsed.url ?? '', anonKey: parsed.anonKey ?? '' }
+        return {
+            url: parsed.url ?? '',
+            anonKey: parsed.anonKey ?? '',
+            // 舊設定（S0(b) 探路期存的）沒有這個欄位＝視為開啟
+            autoSync: parsed.autoSync !== false,
+        }
     } catch {
         return EMPTY
     }
@@ -52,6 +63,7 @@ export function saveSyncConfig(config: SyncConfig): void {
         localStorage.setItem(STORAGE_KEY, JSON.stringify({
             url: normalizeSupabaseUrl(config.url),
             anonKey: config.anonKey.trim(),
+            autoSync: config.autoSync !== false,
         }))
     } catch { /* localStorage 滿了或被禁用：同步設定不存也不該讓 App 掛掉 */ }
 }
@@ -63,4 +75,14 @@ export function clearSyncConfig(): void {
 /** 設定是否填得像樣（只做格式檢查，能不能連上要真的打過才知道）*/
 export function isSyncConfigured(config: SyncConfig = loadSyncConfig()): boolean {
     return /^https?:\/\/.+/.test(config.url.trim()) && config.anonKey.trim().length > 20
+}
+
+/** 自動同步是否該啟動：設定填好了、而且沒被使用者關掉 */
+export function isAutoSyncEnabled(config: SyncConfig = loadSyncConfig()): boolean {
+    return isSyncConfigured(config) && config.autoSync !== false
+}
+
+/** 只切換自動同步開關，不動連線設定 */
+export function setAutoSync(enabled: boolean): void {
+    saveSyncConfig({ ...loadSyncConfig(), autoSync: enabled })
 }

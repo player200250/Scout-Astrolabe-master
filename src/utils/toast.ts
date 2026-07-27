@@ -9,10 +9,23 @@
 //   showToast('已匯出 PNG')                    // info
 //   showToast('已存為模板', 'success')
 //   showToast('匯入失敗，檔案格式錯誤', 'error')
+//
+// 需要使用者做決定時可以帶一顆動作鈕、並讓它不要自動消失（S0(b) 的同步衝突提示就是這樣用）：
+//   showToast('雲端有較新版本', 'info', {
+//       action: { label: '立即載入', run: () => void applyRemote() },
+//       durationMs: null,
+//   })
 import { emitAppEvent } from './appEvents'
 
 export type ToastKind = 'info' | 'success' | 'error'
 
-export function showToast(message: string, kind: ToastKind = 'info'): void {
-    emitAppEvent('ui-toast', { message, kind })
+export interface ToastOptions {
+    /** 動作鈕；按下後 toast 會自動關閉 */
+    action?: { label: string; run: () => void }
+    /** 自訂顯示時間（毫秒）；傳 null＝不自動消失，只能由使用者關掉 */
+    durationMs?: number | null
+}
+
+export function showToast(message: string, kind: ToastKind = 'info', options: ToastOptions = {}): void {
+    emitAppEvent('ui-toast', { message, kind, ...options })
 }

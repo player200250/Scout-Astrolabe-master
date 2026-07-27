@@ -22,6 +22,7 @@ import { useFolder } from './useFolder'
 import { useJournal } from './useJournal'
 import { useInboxCards } from './useInboxCards'
 import { useTags } from './useTags'
+import { useCloudSync } from './useCloudSync'
 import { showToast } from '../utils/toast'
 
 const TRASH_EXPIRE_MS = 14 * 86400000
@@ -56,6 +57,7 @@ export function useBoardManager() {
         handleUpdateInboxCardProps,
     } = useInboxCards({ boards, setBoards })
     const { handleRewriteTag } = useTags({ boards, setBoards })
+    const { syncStatus } = useCloudSync({ setBoards, activeBoardId, setActiveBoardId, enabled: !loading })
 
     useEffect(() => {
         navigator.storage?.persist?.().then(granted => {
@@ -236,7 +238,9 @@ export function useBoardManager() {
             }
         }
 
-        const deleted = { ...board, deletedAt: Date.now() }
+        // updatedAt 同步推進，理由同 useTrash.handleSoftDeleteBoard（刪除必須贏過舊版編輯）
+        const deletedNow = Date.now()
+        const deleted = { ...board, deletedAt: deletedNow, updatedAt: deletedNow }
         await saveBoard(deleted)
 
         if (activeBoardId === boardId) {
@@ -368,5 +372,6 @@ export function useBoardManager() {
         handleRewriteTag,
         imageMigrating,
         migrateAllNow,
+        syncStatus,
     }
 }

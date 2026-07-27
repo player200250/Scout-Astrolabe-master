@@ -10,7 +10,8 @@
 //   on:    const off = onAppEvent('jump-to-card', detail => { ... })
 //          // 在 useEffect cleanup 中呼叫 off()
 
-import type { DeletedCardRecord } from '../db'
+import type { BoardRecord, DeletedCardRecord } from '../db'
+import type { SyncStatus } from '../sync/syncStatus'
 
 // ── 每個事件的 payload 型別定義 ──────────────────────────────────────────
 
@@ -76,7 +77,14 @@ export interface AppEventPayloads {
      * 走事件匯流排是刻意的——這樣 utils/hooks 這些非元件的地方也能像 alert() 一樣隨處呼叫，
      * 由 App 掛的 <ToastHost/> 統一渲染。請用 utils/toast.ts 的 showToast() 而非直接 emit。
      */
-    'ui-toast': { message: string; kind: 'info' | 'success' | 'error' }
+    'ui-toast': {
+        message: string
+        kind: 'info' | 'success' | 'error'
+        /** 可選的動作鈕（例：「立即載入」）。按下後 toast 自動關閉 */
+        action?: { label: string; run: () => void }
+        /** 自訂顯示時間；傳 null＝不自動消失（需要使用者做決定時用）*/
+        durationMs?: number | null
+    }
 
     /**
      * 要求使用者輸入一個名稱（TD9，取代 Electron renderer 不支援的 window.prompt）。
@@ -89,6 +97,28 @@ export interface AppEventPayloads {
         placeholder?: string
         confirmLabel?: string
         resolve: (value: string | null) => void
+    }
+
+    /** 同步狀態變化（S0(b)）。由 syncEngine 發出，狀態列/雲端同步面板訂閱 */
+    'sync-status-changed': SyncStatus
+
+    /**
+     * 從雲端拉回並已寫入 IndexedDB 的白板（S0(b)）。
+     * useCloudSync 收到後把它們套進 React 的 boards state——不然畫面要等下次重載才看得到。
+     * 可能包含被另一端軟刪除的板（`deletedAt` 有值），呼叫端要自行過濾出側邊欄要顯示的。
+     */
+    'sync-boards-updated': { boards: BoardRecord[] }
+
+    /**
+     * **正在開著的**那塊板在雲端有更新的版本（S0(b) 第 4 項）。
+     * 刻意不靜默覆蓋——使用者可能正在這塊板上打字，一聲不響換掉畫布內容會直接毀掉工作。
+     * payload 帶 `apply` callback（同 'ui-prompt' 的作法）：使用者按下提示才真的拉回來套用。
+     */
+    'sync-remote-newer': {
+        boardId: string
+        boardName: string
+        remoteUpdatedAt: number
+        apply: () => Promise<void>
     }
 }
 

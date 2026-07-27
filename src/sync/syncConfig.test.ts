@@ -1,7 +1,10 @@
 // @vitest-environment jsdom
 // src/sync/syncConfig.test.ts
 import { describe, it, expect, beforeEach } from 'vitest'
-import { loadSyncConfig, saveSyncConfig, clearSyncConfig, isSyncConfigured } from './syncConfig'
+import {
+    loadSyncConfig, saveSyncConfig, clearSyncConfig, isSyncConfigured,
+    isAutoSyncEnabled, setAutoSync,
+} from './syncConfig'
 
 const LONG_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.dummy-anon-key-value'
 
@@ -9,12 +12,12 @@ describe('syncConfig', () => {
     beforeEach(() => { localStorage.clear() })
 
     it('沒設定過時回空字串，不會丟例外', () => {
-        expect(loadSyncConfig()).toEqual({ url: '', anonKey: '' })
+        expect(loadSyncConfig()).toEqual({ url: '', anonKey: '', autoSync: true })
     })
 
     it('存了之後讀得回來', () => {
         saveSyncConfig({ url: 'https://abc.supabase.co', anonKey: LONG_KEY })
-        expect(loadSyncConfig()).toEqual({ url: 'https://abc.supabase.co', anonKey: LONG_KEY })
+        expect(loadSyncConfig()).toEqual({ url: 'https://abc.supabase.co', anonKey: LONG_KEY, autoSync: true })
     })
 
     it('URL 尾端斜線會被去掉（否則組出來的 API path 會多一槓）', () => {
@@ -49,12 +52,12 @@ describe('syncConfig', () => {
 
     it('前後空白會被清掉（貼上時很容易帶到）', () => {
         saveSyncConfig({ url: '  https://abc.supabase.co  ', anonKey: `  ${LONG_KEY}  ` })
-        expect(loadSyncConfig()).toEqual({ url: 'https://abc.supabase.co', anonKey: LONG_KEY })
+        expect(loadSyncConfig()).toEqual({ url: 'https://abc.supabase.co', anonKey: LONG_KEY, autoSync: true })
     })
 
     it('localStorage 內容壞掉時回空設定而不是讓 App 掛掉', () => {
         localStorage.setItem('astrolabe-sync-config', '{壞掉的 JSON')
-        expect(loadSyncConfig()).toEqual({ url: '', anonKey: '' })
+        expect(loadSyncConfig()).toEqual({ url: '', anonKey: '', autoSync: true })
     })
 
     it('clear 之後回到未設定', () => {
@@ -73,6 +76,39 @@ describe('syncConfig', () => {
             expect(isSyncConfigured({ url: 'https://abc.supabase.co', anonKey: '' })).toBe(false)
             expect(isSyncConfigured({ url: 'abc.supabase.co', anonKey: LONG_KEY })).toBe(false)
             expect(isSyncConfigured({ url: 'https://abc.supabase.co', anonKey: 'short' })).toBe(false)
+        })
+    })
+
+    describe('autoSync 開關', () => {
+        const CONFIGURED = { url: 'https://abc.supabase.co', anonKey: LONG_KEY }
+
+        it('設定填好且沒關掉時＝啟用', () => {
+            expect(isAutoSyncEnabled({ ...CONFIGURED })).toBe(true)
+            expect(isAutoSyncEnabled({ ...CONFIGURED, autoSync: true })).toBe(true)
+        })
+
+        it('明確關掉就停用', () => {
+            expect(isAutoSyncEnabled({ ...CONFIGURED, autoSync: false })).toBe(false)
+        })
+
+        it('設定沒填完就算開著也不算啟用（沒東西可連）', () => {
+            expect(isAutoSyncEnabled({ url: '', anonKey: '', autoSync: true })).toBe(false)
+        })
+
+        // 探路期存的設定沒有 autoSync 欄位；若把 undefined 當成「關閉」，
+        // 使用者升級後會發現同步默默停了而且不知道為什麼
+        it('舊設定（無 autoSync 欄位）視為開啟', () => {
+            localStorage.setItem('astrolabe-sync-config', JSON.stringify(CONFIGURED))
+            expect(loadSyncConfig().autoSync).toBe(true)
+            expect(isAutoSyncEnabled()).toBe(true)
+        })
+
+        it('setAutoSync 只動開關、不動連線設定', () => {
+            saveSyncConfig(CONFIGURED)
+            setAutoSync(false)
+            expect(loadSyncConfig()).toEqual({ ...CONFIGURED, autoSync: false })
+            setAutoSync(true)
+            expect(loadSyncConfig()).toEqual({ ...CONFIGURED, autoSync: true })
         })
     })
 })

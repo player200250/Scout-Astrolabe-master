@@ -1,15 +1,20 @@
 // src/components/CloudSyncPanel.tsx
-// 雲端同步設定與手動推 / 拉（S0(b) 探路階段）。
+// 雲端同步的設定與控制台（S0(b)）。
 //
-// 這個面板刻意只做**手動**動作：填設定 → 登入 → 推一塊板 → 拉回來看。
-// 沒有自動同步、沒有輪詢、不碰現有存檔流程——先確認整條鏈路在真實 Supabase 上跑得通，
-// 再往上疊（見 docs/roadmap-mobile.md S0(b)）。
+// 分四段：連線設定 → 登入 → 自動同步（開關／狀態／立即同步）→ 手動推拉（進階、排查用）。
+// 平常使用者只會碰前三段；第四段是探路期留下來的單板推拉，出問題時拿來確認「到底是哪一邊的資料」。
 import { useState, useEffect, useCallback } from 'react'
 import type { BoardRecord } from '../db'
 import { db } from '../db'
-import { loadSyncConfig, saveSyncConfig, isSyncConfigured, type SyncConfig } from '../sync/syncConfig'
+import {
+    loadSyncConfig, saveSyncConfig, isSyncConfigured, setAutoSync, type SyncConfig,
+} from '../sync/syncConfig'
 import { signIn, signOut, getCurrentSession } from '../sync/supabaseClient'
 import { pushBoard, pullBoard, listRemoteBoards, decideSync, type RemoteBoardSummary } from '../sync/boardSync'
+import { syncNow, restartSyncEngine, getSyncStatus } from '../sync/syncEngine'
+import { describeSyncStatus, isSyncAttention, type SyncStatus } from '../sync/syncStatus'
+import { clearSyncState } from '../sync/syncState'
+import { onAppEvent } from '../utils/appEvents'
 import { getCardShapes } from '../utils/snapshot'
 import { showToast } from '../utils/toast'
 import { T } from '../theme/tokens'
@@ -47,6 +52,8 @@ export function CloudSyncPanel({ boards, activeBoardId, onClose }: CloudSyncPane
     const [busy, setBusy] = useState<string | null>(null)
     const [remote, setRemote] = useState<RemoteBoardSummary[] | null>(null)
     const [pulled, setPulled] = useState<BoardRecord | null>(null)
+    const [status, setStatus] = useState<SyncStatus>(() => getSyncStatus())
+    const [autoSync, setAutoSyncState] = useState(() => loadSyncConfig().autoSync !== false)
 
     const activeBoard = boards.find(b => b.id === activeBoardId) ?? null
 
@@ -63,13 +70,40 @@ export function CloudSyncPanel({ boards, activeBoardId, onClose }: CloudSyncPane
         return () => { alive = false }
     }, [])
 
+    // 狀態列由引擎推播（自動同步在背景跑，面板開著時要跟著動）
+    useEffect(() => onAppEvent('sync-status-changed', setStatus), [])
+
+    // 「已同步 · 3 分鐘前」的相對時間要會自己走，否則開著面板看起來像卡住了
+    useEffect(() => {
+        const id = setInterval(() => setStatus(getSyncStatus()), 30000)
+        return () => clearInterval(id)
+    }, [])
+
     const handleSaveConfig = useCallback(() => {
         saveSyncConfig(config)
         // 不必 resetSupabase()：getSupabase() 以設定內容為快取鍵，變了會自己重建。
         // 每次都 reset 反而會一直生新的 GoTrueClient 實例（supabase-js 會警告）。
         setConfig(loadSyncConfig()) // 讀回正規化後的值，讓使用者看到實際會用的 URL
+        restartSyncEngine()         // 換了專案/金鑰，引擎要重新套用設定
         showToast('已儲存連線設定', 'success')
     }, [config])
+
+    const handleToggleAutoSync = useCallback(() => {
+        const next = !autoSync
+        setAutoSync(next)
+        setAutoSyncState(next)
+        restartSyncEngine()
+        showToast(next ? '自動同步已開啟' : '自動同步已關閉（仍可手動同步）')
+    }, [autoSync])
+
+    const handleSyncNow = useCallback(async () => {
+        setBusy('syncnow')
+        const result = await syncNow()
+        setBusy(null)
+        setStatus(result)
+        if (result.phase === 'error') showToast(`同步失敗：${result.lastError}`, 'error')
+        else showToast('同步完成', 'success')
+    }, [])
 
     const handleSignIn = useCallback(async () => {
         setBusy('signin')
@@ -80,11 +114,16 @@ export function CloudSyncPanel({ boards, activeBoardId, onClose }: CloudSyncPane
         if (!res.ok) { showToast(res.error ?? '登入失敗', 'error'); return }
         setUserEmail(res.session?.user.email ?? email.trim())
         setPassword('')
+        restartSyncEngine()  // 有了身分才能開始自動同步
         showToast('已登入 Supabase', 'success')
     }, [config, email, password])
 
     const handleSignOut = useCallback(async () => {
         await signOut()
+        // 同步記錄綁 userId，登出時一併清掉：下次換帳號登入才會整份重推，
+        // 而不是誤以為「這些板都推過了」（見 sync/syncState.ts）
+        clearSyncState()
+        restartSyncEngine()
         setUserEmail(null)
         setRemote(null)
         setPulled(null)
@@ -219,11 +258,46 @@ export function CloudSyncPanel({ boards, activeBoardId, onClose }: CloudSyncPane
                     )}
                 </div>
 
-                {/* 3. 手動推 / 拉（探路） */}
+                {/* 3. 自動同步 */}
                 <div style={{ ...section, opacity: userEmail ? 1 : 0.45, pointerEvents: userEmail ? 'auto' : 'none' }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: T.textPrimary, marginBottom: 4 }}>3. 手動推 / 拉</div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: T.textPrimary, marginBottom: 10 }}>3. 自動同步</div>
+
+                    <label style={{
+                        display: 'flex', alignItems: 'center', gap: 9, cursor: 'pointer', marginBottom: 10,
+                    }}>
+                        <input type="checkbox" checked={autoSync} onChange={handleToggleAutoSync} style={{ cursor: 'pointer' }} />
+                        <span style={{ fontSize: 12, color: T.textPrimary }}>存檔後自動推送、定時拉回遠端變更</span>
+                    </label>
+
+                    <div style={{
+                        display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px',
+                        borderRadius: 7, background: T.bgApp, border: `1px solid ${T.borderLight}`,
+                        marginBottom: 10,
+                    }}>
+                        <span style={{ fontSize: 13 }}>{status.phase === 'syncing' ? '🔄' : isSyncAttention(status) ? '⚠️' : '☁️'}</span>
+                        <span style={{
+                            flex: 1, fontSize: 11.5,
+                            color: isSyncAttention(status) ? T.danger : T.textSecondary,
+                        }}>{describeSyncStatus(status)}</span>
+                    </div>
+
+                    <button
+                        onClick={() => void handleSyncNow()}
+                        disabled={busy === 'syncnow'}
+                        style={{ ...btn, opacity: busy === 'syncnow' ? 0.5 : 1 }}
+                    >{busy === 'syncnow' ? '同步中…' : '⟳ 立即完整同步'}</button>
+
+                    <div style={{ fontSize: 10.5, color: T.textMuted, marginTop: 8, lineHeight: 1.6 }}>
+                        「完整同步」會把所有還沒上傳的白板推上雲，再把雲端較新的拉回來。
+                        <b>你正開著的那塊板不會被自動覆蓋</b>——遠端較新時會跳提示讓你決定。
+                    </div>
+                </div>
+
+                {/* 4. 手動推 / 拉（進階、排查用） */}
+                <div style={{ ...section, opacity: userEmail ? 1 : 0.45, pointerEvents: userEmail ? 'auto' : 'none' }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: T.textPrimary, marginBottom: 4 }}>4. 手動推 / 拉（進階）</div>
                     <div style={{ fontSize: 10.5, color: T.textMuted, marginBottom: 10, lineHeight: 1.6 }}>
-                        探路階段：<b>不會</b>自動同步，也不影響平常的存檔。先確認這條鏈路通了再往上做。
+                        單塊白板的推 / 拉，用來排查「到底是哪一邊的資料比較新」。平常不需要動這裡。
                     </div>
 
                     <div style={{ fontSize: 11.5, color: T.textSecondary, marginBottom: 8 }}>
@@ -300,6 +374,7 @@ export function CloudSyncPanel({ boards, activeBoardId, onClose }: CloudSyncPane
                 <div style={{ padding: '12px 16px', fontSize: 10.5, color: T.textMuted, lineHeight: 1.7 }}>
                     還沒設定過？請照 <code>docs/cloud-sync-setup.md</code> 的五個步驟建立 Supabase 專案。
                     本機 IndexedDB 仍是主要資料來源，雲端只是同步層（ADR 0006）。
+                    手機端請用同一組設定登入 PWA（<code>docs/mobile-pwa.md</code>）。
                 </div>
             </div>
         </div>

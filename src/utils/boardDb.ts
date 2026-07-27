@@ -3,6 +3,7 @@ import type { BoardRecord } from '../db'
 import { HOME_BOARD_ID, INBOX_BOARD_ID } from '../constants'
 import { EXAMPLE_SEED_FLAG } from './exampleBoard'
 import { buildHomeBoardMigration } from './homeBoardMigration'
+import { notifyBoardSaved, notifyBoardDeleted } from '../sync/syncEngine'
 
 export const generateId = () => `board_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
 
@@ -26,8 +27,29 @@ export const isRasterThumbnail = (t: string | null | undefined): t is string =>
         t.startsWith('data:image/webp;base64,')
     )
 
-export const saveBoard = async (board: BoardRecord) => { await db.table('boards').put(board) }
-export const deleteBoard = async (id: string) => { await db.table('boards').delete(id) }
+/**
+ * 白板持久化的**唯一**入口（全庫 20+ 處呼叫都經過這裡），因此也是自動同步唯一需要掛的點。
+ *
+ * ⚠️ 通知同步引擎的動作一律放在 Dexie 寫入**之後**、且用 try/catch 吞掉：
+ * 雲端同步是可選的附加層（ADR 0006），它出任何狀況都不該讓本機存檔失敗。
+ */
+export const saveBoard = async (board: BoardRecord) => {
+    await db.table('boards').put(board)
+    try { notifyBoardSaved(board) } catch (err) { console.error('[sync] 通知存檔失敗', err) }
+}
+
+/**
+ * 永久刪除。先把記錄讀出來再刪——同步引擎需要 id 與名稱才能推一列墓碑到雲端，
+ * 否則另一端下次同步時會把這塊板整個推回來（「刪了又長回來」）。
+ */
+export const deleteBoard = async (id: string) => {
+    let record: BoardRecord | undefined
+    try { record = await db.table('boards').get(id) } catch { /* 讀不到就只刪本機 */ }
+    await db.table('boards').delete(id)
+    if (record) {
+        try { notifyBoardDeleted(record) } catch (err) { console.error('[sync] 通知刪除失敗', err) }
+    }
+}
 
 export const loadAllBoards = async (): Promise<BoardRecord[]> => {
     const boards = await db.table('boards').toArray()
