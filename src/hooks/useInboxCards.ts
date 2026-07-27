@@ -4,7 +4,8 @@ import type { BoardRecord } from '../db'
 import { saveBoard } from '../utils/boardDb'
 import type { SnapshotShapeProps } from '../utils/snapshot'
 import { getSnapshotStore, withUpdatedStore, toMutableSnapshot, toTLEditorSnapshot } from '../utils/snapshot'
-import { ensurePageScaffold, nextAppendX, lastShapeIndex, gridLayout, nextGridSlot } from '../utils/snapshotCards'
+import { ensurePageScaffold, nextAppendX, gridLayout } from '../utils/snapshotCards'
+import { appendQuickCaptureCard } from '../utils/quickCaptureCard'
 import { emitAppEvent } from '../utils/appEvents'
 
 /** useInboxCards 需共用的核心 board state（由 useBoardManager 傳入） */
@@ -91,29 +92,11 @@ export function useInboxCards(state: InboxCardsSharedState) {
         const inboxBoard = boards.find(b => b.isInbox)
         if (!inboxBoard) return
 
-        const snap = toMutableSnapshot(inboxBoard.snapshot)
-        const store = snap.document.store
+        // 建卡本身抽到 utils/quickCaptureCard.ts，與手機 PWA 速記共用同一份實作
+        const { snapshot, shapeId: newShapeId, x: slotX, y: slotY } =
+            appendQuickCaptureCard(inboxBoard.snapshot, text)
 
-        const pageId = ensurePageScaffold(store)
-        const newIndex = lastShapeIndex(store) + 'V'
-        // D6：收件匣改網格落點，避免快速捕捉卡一路往右排成超長橫列
-        const { x: slotX, y: slotY } = nextGridSlot(store)
-
-        const newShapeId = `shape:qc_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
-        store[newShapeId] = {
-            typeName: 'shape', id: newShapeId, type: 'card',
-            x: slotX, y: slotY, rotation: 0, index: newIndex,
-            parentId: pageId, isLocked: false, opacity: 1, meta: {},
-            props: {
-                type: 'text', text,
-                image: null, todos: [], url: '',
-                linkEmbedUrl: null, journalDate: null,
-                state: 'idle', color: 'none', w: 240, h: 180,
-                cardStatus: 'none', priority: 'none', tags: [],
-            },
-        }
-
-        const updated = { ...inboxBoard, snapshot: toTLEditorSnapshot(snap), updatedAt: Date.now() }
+        const updated = { ...inboxBoard, snapshot, updatedAt: Date.now() }
         saveBoard(updated)
         setBoards(prev => prev.map(b => b.id === inboxBoard.id ? updated : b))
 
