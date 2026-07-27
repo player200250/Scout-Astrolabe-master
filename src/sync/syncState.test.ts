@@ -3,13 +3,16 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import {
     isDirty, selectDirtyBoards, markPushed, forgetBoard, pruneState,
-    loadSyncState, saveSyncState, clearSyncState, EMPTY_SYNC_STATE,
+    hashThumbnail, markThumbPushed, isThumbnailUnchanged,
+    loadSyncState, saveSyncState, clearSyncState, EMPTY_SYNC_STATE, type SyncState,
 } from './syncState'
 
 const USER = 'user-abc'
-const st = (pushed: Record<string, number>, userId: string | null = USER) => ({
-    userId, pushed, lastPulledAt: null,
-})
+const st = (
+    pushed: Record<string, number>,
+    userId: string | null = USER,
+    thumbHash: Record<string, string> = {},
+): SyncState => ({ userId, pushed, thumbHash, lastPulledAt: null })
 
 describe('syncState — dirty 判斷', () => {
     it('從沒推過的板算 dirty', () => {
@@ -66,6 +69,53 @@ describe('syncState — 記錄更新（純函式，不改原物件）', () => {
     })
 })
 
+describe('syncState — 縮圖指紋（省流量用）', () => {
+    const THUMB = 'data:image/webp;base64,AAAABBBBCCCC'
+
+    it('同一張圖給同一個指紋，不同圖給不同指紋', () => {
+        expect(hashThumbnail(THUMB)).toBe(hashThumbnail(THUMB))
+        expect(hashThumbnail(THUMB)).not.toBe(hashThumbnail(THUMB + 'X'))
+    })
+
+    it('沒有縮圖時是空字串（不是 undefined，比對才不會出錯）', () => {
+        expect(hashThumbnail(null)).toBe('')
+        expect(hashThumbnail(undefined)).toBe('')
+        expect(hashThumbnail('')).toBe('')
+    })
+
+    // 這是「省略縮圖欄位」的安全條件：沒推過的板不能省，
+    // 否則 upsert 會 INSERT 出一列 thumbnail = null
+    it('從沒推過的板一律視為「有變」（必須送）', () => {
+        expect(isThumbnailUnchanged(st({}), 'b1', THUMB)).toBe(false)
+    })
+
+    it('推過且沒換圖 ⇒ 可以省略', () => {
+        const after = markThumbPushed(st({}), 'b1', hashThumbnail(THUMB))
+        expect(isThumbnailUnchanged(after, 'b1', THUMB)).toBe(true)
+    })
+
+    it('換了圖就要重送', () => {
+        const after = markThumbPushed(st({}), 'b1', hashThumbnail(THUMB))
+        expect(isThumbnailUnchanged(after, 'b1', THUMB + '差一點')).toBe(false)
+    })
+
+    it('本來沒圖、後來有圖，也算有變', () => {
+        const after = markThumbPushed(st({}), 'b1', hashThumbnail(null))
+        expect(isThumbnailUnchanged(after, 'b1', THUMB)).toBe(false)
+    })
+
+    it('markThumbPushed 沒變化時回原物件（避免無謂寫入）', () => {
+        const before = markThumbPushed(st({}), 'b1', 'abc')
+        expect(markThumbPushed(before, 'b1', 'abc')).toBe(before)
+    })
+
+    it('forgetBoard / pruneState 會連縮圖指紋一起清掉', () => {
+        const s = st({ b1: 1, b2: 2 }, USER, { b1: 'h1', b2: 'h2' })
+        expect(forgetBoard(s, 'b1').thumbHash).toEqual({ b2: 'h2' })
+        expect(pruneState(s, ['b2']).thumbHash).toEqual({ b2: 'h2' })
+    })
+})
+
 describe('syncState — 持久化', () => {
     beforeEach(() => { localStorage.clear() })
 
@@ -74,19 +124,19 @@ describe('syncState — 持久化', () => {
     })
 
     it('存了之後讀得回來', () => {
-        saveSyncState({ userId: USER, pushed: { b1: 123 }, lastPulledAt: 456 })
-        expect(loadSyncState(USER)).toEqual({ userId: USER, pushed: { b1: 123 }, lastPulledAt: 456 })
+        saveSyncState({ userId: USER, pushed: { b1: 123 }, thumbHash: {}, lastPulledAt: 456 })
+        expect(loadSyncState(USER)).toEqual({ userId: USER, pushed: { b1: 123 }, thumbHash: {}, lastPulledAt: 456 })
     })
 
     // 這條是這個檔案最重要的保護：換帳號後若沿用舊記錄，新帳號雲端明明是空的、
     // 本機卻以為「都推過了」，結果一塊板都不會上傳。
     it('userId 不符時整份作廢（換帳號 ⇒ 全部重推）', () => {
-        saveSyncState({ userId: USER, pushed: { b1: 123 }, lastPulledAt: 456 })
+        saveSyncState({ userId: USER, pushed: { b1: 123 }, thumbHash: {}, lastPulledAt: 456 })
         expect(loadSyncState('another-user')).toEqual({ ...EMPTY_SYNC_STATE, userId: 'another-user' })
     })
 
     it('未登入（userId null）也不會沿用別人的記錄', () => {
-        saveSyncState({ userId: USER, pushed: { b1: 123 }, lastPulledAt: null })
+        saveSyncState({ userId: USER, pushed: { b1: 123 }, thumbHash: {}, lastPulledAt: null })
         expect(loadSyncState(null).pushed).toEqual({})
     })
 
@@ -96,7 +146,7 @@ describe('syncState — 持久化', () => {
     })
 
     it('clear 之後回到空記錄', () => {
-        saveSyncState({ userId: USER, pushed: { b1: 1 }, lastPulledAt: 1 })
+        saveSyncState({ userId: USER, pushed: { b1: 1 }, thumbHash: {}, lastPulledAt: 1 })
         clearSyncState()
         expect(loadSyncState(USER).pushed).toEqual({})
     })

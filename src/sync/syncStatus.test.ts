@@ -26,6 +26,7 @@ describe('formatAgo', () => {
 describe('describeSyncStatus', () => {
     it('各階段都有對應文字', () => {
         expect(describeSyncStatus(status({ phase: 'disabled' }))).toBe('未啟用')
+        expect(describeSyncStatus(status({ phase: 'signed-out' }))).toBe('已登出，請重新登入')
         expect(describeSyncStatus(status({ phase: 'paused' }))).toBe('自動同步已關閉')
         expect(describeSyncStatus(status({ phase: 'syncing' }))).toBe('同步中…')
         expect(describeSyncStatus(status({ phase: 'pending', pendingCount: 3 }))).toBe('3 塊待上傳')
@@ -44,10 +45,14 @@ describe('describeSyncStatus', () => {
 })
 
 describe('isSyncAttention', () => {
-    it('錯誤與待上傳要顯眼，其餘不用', () => {
+    it('錯誤、已登出、待上傳要顯眼，其餘不用', () => {
         expect(isSyncAttention(status({ phase: 'error' }))).toBe(true)
+        // 已登出要顯眼，因為它要使用者去做一件事才會恢復
+        expect(isSyncAttention(status({ phase: 'signed-out' }))).toBe(true)
         expect(isSyncAttention(status({ phase: 'pending', pendingCount: 2 }))).toBe(true)
         expect(isSyncAttention(status({ phase: 'idle' }))).toBe(false)
         expect(isSyncAttention(status({ phase: 'syncing' }))).toBe(false)
+        // 未設定不算「有事情要處理」——本來就沒開這個功能
+        expect(isSyncAttention(status({ phase: 'disabled' }))).toBe(false)
     })
 })

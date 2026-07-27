@@ -19,11 +19,30 @@ export interface SyncState {
     userId: string | null
     /** boardId → 最後一次成功推上雲的那筆 updatedAt（epoch 毫秒）*/
     pushed: Record<string, number>
+    /**
+     * boardId → 最後一次推上雲的**縮圖**指紋。
+     * 縮圖是整列裡最大的一塊（實測 8KB 內容配 57KB 縮圖），但它很少變；
+     * 有了指紋就能在推送時省略沒變的縮圖欄位，改一個字不必重傳 57KB。
+     */
+    thumbHash: Record<string, string>
     /** 最後一次成功跑完拉取檢查的時間；純供 UI 顯示「上次同步」*/
     lastPulledAt: number | null
 }
 
-export const EMPTY_SYNC_STATE: SyncState = { userId: null, pushed: {}, lastPulledAt: null }
+export const EMPTY_SYNC_STATE: SyncState = { userId: null, pushed: {}, thumbHash: {}, lastPulledAt: null }
+
+/**
+ * 縮圖指紋（djb2 + 長度）。只用來回答「跟上次推的那張一不一樣」，
+ * 不是安全雜湊——這裡不需要抗碰撞，選它是因為夠快又不必引依賴。
+ */
+export function hashThumbnail(thumbnail: string | null | undefined): string {
+    if (!thumbnail) return ''
+    let h = 5381
+    for (let i = 0; i < thumbnail.length; i++) {
+        h = ((h * 33) ^ thumbnail.charCodeAt(i)) >>> 0
+    }
+    return `${thumbnail.length}:${h.toString(36)}`
+}
 
 // ── 純函式（可單元測試的部分）──────────────────────────────────────────────
 
@@ -55,12 +74,30 @@ export function markPushed(state: SyncState, boardId: string, updatedAt: number)
  */
 export const markPulled = markPushed
 
+/** 記下「這塊板的縮圖已經是這個版本了」*/
+export function markThumbPushed(state: SyncState, boardId: string, hash: string): SyncState {
+    if (state.thumbHash[boardId] === hash) return state
+    return { ...state, thumbHash: { ...state.thumbHash, [boardId]: hash } }
+}
+
+/** 這塊板的縮圖跟上次推的是不是同一張 */
+export function isThumbnailUnchanged(
+    state: SyncState,
+    boardId: string,
+    thumbnail: string | null | undefined,
+): boolean {
+    const known = state.thumbHash[boardId]
+    return known !== undefined && known === hashThumbnail(thumbnail)
+}
+
 /** 忘掉某塊板（永久刪除後用，避免記錄無限長大）*/
 export function forgetBoard(state: SyncState, boardId: string): SyncState {
-    if (!(boardId in state.pushed)) return state
+    if (!(boardId in state.pushed) && !(boardId in state.thumbHash)) return state
     const pushed = { ...state.pushed }
+    const thumbHash = { ...state.thumbHash }
     delete pushed[boardId]
-    return { ...state, pushed }
+    delete thumbHash[boardId]
+    return { ...state, pushed, thumbHash }
 }
 
 /** 清掉本機已不存在的板的記錄（每次全量同步後呼叫一次即可）*/
@@ -70,9 +107,13 @@ export function pruneState(state: SyncState, existingIds: Iterable<string>): Syn
     for (const [id, at] of Object.entries(state.pushed)) {
         if (keep.has(id)) pushed[id] = at
     }
-    return Object.keys(pushed).length === Object.keys(state.pushed).length
-        ? state
-        : { ...state, pushed }
+    const thumbHash: Record<string, string> = {}
+    for (const [id, h] of Object.entries(state.thumbHash)) {
+        if (keep.has(id)) thumbHash[id] = h
+    }
+    const unchanged = Object.keys(pushed).length === Object.keys(state.pushed).length
+        && Object.keys(thumbHash).length === Object.keys(state.thumbHash).length
+    return unchanged ? state : { ...state, pushed, thumbHash }
 }
 
 // ── 持久化 ────────────────────────────────────────────────────────────────
@@ -90,6 +131,8 @@ export function loadSyncState(userId: string | null): SyncState {
         return {
             userId,
             pushed: parsed.pushed && typeof parsed.pushed === 'object' ? parsed.pushed : {},
+            // 舊記錄沒有這個欄位＝當成「不知道雲端的縮圖長怎樣」，下次推送會補送一次
+            thumbHash: parsed.thumbHash && typeof parsed.thumbHash === 'object' ? parsed.thumbHash : {},
             lastPulledAt: typeof parsed.lastPulledAt === 'number' ? parsed.lastPulledAt : null,
         }
     } catch {

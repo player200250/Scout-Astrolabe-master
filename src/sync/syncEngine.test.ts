@@ -22,7 +22,8 @@ const h = vi.hoisted(() => {
     return {
         boardsTable,
         getCurrentUserId: vi.fn(async () => 'user-1' as string | null),
-        pushBoard: vi.fn(async (_b: BoardRecord) => ({ ok: true }) as { ok: boolean; error?: string }),
+        pushBoard: vi.fn(async (_b: BoardRecord, _options?: { includeThumbnail?: boolean }) =>
+            ({ ok: true }) as { ok: boolean; error?: string }),
         pullBoard: vi.fn(async (_id: string) => ({ ok: true, data: null }) as { ok: boolean; data: BoardRecord | null; error?: string }),
         listRemoteBoards: vi.fn(async () => ({ ok: true, data: [] }) as {
             ok: boolean
@@ -120,6 +121,61 @@ describe('syncEngine — 推送', () => {
         expect(getSyncStatus().lastError).toContain('連不上')
     })
 
+    // 早期版本遇到第一個失敗就 throw 中止整輪，結果是一塊推不上去的板
+    // （太大、資料壞掉、撞到 RLS）會讓其他板連同拉取一起永遠同步不了。
+    it('一塊板推不上去，其他板照樣推得上去', async () => {
+        setLocal([board('bad', 100), board('ok1', 100), board('ok2', 100)])
+        pushBoard.mockImplementation(async b => b.id === 'bad'
+            ? { ok: false, error: '資料太大' }
+            : { ok: true })
+
+        await syncNow()
+
+        expect(pushBoard.mock.calls.map(c => c[0].id).sort()).toEqual(['bad', 'ok1', 'ok2'])
+        const pushed = loadSyncState('user-1').pushed
+        expect(pushed.ok1).toBe(100)
+        expect(pushed.ok2).toBe(100)
+        expect(pushed.bad).toBeUndefined()   // 失敗的那塊下輪會再試
+    })
+
+    it('推送失敗時仍然會拉取（拉是唯讀的，不該被推送問題連累）', async () => {
+        setLocal([board('bad', 100)])
+        pushBoard.mockImplementation(async () => ({ ok: false, error: '資料太大' }))
+        listRemoteBoards.mockImplementation(async () => ({ ok: true, data: [remote('new1', 700)] }))
+        pullBoard.mockImplementation(async () => ({ ok: true, data: board('new1', 700) }))
+
+        await syncNow()
+
+        expect(boardsTable.put).toHaveBeenCalledWith(expect.objectContaining({ id: 'new1' }))
+        expect(getSyncStatus().phase).toBe('error')
+    })
+
+    it('錯誤訊息會指出是哪一塊板（不是籠統的「同步失敗」）', async () => {
+        setLocal([board('b1', 100, { name: '專案文件' })])
+        pushBoard.mockImplementation(async () => ({ ok: false, error: '資料太大' }))
+        await syncNow()
+
+        expect(getSyncStatus().lastError).toContain('專案文件')
+        expect(getSyncStatus().lastError).toContain('資料太大')
+    })
+
+    it('多塊失敗時報數量並舉一個例子', async () => {
+        setLocal([board('b1', 100, { name: 'A板' }), board('b2', 100, { name: 'B板' })])
+        pushBoard.mockImplementation(async () => ({ ok: false, error: '離線' }))
+        await syncNow()
+
+        expect(getSyncStatus().lastError).toContain('2 塊')
+    })
+
+    // 沒全部成功就不該顯示「已同步 · 剛剛」——那會讓人以為東西都上去了
+    it('未完全成功時不更新「上次同步時間」', async () => {
+        setLocal([board('b1', 100)])
+        pushBoard.mockImplementation(async () => ({ ok: false, error: '離線' }))
+        await syncNow()
+
+        expect(getSyncStatus().lastSyncedAt).toBeNull()
+    })
+
     it('存檔通知會把狀態標成 pending（UI 立刻看得到有東西待上傳）', async () => {
         setLocal([board('b1', 100)])
         startSyncEngine()
@@ -131,10 +187,53 @@ describe('syncEngine — 推送', () => {
     })
 })
 
+describe('syncEngine — 縮圖省流量', () => {
+    const THUMB = 'data:image/webp;base64,' + 'A'.repeat(5000)
+
+    it('第一次推送一定帶縮圖（雲端那列還不存在，省略會存成 null）', async () => {
+        setLocal([board('b1', 100, { thumbnail: THUMB })])
+        await syncNow()
+
+        expect(pushBoard.mock.calls[0][1]).toEqual({ includeThumbnail: true })
+    })
+
+    // 實測 8KB 內容配 57KB 縮圖——改一個字重傳整張圖是純粹的浪費
+    it('內容改了但縮圖沒換 ⇒ 第二次推送省略縮圖', async () => {
+        setLocal([board('b1', 100, { thumbnail: THUMB })])
+        await syncNow()
+        pushBoard.mockClear()
+
+        setLocal([board('b1', 300, { thumbnail: THUMB })])
+        await syncNow()
+
+        expect(pushBoard).toHaveBeenCalledTimes(1)
+        expect(pushBoard.mock.calls[0][1]).toEqual({ includeThumbnail: false })
+    })
+
+    it('縮圖真的換了就會重新帶上', async () => {
+        setLocal([board('b1', 100, { thumbnail: THUMB })])
+        await syncNow()
+        pushBoard.mockClear()
+
+        setLocal([board('b1', 300, { thumbnail: THUMB + 'CHANGED' })])
+        await syncNow()
+
+        expect(pushBoard.mock.calls[0][1]).toEqual({ includeThumbnail: true })
+    })
+
+    it('推送失敗時不記縮圖指紋（下次要重送，否則雲端永遠沒有那張圖）', async () => {
+        setLocal([board('b1', 100, { thumbnail: THUMB })])
+        pushBoard.mockImplementation(async () => ({ ok: false, error: '離線' }))
+        await syncNow()
+
+        expect(loadSyncState('user-1').thumbHash.b1).toBeUndefined()
+    })
+})
+
 describe('syncEngine — 拉取', () => {
     it('雲端較新的板會被拉回來寫進 DB 並發出事件', async () => {
         setLocal([board('b1', 100)])
-        saveSyncState({ userId: 'user-1', pushed: { b1: 100 }, lastPulledAt: null })
+        saveSyncState({ userId: 'user-1', pushed: { b1: 100 }, thumbHash: {}, lastPulledAt: null })
         listRemoteBoards.mockImplementation(async () => ({ ok: true, data: [remote('b1', 500)] }))
         pullBoard.mockImplementation(async () => ({ ok: true, data: board('b1', 500, { name: '雲端版' }) }))
 
@@ -221,7 +320,7 @@ describe('syncEngine — 刪除不會復活', () => {
     // 刪掉的板下一輪就自己長回來了。
     it('本機刪掉（曾推過）的板不會被拉回，改推一列墓碑', async () => {
         setLocal([])   // b1 已被永久刪除
-        saveSyncState({ userId: 'user-1', pushed: { b1: 100 }, lastPulledAt: null })
+        saveSyncState({ userId: 'user-1', pushed: { b1: 100 }, thumbHash: {}, lastPulledAt: null })
         listRemoteBoards.mockImplementation(async () => ({ ok: true, data: [remote('b1', 100)] }))
 
         await syncNow()
@@ -236,7 +335,7 @@ describe('syncEngine — 刪除不會復活', () => {
     // 反過來的安全閥：另一台裝置在我們刪除之後又改過它 ⇒ 有人還在用，別當成刪除
     it('雲端版本比我們最後推的還新時，照常拉回來（不推墓碑）', async () => {
         setLocal([])
-        saveSyncState({ userId: 'user-1', pushed: { b1: 100 }, lastPulledAt: null })
+        saveSyncState({ userId: 'user-1', pushed: { b1: 100 }, thumbHash: {}, lastPulledAt: null })
         listRemoteBoards.mockImplementation(async () => ({ ok: true, data: [remote('b1', 999)] }))
         pullBoard.mockImplementation(async () => ({ ok: true, data: board('b1', 999) }))
 
@@ -266,6 +365,6 @@ describe('syncEngine — 未設定時完全不動作', () => {
 
         expect(pushBoard).not.toHaveBeenCalled()
         expect(listRemoteBoards).not.toHaveBeenCalled()
-        expect(getSyncStatus().phase).toBe('disabled')
+        expect(getSyncStatus().phase).toBe('signed-out')
     })
 })

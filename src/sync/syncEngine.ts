@@ -24,8 +24,8 @@ import { getCurrentUserId } from './supabaseClient'
 import { isSyncConfigured, isAutoSyncEnabled } from './syncConfig'
 import { pushBoard, pullBoard, listRemoteBoards, decideSync } from './boardSync'
 import {
-    loadSyncState, saveSyncState, markPushed, markPulled,
-    selectDirtyBoards, pruneState, type SyncState,
+    loadSyncState, saveSyncState, markPushed, markPulled, markThumbPushed,
+    hashThumbnail, isThumbnailUnchanged, selectDirtyBoards, pruneState, type SyncState,
 } from './syncState'
 import { INITIAL_SYNC_STATUS, type SyncStatus } from './syncStatus'
 import { emitAppEvent } from '../utils/appEvents'
@@ -186,7 +186,9 @@ async function runSync(reason: string): Promise<void> {
     if (!isAutoSyncEnabled() && reason !== 'manual') { setStatus({ phase: 'paused' }); return }
 
     const userId = await getCurrentUserId()
-    if (!userId) { setStatus({ phase: 'disabled' }); return }
+    // 設定填好了卻拿不到身分＝沒登入或 token 刷新失敗。與 'disabled' 分開回報，
+    // 否則同步靜靜停掉時，面板看起來會像使用者根本沒設定過這個功能。
+    if (!userId) { setStatus({ phase: 'signed-out' }); return }
 
     running = true
     setStatus({ phase: 'syncing' })
@@ -195,9 +197,20 @@ async function runSync(reason: string): Promise<void> {
         let state = loadSyncState(userId)
         const localBoards: BoardRecord[] = await db.table('boards').toArray()
 
-        state = await pushPhase(localBoards, state)
-        const { applied, state: afterPull } = await pullPhase(localBoards, state)
-        state = afterPull
+        const push = await pushPhase(localBoards, state)
+        state = push.state
+
+        // 推送有失敗也照樣拉取：拉是唯讀的，不該被「某塊板推不上去」連累。
+        // 真的是離線的話這裡也會失敗，由下面的 pullError 一起回報。
+        let applied: BoardRecord[] = []
+        let pullError: string | null = null
+        try {
+            const pull = await pullPhase(localBoards, state)
+            applied = pull.applied
+            state = pull.state
+        } catch (e) {
+            pullError = e instanceof Error ? e.message : String(e)
+        }
 
         const knownIds = new Set([...localBoards.map(b => b.id), ...applied.map(b => b.id)])
         state = { ...pruneState(state, knownIds), lastPulledAt: Date.now() }
@@ -207,8 +220,19 @@ async function runSync(reason: string): Promise<void> {
             emitAppEvent('sync-boards-updated', { boards: applied })
         }
 
-        failureCount = 0
         const stillPending = selectDirtyBoards(localBoards, state).length
+
+        if (push.failures.length > 0 || pullError) {
+            failureCount++
+            const message = describeFailures(push.failures, pullError)
+            console.warn(`[sync] 第 ${failureCount} 次未完全成功（${reason}）：${message}`)
+            // lastSyncedAt 刻意不更新——沒有全部成功就不該顯示「已同步 · 剛剛」
+            setStatus({ phase: 'error', pendingCount: stillPending, lastError: message })
+            scheduleRetry()
+            return
+        }
+
+        failureCount = 0
         setStatus({
             phase: stillPending > 0 ? 'pending' : 'idle',
             pendingCount: stillPending,
@@ -227,24 +251,55 @@ async function runSync(reason: string): Promise<void> {
     }
 }
 
+export interface PushFailure {
+    id: string
+    name: string
+    error: string
+}
+
 /** 把所有還沒推上雲的板推上去 */
-async function pushPhase(localBoards: BoardRecord[], state: SyncState): Promise<SyncState> {
+async function pushPhase(
+    localBoards: BoardRecord[],
+    state: SyncState,
+): Promise<{ state: SyncState; failures: PushFailure[] }> {
     const dirty = selectDirtyBoards(localBoards, state)
-    if (dirty.length === 0) return state
+    if (dirty.length === 0) return { state, failures: [] }
 
     setStatus({ pendingCount: dirty.length })
     let next = state
+    const failures: PushFailure[] = []
+
     for (const board of dirty) {
-        const res = await pushBoard(board)
-        // 一塊板失敗就中止這輪（多半是離線或 token 過期，後面幾塊也會一樣失敗）。
-        // 已經成功的那些記錄會在下面被保存，不會白推。
+        // 縮圖沒變就整個欄位不送（upsert 語意下＝保留雲端現值）。
+        // 實測 8KB 內容配 57KB 縮圖——改一個字重傳整張圖是純粹的浪費。
+        // ⚠️ 只有「雲端已經有這塊板」時才能省，否則會 INSERT 出 thumbnail = null 的列；
+        //    isThumbnailUnchanged 要求 thumbHash 有紀錄，正好涵蓋了這個條件。
+        const skipThumbnail = isThumbnailUnchanged(next, board.id, board.thumbnail)
+        const res = await pushBoard(board, { includeThumbnail: !skipThumbnail })
+
         if (!res.ok) {
-            saveSyncState(next)
-            throw new Error(res.error ?? '推送失敗')
+            // ⚠️ 單一塊板失敗**不中止整輪**。早期版本會直接 throw，結果是
+            // 一塊推不上去的板（太大、資料壞掉、撞到 RLS）會讓其他所有板
+            // 連同拉取階段一起永遠同步不了，而畫面上只看得到一個籠統的錯誤。
+            failures.push({ id: board.id, name: board.name, error: res.error ?? '推送失敗' })
+            continue
         }
         next = markPushed(next, board.id, board.updatedAt)
+        next = markThumbPushed(next, board.id, hashThumbnail(board.thumbnail))
     }
-    return next
+    return { state: next, failures }
+}
+
+/** 把這輪的失敗湊成一句人看得懂的話 */
+function describeFailures(failures: PushFailure[], pullError: string | null): string {
+    const parts: string[] = []
+    if (failures.length === 1) {
+        parts.push(`「${failures[0].name}」推不上去：${failures[0].error}`)
+    } else if (failures.length > 1) {
+        parts.push(`${failures.length} 塊白板推不上去（例：「${failures[0].name}」：${failures[0].error}）`)
+    }
+    if (pullError) parts.push(`拉取失敗：${pullError}`)
+    return parts.join('；') || '未知錯誤'
 }
 
 /** 把雲端較新的板拉回來套用；正在開的那塊只提示不覆蓋 */

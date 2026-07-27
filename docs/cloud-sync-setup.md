@@ -89,6 +89,8 @@ S0(b) 的**探路階段**：把一塊白板推上雲、再拉回來。
 | 登入時 console 出現 `/rest/v1/auth/v1/token 404` | Project URL 貼到帶路徑的 Data API endpoint（`https://xxx.supabase.co/rest/v1`）。App 現在會自動砍掉路徑只留 origin，舊設定重按一次「儲存設定」即可 |
 | 推送時 `new row violates row-level security policy` | 沒登入，或 schema.sql 沒跑完整。重跑步驟 2 |
 | 推送時 `relation "public.boards" does not exist` | 步驟 2 的 SQL 沒執行成功 |
+| 狀態列顯示「已登出，請重新登入」 | session 過期且刷新失敗（多半是長時間離線）。在「2. 登入」重新登入即可，待上傳的白板不會遺失 |
+| 狀態列顯示「「◯◯」推不上去：…」 | **只有那一塊**有問題，其他白板與拉取都照常運作。多半是該板過大（縮圖＋snapshot）或內容異常；先看看能不能精簡那塊板 |
 
 ---
 

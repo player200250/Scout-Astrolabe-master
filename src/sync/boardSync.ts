@@ -36,8 +36,27 @@ export interface RemoteBoardRow {
 // 抽成純函式是為了能單元測試——欄位漏掉或型別對錯，是這種鏡像 schema 最常見的 bug，
 // 而它在真實服務上只會表現為「某個屬性同步後不見了」，很難查。
 
-export function toRemoteRow(board: BoardRecord, userId: string): RemoteBoardRow {
-    return {
+export interface ToRemoteRowOptions {
+    /**
+     * 要不要把縮圖一起送上去。預設 true。
+     *
+     * 傳 false 時整個 `thumbnail` 欄位會**從 payload 裡消失**——這在 upsert 的語意下
+     * 剛好是我們要的：更新既有列時該欄保持雲端現值，不會被清成 null。
+     * 用途是省流量：縮圖常常比內容本身還大（實測 8KB 內容配 57KB 縮圖），
+     * 但它很少變，改一個字就整張重傳純屬浪費。
+     *
+     * ⚠️ 對**雲端還不存在**的列不能省略——那會 INSERT 出一列 thumbnail = null。
+     * 判斷交給呼叫端（syncEngine 用 syncState 的 thumbHash 決定）。
+     */
+    includeThumbnail?: boolean
+}
+
+export function toRemoteRow(
+    board: BoardRecord,
+    userId: string,
+    options: ToRemoteRowOptions = {},
+): RemoteBoardRow {
+    const row: RemoteBoardRow = {
         id: board.id,
         user_id: userId,
         name: board.name,
@@ -55,6 +74,10 @@ export function toRemoteRow(board: BoardRecord, userId: string): RemoteBoardRow 
         folder_id: board.folderId ?? null,
         is_folder: board.isFolder ?? null,
     }
+    if (options.includeThumbnail === false) {
+        delete (row as Partial<RemoteBoardRow>).thumbnail
+    }
+    return row
 }
 
 export function fromRemoteRow(row: RemoteBoardRow): BoardRecord {
@@ -108,7 +131,7 @@ export interface SyncResult<T = void> {
 }
 
 /** 把一塊本機白板推上雲（upsert，以 (user_id, id) 為主鍵）*/
-export async function pushBoard(board: BoardRecord): Promise<SyncResult> {
+export async function pushBoard(board: BoardRecord, options: ToRemoteRowOptions = {}): Promise<SyncResult> {
     const supabase = getSupabase()
     if (!supabase) return { ok: false, error: '尚未設定雲端同步' }
     const userId = await getCurrentUserId()
@@ -117,7 +140,7 @@ export async function pushBoard(board: BoardRecord): Promise<SyncResult> {
     try {
         const { error } = await supabase
             .from(TABLE)
-            .upsert(toRemoteRow(board, userId), { onConflict: 'user_id,id' })
+            .upsert(toRemoteRow(board, userId, options), { onConflict: 'user_id,id' })
         if (error) return { ok: false, error: error.message }
         return { ok: true }
     } catch (e) {
