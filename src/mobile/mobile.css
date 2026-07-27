@@ -71,6 +71,13 @@ body {
 }
 
 .pad { padding: 16px; }
+.scroll { overflow-y: auto; flex: 1; min-height: 0; }
+
+/* 同步狀態列：低調但隨時看得到，不必開任何面板 */
+.synced {
+    margin-top: 10px;
+    text-align: center;
+}
 .grow-col { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 .grow { flex: 1; }
 .row { display: flex; align-items: center; gap: 10px; margin: 12px 0; }

@@ -8,7 +8,7 @@
     "dev": "cross-env NODE_OPTIONS=--max-http-header-size=131072 vite",
     "build": "tsc -b && vite build",
     "dev:mobile": "vite --config vite.config.mobile.ts",
-    "build:mobile": "tsc -b && vite build --config vite.config.mobile.ts",
+    "build:mobile": "tsc -b && vite build --config vite.config.mobile.ts && vite build --config vite.config.sw.ts",
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",

@@ -31,22 +31,40 @@
 | 模組 | 兩端都用它做什麼 |
 |---|---|
 | `src/sync/syncConfig.ts` | 連線設定（含 `normalizeSupabaseUrl` 那個 `/rest/v1` 的坑） |
-| `src/sync/supabaseClient.ts` | 登入、session、錯誤訊息轉中文 |
-| `src/sync/boardSync.ts` | `pullBoard` / `pushBoard` |
+| `src/sync/supabaseClient.ts` | **只用於登入**（頁面端）；同步本身不經過它 |
 | `src/utils/quickCaptureCard.ts` | **建立一張文字卡**——桌機快速捕捉與手機速記的唯一實作 |
 | `src/constants.ts` | `INBOX_BOARD_ID`（兩端同一個 id，所以手機寫的卡直接落在桌機收件匣） |
 
 `quickCaptureCard.ts` 是特地抽出來的：兩邊各寫一份的話，卡片 props 只要有一欄對不上，
 症狀會是「手機記的東西在桌機顯示怪怪的」，而且極難查。
 
+### 手機端自己的三個檔
+
+| 檔案 | 職責 |
+|---|---|
+| `src/mobile/mobileStore.ts` | outbox 與憑證，存 **IndexedDB**（原生 API，不用 Dexie——這份會被打包進 service worker） |
+| `src/mobile/mobileSyncCore.ts` | 同步核心：原生 `fetch` 打 Supabase REST／auth。**頁面與 service worker 共用同一份** |
+| `src/mobile/mobileCapture.ts` | 頁面端門面：記一則、flush（含互斥）、登記背景同步、把 session 抄給 SW |
+
+**為什麼同步不走 supabase-js**：這段程式碼要在 service worker 裡跑，而 SW **讀不到
+localStorage**（supabase-js 的 session 就存在那裡），也不該為了送一則速記載入整包 SDK。
+頁面端也走同一條 REST 路徑而不是「頁面用 SDK、SW 用 REST」——兩份實作遲早會漂移，
+症狀會是「背景送出去的卡跟前景送出去的長得不一樣」。
+
 ---
 
 ## 2. 建置與部署
 
 ```bash
-npm run build:mobile     # → dist-mobile/（tsc -b + vite build）
+npm run build:mobile     # → dist-mobile/（tsc -b + 兩輪 vite build）
 npm run dev:mobile       # 開發用，port 5174，已開對外
 ```
+
+**為什麼是兩輪 build**：service worker 必須是 `dist-mobile/sw.js`（scope 由所在路徑決定），
+而且要能被 `register('./sw.js')` 以**傳統 script** 載入——module service worker 在各家瀏覽器
+支援度不一，iOS Safari 上若註冊失敗會連離線開啟一起沒了。所以 `vite.config.sw.ts` 單獨把
+`src/mobile/sw.ts` 打包成**自足的 IIFE**（6.5 kB），這樣它就能直接 import 共用的建卡邏輯，
+不必在 SW 裡複製一份。第二輪必須 `emptyOutDir: false`，否則會把第一輪的產物洗掉。
 
 `dist-mobile/` 是純靜態檔，**全部用相對路徑**（`base: './'`），所以丟到任何靜態主機都能跑，
 放在子路徑（`https://example.com/astrolabe/`）也不必改設定。
@@ -93,15 +111,37 @@ npx vite preview --config vite.config.mobile.ts --host 0.0.0.0 --port 4173
 
 **打完字按送出，那段文字就不會再弄丟。** 流程一律是：
 
-1. 先寫進本機 outbox（localStorage，同步完成、不會失敗）
-2. 再試著沖到雲端；**失敗就留著**，下次開啟或恢復連線時自動重送
+1. 先寫進本機 outbox（IndexedDB，不碰網路）
+2. 再試著沖到雲端；**失敗就留著**，之後自動重送
 
-畫面上會顯示「還沒送出去的（N）」清單與「N 待送」標記。人在外面沒訊號時照樣記，
-有訊號時自動補送——這是整個 App 唯一真正重要的性質，`src/mobile/mobileCapture.test.ts`
-的 10 個案例大半都在測它。
+畫面上永遠看得到「還沒送出去的（N）」清單與「N 待送」標記——**登入畫面也會顯示**。
+session 過期時若只看到登入表單，會讓人以為速記不見了（其實還好好躺在 IndexedDB 裡）。
 
 **送出時一定是「先拉雲端最新的 → 在它上面追加 → 整塊推回去」**，不是拿手機上的舊版本改了就推。
 少了這步，桌機這段期間加進收件匣的卡會被手機整批蓋掉（整板 last-write-wins 的代價）。
+
+### 補送的四個時機
+
+| 時機 | 平台 | 說明 |
+|------|------|------|
+| 開啟 App | 全部 | 掛載時跑一次 |
+| 恢復連線（`online`） | 全部 | |
+| **回到前台**（`visibilitychange`） | 全部 | iOS 的救命繩——那是唯一可靠的機會 |
+| **Background Sync** | **僅 Android Chrome** | App 沒開著也能送。iOS Safari 沒有這個 API，`sync.register()` 會安靜失敗 |
+
+Background Sync 的 handler 在 `src/mobile/sw.ts`。⚠️ 沒送完要**丟例外**：瀏覽器靠
+`waitUntil` 的 promise 是否 reject 來決定要不要之後再試，安靜地 resolve 會讓它認為任務已完成。
+
+背景送出需要憑證，而 SW 讀不到 localStorage → 頁面在登入後與每次同步後把 access／refresh
+token 抄一份進 IndexedDB。`mobileSyncCore` 會在 token 快到期或撞到 401 時自己換新的
+（「離線一晚、早上恢復連線」是最典型的情境，access token 有效期只有一小時左右）。
+
+### 互斥（曾經的真 bug）
+
+flush 有四個觸發點，**同一時間只允許跑一輪**。沒有鎖的話兩輪會各自拉同一份雲端收件匣、
+各自追加後推上去：後推的蓋掉先推的；而且若前一輪已清掉 outbox，後一輪會把同一則
+再追加一次＝**雲端出現重複卡片**。鎖釋放後若還有新加入的速記（使用者在補送途中又按了送出），
+會補跑一輪；但**上一輪失敗時不補**，免得離線時每個等待者都引發一次注定失敗的嘗試。
 
 ---
 
@@ -109,10 +149,11 @@ npx vite preview --config vite.config.mobile.ts --host 0.0.0.0 --port 4173
 
 | 限制 | 說明 |
 |---|---|
-| 只能新增，不能看/改 | 看全部白板是 S2、簡單編輯是 S3 |
+| 只能新增，不能看/改 | 看全部白板是 S2、簡單編輯是 S3。目前只能從「收件匣現在有 N 張卡」間接確認同步成功 |
 | 只進收件匣 | 不能選白板；分類在桌機用 Inbox Triage 做 |
 | 純文字 | 沒有圖片、待辦、標籤（圖片要等 Supabase Storage） |
 | http 下無法安裝 | Service worker 需要 HTTPS；區網 http 只能當網頁用 |
+| iOS 沒有背景補送 | Background Sync 是 Chromium 專屬。iOS 靠「回到前台就補送」，實務上夠用但不等價 |
 
 ### ⚠️ 一個帳號只該綁一份 vault
 

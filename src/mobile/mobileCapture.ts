@@ -1,106 +1,124 @@
 // src/mobile/mobileCapture.ts
-// 手機速記的資料層（S1）。
+// 手機速記的頁面端門面（S1）。
 //
 // 設計的第一原則：**打完字按送出，那段文字就不能再弄丟**。
 // 人在外面、訊號時有時無，如果「送出」等於「打 API」，那沒訊號的時候就是打了白打。
 // 所以流程一律是：
 //
-//     1. 先寫進本機 outbox（localStorage，同步、不會失敗）
-//     2. 再試著把 outbox 沖到雲端；失敗就留著，下次開啟／恢復連線時自動重試
+//     1. 先寫進本機 outbox（IndexedDB，不碰網路）
+//     2. 再試著把 outbox 沖到雲端；失敗就留著，下次開啟／回到前台／恢復連線時重試，
+//        並登記一次 Background Sync，讓瀏覽器在 App 沒開時也有機會幫我們送出去
 //
-// 收件匣的 board id 兩端都是 constants.ts 的 INBOX_BOARD_ID，所以手機寫進去的卡
-// 會直接出現在桌機的收件匣，不需要任何額外的對應關係。
-import type { BoardRecord } from '../db'
-import { INBOX_BOARD_ID } from '../constants'
-import { pullBoard, pushBoard } from '../sync/boardSync'
-import { appendQuickCaptureCard } from '../utils/quickCaptureCard'
+// 真正的推拉在 mobileSyncCore.ts（頁面與 service worker 共用同一份）。
+import { loadSyncConfig } from '../sync/syncConfig'
+import { flushOutboxCore, type FlushResult } from './mobileSyncCore'
+import {
+    getOutbox, addNote, saveAuth, clearAuth, migrateLegacyOutbox,
+    loadLastSyncedAt, type OutboxNote,
+} from './mobileStore'
 
-const OUTBOX_KEY = 'astrolabe-mobile-outbox'
+/** service worker 的 Background Sync 標籤；sw.ts 用同一個字串 */
+export const BACKGROUND_SYNC_TAG = 'astrolabe-flush-outbox'
 
-export interface OutboxNote {
-    id: string
-    text: string
-    createdAt: number
-}
+export { getOutbox, migrateLegacyOutbox, loadLastSyncedAt }
+export type { OutboxNote, FlushResult }
 
-// ── outbox（本機暫存）─────────────────────────────────────────────────────────
+// ── 記一則 ───────────────────────────────────────────────────────────────────
 
-export function loadOutbox(): OutboxNote[] {
-    try {
-        const raw = localStorage.getItem(OUTBOX_KEY)
-        if (!raw) return []
-        const parsed = JSON.parse(raw)
-        return Array.isArray(parsed) ? parsed as OutboxNote[] : []
-    } catch {
-        return []
-    }
-}
-
-function saveOutbox(notes: OutboxNote[]): void {
-    try { localStorage.setItem(OUTBOX_KEY, JSON.stringify(notes)) } catch { /* 滿了也只能算了 */ }
-}
-
-/** 把一段文字放進 outbox（同步完成，不碰網路）*/
-export function enqueueNote(text: string): OutboxNote {
+/** 把一段文字放進 outbox。不碰網路，只要 IndexedDB 寫得進去就算成功。 */
+export async function enqueueNote(text: string): Promise<OutboxNote> {
     const note: OutboxNote = {
         id: `note_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
         text: text.trim(),
         createdAt: Date.now(),
     }
-    saveOutbox([...loadOutbox(), note])
+    await addNote(note)
     return note
 }
 
-export function removeNotes(ids: Set<string>): void {
-    saveOutbox(loadOutbox().filter(n => !ids.has(n.id)))
-}
+// ── 沖到雲端（含互斥）─────────────────────────────────────────────────────────
 
-// ── 沖到雲端 ─────────────────────────────────────────────────────────────────
-
-export interface FlushResult {
-    ok: boolean
-    /** 這次成功送上去的則數 */
-    sent: number
-    /** 還留在 outbox 裡的則數 */
-    remaining: number
-    error?: string
-}
+let inflight: Promise<FlushResult> | null = null
 
 /**
- * 把 outbox 裡所有的速記追加到雲端的收件匣白板。
+ * 把 outbox 沖到雲端。
  *
- * ⚠️ 一定是「先拉最新的、在它上面追加、再整塊推回去」。
- * 直接拿手機上的舊版本來改再推，會把這段期間桌機加進收件匣的卡整批蓋掉
- * （整板 last-write-wins 的代價，見 docs/roadmap-mobile.md 風險表）。
+ * ⚠️ **同一時間只允許跑一輪。** flush 有三個觸發點（開啟 App、恢復連線、按下送出），
+ * 沒有這道鎖的話兩輪會各自拉同一份雲端收件匣、各自追加後推上去：
+ * 後推的蓋掉先推的；而且若前一輪已經清掉 outbox，後一輪會把同一則再追加一次
+ * ＝雲端出現**重複卡片**。這是實際存在過的 bug，不是理論上的。
  */
-export async function flushOutbox(): Promise<FlushResult> {
-    const notes = loadOutbox()
-    if (notes.length === 0) return { ok: true, sent: 0, remaining: 0 }
-
-    const pulled = await pullBoard(INBOX_BOARD_ID)
-    if (!pulled.ok) return { ok: false, sent: 0, remaining: notes.length, error: pulled.error }
-
-    // 雲端還沒有收件匣（使用者從沒同步過）就地建一塊。id 與桌機同一個常數，
-    // 所以桌機那邊會認得它、直接合進自己的收件匣，不會變成第二塊板。
-    const base: BoardRecord = pulled.data ?? {
-        id: INBOX_BOARD_ID,
-        name: '📥 收件匣',
-        snapshot: null,
-        thumbnail: null,
-        updatedAt: 0,
-        isInbox: true,
+export function flushOutbox(): Promise<FlushResult> {
+    if (inflight) {
+        return inflight.then(async prev => {
+            // 上一輪讀完清單之後才按下的那一則不會被它帶到，補跑一輪。
+            // 只在上一輪成功時才補——失敗（多半是離線）就等下次觸發，
+            // 否則每個等待者都會再引發一次注定失敗的嘗試。
+            if (prev.ok && (await getOutbox()).length > 0) return flushOutbox()
+            return prev
+        })
     }
 
-    let snapshot = base.snapshot
-    for (const note of notes) {
-        // idPrefix 用 'm' 標記來自手機——日後排查「這張卡哪來的」時很有用
-        snapshot = appendQuickCaptureCard(snapshot, note.text, 'm').snapshot
+    const run = (async () => {
+        const result = await flushOutboxCore()
+        // 送不出去就交給瀏覽器：連線恢復時它會喚醒 service worker 再試一次，
+        // 即使那時候 App 已經被關掉了（Android）。iOS 不支援，會安靜地失敗。
+        if (!result.ok && result.remaining > 0) await requestBackgroundSync()
+        return result
+    })().finally(() => { inflight = null })
+
+    inflight = run
+    return run
+}
+
+/** SyncManager 還不在標準 DOM 型別裡，只好自己描述需要的那一小塊 */
+interface SyncCapableRegistration extends ServiceWorkerRegistration {
+    sync?: { register: (tag: string) => Promise<void> }
+}
+
+async function requestBackgroundSync(): Promise<void> {
+    try {
+        if (!('serviceWorker' in navigator)) return
+        const reg = await navigator.serviceWorker.ready as SyncCapableRegistration
+        await reg.sync?.register(BACKGROUND_SYNC_TAG)
+    } catch {
+        // iOS Safari 沒有 Background Sync；被拒絕或不支援都不是錯誤，
+        // 速記仍在 outbox 裡，靠「回到前台就補送」那條路徑處理
     }
+}
 
-    const updated: BoardRecord = { ...base, isInbox: true, snapshot, updatedAt: Date.now() }
-    const pushed = await pushBoard(updated)
-    if (!pushed.ok) return { ok: false, sent: 0, remaining: notes.length, error: pushed.error }
+// ── 憑證（給 service worker 用）──────────────────────────────────────────────
 
-    removeNotes(new Set(notes.map(n => n.id)))
-    return { ok: true, sent: notes.length, remaining: loadOutbox().length }
+/**
+ * 把目前的 session 抄一份進 IndexedDB，讓 service worker 在背景也打得到 Supabase。
+ *
+ * supabase-js 的 session 存在 localStorage，而 **service worker 讀不到 localStorage**，
+ * 所以登入後與每次同步後都要同步一份過去（token 會被 supabase-js 自動換新）。
+ */
+export async function rememberSession(session: {
+    access_token: string
+    refresh_token: string
+    expires_at?: number
+    expires_in?: number
+    user: { id: string }
+} | null | undefined): Promise<void> {
+    if (!session) return
+    const config = loadSyncConfig()
+    if (!config.url || !config.anonKey) return
+
+    await saveAuth({
+        url: config.url,
+        anonKey: config.anonKey,
+        userId: session.user.id,
+        accessToken: session.access_token,
+        refreshToken: session.refresh_token,
+        // expires_at 是 epoch 秒；沒給就用 expires_in 推算
+        expiresAt: session.expires_at != null
+            ? session.expires_at * 1000
+            : Date.now() + (session.expires_in ?? 3600) * 1000,
+    })
+}
+
+export async function forgetSession(): Promise<void> {
+    await clearAuth()
 }

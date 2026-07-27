@@ -1,134 +1,128 @@
 // @vitest-environment jsdom
 // src/mobile/mobileCapture.test.ts
 //
-// 手機速記最重要的性質只有一個：**打完字按送出，那段文字不能弄丟**。
-// 所以這裡測的重點全繞著「送不出去的時候會怎樣」轉——那才是人在外面的常態。
+// 這個檔案專測**互斥**。flush 有三個觸發點（開啟 App、恢復連線、按下送出），
+// 沒有鎖的話兩輪會各自拉同一份雲端收件匣、各自追加後推上去：後推的蓋掉先推的，
+// 而且若前一輪已清掉 outbox，後一輪會把同一則再追加一次＝雲端出現重複卡片。
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import type { BoardRecord } from '../db'
-import { INBOX_BOARD_ID } from '../constants'
+import type { OutboxNote } from './mobileStore'
+import type { FlushResult } from './mobileSyncCore'
 
 const h = vi.hoisted(() => ({
-    pullBoard: vi.fn(async (_id: string) => ({ ok: true, data: null }) as { ok: boolean; data: BoardRecord | null; error?: string }),
-    pushBoard: vi.fn(async (_b: BoardRecord) => ({ ok: true }) as { ok: boolean; error?: string }),
+    outbox: [] as OutboxNote[],
+    getOutbox: vi.fn(async () => h.outbox),
+    addNote: vi.fn(async (n: OutboxNote) => { h.outbox = [...h.outbox, n] }),
+    saveAuth: vi.fn(async () => {}),
+    clearAuth: vi.fn(async () => {}),
+    migrateLegacyOutbox: vi.fn(async () => 0),
+    loadLastSyncedAt: vi.fn(async () => null),
+    flushOutboxCore: vi.fn(async () => ({ ok: true, sent: 0, remaining: 0 }) as FlushResult),
 }))
 
-vi.mock('../sync/boardSync', () => ({ pullBoard: h.pullBoard, pushBoard: h.pushBoard }))
+vi.mock('./mobileStore', () => ({
+    getOutbox: h.getOutbox,
+    addNote: h.addNote,
+    saveAuth: h.saveAuth,
+    clearAuth: h.clearAuth,
+    migrateLegacyOutbox: h.migrateLegacyOutbox,
+    loadLastSyncedAt: h.loadLastSyncedAt,
+}))
+vi.mock('./mobileSyncCore', () => ({ flushOutboxCore: h.flushOutboxCore }))
 
-import { enqueueNote, flushOutbox, loadOutbox } from './mobileCapture'
-import { getCardShapes } from '../utils/snapshot'
+import { enqueueNote, flushOutbox } from './mobileCapture'
 
-const inboxWith = (updatedAt: number, snapshot: BoardRecord['snapshot'] = null): BoardRecord => ({
-    id: INBOX_BOARD_ID, name: '📥 收件匣', snapshot, thumbnail: null, updatedAt, isInbox: true,
-})
+const deferred = <T>() => {
+    let resolve!: (v: T) => void
+    const promise = new Promise<T>(r => { resolve = r })
+    return { promise, resolve }
+}
 
 beforeEach(() => {
-    localStorage.clear()
-    h.pullBoard.mockClear(); h.pullBoard.mockImplementation(async () => ({ ok: true, data: null }))
-    h.pushBoard.mockClear(); h.pushBoard.mockImplementation(async () => ({ ok: true }))
+    h.outbox = []
+    h.getOutbox.mockClear()
+    h.addNote.mockClear()
+    h.flushOutboxCore.mockReset()
+    h.flushOutboxCore.mockResolvedValue({ ok: true, sent: 0, remaining: 0 })
 })
 
-describe('outbox', () => {
-    it('速記先落地在本機，完全不碰網路', () => {
-        enqueueNote('買牛奶')
-        expect(loadOutbox().map(n => n.text)).toEqual(['買牛奶'])
-        expect(h.pushBoard).not.toHaveBeenCalled()
+describe('enqueueNote', () => {
+    it('速記先落地在本機，完全不碰網路', async () => {
+        await enqueueNote('買牛奶')
+        expect(h.outbox.map(n => n.text)).toEqual(['買牛奶'])
+        expect(h.flushOutboxCore).not.toHaveBeenCalled()
     })
 
-    it('前後空白會被清掉', () => {
-        enqueueNote('  有空白  ')
-        expect(loadOutbox()[0].text).toBe('有空白')
+    it('前後空白會被清掉', async () => {
+        await enqueueNote('  有空白  ')
+        expect(h.outbox[0].text).toBe('有空白')
     })
 
-    it('壞掉的 localStorage 內容不會讓 App 掛掉', () => {
-        localStorage.setItem('astrolabe-mobile-outbox', '{壞的')
-        expect(loadOutbox()).toEqual([])
+    it('每則都有自己的 id（同一毫秒內連打兩則也不會撞）', async () => {
+        await enqueueNote('a')
+        await enqueueNote('b')
+        expect(h.outbox[0].id).not.toBe(h.outbox[1].id)
     })
 })
 
-describe('flushOutbox', () => {
-    it('沒東西可送時直接回成功、不打 API', async () => {
-        const res = await flushOutbox()
-        expect(res).toEqual({ ok: true, sent: 0, remaining: 0 })
-        expect(h.pullBoard).not.toHaveBeenCalled()
+describe('flushOutbox — 互斥', () => {
+    it('同時呼叫兩次只會真的跑一輪', async () => {
+        const d = deferred<FlushResult>()
+        h.flushOutboxCore.mockReturnValue(d.promise)
+
+        const a = flushOutbox()
+        const b = flushOutbox()
+        expect(h.flushOutboxCore).toHaveBeenCalledTimes(1)
+
+        d.resolve({ ok: true, sent: 1, remaining: 0 })
+        expect(await a).toEqual(await b)
+        expect(h.flushOutboxCore).toHaveBeenCalledTimes(1)
     })
 
-    it('送出後 outbox 清空，卡片進了收件匣的 snapshot', async () => {
-        enqueueNote('第一則')
-        enqueueNote('第二則')
-        const res = await flushOutbox()
+    // 使用者在補送進行中又按了送出：那一則不在前一輪讀到的清單裡，
+    // 必須補跑一輪，否則它會卡在 outbox 直到下一次觸發
+    it('前一輪跑到一半才加進來的速記會被補送', async () => {
+        const d = deferred<FlushResult>()
+        h.flushOutboxCore.mockReturnValueOnce(d.promise)
+        h.flushOutboxCore.mockResolvedValue({ ok: true, sent: 1, remaining: 0 })
 
-        expect(res.ok).toBe(true)
-        expect(res.sent).toBe(2)
-        expect(loadOutbox()).toEqual([])
+        const first = flushOutbox()
+        await enqueueNote('跑到一半才按的')     // 進了 outbox
+        const second = flushOutbox()
 
-        const pushed = h.pushBoard.mock.calls[0][0]
-        expect(pushed.id).toBe(INBOX_BOARD_ID)
-        const texts = getCardShapes(pushed.snapshot!).map(s => s.props?.text)
-        expect(texts).toEqual(['第一則', '第二則'])
+        d.resolve({ ok: true, sent: 1, remaining: 0 })
+        await first
+        await second
+
+        expect(h.flushOutboxCore).toHaveBeenCalledTimes(2)
     })
 
-    // 這條是整板 last-write-wins 的關鍵：一定要拿雲端最新的來追加，
-    // 不然桌機這段期間加進收件匣的卡會被手機整批蓋掉。
-    it('會先拉雲端最新版再追加，既有卡片不會被蓋掉', async () => {
-        const existing = inboxWith(1000)
-        // 先用一次 flush 造出一塊「已經有一張卡」的雲端收件匣
-        enqueueNote('桌機記的')
-        await flushOutbox()
-        existing.snapshot = h.pushBoard.mock.calls[0][0].snapshot
-        h.pushBoard.mockClear()
+    it('上一輪失敗時不連環重試（等下次觸發即可）', async () => {
+        const d = deferred<FlushResult>()
+        h.flushOutboxCore.mockReturnValueOnce(d.promise)
 
-        h.pullBoard.mockImplementation(async () => ({ ok: true, data: existing }))
-        enqueueNote('手機記的')
-        await flushOutbox()
+        const first = flushOutbox()
+        await enqueueNote('離線時記的')
+        const second = flushOutbox()
 
-        expect(h.pullBoard).toHaveBeenCalledWith(INBOX_BOARD_ID)
-        const texts = getCardShapes(h.pushBoard.mock.calls[0][0].snapshot!).map(s => s.props?.text)
-        expect(texts).toEqual(['桌機記的', '手機記的'])
-    })
+        d.resolve({ ok: false, sent: 0, remaining: 1, error: '連不上網路' })
+        await first
+        const res = await second
 
-    it('雲端還沒有收件匣時就地建一塊（id 與桌機同一個常數）', async () => {
-        h.pullBoard.mockImplementation(async () => ({ ok: true, data: null }))
-        enqueueNote('第一次同步')
-        await flushOutbox()
-
-        const pushed = h.pushBoard.mock.calls[0][0]
-        expect(pushed.id).toBe(INBOX_BOARD_ID)
-        expect(pushed.isInbox).toBe(true)
-        expect(pushed.updatedAt).toBeGreaterThan(0)
-    })
-
-    it('推送失敗時速記留在 outbox（不會消失）', async () => {
-        h.pushBoard.mockImplementation(async () => ({ ok: false, error: '連不上' }))
-        enqueueNote('沒訊號時記的')
-        const res = await flushOutbox()
-
+        expect(h.flushOutboxCore).toHaveBeenCalledTimes(1)
         expect(res.ok).toBe(false)
-        expect(res.remaining).toBe(1)
-        expect(loadOutbox().map(n => n.text)).toEqual(['沒訊號時記的'])
     })
 
-    it('拉取失敗時也不會清掉 outbox', async () => {
-        h.pullBoard.mockImplementation(async () => ({ ok: false, data: null, error: '離線' }))
-        enqueueNote('離線記的')
-        const res = await flushOutbox()
-
-        expect(res.ok).toBe(false)
-        expect(loadOutbox()).toHaveLength(1)
-        expect(h.pushBoard).not.toHaveBeenCalled()
+    it('鎖在上一輪結束後會釋放（下一次呼叫照常執行）', async () => {
+        await flushOutbox()
+        await flushOutbox()
+        expect(h.flushOutboxCore).toHaveBeenCalledTimes(2)
     })
 
-    it('失敗後恢復連線再送，之前累積的會一次全部送出', async () => {
-        h.pushBoard.mockImplementation(async () => ({ ok: false, error: '離線' }))
-        enqueueNote('第一則'); await flushOutbox()
-        enqueueNote('第二則'); await flushOutbox()
-        expect(loadOutbox()).toHaveLength(2)
+    it('核心丟例外時鎖也要釋放，不能從此卡死', async () => {
+        h.flushOutboxCore.mockRejectedValueOnce(new Error('炸了'))
+        await expect(flushOutbox()).rejects.toThrow('炸了')
 
-        h.pushBoard.mockImplementation(async () => ({ ok: true }))
-        const res = await flushOutbox()
-
-        expect(res.sent).toBe(2)
-        expect(loadOutbox()).toEqual([])
-        const texts = getCardShapes(h.pushBoard.mock.calls.at(-1)![0].snapshot!).map(s => s.props?.text)
-        expect(texts).toEqual(['第一則', '第二則'])
+        h.flushOutboxCore.mockResolvedValue({ ok: true, sent: 0, remaining: 0 })
+        await expect(flushOutbox()).resolves.toEqual({ ok: true, sent: 0, remaining: 0 })
     })
 })
