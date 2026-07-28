@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { loadBackups, deleteBackup, type BackupRecord, type BoardRecord } from './db'
 import { Z_PANEL, Z_BACKUP_PANEL } from './constants'
 import { canSaveImage } from './platform/imageStore'
+import { getBackupLimit } from './utils/backupSettings'
 import { T } from './theme/tokens'
 
 interface BackupPanelProps {
@@ -132,7 +133,8 @@ export function BackupPanel({ sidebarWidth, onClose, onRestore, onMigrateImages 
                 <div style={{ padding: '14px 16px', borderBottom: `1px solid ${headerBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
                     <div>
                         <div style={{ fontSize: 15, fontWeight: 600, color: titleColor }}>🔒 自動備份</div>
-                        <div style={{ fontSize: 11, color: '#aaa', marginTop: 2 }}>共 {backups.length} 份備份，最多保留 5 份</div>
+                        {/* N17：保留份數改為可設定，這裡不能再寫死「5 份」 */}
+                        <div style={{ fontSize: 11, color: '#aaa', marginTop: 2 }}>共 {backups.length} 份備份，最多保留 {getBackupLimit()} 份</div>
                     </div>
                     <button
                         onClick={onClose}

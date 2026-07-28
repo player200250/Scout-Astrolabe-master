@@ -1,6 +1,7 @@
 // src/db.ts — 共用 Dexie 實例，App.tsx 和 BackupPanel.tsx 都從此匯入
 import Dexie from 'dexie'
 import type { TLEditorSnapshot } from 'tldraw'
+import { getBackupLimit } from './utils/backupSettings'
 
 export interface BoardRecord {
     id: string
@@ -73,13 +74,14 @@ db.version(9).stores({ snapshots: 'id', boards: 'id, deletedAt, folderId', backu
 // 每份備份都是「全部白板的完整 snapshot（含 base64 圖片）」的複製。
 // 原本保留 30 份 → 一個含圖片的 vault 會被複製 30 次，輕易把 IndexedDB 撐到數 GB、
 // 並在備份寫入時造成記憶體尖峰導致 renderer OOM。降到 5 份。
-export const MAX_BACKUPS = 5
+// N17 起改為可設定（預設仍是 5，上限 20），設定在 utils/backupSettings.ts。
 
-/** 刪除超過 MAX_BACKUPS 的舊備份。只比對 timestamp 鍵、不載入 blob，記憶體成本低。 */
+/** 刪除超過保留份數的舊備份。只比對 timestamp 鍵、不載入 blob，記憶體成本低。 */
 export async function trimBackups(): Promise<number> {
+    const limit = getBackupLimit()
     const keys = await db.table('backups').orderBy('timestamp').primaryKeys()
-    if (keys.length <= MAX_BACKUPS) return 0
-    const toDelete = keys.slice(0, keys.length - MAX_BACKUPS)
+    if (keys.length <= limit) return 0
+    const toDelete = keys.slice(0, keys.length - limit)
     await db.table('backups').bulkDelete(toDelete)
     return toDelete.length
 }

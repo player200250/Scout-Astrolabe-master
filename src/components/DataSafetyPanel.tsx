@@ -1,7 +1,9 @@
 import { useState, useEffect, useMemo } from 'react'
 import type { BoardRecord, BackupRecord } from '../db'
-import { loadBackups, MAX_BACKUPS } from '../db'
+import { loadBackups, trimBackups } from '../db'
 import { computeVaultStats, formatBytes } from '../utils/dataSafetyStats'
+import { BACKUP_LIMIT_OPTIONS, getBackupLimit, setBackupLimit } from '../utils/backupSettings'
+import { showToast } from '../utils/toast'
 import { T } from '../theme/tokens'
 
 interface DataSafetyPanelProps {
@@ -19,6 +21,7 @@ const TYPE_LABEL: Record<string, string> = {
 export function DataSafetyPanel({ boards, onClose, onOpenBackup }: DataSafetyPanelProps) {
     const [backups, setBackups] = useState<BackupRecord[]>([])
     const [estimate, setEstimate] = useState<{ usage: number; quota: number } | null>(null)
+    const [backupLimit, setBackupLimitState] = useState(() => getBackupLimit())
 
     useEffect(() => {
         let alive = true
@@ -38,6 +41,26 @@ export function DataSafetyPanel({ boards, onClose, onOpenBackup }: DataSafetyPan
     }, [onClose])
 
     const stats = useMemo(() => computeVaultStats(boards, backups), [boards, backups])
+
+    // 每份備份的平均體積 → 用來估「保留 N 份大約會佔多少」。
+    // 沒有備份時退回 0（估不出來就不要假裝估得出來）。
+    const avgBackupBytes = backups.length > 0 ? stats.backups.bytes / backups.length : 0
+
+    // 調小份數會**立刻刪掉**超額的舊備份，所以動作要當場做完、統計要跟著更新，
+    // 不能只改設定等下次自動備份才生效（那會讓面板數字說謊）。
+    const handleChangeLimit = async (next: number) => {
+        const applied = setBackupLimit(next)
+        setBackupLimitState(applied)
+        try {
+            const removed = await trimBackups()
+            setBackups(await loadBackups())
+            showToast(removed > 0
+                ? `保留份數改為 ${applied} 份，已清掉 ${removed} 份最舊的備份`
+                : `保留份數改為 ${applied} 份`)
+        } catch {
+            showToast('保留份數已改，但清理舊備份時出錯')
+        }
+    }
 
     const overlayBg = T.bgOverlay
     const cardBg = T.bgPanel
@@ -72,7 +95,7 @@ export function DataSafetyPanel({ boards, onClose, onOpenBackup }: DataSafetyPan
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '16px 24px', borderBottom: `1px solid ${border}`, flexShrink: 0 }}>
                 <span style={{ fontSize: 18 }}>🛡️</span>
                 <span style={{ fontSize: 16, fontWeight: 600, color: textPrimary }}>資料安全中心</span>
-                <span style={{ fontSize: 12, color: textMuted, background: trackBg, borderRadius: 6, padding: '2px 8px' }}>唯讀統計</span>
+                <span style={{ fontSize: 12, color: textMuted, background: trackBg, borderRadius: 6, padding: '2px 8px' }}>統計與備份設定</span>
                 <div style={{ flex: 1 }} />
                 <button onClick={onClose} title="關閉 (Esc)" style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${border}`, background: 'transparent', cursor: 'pointer', fontSize: 15, color: textMuted }}>✕</button>
             </div>
@@ -124,13 +147,45 @@ export function DataSafetyPanel({ boards, onClose, onOpenBackup }: DataSafetyPan
                         <Stat label="圖片卡片" value={stats.imageCards} hint="改存實體檔，不佔 snapshot" />
                         <Stat label="整板縮圖" value={formatBytes(stats.thumbnailBytes)} hint="base64，另一體積源" />
                         <Stat label="白板快照" value={formatBytes(stats.snapshotBytes)} hint="含殘留 base64" />
-                        <Stat label="自動備份" value={`${stats.backups.count} / ${MAX_BACKUPS}`} hint={`約 ${formatBytes(stats.backups.bytes)}`} />
+                        <Stat label="自動備份" value={`${stats.backups.count} / ${backupLimit}`} hint={`約 ${formatBytes(stats.backups.bytes)}`} />
+                    </div>
+                </Section>
+
+                {/* 備份保留份數（N17） */}
+                <Section title="備份保留份數">
+                    <div style={{ background: cardBg, border: `1px solid ${border}`, borderRadius: 12, padding: '16px 18px' }}>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+                            {BACKUP_LIMIT_OPTIONS.map(opt => {
+                                const active = opt === backupLimit
+                                return (
+                                    <button
+                                        key={opt}
+                                        onClick={() => { void handleChangeLimit(opt) }}
+                                        style={{
+                                            minWidth: 64, padding: '7px 14px', borderRadius: 8, cursor: 'pointer',
+                                            fontSize: 13, fontWeight: active ? 600 : 500,
+                                            border: `1px solid ${active ? T.accentBorder : border}`,
+                                            background: active ? T.accentBg : 'transparent',
+                                            color: active ? T.accent : textPrimary,
+                                        }}
+                                    >{opt} 份</button>
+                                )
+                            })}
+                        </div>
+                        <div style={{ fontSize: 12, color: textMuted, lineHeight: 1.7 }}>
+                            每份備份是<strong>全部白板</strong>的完整複製。
+                            {avgBackupBytes > 0 && (
+                                <>目前平均每份約 {formatBytes(avgBackupBytes)}，保留 {backupLimit} 份約需 {formatBytes(avgBackupBytes * backupLimit)}。</>
+                            )}
+                            <br />
+                            份數調小會立刻刪掉最舊的備份；調大則要留意用量——備份過多曾經撐爆 IndexedDB 造成白屏，這也是上限只開到 20 的原因。
+                        </div>
                     </div>
                 </Section>
 
                 {/* 說明 + 入口 */}
                 <div style={{ background: T.accentBg, border: `1px solid ${T.accentBorder}`, borderRadius: 12, padding: '14px 16px', fontSize: 13, color: T.accent, lineHeight: 1.7 }}>
-                    目前為<strong>唯讀統計</strong>——清理舊備份、移除無用縮圖等操作尚未開放。備份保留上限為 {MAX_BACKUPS} 份（見 OOM 治理）。
+                    除了保留份數之外，其餘為<strong>唯讀統計</strong>——清理個別備份請到自動備份面板，移除無用縮圖尚未開放。
                     <button
                         onClick={onOpenBackup}
                         style={{ marginLeft: 8, padding: '4px 12px', borderRadius: 7, border: 'none', background: '#2563eb', color: 'white', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}
