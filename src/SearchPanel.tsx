@@ -97,7 +97,68 @@ function toCardShapes(snapshot: TLEditorSnapshot | null): SearchShape[] {
 // ── 索引建立（純函式，由 useMemo 快取）─────────────────────────────────────
 // 每筆 entry 的 content 已預先 lowercase，搜尋時只需一次 includes 比對
 
-const PREVIEW_LEN = 80
+/**
+ * 顯示用片段的長度。**注意索引裡的 preview 是不截斷的全文**——
+ * 舊版在建索引時就 slice 成開頭 80 字，導致「關鍵字出現在第 200 字」的卡
+ * 在結果列上完全看不到命中的地方，只能看到卡片開頭，無從判斷該不該點進去。
+ * 截斷改到顯示時做（buildSnippet），以命中位置為中心取窗口。
+ */
+// 40 是配合結果列**單行**寬度（面板 520px 扣掉圖示與提示約剩 430px）算的：
+// 13px 中文一行大約放得下 33 字，命中落在窗口中央就一定在可視範圍內。
+// 設太長（曾經是 90）的話尾端會被 CSS 的 ellipsis 截掉，連高亮一起看不見——
+// 那等於白做，畫面上仍然找不到關鍵字在哪。
+const SNIPPET_LEN = 40
+
+export interface SnippetPart {
+    text: string
+    /** 是否為命中的關鍵字（UI 據此標色） */
+    hit: boolean
+}
+
+function clampText(s: string, maxLen: number): string {
+    return s.length <= maxLen ? s : `${s.slice(0, maxLen)}…`
+}
+
+/**
+ * 把預覽文字裁成「以關鍵字為中心」的片段，並標出命中的位置（純函式）。
+ *
+ * 關鍵字不在預覽文字裡時退回開頭片段——這是正常情況而非錯誤：
+ * 命中的可能是標籤、URL 或表格內容，那些進了 `content` 卻不一定在 `preview` 裡。
+ */
+export function buildSnippet(source: string, keyword: string, maxLen = SNIPPET_LEN): SnippetPart[] {
+    const text = source.trim()
+    const kw = keyword.trim()
+    if (!text) return []
+    if (!kw) return [{ text: clampText(text, maxLen), hit: false }]
+
+    const lower = text.toLowerCase()
+    const lowerKw = kw.toLowerCase()
+    const first = lower.indexOf(lowerKw)
+    if (first < 0) return [{ text: clampText(text, maxLen), hit: false }]
+
+    // 以第一個命中為中心開窗；撞到尾端就往前補，讓窗口盡量填滿 maxLen
+    const radius = Math.max(0, Math.floor((maxLen - lowerKw.length) / 2))
+    let start = Math.max(0, first - radius)
+    const end = Math.min(text.length, start + maxLen)
+    if (end - start < maxLen) start = Math.max(0, end - maxLen)
+
+    const parts: SnippetPart[] = []
+    if (start > 0) parts.push({ text: '…', hit: false })
+
+    // 窗口內的每一次命中都要標，不是只標第一個
+    let cursor = start
+    for (;;) {
+        const at = lower.indexOf(lowerKw, cursor)
+        if (at < 0 || at >= end) break
+        if (at > cursor) parts.push({ text: text.slice(cursor, at), hit: false })
+        const stop = Math.min(at + lowerKw.length, end)
+        parts.push({ text: text.slice(at, stop), hit: true })
+        cursor = stop
+    }
+    if (cursor < end) parts.push({ text: text.slice(cursor, end), hit: false })
+    if (end < text.length) parts.push({ text: '…', hit: false })
+    return parts
+}
 
 /**
  * 一張卡的可搜文字與預覽（純函式）。
@@ -187,7 +248,8 @@ export function buildCardSearchText(
     const tags = Array.isArray(props.tags) ? props.tags.filter(Boolean) : []
     if (tags.length > 0) content += ` ${tags.join(' ')}`
 
-    return { content: content.trim().toLowerCase(), preview: preview.trim().slice(0, PREVIEW_LEN) }
+    // preview 保留全文：要靠它在顯示時取「關鍵字附近」的片段（見 buildSnippet）
+    return { content: content.trim().toLowerCase(), preview: preview.trim() }
 }
 
 export function buildSearchIndex(boards: BoardRecord[]): SearchIndexEntry[] {
@@ -430,11 +492,23 @@ export function SearchPanel({ boards, onJump, onClose }: SearchPanelProps) {
                                     <span style={{ fontSize: 18, flexShrink: 0, marginTop: 1 }}>{TYPE_ICON[r.type]}</span>
                                     <div style={{ flex: 1, minWidth: 0 }}>
                                         <div style={{ fontSize: 13, color: textPrimary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                            {r.preview || '(無內容)'}
+                                            {r.preview
+                                                ? buildSnippet(r.preview, debouncedQuery).map((part, i) => (
+                                                    part.hit
+                                                        ? <mark key={i} style={{
+                                                            background: T.accentBg, color: T.accent,
+                                                            fontWeight: 700, borderRadius: 3, padding: '0 2px',
+                                                        }}>{part.text}</mark>
+                                                        : <span key={i}>{part.text}</span>
+                                                ))
+                                                : '(無內容)'}
                                         </div>
                                         <div style={{ fontSize: 11, color: mutedColor, marginTop: 2 }}>{r.boardName}</div>
                                     </div>
-                                    <span style={{ fontSize: 11, color: '#bbb', flexShrink: 0, alignSelf: 'center' }}>Enter ↵</span>
+                                    {/* 只有選中列按 Enter 才有作用，每列都印一次是純噪音 */}
+                                    {idx === selectedIdx && (
+                                        <span style={{ fontSize: 11, color: '#bbb', flexShrink: 0, alignSelf: 'center' }}>Enter ↵</span>
+                                    )}
                                 </div>
                             ))
                         )}

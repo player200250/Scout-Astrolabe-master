@@ -6,7 +6,7 @@
 // 那種 bug 不會報錯、不會當機，只會讓人覺得「我明明記過這件事」，然後怪自己記錯。
 import { describe, it, expect } from 'vitest'
 import type { TLEditorSnapshot } from 'tldraw'
-import { buildCardSearchText, buildSearchIndex, searchFromIndex, typeCountsFor } from './SearchPanel'
+import { buildCardSearchText, buildSearchIndex, searchFromIndex, typeCountsFor, buildSnippet } from './SearchPanel'
 
 const boardNames = new Map([['b_target', '被連到的白板']])
 
@@ -93,8 +93,8 @@ describe('buildCardSearchText — 每種卡片型別都要搜得到', () => {
         expect(text({ type: 'text', text: 'GitHub Pages' }).content).toBe('github pages')
     })
 
-    it('預覽會截短到 80 字', () => {
-        expect(text({ type: 'text', text: 'あ'.repeat(200) }).preview).toHaveLength(80)
+    it('預覽保留全文——截斷改到顯示層做，否則取不到關鍵字附近的片段', () => {
+        expect(text({ type: 'text', text: 'あ'.repeat(200) }).preview).toHaveLength(200)
     })
 })
 
@@ -192,5 +192,67 @@ describe('typeCountsFor — 篩選列要顯示的型別與筆數', () => {
 
     it('沒有關鍵字時回空（篩選列不顯示）', () => {
         expect(typeCountsFor(index, '').size).toBe(0)
+    })
+})
+
+// ── 命中片段（KWIC）───────────────────────────────────────────────────────────
+//
+// 結果列原本一律顯示「卡片開頭 80 字」：關鍵字出現在第 200 字的卡，畫面上完全
+// 看不到命中的地方，也就無法判斷這筆該不該點進去。這裡釘住「窗口以命中為中心」
+// 與「命中處要標出來」兩件事。
+
+const plain = (parts: ReturnType<typeof buildSnippet>) => parts.map(p => p.text).join('')
+const hits = (parts: ReturnType<typeof buildSnippet>) => parts.filter(p => p.hit).map(p => p.text)
+
+describe('buildSnippet', () => {
+    it('關鍵字在開頭時不加前置省略號', () => {
+        const parts = buildSnippet('同步引擎的設計', '同步')
+        expect(parts[0]).toEqual({ text: '同步', hit: true })
+        expect(plain(parts)).toBe('同步引擎的設計')
+    })
+
+    it('關鍵字埋在長文中間 → 窗口以它為中心，兩側都有省略號', () => {
+        const src = `${'前'.repeat(200)}關鍵字${'後'.repeat(200)}`
+        const parts = buildSnippet(src, '關鍵字', 30)
+        expect(parts[0].text).toBe('…')
+        expect(parts[parts.length - 1].text).toBe('…')
+        expect(hits(parts)).toEqual(['關鍵字'])
+        // 命中前後都要看得到上下文，不是只把關鍵字貼在邊上
+        const idx = parts.findIndex(p => p.hit)
+        expect(parts[idx - 1].text).toMatch(/前+/)
+        expect(parts[idx + 1].text).toMatch(/後+/)
+    })
+
+    it('窗口內每一次命中都標，不是只標第一個', () => {
+        expect(hits(buildSnippet('同步、再同步、還是同步', '同步'))).toEqual(['同步', '同步', '同步'])
+    })
+
+    it('大小寫不同也算命中，且保留原文的大小寫', () => {
+        const parts = buildSnippet('用 Supabase 做同步', 'supabase')
+        expect(hits(parts)).toEqual(['Supabase'])
+    })
+
+    it('關鍵字不在預覽裡時退回開頭片段（命中的可能是標籤或 URL）', () => {
+        const parts = buildSnippet('這張卡的內容完全沒提到那個詞', '標籤名')
+        expect(hits(parts)).toEqual([])
+        expect(plain(parts)).toBe('這張卡的內容完全沒提到那個詞')
+    })
+
+    it('沒有關鍵字時就是單純截斷', () => {
+        const parts = buildSnippet('あ'.repeat(200), '', 90)
+        expect(parts).toHaveLength(1)
+        expect(parts[0].text).toHaveLength(91) // 90 + 省略號
+    })
+
+    it('空預覽回空陣列（UI 顯示「(無內容)」）', () => {
+        expect(buildSnippet('', '同步')).toEqual([])
+        expect(buildSnippet('   ', '同步')).toEqual([])
+    })
+
+    it('命中靠近尾端時窗口往前補，不會只剩幾個字', () => {
+        const src = `${'前'.repeat(100)}尾端詞`
+        const parts = buildSnippet(src, '尾端詞', 30)
+        expect(plain(parts).replace(/…/g, '')).toHaveLength(30)
+        expect(parts[parts.length - 1].hit).toBe(true) // 後面沒有東西了 → 不加尾省略號
     })
 })
