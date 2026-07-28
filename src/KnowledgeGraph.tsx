@@ -73,6 +73,23 @@ export function KnowledgeGraph({ boards, onClose, onJumpToCard, onSwitchBoard }:
     // 固定 graphData 參照：只有 nodes/links 真正改變才更新，防止 simulation 被 re-render 重啟
     const graphData = useMemo(() => ({ nodes, links }), [nodes, links])
 
+    // 力導向圖的預設縮放是固定的，跟實際佈局範圍無關——56 個節點會縮成畫面中央
+    // 一小坨、標籤全疊在一起，周圍整片空白。simulation 收斂後把視野套到節點範圍。
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const fgRef = useRef<any>(null)
+    const hasFitRef = useRef(false)
+
+    // 換資料（例如切「只顯示有連結的節點」）就允許再自動框一次
+    useEffect(() => { hasFitRef.current = false }, [graphData])
+
+    // onEngineStop 每次 simulation 停下來都會觸發（拖節點也會重啟再停），
+    // 只做第一次——否則使用者自己縮放/平移之後會被硬拉回去。
+    const handleEngineStop = useCallback(() => {
+        if (hasFitRef.current) return
+        hasFitRef.current = true
+        fgRef.current?.zoomToFit(400, 60)
+    }, [])
+
     const handleNodeClick = useCallback((node: GraphNodeObject) => {
         onClose()
         if (node.type === 'board') onSwitchBoard(node.id)
@@ -113,10 +130,13 @@ export function KnowledgeGraph({ boards, onClose, onJumpToCard, onSwitchBoard }:
         if (node.type === 'board') { ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 1.5; ctx.stroke() }
         if (shouldShowNodeLabel(node.type, node.val, globalScale)) {
             const lbl = node.name.slice(0, 20)
-            ctx.font = `${node.type === 'board' ? 10 : 9}px system-ui`
+            // 字級除以 globalScale：canvas 畫的是「圖座標」，不除的話放大檢視時
+            // 標籤會跟著被放大成巨大文字並互相蓋住（自動 fit 之後尤其明顯）。
+            // 除完等於「螢幕上恆為 9–10px」，縮放只改變節點疏密、不改變字的大小。
+            ctx.font = `${(node.type === 'board' ? 10 : 9) / globalScale}px system-ui`
             ctx.fillStyle = node.type === 'board' ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.6)'
             ctx.textAlign = 'center'; ctx.textBaseline = 'top'
-            ctx.fillText(lbl, node.x ?? 0, (node.y ?? 0) + r + 3)
+            ctx.fillText(lbl, node.x ?? 0, (node.y ?? 0) + r + 3 / globalScale)
         }
     }, [])
 
@@ -150,6 +170,7 @@ export function KnowledgeGraph({ boards, onClose, onJumpToCard, onSwitchBoard }:
 
             {/* Graph */}
             <ForceGraph2D
+                ref={fgRef}
                 graphData={graphData}
                 width={dims.w} height={dims.h}
                 backgroundColor="#0f172a"
@@ -166,6 +187,7 @@ export function KnowledgeGraph({ boards, onClose, onJumpToCard, onSwitchBoard }:
                 cooldownTicks={150}
                 d3AlphaDecay={0.02}
                 d3VelocityDecay={0.28}
+                onEngineStop={handleEngineStop}
             />
 
             {/* Legend */}
