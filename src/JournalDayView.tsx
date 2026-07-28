@@ -8,6 +8,7 @@ import { Color } from '@tiptap/extension-color'
 import type { BoardRecord } from './db'
 import { getSnapshotStore } from './utils/snapshot'
 import { SAVE_STATUS_RESET_MS } from './constants'
+import { EmptyState } from './components/ui/EmptyState'
 import { T } from './theme/tokens'
 
 function toDateStr(d: Date): string {
@@ -175,10 +176,12 @@ export function JournalDayContent({ date, boards, onSaveJournal, onDateChange, o
 
             {/* Editor / empty state */}
             {!journalBoardId ? (
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, color: '#bbb' }}>
-                    <span style={{ fontSize: 28 }}>📔</span>
-                    <span style={{ fontSize: 13 }}>尚未設定 Journal 白板</span>
-                    <span style={{ fontSize: 11 }}>在白板右鍵選單選「設為 Journal 白板」</span>
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <EmptyState
+                        icon="📔"
+                        title="尚未設定 Journal 白板"
+                        hint="在側邊欄的白板上按右鍵，選「設為 Journal 白板」，之後每天的日記都會存進那塊板。"
+                    />
                 </div>
             ) : (
                 <div style={{ flex: 1, overflowY: 'auto', padding: '32px max(40px, 8%)' }}>

@@ -43,8 +43,6 @@ interface WhiteboardProps {
     onMoveCard: (shapeIds: string[]) => void
     onOpenTaskCenter: () => void
     onOpenReviewCenter: () => void
-    onOpenKnowledgeGraph: () => void
-    onOpenCardLibrary: () => void
     onOpenOverview: () => void
     onQuickCapture: () => void
     onCardTrashed?: () => void
@@ -54,8 +52,8 @@ interface WhiteboardProps {
 export function Whiteboard({
     board, boards, onSaveBoard, jumpRef, onOpenSearch, onOpenHotkey, onOpenQuickSwitcher,
     onCreateBoard, onSwitchBoard, sidebarWidth, isInboxBoard, onMoveCard, 
-    onOpenTaskCenter, onOpenReviewCenter, onOpenKnowledgeGraph,
-    onOpenCardLibrary, onOpenOverview, onQuickCapture, onCardTrashed,
+    onOpenTaskCenter, onOpenReviewCenter,
+    onOpenOverview, onQuickCapture, onCardTrashed,
     recentlyTrashedShapeIds,
 }: WhiteboardProps) {
     const boardInfos = boards.map(b => ({ id: b.id, name: b.name, thumbnail: b.thumbnail }))
@@ -76,8 +74,6 @@ export function Whiteboard({
                 onSwitch={onSwitchBoard}
                 onOpenTaskCenter={onOpenTaskCenter}
                 onOpenReviewCenter={onOpenReviewCenter}
-                onOpenKnowledgeGraph={onOpenKnowledgeGraph}
-                onOpenCardLibrary={onOpenCardLibrary}
                 onOpenOverview={onOpenOverview}
                 onQuickCapture={onQuickCapture}
                 sidebarWidth={sidebarWidth}

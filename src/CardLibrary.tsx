@@ -6,6 +6,7 @@ import { getCardShapes } from './utils/snapshot'
 import { splitTitleBody } from './utils/stringUtils'
 import { TYPE_ICON, TYPE_LABEL, TYPE_COLOR, hexToRgba } from './utils/cardMeta'
 import { loadTagColors, getTagColor, type TagColorMap } from './utils/tagColors'
+import { EmptyState } from './components/ui/EmptyState'
 import { T } from './theme/tokens'
 import { useIsDark } from './theme/ThemeContext'
 
@@ -372,7 +373,8 @@ export function CardLibrary({ boards, onJump, onClose }: CardLibraryProps) {
                     <div style={{
                         fontSize: 13, color: card.title ? textMuted : textPrim, lineHeight: '1.55',
                         overflow: 'hidden',
-                        display: '-webkit-box', WebkitLineClamp: card.title ? 2 : 3,
+                        /* ux-audit：列表以「掃讀」為主，預覽壓到 1–2 行（有標題時標題已是主線索） */
+                        display: '-webkit-box', WebkitLineClamp: card.title ? 1 : 2,
                         WebkitBoxOrient: 'vertical' as const,
                     }}>
                         {card.preview || <span style={{ color: textMuted, fontStyle: 'italic' }}>（空白卡片）</span>}
@@ -449,7 +451,8 @@ export function CardLibrary({ boards, onJump, onClose }: CardLibraryProps) {
                     }}>{card.title}</div>
                 )}
                 <div style={{ fontSize: 12, color: card.title ? textMuted : textPrim, lineHeight: '1.6', overflow: 'hidden', flex: 1,
-                    display: '-webkit-box', WebkitLineClamp: card.title ? 3 : 5, WebkitBoxOrient: 'vertical' as const,
+                    /* ux-audit：格狀卡也縮短，避免整格變成文字牆 */
+                    display: '-webkit-box', WebkitLineClamp: card.title ? 2 : 3, WebkitBoxOrient: 'vertical' as const,
                 }}>
                     {card.preview || <span style={{ color: textMuted, fontStyle: 'italic' }}>（空白）</span>}
                 </div>
@@ -737,27 +740,22 @@ export function CardLibrary({ boards, onJump, onClose }: CardLibraryProps) {
                     style={{ flex: 1, overflowY: 'auto', background: mainBg, padding: '14px 16px' }}
                 >
                     {filteredCards.length === 0 ? (
-                        /* P3 — 空狀態加清除篩選按鈕 */
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 12 }}>
-                            <span style={{ fontSize: 40 }}>🗃️</span>
-                            <span style={{ fontSize: 14, color: textMuted }}>
-                                {allCards.length === 0 ? '尚無卡片' : '沒有符合條件的卡片'}
-                            </span>
-                            {allCards.length > 0 && hasActiveFilters && (
-                                <button
-                                    onClick={clearAllFilters}
-                                    style={{
-                                        height: 34, padding: '0 16px', borderRadius: 8,
-                                        border: `1px solid ${border}`,
-                                        background: cardBg, color: textPrim,
-                                        fontSize: 13, cursor: 'pointer',
-                                        marginTop: 4,
-                                    }}
-                                    onMouseEnter={e => (e.currentTarget.style.background = cardHover)}
-                                    onMouseLeave={e => (e.currentTarget.style.background = cardBg)}
-                                >
-                                    清除篩選
-                                </button>
+                        /* P3 — 空狀態加清除篩選按鈕；A4 — 補下一步提示 */
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                            {allCards.length === 0 ? (
+                                <EmptyState
+                                    icon="🗃️"
+                                    title="還沒有任何卡片"
+                                    hint="卡片庫會蒐集所有白板上的卡片。按 Ctrl+Space 快速新增，或在白板上按 n 建一張。"
+                                />
+                            ) : (
+                                <EmptyState
+                                    icon="🔍"
+                                    title="沒有符合條件的卡片"
+                                    hint={hasActiveFilters ? '目前的篩選條件可能太嚴格。' : '換個關鍵字再試試。'}
+                                    actionLabel={hasActiveFilters ? '清除篩選' : undefined}
+                                    onAction={hasActiveFilters ? clearAllFilters : undefined}
+                                />
                             )}
                         </div>
                     ) : (

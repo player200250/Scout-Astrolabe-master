@@ -230,8 +230,6 @@ export default function App() {
                     onMoveCard={shapeIds => setMovingCardShapeIds(shapeIds)}
                     onOpenTaskCenter={() => openPanel('taskCenter')}
                     onOpenReviewCenter={() => openPanel('reviewCenter')}
-                    onOpenKnowledgeGraph={() => openPanel('knowledgeGraph')}
-                    onOpenCardLibrary={() => openPanel('cardLibrary')}
                     onOpenOverview={() => openPanel('overview')}
                     onQuickCapture={() => openPanel('quickCapture')}
                     onCardTrashed={handleCardTrashed}

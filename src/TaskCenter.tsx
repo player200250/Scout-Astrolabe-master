@@ -4,6 +4,7 @@ import type { BoardRecord } from './db'
 import { getTodayStr, getWeekLaterStr, formatDueDate } from './utils/date'
 import { getCardShapes } from './utils/snapshot'
 import { Z_PANEL } from './constants'
+import { EmptyState } from './components/ui/EmptyState'
 import { T } from './theme/tokens'
 
 interface TaskItem {
@@ -296,9 +297,13 @@ export function TaskCenter({ boards, onJump, onClose }: TaskCenterProps) {
                 })}
 
                 {visibleGroups.every(k => visibleItemsByGroup[k].length === 0) && (
-                    <div style={{ padding: '40px 16px', textAlign: 'center', color: '#ccc', fontSize: 13 }}>
-                        {tab === 'all' ? '所有白板都沒有待辦項目' : '這個分類沒有任務'}
-                    </div>
+                    <EmptyState
+                        icon="✅"
+                        title={tab === 'all' ? '所有白板都沒有待辦項目' : '這個分類沒有任務'}
+                        hint={tab === 'all'
+                            ? '在白板上建立待辦卡片（斜線選單的「待辦」），設好到期日就會集中到這裡。'
+                            : '換一個分類看看，或到白板上的待辦卡片設定到期日。'}
+                    />
                 )}
 
                 {(tab === 'active' || tab === 'all') && grouped.noduedate.length > 0 && (

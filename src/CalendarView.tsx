@@ -200,11 +200,11 @@ export function CalendarContent({ boards, onJumpToBoard, onOpenJournalDay }: Cal
                             <Tag>建立 →</Tag>
                         </AgendaRow>
                     ) : (
-                        <EmptyNote>尚未設定 Journal 白板</EmptyNote>
+                        <EmptyNote>尚未設定 Journal 白板 — 在側邊欄的白板上按右鍵，選「設為 Journal 白板」。</EmptyNote>
                     )}
                 </Section>
                 <Section label="✅ 待辦到期">
-                    {agenda.todos.length === 0 ? <EmptyNote>無到期待辦</EmptyNote> : agenda.todos.map((t, i) => (
+                    {agenda.todos.length === 0 ? <EmptyNote>這天沒有到期待辦 — 待辦卡片設了到期日就會排到這裡。</EmptyNote> : agenda.todos.map((t, i) => (
                         <AgendaRow key={i} onClick={() => onJumpToBoard(t.boardId)}>
                             <span style={{ fontSize: 11, marginTop: 1, color: t.checked ? '#bbb' : '#d0d0d0', flexShrink: 0 }}>{t.checked ? '☑' : '☐'}</span>
                             <span style={{ flex: 1, fontSize: 13, color: t.checked ? '#aaa' : textPrimary, textDecoration: t.checked ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.todoText}</span>
@@ -213,7 +213,7 @@ export function CalendarContent({ boards, onJumpToBoard, onOpenJournalDay }: Cal
                     ))}
                 </Section>
                 <Section label="📋 白板活動">
-                    {agenda.activeBoards.length === 0 ? <EmptyNote>無白板活動</EmptyNote> : agenda.activeBoards.map(b => (
+                    {agenda.activeBoards.length === 0 ? <EmptyNote>這天沒有編輯過任何白板。</EmptyNote> : agenda.activeBoards.map(b => (
                         <AgendaRow key={b.boardId} onClick={() => onJumpToBoard(b.boardId)}>
                             <span style={{ flex: 1, fontSize: 13, color: textPrimary }}>{b.boardName}</span>
                             <Tag>前往 →</Tag>
@@ -251,5 +251,5 @@ function Tag({ children }: { children: React.ReactNode }) {
 }
 
 function EmptyNote({ children }: { children: React.ReactNode }) {
-    return <div style={{ fontSize: 12, color: '#ccc', padding: '6px 0' }}>{children}</div>
+    return <div style={{ fontSize: 12, color: T.textMuted, padding: '6px 0', lineHeight: 1.6 }}>{children}</div>
 }

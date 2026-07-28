@@ -7,6 +7,7 @@ import { T } from '../theme/tokens'
 import { showToast } from '../utils/toast'
 import { promptName } from '../utils/promptName'
 import { InlineEdit } from './ui/InlineEdit'
+import { EmptyState } from './ui/EmptyState'
 
 interface BoardOverviewProps {
     boards: BoardRecord[]
@@ -380,8 +381,22 @@ export function BoardOverview({ boards, activeBoardId, onSelect, onNew, onCreate
                 })}
 
                 {filtered.length === 0 && (
-                    <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '60px 0', color: textMuted, fontSize: 14 }}>
-                        {searchQuery ? `找不到「${searchQuery}」相關的白板` : '還沒有白板'}
+                    <div style={{ gridColumn: '1 / -1', padding: '40px 0' }}>
+                        {searchQuery ? (
+                            <EmptyState
+                                icon="🔍"
+                                title={`找不到「${searchQuery}」相關的白板`}
+                                hint="換個關鍵字，或清空搜尋看全部白板。"
+                            />
+                        ) : (
+                            <EmptyState
+                                icon="🗂️"
+                                title="還沒有白板"
+                                hint="白板是放卡片的地方；也可以從既有模板直接建一塊。"
+                                actionLabel="＋ 新增白板"
+                                onAction={onNew}
+                            />
+                        )}
                     </div>
                 )}
             </div>
@@ -458,9 +473,11 @@ export function BoardOverview({ boards, activeBoardId, onSelect, onNew, onCreate
                         </div>
                         <div style={{ flex: 1, overflowY: 'auto', padding: 18 }}>
                             {templates.length === 0 ? (
-                                <div style={{ textAlign: 'center', padding: '48px 16px', color: textMuted, fontSize: 14, lineHeight: 1.8 }}>
-                                    還沒有白板模板。<br />在任一白板卡片上按 <b style={{ color: textPrimary }}>⧉</b> 即可把整塊白板存成模板。
-                                </div>
+                                <EmptyState
+                                    icon="⧉"
+                                    title="還沒有白板模板"
+                                    hint="把游標移到任一白板卡片上、按 ⧉，即可把整塊白板存成模板。"
+                                />
                             ) : (
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12 }}>
                                     {templates.map(t => {

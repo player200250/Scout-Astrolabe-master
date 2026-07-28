@@ -3,6 +3,7 @@ import type { BoardRecord } from '../db'
 import { getCardShapes } from '../utils/snapshot'
 import { getTodayStr, formatRelativeDate, toDateStr } from '../utils/date'
 import { stripHtml } from '../utils/stringUtils'
+import { EmptyState } from './ui/EmptyState'
 import { T } from '../theme/tokens'
 
 interface DashboardProps {
@@ -10,8 +11,6 @@ interface DashboardProps {
     onSwitch: (boardId: string) => void
     onOpenTaskCenter: () => void
     onOpenReviewCenter: () => void
-    onOpenKnowledgeGraph: () => void
-    onOpenCardLibrary: () => void
     onOpenOverview: () => void
     onQuickCapture: () => void
     sidebarWidth: number
@@ -64,8 +63,7 @@ const CARD_TYPE_ICON: Record<string, string> = {
 
 export function Dashboard({
     boards, onSwitch, onOpenTaskCenter, onOpenReviewCenter,
-    onOpenKnowledgeGraph, onOpenCardLibrary, onOpenOverview,
-    onQuickCapture, sidebarWidth,
+    onOpenOverview, onQuickCapture, sidebarWidth,
 }: DashboardProps) {
     const todayStr = getTodayStr()
     const { start: weekStart, end: weekEnd } = useMemo(() => getWeekRange(), [])
@@ -238,7 +236,7 @@ export function Dashboard({
                         <div style={{ fontSize: 14, color: textSecondary, lineHeight: 1.7, minHeight: 64 }}>
                             {journalPreview
                                 ? journalPreview
-                                : <span style={{ color: textMuted, fontStyle: 'italic' }}>尚未填寫今天的日記...</span>
+                                : <EmptyState compact title="今天還沒寫日記" hint="記一句今天發生的事，或回顧昨天。" />
                             }
                         </div>
                         <button style={actionBtn} onClick={onOpenReviewCenter}>開啟今日日記 →</button>
@@ -247,7 +245,15 @@ export function Dashboard({
                     <div style={{ background: cardBg, border: `1px solid ${border}`, borderRadius: 12, padding: 20 }}>
                         <div style={sectionLabel}>今日待辦</div>
                         {todayTodos.length === 0 ? (
-                            <div style={{ fontSize: 13, color: textMuted, fontStyle: 'italic', minHeight: 64 }}>今日沒有待辦任務</div>
+                            <div style={{ minHeight: 64 }}>
+                                <EmptyState
+                                    compact
+                                    title="今日沒有待辦"
+                                    hint="在待辦卡片上設到期日，當天就會出現在這裡。"
+                                    actionLabel="＋ 快速新增（Ctrl+Space）"
+                                    onAction={onQuickCapture}
+                                />
+                            </div>
                         ) : (
                             <div style={{ minHeight: 64 }}>
                                 {todayTodos.slice(0, 5).map((item, i) => (
@@ -300,7 +306,13 @@ export function Dashboard({
                         <button style={linkBtn} onClick={onOpenOverview}>白板總覽 →</button>
                     </div>
                     {recentBoards.length === 0 ? (
-                        <div style={{ fontSize: 13, color: textMuted, fontStyle: 'italic' }}>尚無最近使用的白板</div>
+                        <EmptyState
+                            compact
+                            title="還沒有最近開過的白板"
+                            hint="白板總覽可以新增白板，或從模板建一塊。"
+                            actionLabel="白板總覽 →"
+                            onAction={onOpenOverview}
+                        />
                     ) : (
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
                             {recentBoards.map(board => (
@@ -363,28 +375,8 @@ export function Dashboard({
                     </div>
                 )}
 
-                {/* ── Quick Tools ── */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
-                    {([
-                        { icon: '🗂️', label: '卡片庫', onClick: onOpenCardLibrary },
-                        { icon: '📔', label: '復盤中心', onClick: onOpenReviewCenter },
-                        { icon: '🕸️', label: '知識圖譜', onClick: onOpenKnowledgeGraph },
-                    ] as const).map((tool, i) => (
-                        <button
-                            key={i}
-                            onClick={tool.onClick}
-                            style={{
-                                padding: 18, borderRadius: 12, border: `1px solid ${border}`,
-                                background: cardBg, cursor: 'pointer',
-                                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
-                                fontSize: 13, fontWeight: 600, color: textPrimary,
-                            }}
-                        >
-                            <span style={{ fontSize: 24 }}>{tool.icon}</span>
-                            {tool.label}
-                        </button>
-                    ))}
-                </div>
+                {/* ux-audit A5(a)：底部原有「卡片庫／復盤中心／知識圖譜」三張大捷徑卡，
+                    與右側欄同名項目完全重複（側欄恆在，不需要第二個入口）→ 已移除。 */}
 
             </div>
         </div>
