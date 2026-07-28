@@ -186,6 +186,11 @@ export function TaskCenter({ boards, onJump, onClose }: TaskCenterProps) {
 
     const visibleGroups = getVisibleGroups()
 
+    /** 目前被「無截止日任務」收合區藏起來的筆數（0 ＝沒有被藏的東西）。 */
+    const hiddenNoDueDateCount = !showNoDueDate && (tab === 'active' || tab === 'all')
+        ? visibleItemsByGroup.noduedate.length
+        : 0
+
     useEffect(() => {
         const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
         window.addEventListener('keydown', handler)
@@ -297,13 +302,27 @@ export function TaskCenter({ boards, onJump, onClose }: TaskCenterProps) {
                 })}
 
                 {visibleGroups.every(k => visibleItemsByGroup[k].length === 0) && (
-                    <EmptyState
-                        icon="✅"
-                        title={tab === 'all' ? '所有白板都沒有待辦項目' : '這個分類沒有任務'}
-                        hint={tab === 'all'
-                            ? '在白板上建立待辦卡片（斜線選單的「待辦」），設好到期日就會集中到這裡。'
-                            : '換一個分類看看，或到白板上的待辦卡片設定到期日。'}
-                    />
+                    hiddenNoDueDateCount > 0 ? (
+                        /* 「待辦」與「全部」分頁不含 noduedate 組（要展開才看得到）。
+                           所有待辦都沒設截止日時，這裡原本會說「這個分類沒有任務」，
+                           但底部狀態列同時寫著「待辦 N」——畫面自己打自己。
+                           所以空狀態要講出真相，並給展開的入口。 */
+                        <EmptyState
+                            icon="📭"
+                            title={`${hiddenNoDueDateCount} 筆待辦沒有設截止日`}
+                            hint="沒有截止日的任務不會排進逾期／今天／本週，所以上面是空的。"
+                            actionLabel="展開查看 →"
+                            onAction={() => setShowNoDueDate(true)}
+                        />
+                    ) : (
+                        <EmptyState
+                            icon="✅"
+                            title={tab === 'all' ? '所有白板都沒有待辦項目' : '這個分類沒有任務'}
+                            hint={tab === 'all'
+                                ? '在白板上建立待辦卡片（斜線選單的「待辦」），設好到期日就會集中到這裡。'
+                                : '換一個分類看看，或到白板上的待辦卡片設定到期日。'}
+                        />
+                    )
                 )}
 
                 {(tab === 'active' || tab === 'all') && grouped.noduedate.length > 0 && (
