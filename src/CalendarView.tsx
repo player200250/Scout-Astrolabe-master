@@ -14,17 +14,22 @@ const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六']
 const WEEKDAY_FULL = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六']
 
 interface DayTodo { text: string; checked: boolean }
-interface DayEvents { hasJournal: boolean; todos: DayTodo[] }
+interface DayEvents { hasJournal: boolean; todos: DayTodo[]; boardActivity: number }
 
-function buildMonthEvents(boards: BoardRecord[], year: number, month: number): Map<string, DayEvents> {
+export function buildMonthEvents(boards: BoardRecord[], year: number, month: number): Map<string, DayEvents> {
     const prefix = `${year}-${String(month + 1).padStart(2, '0')}`
     const map = new Map<string, DayEvents>()
     const get = (ds: string): DayEvents => {
-        if (!map.has(ds)) map.set(ds, { hasJournal: false, todos: [] })
+        if (!map.has(ds)) map.set(ds, { hasJournal: false, todos: [], boardActivity: 0 })
         return map.get(ds)!
     }
     for (const board of boards) {
         if (board.isHome || board.isInbox) continue
+        // 白板活動：右側 agenda 一直有這一段，月曆格子卻看不出來，得一天天點才知道。
+        // 注意 BoardRecord 只有一個 updatedAt，所以這反映的是「最後一次更新」落在哪天，
+        // 不是「這天動過幾次」——與 buildAgenda 的 activeBoards 同一套語意。
+        const boardDs = dateStr(new Date(board.updatedAt))
+        if (boardDs.startsWith(prefix)) get(boardDs).boardActivity++
         for (const shape of getCardShapes(board.snapshot)) {
             if (board.isJournal && shape.props.type === 'journal' && shape.props.journalDate?.startsWith(prefix)) {
                 get(shape.props.journalDate).hasJournal = true
@@ -159,7 +164,7 @@ export function CalendarContent({ boards, onJumpToBoard, onOpenJournalDay }: Cal
                                 onMouseEnter={e => { if (!isSel) e.currentTarget.style.background = hoverCellBg }}
                                 onMouseLeave={e => { if (!isSel) e.currentTarget.style.background = 'transparent' }}
                             >
-                                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 2 }}>
+                                <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', marginBottom: 2 }}>
                                     <div style={{
                                         width: 24, height: 24, borderRadius: '50%',
                                         background: isSel ? '#2563eb' : isToday ? (T.bgActive) : 'transparent',
@@ -167,6 +172,18 @@ export function CalendarContent({ boards, onJumpToBoard, onOpenJournalDay }: Cal
                                         fontSize: 12, fontWeight: isSel || isToday ? 700 : 400,
                                         color: isSel || isToday ? 'white' : isSun ? '#e03131' : isSat ? '#2563eb' : textPrimary,
                                     }}>{day}</div>
+                                    {/* 白板活動用小圓點而非 chip：日記與待辦已經各佔一行，
+                                        再加一條會把格子撐爆，而這裡只需要「有／沒有」。
+                                        用知識圖譜圖例裡白板的同一個紫色。 */}
+                                    {(ev?.boardActivity ?? 0) > 0 && (
+                                        <span
+                                            title={`${ev!.boardActivity} 塊白板在這天更新`}
+                                            style={{
+                                                position: 'absolute', top: 1, left: 'calc(50% + 11px)',
+                                                width: 5, height: 5, borderRadius: '50%', background: '#818cf8',
+                                            }}
+                                        />
+                                    )}
                                 </div>
                                 {ev?.hasJournal && (
                                     <div style={{ height: 18, borderRadius: 3, padding: '0 4px', background: '#fef3c7', color: '#92400e', fontSize: 10, lineHeight: '18px', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', flexShrink: 0 }}>📔 日記</div>
