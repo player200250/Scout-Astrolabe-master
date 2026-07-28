@@ -138,7 +138,12 @@ export function CalendarContent({ boards, onJumpToBoard, onOpenJournalDay }: Cal
                     ))}
                 </div>
 
-                <div style={{ flex: 1, overflowY: 'auto', display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', alignContent: 'start' }}>
+                {/* 列高用 minmax(80px, 1fr)：排數少時撐滿整個左欄（原本 alignContent:'start'
+                    讓月曆只佔上半、下面留一大片空白），排數多時仍保有 80px 最小值並可捲動。 */}
+                <div style={{
+                    flex: 1, overflowY: 'auto', display: 'grid',
+                    gridTemplateColumns: 'repeat(7,1fr)', gridAutoRows: 'minmax(80px, 1fr)',
+                }}>
                     {cells.map((day, idx) => {
                         if (!day) return <div key={`e${idx}`} style={{ borderBottom: `1px solid ${cellBorder}`, minHeight: 80 }} />
                         const cellDate = new Date(viewYear, viewMonth, day)
