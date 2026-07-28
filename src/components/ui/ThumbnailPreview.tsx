@@ -50,6 +50,21 @@ export function useThumbnailPreview() {
     // 元件收掉時還有 timer 在跑 → setState on unmounted。清掉。
     useEffect(() => clearTimers, [clearTimers])
 
+    /**
+     * 安全網：預覽顯示中時，任何一次 pointerdown 都收掉它。
+     *
+     * 沒有這段會真的卡住：hover 側邊欄縮圖 → 點它進入白板 → 「最近使用」清單重排，
+     * 綁著 onMouseLeave 的那個縮圖元素被 React 換掉 → **mouseleave 永遠不會觸發**
+     * → 浮層留在畫面上蓋住東西（實測會蓋住白板工具列的選單）。
+     * 只靠 mouseleave 收場的前提是「元素一直活著」，這個前提在清單會重排的地方不成立。
+     */
+    useEffect(() => {
+        if (!preview) return
+        const hide = () => { clearTimers(); setPreview(null) }
+        document.addEventListener('pointerdown', hide, true)
+        return () => document.removeEventListener('pointerdown', hide, true)
+    }, [preview, clearTimers])
+
     /** 綁到縮圖容器上。thumbnail 不是點陣圖（舊的 SVG 佔位／null）就整個不啟用。 */
     const bindPreview = useCallback((thumbnail: string | null | undefined, name: string) => {
         if (!thumbnail || !thumbnail.startsWith('data:image')) return {}

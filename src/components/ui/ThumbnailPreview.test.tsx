@@ -71,6 +71,17 @@ describe('useThumbnailPreview', () => {
         expect(screen.queryByAltText('')).toBeNull()
     })
 
+    it('點擊任何地方都會立刻收掉預覽（縮圖被換掉時 mouseleave 不會來）', () => {
+        // 真實情境：點縮圖進入白板 → 側邊欄清單重排 → 綁事件的元素被 React 換掉
+        // → mouseleave 永遠不觸發 → 浮層卡在畫面上。
+        render(<Harness />)
+        hover()
+        advance(250)
+        expect(screen.queryByAltText('')).not.toBeNull()
+        act(() => { document.dispatchEvent(new Event('pointerdown', { bubbles: true })) })
+        expect(screen.queryByAltText('')).toBeNull()
+    })
+
     it('預覽浮層不吃滑鼠事件（不能擋住切換白板的點擊）', () => {
         render(<Harness />)
         hover()
