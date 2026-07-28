@@ -15,6 +15,7 @@ import { T } from '../theme/tokens'
 import { promptName } from '../utils/promptName'
 import { showToast } from '../utils/toast'
 import { InlineEdit } from './ui/InlineEdit'
+import { useThumbnailPreview } from './ui/ThumbnailPreview'
 
 interface NavItemDef {
     icon: string
@@ -101,6 +102,9 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
     const sidebarWidth = collapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_WIDTH
 
     const hoverBg = T.bgHoverSoft
+
+    // B4：側邊欄縮圖只有 20×14px，hover 放大才看得出是哪塊板
+    const { bindPreview, previewNode } = useThumbnailPreview()
 
     const handleDragEnd = (event: DragEndEvent) => {
         const { active, over } = event
@@ -335,13 +339,15 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                                     borderLeft: isActive ? '2.5px solid #2563eb' : '2.5px solid transparent',
                                 }}
                             >
-                                <div style={{
-                                    width: 20, height: 14, borderRadius: 3, overflow: 'hidden',
-                                    background: T.bgHover,
-                                    border: `1px solid ${T.borderMid}`,
-                                    flexShrink: 0,
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                }}>
+                                <div
+                                    {...bindPreview(board.thumbnail, board.name)}
+                                    style={{
+                                        width: 20, height: 14, borderRadius: 3, overflow: 'hidden',
+                                        background: T.bgHover,
+                                        border: `1px solid ${T.borderMid}`,
+                                        flexShrink: 0,
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    }}>
                                     {isRasterThumbnail(board.thumbnail)
                                         ? <img src={board.thumbnail} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
                                         : <span style={{ fontSize: 6, color: 'var(--text-muted)' }}>□</span>
@@ -423,6 +429,7 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                                             key={board.id}
                                             onClick={() => onSwitch(board.id)}
                                             title={board.name}
+                                            {...bindPreview(board.thumbnail, board.name)}
                                             style={{
                                                 width: 26, height: 20, margin: '0 auto',
                                                 borderRadius: 4, overflow: 'hidden',
@@ -842,6 +849,9 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                     </>
                 )
             })()}
+
+            {/* B4 縮圖懸停預覽（portal 到 body、pointer-events:none，不擋側邊欄點擊） */}
+            {previewNode}
         </>
     )
 }

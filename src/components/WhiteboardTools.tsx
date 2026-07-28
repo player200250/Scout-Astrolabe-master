@@ -10,6 +10,7 @@ import { useHotkeys } from '../Usehotkeys'
 import { getISOWeekKey, getWeekRange } from '../utils/weeklyReviewUtils'
 import { exportJSON, importJSON } from '../utils/boardExport'
 import { exportBoardToMarkdown, exportSelectedToMarkdown } from '../utils/exportMarkdown'
+import { looksLikeMarkdown, markdownTitle, markdownToHtml } from '../utils/markdownImport'
 import type { TLCardShape, StickyColor, TableRow } from './card-shape/type/CardShape'
 import { getEmbedData, fetchLinkMeta } from './card-shape/utils/embedUtils'
 import { selectAndCopyFile } from '../platform/fileStore'
@@ -86,6 +87,22 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
 
     const createTextCard = useCallback((x?: number, y?: number) => {
         editor.createShape({ type: 'card', x, y, props: { type: 'text', text: '', image: null, todos: [], url: '', state: 'idle', w: 280, h: 320 } })
+    }, [editor])
+
+    // C4：Markdown → 文字卡。轉換是純函式（utils/markdownImport），這裡只負責放位置。
+    // 卡片開大一點（400×400）——匯入的通常是整篇文件，用文字卡預設的 280×320 會一進來就被截掉。
+    const createMarkdownCard = useCallback((md: string, pos?: { x: number; y: number }) => {
+        const vp = editor.getViewportPageBounds()
+        const x = pos?.x ?? vp.x + vp.w / 2 - 200
+        const y = pos?.y ?? vp.y + vp.h / 2 - 200
+        editor.createShape({
+            type: 'card', x, y,
+            props: {
+                type: 'text', text: markdownToHtml(md), image: null, todos: [], url: '',
+                linkEmbedUrl: null, state: 'idle', color: 'none',
+                cardStatus: 'none', priority: 'none', tags: [], w: 400, h: 400,
+            },
+        })
     }, [editor])
 
     const createTodoCard = useCallback((x?: number, y?: number) => {
@@ -480,6 +497,24 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
             // Use synchronous getData() so stopPropagation runs before any await
             const rawText = data.getData('text/plain').trim()
             if (!rawText) return
+
+            // 3a. Markdown（C4）────────────────────────────────────────────────
+            // 先問再攔：貼上純文字原本是 tldraw 自己處理，不能無條件改掉。
+            // confirm 是同步的，所以問完再 preventDefault 仍然來得及擋下預設行為；
+            // 使用者說不要就什麼都不做，讓下面的 URL 判斷與 tldraw 照原樣接手。
+            if (looksLikeMarkdown(rawText)) {
+                const title = markdownTitle(rawText)
+                const ok = window.confirm(
+                    `偵測到 Markdown${title ? `「${title}」` : ''}，要建立成文字卡片嗎？\n\n取消則照一般文字貼上。`
+                )
+                if (ok) {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    createMarkdownCard(rawText)
+                    showToast('已從 Markdown 建立文字卡片')
+                    return
+                }
+            }
             let isUrl = false
             try { new URL(rawText.startsWith('http') ? rawText : `https://${rawText}`); isUrl = true } catch { /* not a URL */ }
             if (!isUrl) return // plain text → let tldraw handle normally
@@ -520,7 +555,36 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
         }
         document.addEventListener('paste', handlePaste, true)
         return () => document.removeEventListener('paste', handlePaste, true)
-    }, [editor, createImageCard])
+    }, [editor, createImageCard, createMarkdownCard])
+
+    // C4：拖 .md 檔進白板 → 在放下的位置建文字卡。
+    // 走 capture 階段是為了搶在 tldraw 的 drop 處理之前（它會把不認識的檔案當 asset 吞掉）；
+    // 只有真的是 .md 才 stopPropagation，其餘（圖片等）原封不動交還 tldraw。
+    useEffect(() => {
+        const handleDrop = async (e: DragEvent) => {
+            const files = Array.from(e.dataTransfer?.files ?? [])
+            const mdFiles = files.filter(f => /\.(md|markdown|mdown)$/i.test(f.name))
+            if (mdFiles.length === 0) return
+            e.preventDefault()
+            e.stopPropagation()
+
+            const drop = editor.screenToPage({ x: e.clientX, y: e.clientY })
+            let created = 0
+            for (const file of mdFiles) {
+                try {
+                    const md = await file.text()
+                    // 多檔時階梯狀錯開，不要疊成一張看不見其他張
+                    createMarkdownCard(md, { x: drop.x + created * 32, y: drop.y + created * 32 })
+                    created++
+                } catch {
+                    showToast(`讀取「${file.name}」失敗`)
+                }
+            }
+            if (created > 0) showToast(created === 1 ? '已從 Markdown 建立文字卡片' : `已建立 ${created} 張文字卡片`)
+        }
+        document.addEventListener('drop', handleDrop, true)
+        return () => document.removeEventListener('drop', handleDrop, true)
+    }, [editor, createMarkdownCard])
 
     const exportPNG = useCallback(async (selectedOnly: boolean) => {
         const allIds = Array.from(editor.getCurrentPageShapeIds())
