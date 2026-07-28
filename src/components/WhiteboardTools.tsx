@@ -793,46 +793,61 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
     return (
         <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
             <TldrawToolPanel {...cardCreators} />
+            {/* ux-audit C2：原本三顆按鈕（匯出 JSON／匯入 JSON／匯出圖片 ▾）橫佔約 280px，
+                還會被任務中心的右側抽屜蓋掉一半。收成單一入口，選單內分成
+                「匯出成檔案」與「白板資料」兩組——JSON 是整塊白板的搬移/備份，
+                與匯出成圖片/文件是不同意圖，混在同一串會讓人誤選。 */}
             <div style={{ position: 'absolute', top: 10, right: 10, display: 'flex', gap: 6, pointerEvents: 'auto', zIndex: 100 }}>
-                <button
-                    onClick={() => exportJSON(getSnapshot(editor.store) as TLEditorSnapshot, board.name)}
-                    style={exportBtnStyle}
-                    onMouseEnter={e => (e.currentTarget.style.background = T.bgHover)}
-                    onMouseLeave={e => (e.currentTarget.style.background = T.bgOverlay)}
-                >匯出 JSON</button>
-                <button
-                    onClick={() => jsonInputRef.current?.click()}
-                    style={exportBtnStyle}
-                    onMouseEnter={e => (e.currentTarget.style.background = T.bgHover)}
-                    onMouseLeave={e => (e.currentTarget.style.background = T.bgOverlay)}
-                >匯入 JSON</button>
                 <div style={{ position: 'relative' }}>
                     <button
                         onClick={() => setShowExportMenu(v => !v)}
                         style={{ ...exportBtnStyle, display: 'flex', alignItems: 'center', gap: 4 }}
                         onMouseEnter={e => (e.currentTarget.style.background = T.bgHover)}
                         onMouseLeave={e => (e.currentTarget.style.background = T.bgOverlay)}
-                    >匯出圖片 ▾</button>
+                    >匯出／匯入 ▾</button>
                     {showExportMenu && (
                         <div style={{
                             position: 'absolute', top: '110%', right: 0, borderRadius: 10, padding: '4px 0',
                             background: T.bgPanel,
                             boxShadow: `${T.shadowLg}, 0 0 0 1px ${T.ringSubtle}`,
-                            minWidth: 180, zIndex: Z_TOOL_SUBMENU, whiteSpace: 'nowrap',
+                            minWidth: 200, zIndex: Z_TOOL_SUBMENU, whiteSpace: 'nowrap',
                         }} onMouseLeave={() => setShowExportMenu(false)}>
                             {[
-                                { label: '🖼️ 整個白板 → PNG', fn: () => exportPNG(false) },
-                                { label: '🖼️ 選取卡片 → PNG', fn: () => exportPNG(true) },
-                                { label: '📄 整個白板 → PDF', fn: () => exportPDF(false) },
-                                { label: '📄 選取卡片 → PDF', fn: () => exportPDF(true) },
-                                { label: '📝 整個白板 → Markdown', fn: () => exportMarkdown(false) },
-                                { label: '📝 選取卡片 → Markdown', fn: () => exportMarkdown(true) },
-                            ].map(({ label, fn }) => (
-                                <div key={label} onClick={() => { fn(); setShowExportMenu(false) }}
-                                    style={{ padding: '8px 16px', cursor: 'pointer', fontSize: 13, color: T.textPrimary }}
-                                    onMouseEnter={e => (e.currentTarget.style.background = T.bgHover)}
-                                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                                >{label}</div>
+                                {
+                                    group: '匯出成檔案',
+                                    items: [
+                                        { label: '🖼️ 整個白板 → PNG', fn: () => exportPNG(false) },
+                                        { label: '🖼️ 選取卡片 → PNG', fn: () => exportPNG(true) },
+                                        { label: '📄 整個白板 → PDF', fn: () => exportPDF(false) },
+                                        { label: '📄 選取卡片 → PDF', fn: () => exportPDF(true) },
+                                        { label: '📝 整個白板 → Markdown', fn: () => exportMarkdown(false) },
+                                        { label: '📝 選取卡片 → Markdown', fn: () => exportMarkdown(true) },
+                                    ],
+                                },
+                                {
+                                    group: '白板資料（可再匯入回來）',
+                                    items: [
+                                        { label: '⬇️ 匯出 JSON', fn: () => exportJSON(getSnapshot(editor.store) as TLEditorSnapshot, board.name) },
+                                        { label: '⬆️ 匯入 JSON', fn: () => jsonInputRef.current?.click() },
+                                    ],
+                                },
+                            ].map(({ group, items }, gi) => (
+                                <div key={group}>
+                                    <div style={{
+                                        padding: gi === 0 ? '6px 16px 4px' : '8px 16px 4px',
+                                        fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em',
+                                        color: T.textMuted, textTransform: 'uppercase',
+                                        borderTop: gi === 0 ? 'none' : `1px solid ${T.borderLight}`,
+                                        marginTop: gi === 0 ? 0 : 4,
+                                    }}>{group}</div>
+                                    {items.map(({ label, fn }) => (
+                                        <div key={label} onClick={() => { fn(); setShowExportMenu(false) }}
+                                            style={{ padding: '8px 16px', cursor: 'pointer', fontSize: 13, color: T.textPrimary }}
+                                            onMouseEnter={e => (e.currentTarget.style.background = T.bgHover)}
+                                            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                                        >{label}</div>
+                                    ))}
+                                </div>
                             ))}
                         </div>
                     )}
