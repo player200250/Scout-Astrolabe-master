@@ -161,6 +161,46 @@ export function exportBoardToMarkdown(shapes: TLShape[], boardName: string): voi
 
 ---
 
+## Markdown 匯入（C4，2026-07-28）
+
+`utils/markdownImport.ts`——`exportMarkdown.ts` 的反向，純函式、有測試（16 案例）。
+
+```typescript
+export function looksLikeMarkdown(text: string): boolean  // 以 `# ` 開頭 + 多行
+export function markdownTitle(md: string): string | null  // 第一行 H1／H2 純文字
+export function markdownToHtml(md: string): string        // → 文字卡的 p.text
+```
+
+### 兩個觸發點（皆在 `WhiteboardTools.tsx`）
+
+| 觸發 | 行為 |
+|------|------|
+| **貼上**（`paste`，capture） | `looksLikeMarkdown` 為真 → `window.confirm` 詢問 → 允許才 `preventDefault` 並建卡；取消則落回原本流程（URL 判斷／tldraw 原生貼上） |
+| **拖放 `.md`／`.markdown`／`.mdown`**（`drop`，capture） | 不詢問，直接在放下的座標建卡；多檔以 32px 階梯錯開 |
+
+- **confirm 是同步的**，所以「問完再 `preventDefault`」仍然來得及擋下預設行為——這是「不覆蓋現有純文字貼上行為」的實作關鍵。
+- drop 走 **capture 階段**是為了搶在 tldraw 的 drop 處理之前；**只有真的是 `.md` 才 `stopPropagation`**，圖片等其他檔案原封不動交還 tldraw。
+- 建出的卡片是 **400×400**（文字卡預設 280×320 對整篇文件太小），`props.type = 'text'`。
+
+### 刻意不裝 `marked`
+
+只需支援 TipTap schema 真的有的節點（StarterKit＋Link／Highlight／Callout／CodeBlockLowlight）；轉出 schema 以外的標籤，TipTap 載入時會整段丟掉。範圍固定，自解析比較好控。
+
+| Markdown | 產出 | 備註 |
+|----------|------|------|
+| `#`～`######` | `<h1>`～`<h6>` | 第一個 `<h1>` 自動成為卡片標題（`splitTitleBody` 的規則） |
+| ` ```lang ` | `<pre><code class="language-lang">` | 內部不套行內規則、HTML 逃脫 |
+| `> 💡` 開頭的引用 | `<div class="callout">` | 與匯出端對稱，round-trip 不會把提示框降級 |
+| 其他 `>` | `<blockquote>` | |
+| `- ` / `1. ` | `<ul>` / `<ol>` | `- [ ]`／`- [x]` → `☐`／`☑` 字元（文字卡沒有 taskList 節點） |
+| `**`／`*`／`==`／`` ` ``／`[]()` | `<strong>`／`<em>`／`<mark>`／`<code>`／`<a>` | 行內 code 先抽成佔位再處理，內部星號不被當語法 |
+| `<u>…</u>` | `<u>` | 匯出端就是寫成原始 HTML，逃脫後要還原 |
+| `---` | `<hr>` | |
+
+**未支援**：巢狀清單、表格、圖片、`$$…$$` 數學式（MathBlock 需要 katex 渲染結果一起存進 HTML，成本不成比例）——這些會退化成一般段落。
+
+---
+
 ## 自動備份
 
 ### 觸發時機
@@ -188,21 +228,22 @@ lastBackupRef.current = now
 ### 備份上限與清理
 
 ```typescript
-// db.ts
-export const MAX_BACKUPS = 5   // 2026-06-21 由 30 降為 5
+// utils/backupSettings.ts — N17（2026-07-28）起可設定：3／5／10／20，預設 5
+export function getBackupLimit(): number
 
-// trimBackups()：只比對 timestamp 鍵、不載入 blob（記憶體成本低）
+// db.ts — trimBackups()：只比對 timestamp 鍵、不載入 blob（記憶體成本低）
 export async function trimBackups(): Promise<number> {
+    const limit = getBackupLimit()
     const keys = await db.table('backups').orderBy('timestamp').primaryKeys()
-    if (keys.length <= MAX_BACKUPS) return 0
-    const toDelete = keys.slice(0, keys.length - MAX_BACKUPS)
+    if (keys.length <= limit) return 0
+    const toDelete = keys.slice(0, keys.length - limit)
     await db.table('backups').bulkDelete(toDelete)
     return toDelete.length
 }
 // saveAutoBackup 寫入後呼叫 trimBackups；useBoardManager 啟動載入後也呼叫一次
 ```
 
-超過 5 筆時刪除最舊的備份。**為何由 30 降為 5**：每份備份是整個 vault 的完整複製（含 base64 圖片），保留 30 份會把 IndexedDB 撐到數 GB 並造成 renderer OOM 白屏（見 `maintenance/bugs.md` P1-OOM）。
+超過保留份數時刪除最舊的備份。**為何 2026-06-21 由 30 降為 5**：每份備份是整個 vault 的完整複製（含 base64 圖片），保留 30 份會把 IndexedDB 撐到數 GB 並造成 renderer OOM 白屏（見 `maintenance/bugs.md` P1-OOM）。設定入口在**資料安全中心**；在那裡調小份數會**立刻**刪掉超額的舊備份。
 
 ### `BackupRecord` 結構
 
@@ -215,7 +256,7 @@ interface BackupRecord {
 }
 ```
 
-備份儲存的是所有白板的完整資料，包括 tldraw snapshot JSON（base64 圖片 + shapes）。**備份體積可能很大**，視白板數量與圖片數量而定——這也是 `MAX_BACKUPS` 由 30 降為 5 的原因（含圖片 vault ×30 會撐爆 IndexedDB／記憶體）。治本方向見 `maintenance/bugs.md` 的 **TD-IMG**（image 卡改存檔、不再 base64 內嵌）。
+備份儲存的是所有白板的完整資料，包括 tldraw snapshot JSON（base64 圖片 + shapes）。**備份體積可能很大**，視白板數量與圖片數量而定——這也是保留份數由 30 降為 5 的原因（含圖片 vault ×30 會撐爆 IndexedDB／記憶體）。治本方向見 `maintenance/bugs.md` 的 **TD-IMG**（image 卡改存檔、不再 base64 內嵌，已完成）。
 
 ---
 

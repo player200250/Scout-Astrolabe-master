@@ -233,13 +233,17 @@
 5. **可測性**：`buildCardSearchText`／`buildSearchIndex`／`searchFromIndex`／`typeCountsFor`
    改為 `export`（邏輯未動），`SearchPanel.test.ts` 25 案例涵蓋每一種型別。
 
-#### B4 — 白板卡片縮圖懸停預覽
+#### B4 — 白板卡片縮圖懸停預覽 ✅ **完成（2026-07-28）**
 **說明**：在側邊欄白板清單、BoardOverview 的縮圖上，hover 時顯示 240×180px 的較大縮圖 tooltip（僅用已有 thumbnail data，無需重新渲染）。
 
 - **工作量**：0.5 人天
 - **優先度**：🟢 低
 - **依賴**：現有 `board.thumbnail`（base64 PNG）
 - **驗收標準**：hover 250ms 後出現預覽；離開後 150ms 消失；不影響側邊欄點擊切換白板功能
+
+**實作**：`src/components/ui/ThumbnailPreview.tsx` 的 `useThumbnailPreview()`——回傳 `bindPreview(thumbnail, name)`（綁到縮圖容器）與 `previewNode`（portal 到 body）。延遲常數即驗收標準的 250／150ms，用 fake timer 單元測試驗（8 案例，含「250ms 內離開不閃出」與「浮層 pointerEvents 必須是 none」）。浮層優先放在縮圖**左側**（側邊欄在畫面右側），放不下才翻右邊，並夾在視窗內。
+
+**只接了側邊欄兩處**（展開清單 20×14、收合狀態 26×20）。**BoardOverview 刻意不接**——那裡的縮圖本來就接近 240×180，再疊一層浮層只會蓋住旁邊的卡片，收益為負。
 
 ---
 
@@ -296,19 +300,24 @@ type KanbanColumn = { id: string; title: string; items: { id: string; text: stri
   - 拖曳列順序後資料順序正確更新
   - 欄數從 3 改為 2 時彈出確認對話框，確認後最右欄資料清除
 
-#### C4 — Markdown 匯入
+#### C4 — Markdown 匯入 ✅ **完成（2026-07-28）**
 **說明**：支援以下兩種觸發方式建立文字卡片：
 1. **拖曳 `.md` 檔案**到白板 → 讀取內容，以 TipTap 格式轉換（標題/清單/程式碼區塊）建立文字卡片，卡片標題取 markdown 第一行 H1
 2. **貼上純文字**：若剪貼板內容以 `# ` 開頭且含有多行，偵測為 Markdown，詢問是否建立文字卡片（避免覆蓋現有純文字貼上行為）
 
-Markdown → TipTap 使用 `marked`（新增依賴，或手動解析常見語法）。
-
 - **工作量**：2 人天
 - **優先度**：🟢 低
-- **依賴**：`marked`（需新增依賴）；Electron `ipcMain` 讀檔（已有類似機制）
 - **驗收標準**：
-  - 拖入含 H1/H2/清單/程式碼的 .md 檔案，文字卡片正確呈現對應樣式
-  - 貼上一般文字時不觸發 Markdown 偵測
+  - 拖入含 H1/H2/清單/程式碼的 .md 檔案，文字卡片正確呈現對應樣式 ✅
+  - 貼上一般文字時不觸發 Markdown 偵測 ✅
+
+**實作**：`src/utils/markdownImport.ts`（純函式，16 測試）＋ `WhiteboardTools` 兩個 capture 階段 listener。細節見 [import-export-backup.md](import-export-backup.md#markdown-匯入c42026-07-28)。
+
+**兩個與原計畫不同的決定**：
+1. **不裝 `marked`**（原計畫的依賴）——只需支援 TipTap schema 真的有的節點，schema 外的標籤 TipTap 載入時會整段丟掉；範圍固定，自己解析比較好控，也不用為此再加 40 kB 進本來就 3.5 MB 的 bundle。
+2. **不需要 Electron `ipcMain` 讀檔**——拖放事件的 `File.text()` 在 renderer 就讀得到，不必繞 IPC。
+
+**未支援（退化成一般段落）**：巢狀清單、表格、圖片、`$$…$$` 數學式（MathBlock 需要 katex 渲染結果一起存進 HTML，成本不成比例）。
 
 ---
 
@@ -321,7 +330,7 @@ Markdown → TipTap 使用 `marked`（新增依賴，或手動解析常見語法
 3. **App.tsx 精簡**：面板相關 `useState` 全部移除（✅ A1）；檔案行數 ≤ 200 行（未達，現 365；A2 已結案不強求）
 4. **useBoardManager 拆分**：✅ 已拆 8 sub-hook（A2 結案，主檔行數目標調整為現實標準）
 5. **技術債清單**：TD1–TD5、TD7 全部標記為 ✅ 已解決
-6. **新功能驗收**：C2 ✅（盤點已實作）、C3 ✅（三項完成）、**C1 ❌ 跳過**、C4 ⬜ 可做可不做（🟢 低）
+6. **新功能驗收**：C2 ✅（盤點已實作）、C3 ✅（三項完成）、**C1 ❌ 跳過**、C4 ✅（2026-07-28）
 7. **無功能迴歸**：既有 11 種卡片類型基本操作（建立/編輯/刪除/移動/匯出）手動全部驗證通過
 
 ---
@@ -368,7 +377,7 @@ Markdown → TipTap 使用 `marked`（新增依賴，或手動解析常見語法
 | N14 | Daily/Weekly 自動化（rollover/自動嵌入/月回顧） | 🟡 中 | 連動 AI-4 | Journal/週回顧已有，補自動化 |
 | N15 | Markdown/Obsidian 匯入 | 🟡 中 | **= C4（已排程）** | 併入 C4，不另列；Obsidian vault 匯入為 C4 擴充 |
 | N16 | 完整 Vault Export（.astrolabe 打包） | 🟡 中 | **依賴 E1（v1.4.0）**（TD-IMG ✅ 已完成） | 打包 boards+cards+files+backups+settings；重疊 E1 |
-| N17 | 備份保留數設定 | 🟡 中 | ✅ **TD-IMG 已完成，前置解除** | image 卡已改存實體檔，base64 不再內嵌；放大備份數風險大降，仍建議加容量警告 |
+| N17 | 備份保留數設定 | ✅ **完成（2026-07-28）** | ✅ TD-IMG 已完成，前置解除 | 3／5／10／20（預設 5，**上限只到 20**：整板縮圖仍是 base64）。設定存 localStorage（`utils/backupSettings.ts`），入口在資料安全中心；改動後立即 `trimBackups()` 並重讀統計，面板顯示「平均每份 × 份數」當容量警告 |
 | N18 | 大型 Vault 效能模式（只載 metadata 安全模式） | 🔴 高（長期） | **依賴 A3-ext**（TD-IMG ✅ 已完成） | 架構級；延遲載入 snapshot、容量偵測；TD-IMG 已拔除 base64 圖片病根，剩 snapshot 常駐待 A3-ext |
 | N19 | **白板模板**（整板存為模板 + 從模板一鍵新建白板） | ✅ **完成（2026-07-25，commit `8043580`）** | 無 | 見下方「N19 設計」；build 0、428 測試綠、CDP 實機驗往返 |
 
@@ -408,7 +417,7 @@ Markdown → TipTap 使用 `marked`（新增依賴，或手動解析常見語法
 - **Wave 1｜低風險速贏（v1.2.0 收尾）**：✅ **全部完成（2026-07-14）**——B5/B6/B7（D3/D5/D6）、N7（範例白板）、N8（coverage/CI）、N10（資料安全中心唯讀版）、B9（右鍵文件）。
 - **Wave 2｜高價值真新（v1.2.x → v1.3 前）**：✅ **全部完成（2026-07-15）**——N1（Command Palette，07-14）、N2（Inbox Triage）、N3（系統托盤 + 全域捕捉）、N4（Tag Manager）。
 - **Wave 3｜前置依賴解鎖後**：**TD-IMG ✅ 已完成（治本 OOM/圖片體積，commit `7eaf7f5`）** → N17（備份保留數）前置已解除、N18 剩 A3-ext；**P-DRAW ✅ 已關閉（2026-07-17，使用者實測正常＝TD-IMG 附帶治好）**；**N6 ✅ 已結案（2026-07-17，階段 1 交付、階段 2/3 使用者拍板不做）**；MD 匯入併 C4。
-  - **Wave 3 剩下的**：N17（備份保留數，前置已解除、可做）、N18（大型 vault 效能模式，仍等 A3-ext）、C4（MD 匯入）。
+  - **Wave 3 剩下的**：~~N17（備份保留數）~~ ✅ 2026-07-28、~~C4（MD 匯入）~~ ✅ 2026-07-28；**只剩 N18**（大型 vault 效能模式，仍等 A3-ext）。
 - **需產品決策先行**：~~D1（主頁定位）~~ ✅ 已拍板（2026-07-15，主頁＝儀表板）；**D7（任務/復盤存廢）仍待討論**。
   - D1 定案後，D7 的「降低進入門檻：主頁嵌入小工具」其實已是既成事實——儀表板本來就嵌了今日待辦／今日日記＋卡片庫/復盤中心/知識圖譜捷徑。
   - D7 真正剩下的是：**任務中心／復盤中心該不該續存為獨立面板**（提升 engagement vs 簡化合併）。

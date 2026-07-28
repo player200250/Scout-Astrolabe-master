@@ -12,12 +12,13 @@
 
 | 檔案 | 說明 |
 |------|------|
-| `src/db.ts` | IndexedDB schema v1–v8、所有 table 定義、`MAX_BACKUPS`/`trimBackups` |
+| `src/db.ts` | IndexedDB schema v1–v9、所有 table 定義、`trimBackups` |
+| `src/utils/backupSettings.ts` | 備份保留份數設定（N17）：`BACKUP_LIMIT_OPTIONS`／`getBackupLimit`／`setBackupLimit`／`normalizeBackupLimit` |
 | `src/utils/snapshot.ts` | `sanitizeSnapshot`、`sanitizeCardProps`、`CARD_PROP_DEFAULTS` |
 | `src/hooks/useBoardManager.ts` | 啟動時 sanitizeBoards、14 天自動清除、備份觸發 |
 | `src/BackupPanel.tsx` | 備份清單 UI、手動還原、手動「立即遷移」圖片 |
 | `src/platform/imageStore.ts` | image 卡改存 `userData/files`（astro-img protocol）；snapshot 只存 `storedName`（TD-IMG） |
-| `src/utils/dataSafetyStats.ts` + `src/components/DataSafetyPanel.tsx` | 資料安全中心：`computeVaultStats` 純函式 + 唯讀統計面板（N10） |
+| `src/utils/dataSafetyStats.ts` + `src/components/DataSafetyPanel.tsx` | 資料安全中心：`computeVaultStats` 純函式 + 統計面板（N10）＋備份保留份數設定（N17） |
 | `src/constants.ts` | `BACKUP_THROTTLE_MS`（5 分鐘） |
 
 ---
@@ -132,23 +133,32 @@ const expiredBoards = await db.table('boards')
 | 切換白板 | 距上次備份 > 5 分鐘（`BACKUP_THROTTLE_MS`） |
 | 應用進入背景（`visibilitychange`） | 同上 |
 
-### 備份上限（5 份）
+### 備份上限（可設定，預設 5 份）
+
+2026-07-28（N17）起由使用者設定，選項 **3／5／10／20**，設定值存 localStorage（`astrolabe.backupLimit`）：
 
 ```typescript
-// db.ts — 2026-06-21 由 30 降為 5（OOM 修復，commit cf105dc）
-export const MAX_BACKUPS = 5
+// utils/backupSettings.ts
+export const BACKUP_LIMIT_OPTIONS = [3, 5, 10, 20] as const
+export const DEFAULT_BACKUP_LIMIT = 5
+export function normalizeBackupLimit(raw: unknown): number  // 壞值→預設；不在選項內→取最接近（平手往小）
+export function getBackupLimit(): number
+export function setBackupLimit(limit: number): number
 
-// trimBackups：只比對 timestamp 主鍵、不載入 blob，記憶體成本低
+// db.ts — trimBackups：只比對 timestamp 主鍵、不載入 blob，記憶體成本低
 export async function trimBackups(): Promise<number> {
+    const limit = getBackupLimit()
     const keys = await db.table('backups').orderBy('timestamp').primaryKeys()
-    if (keys.length <= MAX_BACKUPS) return 0
-    const toDelete = keys.slice(0, keys.length - MAX_BACKUPS)
+    if (keys.length <= limit) return 0
+    const toDelete = keys.slice(0, keys.length - limit)
     await db.table('backups').bulkDelete(toDelete)
     return toDelete.length
 }
 ```
 
-`saveAutoBackup` 寫入後呼叫 `trimBackups`；`useBoardManager` 啟動載入後、render 前也先 trim 一次。**為何由 30 降為 5**：每份備份是「所有白板的完整 snapshot」複製，30 份等於把整個 vault 複製 30 次，含圖片的 vault 會把 IndexedDB 撐到數 GB 並在寫入時造成記憶體尖峰導致 renderer OOM 白屏（見 `maintenance/bugs.md` P1-OOM）。`trimBackups` 刻意只讀 primaryKeys 不載 blob，避免修剪動作本身又觸發記憶體尖峰。
+`saveAutoBackup` 寫入後呼叫 `trimBackups`；`useBoardManager` 啟動載入後、render 前也先 trim 一次。**為何 2026-06-21 由 30 降為 5**：每份備份是「所有白板的完整 snapshot」複製，30 份等於把整個 vault 複製 30 次，含圖片的 vault 會把 IndexedDB 撐到數 GB 並在寫入時造成記憶體尖峰導致 renderer OOM 白屏（見 `maintenance/bugs.md` P1-OOM）。`trimBackups` 刻意只讀 primaryKeys 不載 blob，避免修剪動作本身又觸發記憶體尖峰。
+
+**為何開放後上限只到 20**：TD-IMG 已把 image 卡改存實體檔（base64 不再內嵌 snapshot），放大份數的風險大降，但**整板縮圖仍是 base64**、仍會被每份備份複製一次。設定面板會即時顯示「平均每份 × 份數」的估算值當作容量警告。設定值一律過 `normalizeBackupLimit`——壞值直接傳進 `slice()` 會算出垃圾範圍。
 
 ### 備份完整性
 
@@ -156,9 +166,9 @@ export async function trimBackups(): Promise<number> {
 
 ---
 
-## 資料安全中心（唯讀統計，N10）
+## 資料安全中心（統計 N10 ＋ 備份保留設定 N17）
 
-`DataSafetyPanel`（入口：側邊欄「更多」選單 🛡️）提供 vault 的唯讀容量觀測，**不做任何清理**（清理功能列後續）：
+`DataSafetyPanel`（入口：側邊欄「更多」選單 🛡️）提供 vault 的容量觀測。除了**備份保留份數**（N17，2026-07-28）之外皆為唯讀，其餘清理（個別備份、無用縮圖）仍未開放：
 
 | 區塊 | 來源 |
 |------|------|
@@ -166,6 +176,7 @@ export async function trimBackups(): Promise<number> {
 | 白板分類（一般/子板/封存/資料夾） | `computeVaultStats(boards)` |
 | 卡片依型別計數 | 遍歷各板 `getCardShapes` 統計 `props.type` |
 | 體積明細（圖片卡數/縮圖 base64/快照/備份估算） | `computeVaultStats`，字串長度近似 bytes |
+| **備份保留份數**（3／5／10／20，可寫） | `getBackupLimit`／`setBackupLimit`；改動後**立即**呼叫 `trimBackups()` 並重讀統計——只改設定不當場清理，面板數字會說謊 |
 
 統計邏輯集中在純函式 `src/utils/dataSafetyStats.ts`（`computeVaultStats` + `formatBytes`），有單元測試覆蓋；面板僅負責非同步取 `loadBackups()` 與 `storage.estimate()` 並呈現。體積為**估算**（以序列化字串長度近似），實體用量以 `storage.estimate()` 為準。
 
