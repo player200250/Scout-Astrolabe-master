@@ -1,7 +1,7 @@
 // src/QuickSwitcher.tsx
 import { useEffect, useRef, useState, useMemo } from 'react'
 import type { BoardRecord } from './db'
-import { Z_MODAL_BACKDROP, Z_MODAL } from './constants'
+import { Z_MODAL_BACKDROP, Z_MODAL, MODAL_TOP, MODAL_WIDTH, MODAL_BACKDROP } from './constants'
 import { T } from './theme/tokens'
 
 interface QuickSwitcherProps {
@@ -81,13 +81,13 @@ export function QuickSwitcher({ boards, activeBoardId, onSwitch, onClose }: Quic
             {/* Backdrop */}
             <div
                 onClick={onClose}
-                style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', zIndex: Z_MODAL_BACKDROP }}
+                style={{ position: 'fixed', inset: 0, background: MODAL_BACKDROP, zIndex: Z_MODAL_BACKDROP }}
             />
 
             {/* Modal */}
             <div style={{
-                position: 'fixed', top: '18%', left: '50%', transform: 'translateX(-50%)',
-                width: 480, maxWidth: '92vw',
+                position: 'fixed', top: MODAL_TOP, left: '50%', transform: 'translateX(-50%)',
+                width: MODAL_WIDTH, maxWidth: '92vw',
                 background: bg, borderRadius: 14, overflow: 'hidden',
                 boxShadow: `${T.shadowModal}, 0 0 0 1px ${T.ringSubtle}`,
                 zIndex: Z_MODAL,

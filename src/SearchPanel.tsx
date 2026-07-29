@@ -1,6 +1,6 @@
 // src/SearchPanel.tsx
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { Z_MODAL_BACKDROP, Z_MODAL } from './constants'
+import { Z_MODAL_BACKDROP, Z_MODAL, MODAL_TOP, MODAL_WIDTH, MODAL_BACKDROP } from './constants'
 import { T } from './theme/tokens'
 import { TYPE_ICON, TYPE_LABEL } from './utils/cardMeta'
 import type { CardType } from './components/card-shape/type/CardShape'
@@ -98,10 +98,10 @@ export function SearchPanel({ boards, onJump, onClose }: SearchPanelProps) {
 
     return (
         <>
-            <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.25)', zIndex: Z_MODAL_BACKDROP }} />
+            <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: MODAL_BACKDROP, zIndex: Z_MODAL_BACKDROP }} />
             <div style={{
-                position: 'fixed', top: '15%', left: '50%', transform: 'translateX(-50%)',
-                width: 520, maxWidth: '90vw', background: bg,
+                position: 'fixed', top: MODAL_TOP, left: '50%', transform: 'translateX(-50%)',
+                width: MODAL_WIDTH, maxWidth: '92vw', background: bg,
                 borderRadius: 14, boxShadow: '0 8px 40px rgba(0,0,0,0.18)', zIndex: Z_MODAL, overflow: 'hidden',
             }}>
                 <div style={{

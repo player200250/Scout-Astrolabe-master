@@ -5,6 +5,7 @@ import { CalendarContent } from './CalendarView'
 import { JournalDayContent } from './JournalDayView'
 import { WeeklyReviewContent } from './WeeklyReview'
 import { T } from './theme/tokens'
+import { FullscreenPanel } from './components/ui/FullscreenPanel'
 
 type ReviewTab = 'calendar' | 'journal' | 'weekly'
 
@@ -37,63 +38,36 @@ export function ReviewCenter({ boards, onClose, onJumpToBoard, onSaveJournal, on
         setTab('journal')
     }
 
-    const outerBg   = T.bgOverlay
-    const headerBg  = T.bgOverlay
-    const borderCol = T.borderLight
-    const titleColor = T.textPrimary
+    // 外框、標題列、關閉鈕由 FullscreenPanel 提供；這裡只剩分頁列與內容區的顏色
     const tabInactiveColor = T.textSecondary
     const tabHoverBg = T.bgApp
-    const btnBorder  = T.borderLight
     const bodyBg     = T.bgPanel
 
     return (
-        <div style={{
-            position: 'fixed', inset: 0, zIndex: 20000,
-            background: outerBg, backdropFilter: 'blur(12px)',
-            display: 'flex', flexDirection: 'column',
-        }}>
-            {/* Header */}
-            <div style={{
-                display: 'flex', alignItems: 'center',
-                padding: '0 20px', height: 52, flexShrink: 0,
-                borderBottom: `1px solid ${borderCol}`,
-                background: headerBg,
-            }}>
-                <span style={{ fontSize: 15, fontWeight: 600, color: titleColor, minWidth: 110 }}>📔 復盤中心</span>
-
-                <div style={{ flex: 1, display: 'flex', justifyContent: 'center', gap: 3 }}>
-                    {TABS.map(t => (
-                        <button
-                            key={t.key}
-                            onClick={() => setTab(t.key)}
-                            style={{
-                                padding: '5px 18px', borderRadius: 8, border: 'none',
-                                background: tab === t.key ? (T.bgActive) : 'transparent',
-                                color: tab === t.key ? 'white' : tabInactiveColor,
-                                fontSize: 13, fontWeight: tab === t.key ? 600 : 400,
-                                cursor: 'pointer', transition: 'background 0.12s',
-                            }}
-                            onMouseEnter={e => { if (tab !== t.key) e.currentTarget.style.background = tabHoverBg }}
-                            onMouseLeave={e => { if (tab !== t.key) e.currentTarget.style.background = 'transparent' }}
-                        >{t.label}</button>
-                    ))}
-                </div>
-
-                <div style={{ minWidth: 110, display: 'flex', justifyContent: 'flex-end' }}>
-                    <button
-                        onClick={onClose}
-                        title="關閉 (Esc)"
-                        style={{
-                            width: 30, height: 30, borderRadius: 8, border: `1px solid ${btnBorder}`,
-                            background: 'transparent', cursor: 'pointer', fontSize: 14, color: '#888',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
-                        }}
-                        onMouseEnter={e => (e.currentTarget.style.background = tabHoverBg)}
-                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                    >✕</button>
-                </div>
-            </div>
-
+        <FullscreenPanel
+            title="📔 復盤中心"
+            onClose={onClose}
+            padded={false}
+            headerContent={(
+                    <div style={{ flex: 1, display: 'flex', justifyContent: 'center', gap: 3 }}>
+                        {TABS.map(t => (
+                            <button
+                                key={t.key}
+                                onClick={() => setTab(t.key)}
+                                style={{
+                                    padding: '5px 18px', borderRadius: 8, border: 'none',
+                                    background: tab === t.key ? (T.bgActive) : 'transparent',
+                                    color: tab === t.key ? 'white' : tabInactiveColor,
+                                    fontSize: 13, fontWeight: tab === t.key ? 600 : 400,
+                                    cursor: 'pointer', transition: 'background 0.12s',
+                                }}
+                                onMouseEnter={e => { if (tab !== t.key) e.currentTarget.style.background = tabHoverBg }}
+                                onMouseLeave={e => { if (tab !== t.key) e.currentTarget.style.background = 'transparent' }}
+                            >{t.label}</button>
+                        ))}
+                    </div>
+            )}
+        >
             {/* Body */}
             <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', background: bodyBg }}>
                 {tab === 'calendar' && (
@@ -122,6 +96,6 @@ export function ReviewCenter({ boards, onClose, onJumpToBoard, onSaveJournal, on
                     </div>
                 )}
             </div>
-        </div>
+        </FullscreenPanel>
     )
 }

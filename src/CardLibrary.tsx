@@ -8,6 +8,7 @@ import { TYPE_ICON, TYPE_LABEL, TYPE_COLOR, hexToRgba } from './utils/cardMeta'
 import { loadTagColors, getTagColor, type TagColorMap } from './utils/tagColors'
 import { EmptyState } from './components/ui/EmptyState'
 import { T } from './theme/tokens'
+import { FullscreenPanel } from './components/ui/FullscreenPanel'
 import { useIsDark } from './theme/ThemeContext'
 
 /* ─── Types ─── */
@@ -249,7 +250,7 @@ export function CardLibrary({ boards, onJump, onClose }: CardLibraryProps) {
     })
 
     /* ── Theme tokens ── */
-    const bg         = T.bgApp
+    // 外框與標題列由 FullscreenPanel 提供
     const sidebarBg  = T.bgPanel
     const mainBg     = T.bgApp
     const border     = T.borderLight
@@ -483,123 +484,97 @@ export function CardLibrary({ boards, onJump, onClose }: CardLibraryProps) {
 
     /* ─── Render ─── */
     return (
-        <div style={{
-            position: 'fixed', inset: 0, zIndex: 20000,
-            background: bg, display: 'flex', flexDirection: 'column',
-            fontFamily: 'system-ui, -apple-system, sans-serif',
-        }}>
-            {/* ── Header ── */}
-            <div style={{
-                height: 54, flexShrink: 0,
-                display: 'flex', alignItems: 'center', gap: 12,
-                padding: '0 20px',
-                background: sidebarBg,
-                borderBottom: `1px solid ${border}`,
-                boxShadow: T.shadowHairline,
-            }}>
-                {/* Title */}
-                <span style={{ fontSize: 16, fontWeight: 700, color: textPrim, flexShrink: 0, userSelect: 'none' }}>
-                    🗂️ 卡片庫
-                </span>
-                <span style={{ fontSize: 12, color: textMuted, flexShrink: 0 }}>
-                    {filteredCards.length} / {allCards.length}
-                </span>
-
-                {/* P4 — 搜尋框 + 清除鈕 */}
-                <div style={{ flex: 1, position: 'relative', minWidth: 0 }}>
-                    <input
-                        type="text"
-                        value={search}
-                        onChange={e => setSearch(e.target.value)}
-                        placeholder="搜尋卡片內容、白板、標籤…"
-                        autoFocus
-                        style={{
-                            width: '100%', height: 34, borderRadius: 8,
-                            border: `1px solid ${border}`,
-                            background: inputBg, color: textPrim,
-                            padding: search ? '0 32px 0 12px' : '0 12px',
-                            fontSize: 13, outline: 'none',
-                            boxSizing: 'border-box',
-                        }}
-                    />
-                    {search && (
-                        <button
-                            onClick={() => setSearch('')}
+        <FullscreenPanel
+            title="🗂️ 卡片庫"
+            badge={`${filteredCards.length} / ${allCards.length}`}
+            onClose={onClose}
+            padded={false}
+            headerContent={(
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+    
+                    {/* P4 — 搜尋框 + 清除鈕 */}
+                    <div style={{ flex: 1, position: 'relative', minWidth: 0 }}>
+                        <input
+                            type="text"
+                            value={search}
+                            onChange={e => setSearch(e.target.value)}
+                            placeholder="搜尋卡片內容、白板、標籤…"
+                            autoFocus
                             style={{
-                                position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
-                                background: 'transparent', border: 'none', cursor: 'pointer',
-                                color: textMuted, fontSize: 13, lineHeight: 1,
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                padding: 2,
+                                width: '100%', height: 34, borderRadius: 8,
+                                border: `1px solid ${border}`,
+                                background: inputBg, color: textPrim,
+                                padding: search ? '0 32px 0 12px' : '0 12px',
+                                fontSize: 13, outline: 'none',
+                                boxSizing: 'border-box',
                             }}
-                            title="清除搜尋"
-                        >✕</button>
+                        />
+                        {search && (
+                            <button
+                                onClick={() => setSearch('')}
+                                style={{
+                                    position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
+                                    background: 'transparent', border: 'none', cursor: 'pointer',
+                                    color: textMuted, fontSize: 13, lineHeight: 1,
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    padding: 2,
+                                }}
+                                title="清除搜尋"
+                            >✕</button>
+                        )}
+                    </div>
+    
+                    {/* P1 — 清除篩選按鈕，有非預設篩選時才顯示 */}
+                    {hasActiveFilters && (
+                        <button
+                            onClick={clearAllFilters}
+                            style={{
+                                height: 34, padding: '0 12px', borderRadius: 8,
+                                border: `1px solid ${pillActColor}`,
+                                background: 'transparent', color: pillActColor,
+                                fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                                flexShrink: 0, whiteSpace: 'nowrap',
+                            }}
+                            onMouseEnter={e => (e.currentTarget.style.background = T.accentBg)}
+                            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                        >
+                            清除篩選
+                        </button>
                     )}
-                </div>
-
-                {/* P1 — 清除篩選按鈕，有非預設篩選時才顯示 */}
-                {hasActiveFilters && (
-                    <button
-                        onClick={clearAllFilters}
+    
+                    {/* Sort */}
+                    <select
+                        value={sortKey}
+                        onChange={e => setSortKey(e.target.value as SortKey)}
                         style={{
-                            height: 34, padding: '0 12px', borderRadius: 8,
-                            border: `1px solid ${pillActColor}`,
-                            background: 'transparent', color: pillActColor,
-                            fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                            flexShrink: 0, whiteSpace: 'nowrap',
+                            height: 34, borderRadius: 8, border: `1px solid ${border}`,
+                            background: inputBg, color: textPrim,
+                            padding: '0 8px', fontSize: 12, cursor: 'pointer', flexShrink: 0,
                         }}
-                        onMouseEnter={e => (e.currentTarget.style.background = T.accentBg)}
-                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                     >
-                        清除篩選
-                    </button>
-                )}
-
-                {/* Sort */}
-                <select
-                    value={sortKey}
-                    onChange={e => setSortKey(e.target.value as SortKey)}
-                    style={{
-                        height: 34, borderRadius: 8, border: `1px solid ${border}`,
-                        background: inputBg, color: textPrim,
-                        padding: '0 8px', fontSize: 12, cursor: 'pointer', flexShrink: 0,
-                    }}
-                >
-                    {SORT_OPTIONS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
-                </select>
-
-                {/* View toggle */}
-                <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
-                    {(['list', 'grid'] as ViewMode[]).map(mode => (
-                        <button
-                            key={mode}
-                            onClick={() => setViewMode(mode)}
-                            title={mode === 'list' ? '列表視圖' : '格狀視圖'}
-                            style={{
-                                width: 32, height: 32, borderRadius: 7, border: 'none',
-                                background: viewMode === mode ? pillActive : 'transparent',
-                                color: viewMode === mode ? pillActColor : textMuted,
-                                cursor: 'pointer', fontSize: 15,
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            }}
-                        >{mode === 'list' ? '☰' : '⊞'}</button>
-                    ))}
+                        {SORT_OPTIONS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
+                    </select>
+    
+                    {/* View toggle */}
+                    <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
+                        {(['list', 'grid'] as ViewMode[]).map(mode => (
+                            <button
+                                key={mode}
+                                onClick={() => setViewMode(mode)}
+                                title={mode === 'list' ? '列表視圖' : '格狀視圖'}
+                                style={{
+                                    width: 32, height: 32, borderRadius: 7, border: 'none',
+                                    background: viewMode === mode ? pillActive : 'transparent',
+                                    color: viewMode === mode ? pillActColor : textMuted,
+                                    cursor: 'pointer', fontSize: 15,
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                }}
+                            >{mode === 'list' ? '☰' : '⊞'}</button>
+                        ))}
+                    </div>
                 </div>
-
-                {/* Close */}
-                <button
-                    onClick={onClose}
-                    style={{
-                        width: 32, height: 32, borderRadius: 8, border: 'none',
-                        background: 'transparent', cursor: 'pointer', fontSize: 18,
-                        color: textMuted, flexShrink: 0,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}
-                    onMouseEnter={e => (e.currentTarget.style.background = T.bgHoverSoft)}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                >✕</button>
-            </div>
-
+            )}
+        >
             {/* ── Body ── */}
             <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
 
@@ -804,6 +779,6 @@ export function CardLibrary({ boards, onJump, onClose }: CardLibraryProps) {
                     )}
                 </div>
             </div>
-        </div>
+        </FullscreenPanel>
     )
 }

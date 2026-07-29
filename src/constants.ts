@@ -33,6 +33,12 @@ export const Z_FULLSCREEN_PANEL       = 20000
 export const Z_FULLSCREEN_PANEL_ABOVE = 50000
 export const Z_BACKUP_PANEL   = 29999   // 備份 Panel
 export const Z_MODAL_BACKDROP = 99998   // Modal 半透明暗色遮罩
+// A2：置中 modal 的版位。原本搜尋 15%／命令面板 15%／快速切換 18%／快捷鍵 50%，
+// 寬度 520／520／480／560，遮罩 .25／.35／.35／.3——每開一個都落在不同位置。
+// 收成同一組值，新的 modal 直接套用即可。
+export const MODAL_TOP        = '15%'
+export const MODAL_WIDTH      = 520
+export const MODAL_BACKDROP   = 'rgba(0,0,0,0.35)'
 export const Z_CLICK_AWAY     = Z_MODAL_BACKDROP - 1  // 浮動選單的透明點擊遮罩
 export const Z_MODAL          = 99999   // Modal 本體
 // ContextMenu 的重命名 inline dialog，需疊在 context menu（99999）之上

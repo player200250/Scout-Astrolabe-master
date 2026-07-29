@@ -5,6 +5,7 @@ import { computeVaultStats, formatBytes } from '../utils/dataSafetyStats'
 import { BACKUP_LIMIT_OPTIONS, getBackupLimit, setBackupLimit } from '../utils/backupSettings'
 import { showToast } from '../utils/toast'
 import { T } from '../theme/tokens'
+import { FullscreenPanel } from './ui/FullscreenPanel'
 
 interface DataSafetyPanelProps {
     boards: BoardRecord[]
@@ -62,7 +63,7 @@ export function DataSafetyPanel({ boards, onClose, onOpenBackup }: DataSafetyPan
         }
     }
 
-    const overlayBg = T.bgOverlay
+    // 外框與標題列由 FullscreenPanel 提供
     const cardBg = T.bgPanel
     const border = T.borderLight
     const textPrimary = T.textPrimary
@@ -91,16 +92,13 @@ export function DataSafetyPanel({ boards, onClose, onOpenBackup }: DataSafetyPan
     const typeEntries = Object.entries(stats.cards.byType).sort((a, b) => b[1] - a[1])
 
     return (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 20000, background: overlayBg, backdropFilter: 'blur(12px)', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '16px 24px', borderBottom: `1px solid ${border}`, flexShrink: 0 }}>
-                <span style={{ fontSize: 18 }}>🛡️</span>
-                <span style={{ fontSize: 16, fontWeight: 600, color: textPrimary }}>資料安全中心</span>
-                <span style={{ fontSize: 12, color: textMuted, background: trackBg, borderRadius: 6, padding: '2px 8px' }}>統計與備份設定</span>
-                <div style={{ flex: 1 }} />
-                <button onClick={onClose} title="關閉 (Esc)" style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${border}`, background: 'transparent', cursor: 'pointer', fontSize: 15, color: textMuted }}>✕</button>
-            </div>
-
-            <div style={{ flex: 1, overflowY: 'auto', padding: '22px 24px', maxWidth: 780, width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
+        <FullscreenPanel
+            title="🛡️ 資料安全中心"
+            badge={<span style={{ background: trackBg, borderRadius: 6, padding: '2px 8px' }}>統計與備份設定</span>}
+            onClose={onClose}
+            padded={false}
+        >
+            <div style={{ padding: '22px 24px', maxWidth: 780, width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
                 {/* 儲存總覽 */}
                 <Section title="儲存用量（IndexedDB）">
                     {usagePct != null && estimate ? (
@@ -192,6 +190,6 @@ export function DataSafetyPanel({ boards, onClose, onOpenBackup }: DataSafetyPan
                     >前往自動備份 →</button>
                 </div>
             </div>
-        </div>
+        </FullscreenPanel>
     )
 }

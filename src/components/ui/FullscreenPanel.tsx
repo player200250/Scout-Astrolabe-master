@@ -24,6 +24,8 @@ export interface FullscreenPanelProps {
      * 統一時刻意保留這個層級差，避免默默改變既有的疊放行為。
      */
     elevated?: boolean
+    /** 標題列下方的固定區塊（分頁列等），不隨內容捲動 */
+    subHeader?: ReactNode
     /** 內容區是否要留白邊，預設 true；圖譜這類要滿版畫布的傳 false */
     padded?: boolean
     children: ReactNode
@@ -31,7 +33,7 @@ export interface FullscreenPanelProps {
 
 export function FullscreenPanel({
     title, badge, headerContent, headerActions, onClose,
-    elevated = false, padded = true, children,
+    subHeader, elevated = false, padded = true, children,
 }: FullscreenPanelProps) {
     return (
         <div style={{
@@ -60,6 +62,8 @@ export function FullscreenPanel({
                 {headerActions}
                 <PanelCloseButton onClose={onClose} />
             </div>
+
+            {subHeader && <div style={{ flexShrink: 0 }}>{subHeader}</div>}
 
             <div style={{ flex: 1, overflowY: 'auto', padding: padded ? 20 : 0 }}>{children}</div>
         </div>

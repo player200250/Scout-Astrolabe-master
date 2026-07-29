@@ -4,6 +4,7 @@ import type { BoardRecord, DeletedCardRecord } from './db'
 import { emitAppEvent, onAppEvent } from './utils/appEvents'
 import { deleteStoredFile } from './platform/fileStore'
 import { T } from './theme/tokens'
+import { FullscreenPanel } from './components/ui/FullscreenPanel'
 
 interface TrashPanelProps {
     onClose: () => void
@@ -40,7 +41,7 @@ export function TrashPanel({
     const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null)
     const confirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-    const bg      = T.bgApp
+    // 外框、標題列、關閉鈕由 FullscreenPanel 提供
     const panelBg = T.bgPanel
     const text    = T.textPrimary
     const muted   = T.textMuted
@@ -148,98 +149,85 @@ export function TrashPanel({
     }
 
     return (
-        <div style={{
-            position: 'fixed', inset: 0, zIndex: 50000,
-            background: bg,
-            display: 'flex', flexDirection: 'column',
-        }}>
-            <style>{`@keyframes trashConfirmIn { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: scale(1); } }`}</style>
-            {/* Header */}
-            <div style={{
-                display: 'flex', alignItems: 'center', gap: 12,
-                padding: '16px 24px', borderBottom: `1px solid ${border}`,
-                background: panelBg, flexShrink: 0,
-            }}>
-                <button
-                    onClick={onClose}
-                    style={{
-                        width: 32, height: 32, borderRadius: 8,
-                        border: `1px solid ${border}`,
-                        background: 'transparent', cursor: 'pointer',
-                        fontSize: 16, color: muted,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}
-                >×</button>
-                <span style={{ fontSize: 18, fontWeight: 700, color: text }}>🗑️ 垃圾桶</span>
-                <span style={{
-                    fontSize: 11, background: T.bgApp,
-                    color: muted, borderRadius: 99, padding: '2px 8px',
-                }}>
-                    {totalCount} 個項目
-                </span>
-                <div style={{ flex: 1 }} />
-                <span style={{ fontSize: 12, color: muted }}>項目在 14 天後自動永久刪除</span>
-                {totalCount > 0 && (
-                    confirmingDeleteId === '__empty__' ? (
-                        <div style={{ display: 'flex', gap: 6, animation: 'trashConfirmIn 0.15s ease' }}>
+        <FullscreenPanel
+            title="🗑️ 垃圾桶"
+            badge={`${totalCount} 個項目`}
+            onClose={onClose}
+            // 垃圾桶原本就寫死比其他全螢幕面板更高的 z-index，統一時保留這個層級
+            elevated
+            padded={false}
+            headerContent={(
+                <div style={{ display: 'flex', justifyContent: 'flex-end', fontSize: 12, color: muted }}>
+                    項目在 14 天後自動永久刪除
+                </div>
+            )}
+            headerActions={(
+                <>
+                    {totalCount > 0 && (
+                        confirmingDeleteId === '__empty__' ? (
+                            <div style={{ display: 'flex', gap: 6, animation: 'trashConfirmIn 0.15s ease' }}>
+                                <button
+                                    onClick={handleEmptyTrashLocal}
+                                    style={{
+                                        padding: '7px 14px', borderRadius: 8, border: 'none',
+                                        background: '#dc2626', color: 'white',
+                                        cursor: 'pointer', fontSize: 13, fontWeight: 600,
+                                    }}
+                                >確認清空</button>
+                                <button
+                                    onClick={cancelConfirm}
+                                    style={{
+                                        padding: '7px 12px', borderRadius: 8,
+                                        border: `1px solid ${border}`,
+                                        background: 'transparent', cursor: 'pointer',
+                                        fontSize: 13, color: muted,
+                                    }}
+                                >取消</button>
+                            </div>
+                        ) : (
                             <button
-                                onClick={handleEmptyTrashLocal}
+                                onClick={() => requestConfirm('__empty__')}
                                 style={{
                                     padding: '7px 14px', borderRadius: 8, border: 'none',
-                                    background: '#dc2626', color: 'white',
-                                    cursor: 'pointer', fontSize: 13, fontWeight: 600,
+                                    background: T.dangerBg,
+                                    color: '#dc2626', cursor: 'pointer', fontSize: 13, fontWeight: 600,
                                 }}
-                            >確認清空</button>
-                            <button
-                                onClick={cancelConfirm}
-                                style={{
-                                    padding: '7px 12px', borderRadius: 8,
-                                    border: `1px solid ${border}`,
-                                    background: 'transparent', cursor: 'pointer',
-                                    fontSize: 13, color: muted,
-                                }}
-                            >取消</button>
-                        </div>
-                    ) : (
+                            >
+                                清空垃圾桶
+                            </button>
+                        )
+                    )}
+                </>
+            )}
+            subHeader={(
+                <>
+                    <style>{`@keyframes trashConfirmIn { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: scale(1); } }`}</style>
+                {/* Tabs */}
+                <div style={{
+                    display: 'flex', borderBottom: `1px solid ${border}`,
+                    padding: '0 24px', background: panelBg, flexShrink: 0,
+                }}>
+                    {(['cards', 'boards'] as Tab[]).map(t => (
                         <button
-                            onClick={() => requestConfirm('__empty__')}
+                            key={t}
+                            onClick={() => setTab(t)}
                             style={{
-                                padding: '7px 14px', borderRadius: 8, border: 'none',
-                                background: T.dangerBg,
-                                color: '#dc2626', cursor: 'pointer', fontSize: 13, fontWeight: 600,
+                                padding: '10px 16px', border: 'none', background: 'transparent',
+                                cursor: 'pointer', fontSize: 14,
+                                color: tab === t ? tabActive : tabInactive,
+                                fontWeight: tab === t ? 600 : 400,
+                                borderBottom: tab === t ? `2px solid #3b82f6` : '2px solid transparent',
+                                marginBottom: -1,
                             }}
                         >
-                            清空垃圾桶
+                            {t === 'cards' ? `卡片 (${deletedCards.length})` : `白板 (${deletedBoards.length})`}
                         </button>
-                    )
-                )}
-            </div>
-
-            {/* Tabs */}
-            <div style={{
-                display: 'flex', borderBottom: `1px solid ${border}`,
-                padding: '0 24px', background: panelBg, flexShrink: 0,
-            }}>
-                {(['cards', 'boards'] as Tab[]).map(t => (
-                    <button
-                        key={t}
-                        onClick={() => setTab(t)}
-                        style={{
-                            padding: '10px 16px', border: 'none', background: 'transparent',
-                            cursor: 'pointer', fontSize: 14,
-                            color: tab === t ? tabActive : tabInactive,
-                            fontWeight: tab === t ? 600 : 400,
-                            borderBottom: tab === t ? `2px solid #3b82f6` : '2px solid transparent',
-                            marginBottom: -1,
-                        }}
-                    >
-                        {t === 'cards' ? `卡片 (${deletedCards.length})` : `白板 (${deletedBoards.length})`}
-                    </button>
-                ))}
-            </div>
-
-            {/* Content */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: '16px 24px' }}>
+                    ))}
+                </div>
+                </>
+            )}
+        >
+            <div style={{ padding: '16px 24px' }}>
                 {tab === 'cards' && (
                     deletedCards.length === 0
                         ? <Empty label="沒有已刪除的卡片" />
@@ -411,8 +399,7 @@ export function TrashPanel({
                         )
                 )}
             </div>
-
-        </div>
+        </FullscreenPanel>
     )
 }
 
@@ -427,4 +414,3 @@ function Empty({ label }: { label: string }) {
         </div>
     )
 }
-

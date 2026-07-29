@@ -4,6 +4,7 @@ import { saveBoardAsTemplate, loadBoardTemplates, deleteBoardTemplate, renameBoa
 import { isRasterThumbnail } from '../utils/boardDb'
 import { formatRelativeDate } from '../utils/date'
 import { T } from '../theme/tokens'
+import { FullscreenPanel } from './ui/FullscreenPanel'
 import { showToast } from '../utils/toast'
 import { promptName } from '../utils/promptName'
 import { InlineEdit } from './ui/InlineEdit'
@@ -133,8 +134,7 @@ export function BoardOverview({ boards, activeBoardId, onSelect, onNew, onCreate
         return () => window.removeEventListener('keydown', handler)
     }, [onClose, selectionMode, pickerOpen])
 
-    const overlayBg = T.bgOverlay
-    const headerBg = T.bgOverlay
+    // 外框與標題列由 FullscreenPanel 提供
     const headerBorder = T.borderLight
     const cardBg = T.bgPanel
     const cardBorderActive = T.textPrimary
@@ -152,123 +152,103 @@ export function BoardOverview({ boards, activeBoardId, onSelect, onNew, onCreate
     const countColor = T.textMuted
 
     return (
-        <div style={{
-            position: 'fixed', inset: 0, zIndex: 20000,
-            background: overlayBg,
-            backdropFilter: 'blur(12px)',
-            display: 'flex', flexDirection: 'column',
-        }}>
-            <div style={{
-                display: 'flex', alignItems: 'center', gap: 12,
-                padding: '14px 24px', borderBottom: `1px solid ${headerBorder}`,
-                background: headerBg, flexShrink: 0,
-            }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{ fontSize: 16, fontWeight: 600, color: textPrimary, letterSpacing: '-0.3px' }}>
-                        所有白板
-                    </span>
-                    <span style={{ fontSize: 11, color: countColor, background: countBg, borderRadius: 6, padding: '2px 8px' }}>
-                        {filtered.length}
-                    </span>
-                </div>
-                <div style={{ display: 'flex', gap: 2, background: filterBg, borderRadius: 8, padding: 3 }}>
-                    {(['all', 'archived'] as const).map(v => (
-                        <button key={v} onClick={() => setArchiveFilter(v)} style={{
-                            padding: '3px 10px', borderRadius: 6, border: 'none',
-                            background: archiveFilter === v ? filterBtnActive : 'transparent',
-                            color: archiveFilter === v ? textPrimary : countColor,
-                            fontSize: 12, fontWeight: archiveFilter === v ? 600 : 400,
-                            cursor: 'pointer',
-                            boxShadow: archiveFilter === v ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                        }}>
-                            {v === 'all' ? '一般' : '🗄️ 封存'}
-                        </button>
-                    ))}
-                </div>
-                <div style={{ flex: 1, maxWidth: 300, marginLeft: 4, position: 'relative' }}>
-                    <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: countColor, fontSize: 13, pointerEvents: 'none' }}>🔍</span>
-                    <input
-                        autoFocus={!selectionMode}
-                        value={searchQuery}
-                        onChange={e => setSearchQuery(e.target.value)}
-                        placeholder="搜尋白板名稱..."
+        <FullscreenPanel
+            title="所有白板"
+            badge={filtered.length}
+            onClose={onClose}
+            padded={false}
+            headerContent={(
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{ display: 'flex', gap: 2, background: filterBg, borderRadius: 8, padding: 3 }}>
+                        {(['all', 'archived'] as const).map(v => (
+                            <button key={v} onClick={() => setArchiveFilter(v)} style={{
+                                padding: '3px 10px', borderRadius: 6, border: 'none',
+                                background: archiveFilter === v ? filterBtnActive : 'transparent',
+                                color: archiveFilter === v ? textPrimary : countColor,
+                                fontSize: 12, fontWeight: archiveFilter === v ? 600 : 400,
+                                cursor: 'pointer',
+                                boxShadow: archiveFilter === v ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                            }}>
+                                {v === 'all' ? '一般' : '🗄️ 封存'}
+                            </button>
+                        ))}
+                    </div>
+                    <div style={{ flex: 1, maxWidth: 300, marginLeft: 4, position: 'relative' }}>
+                        <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: countColor, fontSize: 13, pointerEvents: 'none' }}>🔍</span>
+                        <input
+                            autoFocus={!selectionMode}
+                            value={searchQuery}
+                            onChange={e => setSearchQuery(e.target.value)}
+                            placeholder="搜尋白板名稱..."
+                            style={{
+                                width: '100%', paddingLeft: 30, paddingRight: 12, paddingTop: 6, paddingBottom: 6,
+                                borderRadius: 8, border: `1px solid ${inputBorder}`, background: inputBg,
+                                fontSize: 13, color: textPrimary, outline: 'none', boxSizing: 'border-box',
+                            }}
+                        />
+                    </div>
+                    <div style={{ flex: 1 }} />
+                    {/* 多選模式切換 */}
+                    <button
+                        onClick={() => { setSelectionMode(v => !v); setSelectedIds(new Set()) }}
                         style={{
-                            width: '100%', paddingLeft: 30, paddingRight: 12, paddingTop: 6, paddingBottom: 6,
-                            borderRadius: 8, border: `1px solid ${inputBorder}`, background: inputBg,
-                            fontSize: 13, color: textPrimary, outline: 'none', boxSizing: 'border-box',
+                            display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px',
+                            borderRadius: 8, border: `1px solid ${selectionMode ? '#2563eb' : inputBorder}`,
+                            background: selectionMode ? (T.accentBg) : 'transparent',
+                            color: selectionMode ? '#2563eb' : countColor,
+                            fontSize: 13, cursor: 'pointer', flexShrink: 0,
                         }}
-                    />
-                </div>
-                <div style={{ flex: 1 }} />
-                {/* 多選模式切換 */}
-                <button
-                    onClick={() => { setSelectionMode(v => !v); setSelectedIds(new Set()) }}
-                    style={{
-                        display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px',
-                        borderRadius: 8, border: `1px solid ${selectionMode ? '#2563eb' : inputBorder}`,
-                        background: selectionMode ? (T.accentBg) : 'transparent',
-                        color: selectionMode ? '#2563eb' : countColor,
-                        fontSize: 13, cursor: 'pointer', flexShrink: 0,
-                    }}
-                >☑ 選取</button>
-                <button
-                    onClick={() => {
-                        const nameCounts: Record<string, BoardRecord[]> = {}
-                        boards.filter(b => !b.isHome).forEach(b => {
-                            if (!nameCounts[b.name]) nameCounts[b.name] = []
-                            nameCounts[b.name].push(b)
-                        })
-                        const toDelete = Object.values(nameCounts)
-                            .flatMap(group => {
-                                if (group.length <= 1) return []
-                                const empties = group.filter(b => !b.snapshot)
-                                return empties.length > 0 ? empties : []
+                    >☑ 選取</button>
+                    <button
+                        onClick={() => {
+                            const nameCounts: Record<string, BoardRecord[]> = {}
+                            boards.filter(b => !b.isHome).forEach(b => {
+                                if (!nameCounts[b.name]) nameCounts[b.name] = []
+                                nameCounts[b.name].push(b)
                             })
-                        if (toDelete.length === 0) {
-                            showToast('沒有發現重複的空白板。')
-                            return
-                        }
-                        toDelete.forEach(b => onDelete(b.id))
-                    }}
-                    title="清理同名且空的重複白板"
-                    style={{
-                        display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px',
-                        borderRadius: 8, border: `1px solid ${inputBorder}`, background: 'transparent', color: countColor,
-                        fontSize: 13, cursor: 'pointer', flexShrink: 0,
-                    }}
-                    onMouseEnter={e => { e.currentTarget.style.background = T.dangerBgSoft; e.currentTarget.style.color = '#e03131'; e.currentTarget.style.borderColor = T.dangerBorder }}
-                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = countColor; e.currentTarget.style.borderColor = inputBorder }}
-                >🧹 清理重複</button>
-                <button
-                    onClick={openPicker}
-                    title="從白板模板一鍵新建"
-                    style={{
-                        display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px',
-                        borderRadius: 8, border: `1px solid ${inputBorder}`, background: 'transparent', color: countColor,
-                        fontSize: 13, cursor: 'pointer', flexShrink: 0,
-                    }}
-                    onMouseEnter={e => { e.currentTarget.style.background = T.accentBg; e.currentTarget.style.color = '#2563eb'; e.currentTarget.style.borderColor = '#2563eb' }}
-                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = countColor; e.currentTarget.style.borderColor = inputBorder }}
-                >⧉ 從模板</button>
-                <button
-                    onClick={() => { onNew(); onClose() }}
-                    style={{
-                        display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px',
-                        borderRadius: 8, border: 'none', background: T.bgActive, color: T.textOnActive,
-                        fontSize: 13, fontWeight: 500, cursor: 'pointer', flexShrink: 0,
-                    }}
-                >+ 新增白板</button>
-                <button
-                    onClick={onClose}
-                    title="關閉 (Esc)"
-                    style={{
-                        width: 30, height: 30, borderRadius: 8, border: `1px solid ${inputBorder}`,
-                        background: 'transparent', cursor: 'pointer', fontSize: 15, color: countColor,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, flexShrink: 0,
-                    }}
-                >✕</button>
-            </div>
-
+                            const toDelete = Object.values(nameCounts)
+                                .flatMap(group => {
+                                    if (group.length <= 1) return []
+                                    const empties = group.filter(b => !b.snapshot)
+                                    return empties.length > 0 ? empties : []
+                                })
+                            if (toDelete.length === 0) {
+                                showToast('沒有發現重複的空白板。')
+                                return
+                            }
+                            toDelete.forEach(b => onDelete(b.id))
+                        }}
+                        title="清理同名且空的重複白板"
+                        style={{
+                            display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px',
+                            borderRadius: 8, border: `1px solid ${inputBorder}`, background: 'transparent', color: countColor,
+                            fontSize: 13, cursor: 'pointer', flexShrink: 0,
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.background = T.dangerBgSoft; e.currentTarget.style.color = '#e03131'; e.currentTarget.style.borderColor = T.dangerBorder }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = countColor; e.currentTarget.style.borderColor = inputBorder }}
+                    >🧹 清理重複</button>
+                    <button
+                        onClick={openPicker}
+                        title="從白板模板一鍵新建"
+                        style={{
+                            display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px',
+                            borderRadius: 8, border: `1px solid ${inputBorder}`, background: 'transparent', color: countColor,
+                            fontSize: 13, cursor: 'pointer', flexShrink: 0,
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.background = T.accentBg; e.currentTarget.style.color = '#2563eb'; e.currentTarget.style.borderColor = '#2563eb' }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = countColor; e.currentTarget.style.borderColor = inputBorder }}
+                    >⧉ 從模板</button>
+                    <button
+                        onClick={() => { onNew(); onClose() }}
+                        style={{
+                            display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px',
+                            borderRadius: 8, border: 'none', background: T.bgActive, color: T.textOnActive,
+                            fontSize: 13, fontWeight: 500, cursor: 'pointer', flexShrink: 0,
+                        }}
+                    >+ 新增白板</button>
+                </div>
+            )}
+        >
             <div style={{
                 flex: 1, overflowY: 'auto', padding: '20px 24px',
                 display: 'grid',
@@ -536,6 +516,6 @@ export function BoardOverview({ boards, activeBoardId, onSelect, onNew, onCreate
                     </div>
                 </div>
             )}
-        </div>
+        </FullscreenPanel>
     )
 }
