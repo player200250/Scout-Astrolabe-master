@@ -27,6 +27,10 @@ export const THUMBNAIL_MIN_INTERVAL_MS = 15000
 // Z_TOAST          : 最高層通知（TD9 起由 ToastHost 使用，永遠疊在所有 modal 之上）
 export const Z_TOOL_SUBMENU   = 9999    // 白板工具列的子選單
 export const Z_PANEL          = 19999   // 側邊 Panel（TaskCenter / FilterPanel / WeeklyReview）
+// A2：全螢幕內容面板原本在各元件裡硬編碼 20000（垃圾桶是 50000），收成兩個常數。
+// 兩層之差刻意保留——垃圾桶原本就疊得比其他全螢幕面板高，統一時不默默改變疊放行為。
+export const Z_FULLSCREEN_PANEL       = 20000
+export const Z_FULLSCREEN_PANEL_ABOVE = 50000
 export const Z_BACKUP_PANEL   = 29999   // 備份 Panel
 export const Z_MODAL_BACKDROP = 99998   // Modal 半透明暗色遮罩
 export const Z_CLICK_AWAY     = Z_MODAL_BACKDROP - 1  // 浮動選單的透明點擊遮罩

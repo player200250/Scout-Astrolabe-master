@@ -19,7 +19,7 @@ import { onAppEvent } from '../utils/appEvents'
 import { getCardShapes } from '../utils/snapshot'
 import { showToast } from '../utils/toast'
 import { T } from '../theme/tokens'
-import { Z_PANEL } from '../constants'
+import { SideDrawer } from './ui/SideDrawer'
 
 interface CloudSyncPanelProps {
     boards: BoardRecord[]
@@ -200,24 +200,21 @@ export function CloudSyncPanel({ boards, activeBoardId, onClose }: CloudSyncPane
     const cardCount = (b: BoardRecord | null) => (b?.snapshot ? getCardShapes(b.snapshot).length : 0)
 
     return (
-        <div style={{
-            position: 'fixed', top: 0, right: 0, bottom: 0, width: 420, maxWidth: '92vw',
-            background: T.bgPanel, borderLeft: `1px solid ${T.borderLight}`,
-            boxShadow: T.shadowPanel, zIndex: Z_PANEL,
-            display: 'flex', flexDirection: 'column', overflow: 'hidden',
-        }}>
-            {/* 標題列 */}
-            <div style={{ ...section, display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                <span style={{ fontSize: 14, fontWeight: 600, color: T.textPrimary, flex: 1 }}>☁️ 雲端同步</span>
+        <SideDrawer
+            title="☁️ 雲端同步"
+            // 表單級寬度：這裡有 Project URL 與 anon key 兩個長輸入框，清單級的 360 會擠
+            width="form"
+            badge={(
                 <span style={{
                     fontSize: 10, padding: '2px 7px', borderRadius: 5,
                     background: userEmail ? T.accentBg : T.bgMuted,
                     color: userEmail ? T.accent : T.textMuted,
                 }}>{userEmail ? '已連線' : configured ? '未登入' : '未設定'}</span>
-                <button onClick={onClose} style={{ ...btnGhost, padding: '3px 9px' }}>✕</button>
-            </div>
-
-            <div style={{ flex: 1, overflowY: 'auto' }}>
+            )}
+            onClose={onClose}
+            bodyPadding={0}
+        >
+            <div>
                 {/* 1. 連線設定 */}
                 <div style={section}>
                     <div style={{ fontSize: 12, fontWeight: 600, color: T.textPrimary, marginBottom: 10 }}>1. 連線設定</div>
@@ -410,6 +407,6 @@ export function CloudSyncPanel({ boards, activeBoardId, onClose }: CloudSyncPane
                     手機端請用同一組設定登入 PWA（<code>docs/mobile-pwa.md</code>）。
                 </div>
             </div>
-        </div>
+        </SideDrawer>
     )
 }

@@ -3,8 +3,9 @@ import { useState, useEffect, useMemo } from 'react'
 import type { BoardRecord } from './db'
 import { getTodayStr, getWeekLaterStr, formatDueDate } from './utils/date'
 import { getCardShapes } from './utils/snapshot'
-import { Z_PANEL } from './constants'
+
 import { EmptyState } from './components/ui/EmptyState'
+import { SideDrawer } from './components/ui/SideDrawer'
 import { T } from './theme/tokens'
 
 interface TaskItem {
@@ -200,15 +201,10 @@ export function TaskCenter({ boards, onJump, onClose }: TaskCenterProps) {
     const totalActive   = allItems.filter(t => !t.checked).length
     const totalComplete = allItems.filter(t => t.checked).length
 
-    const panelBg    = T.bgPanel
-    const borderCol  = T.borderLight
-    const headerBorder = T.borderLight
-    const titleColor = T.textPrimary
+    // 外框、標題列、關閉鈕、底部分隔線都由 SideDrawer 負責；這裡只剩分頁列自己的顏色
     const tabActiveBg = T.bgActive
     const tabInactiveColor = T.textSecondary
     const tabHoverBg = T.bgHover
-    const btnBorder  = T.borderLight
-    const footerBorder = T.borderLight
 
     const tabs: { key: FilterTab; label: string; count?: number }[] = [
         { key: 'active',  label: '待辦',  count: activeCount },
@@ -219,135 +215,118 @@ export function TaskCenter({ boards, onJump, onClose }: TaskCenterProps) {
     ]
 
     return (
-        <div style={{
-            position: 'fixed', top: 0, right: 0, width: 340, height: '100vh',
-            background: panelBg, backdropFilter: 'blur(12px)',
-            boxShadow: '-4px 0 24px rgba(0,0,0,0.12)', zIndex: Z_PANEL,
-            display: 'flex', flexDirection: 'column', borderLeft: `1px solid ${borderCol}`,
-        }}>
-            <div style={{ padding: '14px 16px 10px', borderBottom: `1px solid ${headerBorder}`, flexShrink: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                    <span style={{ fontSize: 16, fontWeight: 600, color: titleColor }}>任務中心</span>
-                    {overdueCount > 0 && (
-                        <span style={{ fontSize: 11, fontWeight: 600, color: '#ff4d4f', background: '#fff5f5', borderRadius: 10, padding: '1px 7px', border: '1px solid #ffccc7' }}>
-                            {overdueCount} 逾期
-                        </span>
-                    )}
-                    <div style={{ flex: 1 }} />
-                    <button
-                        onClick={onClose}
-                        style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${btnBorder}`, background: 'transparent', cursor: 'pointer', fontSize: 14, color: '#888', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
-                        onMouseEnter={e => (e.currentTarget.style.background = tabHoverBg)}
-                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                    >✕</button>
-                </div>
-
-                <div style={{ display: 'flex', gap: 3 }}>
-                    {tabs.map(t => (
-                        <button
-                            key={t.key}
-                            onClick={() => setTab(t.key)}
-                            style={{
-                                padding: '4px 9px', borderRadius: 8, border: 'none',
-                                background: tab === t.key ? tabActiveBg : 'transparent',
-                                color: tab === t.key ? 'white' : tabInactiveColor,
-                                fontSize: 12, fontWeight: tab === t.key ? 600 : 400,
-                                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
-                                transition: 'background 0.1s',
-                            }}
-                            onMouseEnter={e => { if (tab !== t.key) e.currentTarget.style.background = tabHoverBg }}
-                            onMouseLeave={e => { if (tab !== t.key) e.currentTarget.style.background = 'transparent' }}
-                        >
-                            {t.label}
-                            {t.count !== undefined && t.count > 0 && (
-                                <span style={{
-                                    fontSize: 10,
-                                    background: tab === t.key ? 'rgba(255,255,255,0.25)' : (T.bgMuted),
-                                    borderRadius: 8, padding: '0 5px', lineHeight: '16px',
-                                    color: tab === t.key ? 'white' : (t.key === 'overdue' ? '#ff4d4f' : tabInactiveColor),
-                                }}>
-                                    {t.count}
-                                </span>
-                            )}
-                        </button>
-                    ))}
-                </div>
-            </div>
-
-            <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
-                {visibleGroups.map(groupKey => {
-                    const config = GROUP_CONFIG[groupKey]
-                    const items = visibleItemsByGroup[groupKey]
-                    if (items.length === 0) return null
-                    return (
-                        <div key={groupKey} style={{ marginBottom: 4 }}>
-                            <div style={{
-                                padding: '5px 16px 4px', fontSize: 11, fontWeight: 600,
-                                color: config.color, background: config.bg,
-                                display: 'flex', alignItems: 'center', gap: 6,
-                                position: 'sticky', top: 0, zIndex: 1,
-                            }}>
-                                {config.label}
-                                <span style={{ fontSize: 10, fontWeight: 400, color: '#aaa' }}>{items.length} 項</span>
-                            </div>
-                            {items.map(item => (
-                                <TaskItemRow
-                                    key={`${item.boardId}_${item.shapeId}_${item.todoId}`}
-                                    item={item} todayStr={todayStr} weekStr={weekStr}
-                                    onJump={onJump}
-                                />
-                            ))}
-                        </div>
-                    )
-                })}
-
-                {visibleGroups.every(k => visibleItemsByGroup[k].length === 0) && (
-                    hiddenNoDueDateCount > 0 ? (
-                        /* 「待辦」與「全部」分頁不含 noduedate 組（要展開才看得到）。
-                           所有待辦都沒設截止日時，這裡原本會說「這個分類沒有任務」，
-                           但底部狀態列同時寫著「待辦 N」——畫面自己打自己。
-                           所以空狀態要講出真相，並給展開的入口。 */
-                        <EmptyState
-                            icon="📭"
-                            title={`${hiddenNoDueDateCount} 筆待辦沒有設截止日`}
-                            hint="沒有截止日的任務不會排進逾期／今天／本週，所以上面是空的。"
-                            actionLabel="展開查看 →"
-                            onAction={() => setShowNoDueDate(true)}
-                        />
-                    ) : (
-                        <EmptyState
-                            icon="✅"
-                            title={tab === 'all' ? '所有白板都沒有待辦項目' : '這個分類沒有任務'}
-                            hint={tab === 'all'
-                                ? '在白板上建立待辦卡片（斜線選單的「待辦」），設好到期日就會集中到這裡。'
-                                : '換一個分類看看，或到白板上的待辦卡片設定到期日。'}
-                        />
-                    )
-                )}
-
-                {(tab === 'active' || tab === 'all') && grouped.noduedate.length > 0 && (
-                    <div style={{ padding: '8px 16px' }}>
-                        <button
-                            onClick={() => setShowNoDueDate(v => !v)}
-                            style={{ fontSize: 12, color: '#aaa', background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: 4 }}
-                        >
-                            <span style={{ fontSize: 10 }}>{showNoDueDate ? '▼' : '▶'}</span>
-                            無截止日任務 ({grouped.noduedate.filter(t => !t.checked).length})
-                        </button>
+        <SideDrawer
+            title="任務中心"
+            badge={overdueCount > 0 ? (
+                <span style={{ fontSize: 11, fontWeight: 600, color: '#ff4d4f', background: '#fff5f5', borderRadius: 10, padding: '1px 7px', border: '1px solid #ffccc7' }}>
+                    {overdueCount} 逾期
+                </span>
+            ) : undefined}
+            onClose={onClose}
+            bodyPadding="4px 0"
+            headerExtra={(
+                    <div style={{ display: 'flex', gap: 3 }}>
+                        {tabs.map(t => (
+                            <button
+                                key={t.key}
+                                onClick={() => setTab(t.key)}
+                                style={{
+                                    padding: '4px 9px', borderRadius: 8, border: 'none',
+                                    background: tab === t.key ? tabActiveBg : 'transparent',
+                                    color: tab === t.key ? 'white' : tabInactiveColor,
+                                    fontSize: 12, fontWeight: tab === t.key ? 600 : 400,
+                                    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
+                                    transition: 'background 0.1s',
+                                }}
+                                onMouseEnter={e => { if (tab !== t.key) e.currentTarget.style.background = tabHoverBg }}
+                                onMouseLeave={e => { if (tab !== t.key) e.currentTarget.style.background = 'transparent' }}
+                            >
+                                {t.label}
+                                {t.count !== undefined && t.count > 0 && (
+                                    <span style={{
+                                        fontSize: 10,
+                                        background: tab === t.key ? 'rgba(255,255,255,0.25)' : (T.bgMuted),
+                                        borderRadius: 8, padding: '0 5px', lineHeight: '16px',
+                                        color: tab === t.key ? 'white' : (t.key === 'overdue' ? '#ff4d4f' : tabInactiveColor),
+                                    }}>
+                                        {t.count}
+                                    </span>
+                                )}
+                            </button>
+                        ))}
                     </div>
-                )}
-            </div>
-
-            <div style={{
-                padding: '8px 16px', borderTop: `1px solid ${footerBorder}`,
-                fontSize: 11, color: '#bbb', flexShrink: 0, display: 'flex', gap: 10,
-            }}>
-                <span>待辦 {totalActive}</span>
-                <span style={{ color: T.textMuted }}>·</span>
-                <span>已完成 {totalComplete}</span>
-                <span style={{ flex: 1 }} />
-                <span>點擊跳轉到卡片</span>
-            </div>
-        </div>
+            )}
+            footer={(
+                <div style={{ fontSize: 11, color: T.textMuted, display: 'flex', gap: 10 }}>
+                    <span>待辦 {totalActive}</span>
+                    <span style={{ color: T.textMuted }}>·</span>
+                    <span>已完成 {totalComplete}</span>
+                    <span style={{ flex: 1 }} />
+                    <span>點擊跳轉到卡片</span>
+                </div>
+            )}
+        >
+                    {visibleGroups.map(groupKey => {
+                        const config = GROUP_CONFIG[groupKey]
+                        const items = visibleItemsByGroup[groupKey]
+                        if (items.length === 0) return null
+                        return (
+                            <div key={groupKey} style={{ marginBottom: 4 }}>
+                                <div style={{
+                                    padding: '5px 16px 4px', fontSize: 11, fontWeight: 600,
+                                    color: config.color, background: config.bg,
+                                    display: 'flex', alignItems: 'center', gap: 6,
+                                    position: 'sticky', top: 0, zIndex: 1,
+                                }}>
+                                    {config.label}
+                                    <span style={{ fontSize: 10, fontWeight: 400, color: '#aaa' }}>{items.length} 項</span>
+                                </div>
+                                {items.map(item => (
+                                    <TaskItemRow
+                                        key={`${item.boardId}_${item.shapeId}_${item.todoId}`}
+                                        item={item} todayStr={todayStr} weekStr={weekStr}
+                                        onJump={onJump}
+                                    />
+                                ))}
+                            </div>
+                        )
+                    })}
+    
+                    {visibleGroups.every(k => visibleItemsByGroup[k].length === 0) && (
+                        hiddenNoDueDateCount > 0 ? (
+                            /* 「待辦」與「全部」分頁不含 noduedate 組（要展開才看得到）。
+                               所有待辦都沒設截止日時，這裡原本會說「這個分類沒有任務」，
+                               但底部狀態列同時寫著「待辦 N」——畫面自己打自己。
+                               所以空狀態要講出真相，並給展開的入口。 */
+                            <EmptyState
+                                icon="📭"
+                                title={`${hiddenNoDueDateCount} 筆待辦沒有設截止日`}
+                                hint="沒有截止日的任務不會排進逾期／今天／本週，所以上面是空的。"
+                                actionLabel="展開查看 →"
+                                onAction={() => setShowNoDueDate(true)}
+                            />
+                        ) : (
+                            <EmptyState
+                                icon="✅"
+                                title={tab === 'all' ? '所有白板都沒有待辦項目' : '這個分類沒有任務'}
+                                hint={tab === 'all'
+                                    ? '在白板上建立待辦卡片（斜線選單的「待辦」），設好到期日就會集中到這裡。'
+                                    : '換一個分類看看，或到白板上的待辦卡片設定到期日。'}
+                            />
+                        )
+                    )}
+    
+                    {(tab === 'active' || tab === 'all') && grouped.noduedate.length > 0 && (
+                        <div style={{ padding: '8px 16px' }}>
+                            <button
+                                onClick={() => setShowNoDueDate(v => !v)}
+                                style={{ fontSize: 12, color: '#aaa', background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: 4 }}
+                            >
+                                <span style={{ fontSize: 10 }}>{showNoDueDate ? '▼' : '▶'}</span>
+                                無截止日任務 ({grouped.noduedate.filter(t => !t.checked).length})
+                            </button>
+                        </div>
+                    )}
+        </SideDrawer>
     )
 }

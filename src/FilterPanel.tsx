@@ -2,7 +2,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import type { BoardRecord } from './db'
 import { getCardShapes } from './utils/snapshot'
-import { Z_PANEL } from './constants'
+import { SideDrawer } from './components/ui/SideDrawer'
 import { stripHtml } from './utils/stringUtils'
 import { loadTagColors, getTagColor, type TagColorMap } from './utils/tagColors'
 import { hexToRgba } from './utils/cardMeta'
@@ -181,9 +181,7 @@ export function FilterPanel({ boards, onJump, onClose }: FilterPanelProps) {
         return () => window.removeEventListener('keydown', handler)
     }, [onClose])
 
-    const panelBg    = T.bgPanel
-    const headerBorder = T.borderLight
-    const titleColor = T.textPrimary
+    // 外框／標題列／關閉鈕由 SideDrawer 提供
     const btnBorder  = T.borderLight
     const hoverBg    = T.bgHover
 
@@ -195,88 +193,75 @@ export function FilterPanel({ boards, onJump, onClose }: FilterPanelProps) {
         fontWeight: active ? 600 : 400,
         transition: 'all 0.1s',
     })
-
     return (
-        <div style={{
-            position: 'fixed', top: 0, right: 0, width: 320, height: '100vh',
-            background: panelBg, backdropFilter: 'blur(12px)',
-            boxShadow: '-4px 0 24px rgba(0,0,0,0.12)', zIndex: Z_PANEL,
-            display: 'flex', flexDirection: 'column', borderLeft: `1px solid ${btnBorder}`,
-        }}>
-            <div style={{ padding: '14px 16px 12px', borderBottom: `1px solid ${headerBorder}`, flexShrink: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                    <span style={{ fontSize: 15, fontWeight: 600, color: titleColor }}>🔍 篩選卡片</span>
-                    <div style={{ flex: 1 }} />
-                    {hasFilter && (
-                        <button onClick={clearAll} style={{ fontSize: 11, color: '#3b82f6', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                            清除篩選
-                        </button>
-                    )}
-                    <button
-                        onClick={onClose}
-                        style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${btnBorder}`, background: 'transparent', cursor: 'pointer', fontSize: 14, color: '#888', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
-                        onMouseEnter={e => (e.currentTarget.style.background = hoverBg)}
-                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                    >✕</button>
-                </div>
-
-                <div style={{ marginBottom: 10 }}>
-                    <div style={{ fontSize: 10, fontWeight: 600, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 5 }}>狀態</div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                        {CARD_STATUSES.map(s => {
-                            const cfg = STATUS_CONFIG[s]
-                            const active = filterStatuses.has(s)
-                            const label = s === 'none' ? '⬜ 無' : s === 'todo' ? '📋 待辦' : s === 'in-progress' ? '🔵 進行中' : '✅ 完成'
-                            return (
-                                <button key={s} onClick={() => toggleStatus(s)}
-                                    style={chipStyle(active, cfg.color, cfg.bg)}
-                                    onMouseEnter={e => { if (!active) e.currentTarget.style.background = hoverBg }}
-                                    onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent' }}
-                                >{label}</button>
-                            )
-                        })}
-                    </div>
-                </div>
-
-                <div style={{ marginBottom: allTags.length > 0 ? 10 : 0 }}>
-                    <div style={{ fontSize: 10, fontWeight: 600, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 5 }}>優先度</div>
-                    <div style={{ display: 'flex', gap: 4 }}>
-                        {PRIORITIES.map(p => {
-                            const cfg = PRIORITY_CONFIG[p]
-                            const active = filterPriorities.has(p)
-                            const label = p === 'none' ? '— 無' : p === 'low' ? '🟡 低' : p === 'medium' ? '🟠 中' : '🔴 高'
-                            return (
-                                <button key={p} onClick={() => togglePriority(p)}
-                                    style={chipStyle(active, cfg.color, `${cfg.color}22`)}
-                                    onMouseEnter={e => { if (!active) e.currentTarget.style.background = hoverBg }}
-                                    onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent' }}
-                                >{label}</button>
-                            )
-                        })}
-                    </div>
-                </div>
-
-                {allTags.length > 0 && (
-                    <div>
-                        <div style={{ fontSize: 10, fontWeight: 600, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 5 }}>標籤</div>
+        <SideDrawer
+            title="🔍 篩選卡片"
+            onClose={onClose}
+            bodyPadding={0}
+            headerActions={hasFilter ? (
+                <button onClick={clearAll} style={{ fontSize: 11, color: '#3b82f6', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                    清除篩選
+                </button>
+            ) : undefined}
+            headerExtra={(
+                <div>
+                    <div style={{ marginBottom: 10 }}>
+                        <div style={{ fontSize: 10, fontWeight: 600, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 5 }}>狀態</div>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                            {allTags.map(tag => {
-                                const active = filterTag === tag
-                                const c = getTagColor(tagColors, tag)
+                            {CARD_STATUSES.map(s => {
+                                const cfg = STATUS_CONFIG[s]
+                                const active = filterStatuses.has(s)
+                                const label = s === 'none' ? '⬜ 無' : s === 'todo' ? '📋 待辦' : s === 'in-progress' ? '🔵 進行中' : '✅ 完成'
                                 return (
-                                    <button key={tag} onClick={() => setFilterTag(active ? null : tag)}
-                                        style={chipStyle(active, c, hexToRgba(c, isDark ? 0.22 : 0.12))}
+                                    <button key={s} onClick={() => toggleStatus(s)}
+                                        style={chipStyle(active, cfg.color, cfg.bg)}
                                         onMouseEnter={e => { if (!active) e.currentTarget.style.background = hoverBg }}
                                         onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent' }}
-                                    >#{tag}</button>
+                                    >{label}</button>
                                 )
                             })}
                         </div>
                     </div>
-                )}
-            </div>
-
-            <div style={{ flex: 1, overflowY: 'auto' }}>
+    
+                    <div style={{ marginBottom: allTags.length > 0 ? 10 : 0 }}>
+                        <div style={{ fontSize: 10, fontWeight: 600, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 5 }}>優先度</div>
+                        <div style={{ display: 'flex', gap: 4 }}>
+                            {PRIORITIES.map(p => {
+                                const cfg = PRIORITY_CONFIG[p]
+                                const active = filterPriorities.has(p)
+                                const label = p === 'none' ? '— 無' : p === 'low' ? '🟡 低' : p === 'medium' ? '🟠 中' : '🔴 高'
+                                return (
+                                    <button key={p} onClick={() => togglePriority(p)}
+                                        style={chipStyle(active, cfg.color, `${cfg.color}22`)}
+                                        onMouseEnter={e => { if (!active) e.currentTarget.style.background = hoverBg }}
+                                        onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent' }}
+                                    >{label}</button>
+                                )
+                            })}
+                        </div>
+                    </div>
+    
+                    {allTags.length > 0 && (
+                        <div>
+                            <div style={{ fontSize: 10, fontWeight: 600, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 5 }}>標籤</div>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                                {allTags.map(tag => {
+                                    const active = filterTag === tag
+                                    const c = getTagColor(tagColors, tag)
+                                    return (
+                                        <button key={tag} onClick={() => setFilterTag(active ? null : tag)}
+                                            style={chipStyle(active, c, hexToRgba(c, isDark ? 0.22 : 0.12))}
+                                            onMouseEnter={e => { if (!active) e.currentTarget.style.background = hoverBg }}
+                                            onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent' }}
+                                        >#{tag}</button>
+                                    )
+                                })}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+        >
                 {!hasFilter ? (
                     <div style={{ padding: '36px 16px', textAlign: 'center', color: '#ccc', fontSize: 13 }}>選擇上方條件以篩選卡片</div>
                 ) : results.length === 0 ? (
@@ -289,7 +274,6 @@ export function FilterPanel({ boards, onJump, onClose }: FilterPanelProps) {
                         ))}
                     </>
                 )}
-            </div>
-        </div>
+        </SideDrawer>
     )
 }

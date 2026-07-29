@@ -13,7 +13,7 @@ import {
     TAG_PALETTE, loadTagColors, saveTagColors, getTagColor, rewriteTagColor, type TagColorMap,
 } from '../utils/tagColors'
 import { hexToRgba } from '../utils/cardMeta'
-import { Z_PANEL } from '../constants'
+import { SideDrawer } from './ui/SideDrawer'
 import { T } from '../theme/tokens'
 import { useIsDark } from '../theme/ThemeContext'
 import { InlineEdit } from './ui/InlineEdit'
@@ -90,34 +90,26 @@ export function TagManager({ boards, onRewriteTag, onClose }: TagManagerProps) {
         setEditing(null)
     }, [onRewriteTag])
 
-    const panelBg = T.bgPanel
+    // 外框／標題列／關閉鈕／底部分隔線由 SideDrawer 提供
     const border = T.borderLight
     const headerBorder = T.borderLight
     const titleColor = T.textPrimary
     const mutedColor = T.textSecondary
-    const hoverBg = T.bgHover
     const inputBg = T.bgApp
 
     return (
-        <div style={{
-            position: 'fixed', top: 0, right: 0, width: 340, height: '100vh',
-            background: panelBg, backdropFilter: 'blur(12px)',
-            boxShadow: '-4px 0 24px rgba(0,0,0,0.12)', zIndex: Z_PANEL,
-            display: 'flex', flexDirection: 'column', borderLeft: `1px solid ${border}`,
-        }}>
-            <div style={{ padding: '14px 16px 12px', borderBottom: `1px solid ${headerBorder}`, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 15, fontWeight: 600, color: titleColor }}>🏷️ 標籤管理</span>
-                <span style={{ fontSize: 11, color: mutedColor }}>{stats.length} 個標籤</span>
-                <div style={{ flex: 1 }} />
-                <button
-                    onClick={onClose}
-                    style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${border}`, background: 'transparent', cursor: 'pointer', fontSize: 14, color: '#888', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
-                    onMouseEnter={e => (e.currentTarget.style.background = hoverBg)}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                >✕</button>
-            </div>
-
-            <div style={{ flex: 1, overflowY: 'auto' }}>
+        <SideDrawer
+            title="🏷️ 標籤管理"
+            badge={<span style={{ fontSize: 11, color: mutedColor }}>{stats.length} 個標籤</span>}
+            onClose={onClose}
+            bodyPadding={0}
+            footer={stats.length > 0 ? (
+                <div style={{ fontSize: 11, color: mutedColor, lineHeight: 1.6 }}>
+                    點標籤可改名或改色；改成既有標籤即為合併。
+                </div>
+            ) : undefined}
+        >
+            <div>
                 {stats.length === 0 ? (
                     <div style={{ padding: '36px 16px', textAlign: 'center', color: mutedColor, fontSize: 13, lineHeight: 1.8 }}>
                         還沒有任何標籤<br />
@@ -210,12 +202,6 @@ export function TagManager({ boards, onRewriteTag, onClose }: TagManagerProps) {
                     )
                 })}
             </div>
-
-            {stats.length > 0 && (
-                <div style={{ padding: '9px 16px', borderTop: `1px solid ${headerBorder}`, fontSize: 11, color: mutedColor, flexShrink: 0, lineHeight: 1.6 }}>
-                    點標籤可改名或改色；改成既有標籤即為合併。
-                </div>
-            )}
-        </div>
+        </SideDrawer>
     )
 }

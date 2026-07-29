@@ -5,6 +5,7 @@ import { Z_PANEL, Z_BACKUP_PANEL } from './constants'
 import { canSaveImage } from './platform/imageStore'
 import { getBackupLimit } from './utils/backupSettings'
 import { T } from './theme/tokens'
+import { SideDrawer } from './components/ui/SideDrawer'
 
 interface BackupPanelProps {
     sidebarWidth: number
@@ -76,7 +77,7 @@ export function BackupPanel({ sidebarWidth, onClose, onRestore, onMigrateImages 
         setDeletingId(null)
     }
 
-    const panelBg     = T.bgPanel
+    // 抽屜外框／標題列／關閉鈕由 SideDrawer 提供
     const borderCol   = T.borderLight
     const headerBorder = T.borderLight
     const titleColor  = T.textPrimary
@@ -124,27 +125,25 @@ export function BackupPanel({ sidebarWidth, onClose, onRestore, onMigrateImages 
                 </>
             )}
 
-            <div style={{
-                position: 'fixed', top: 0, right: sidebarWidth, width: 320, bottom: 0,
-                background: panelBg, borderLeft: `1px solid ${borderCol}`,
-                boxShadow: '-4px 0 24px rgba(0,0,0,0.10)',
-                zIndex: Z_PANEL, display: 'flex', flexDirection: 'column', overflow: 'hidden',
-            }}>
-                <div style={{ padding: '14px 16px', borderBottom: `1px solid ${headerBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-                    <div>
-                        <div style={{ fontSize: 15, fontWeight: 600, color: titleColor }}>🔒 自動備份</div>
-                        {/* N17：保留份數改為可設定，這裡不能再寫死「5 份」 */}
-                        <div style={{ fontSize: 11, color: '#aaa', marginTop: 2 }}>共 {backups.length} 份備份，最多保留 {getBackupLimit()} 份</div>
+            <SideDrawer
+                title="🔒 自動備份"
+                // 這個抽屜刻意不貼齊右邊界：它從側邊欄的選單開啟，蓋住側邊欄會看不到來源
+                offsetRight={sidebarWidth}
+                onClose={onClose}
+                bodyPadding={0}
+                headerExtra={(
+                    /* N17：保留份數改為可設定，這裡不能再寫死「5 份」 */
+                    <div style={{ fontSize: 11, color: T.textMuted }}>
+                        共 {backups.length} 份備份，最多保留 {getBackupLimit()} 份
                     </div>
-                    <button
-                        onClick={onClose}
-                        style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${borderCol}`, background: 'transparent', cursor: 'pointer', fontSize: 16, color: '#888', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
-                        onMouseEnter={e => (e.currentTarget.style.background = hoverBg)}
-                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                    >×</button>
-                </div>
-
-                <div style={{ flex: 1, overflowY: 'auto' }}>
+                )}
+                footer={(
+                    <div style={{ fontSize: 11, color: T.textMuted, lineHeight: 1.6 }}>
+                        備份在切換白板或關閉 App 時自動建立（每 5 分鐘最多一次）
+                    </div>
+                )}
+            >
+                <div>
                     {loading ? (
                         <div style={{ padding: 24, textAlign: 'center', color: '#aaa', fontSize: 13 }}>載入中...</div>
                     ) : backups.length === 0 ? (
@@ -227,10 +226,7 @@ export function BackupPanel({ sidebarWidth, onClose, onRestore, onMigrateImages 
                     </div>
                 )}
 
-                <div style={{ padding: '10px 16px', borderTop: `1px solid ${headerBorder}`, flexShrink: 0, fontSize: 11, color: '#bbb', lineHeight: 1.6 }}>
-                    備份在切換白板或關閉 App 時自動建立（每 5 分鐘最多一次）
-                </div>
-            </div>
+            </SideDrawer>
         </>
     )
 }
