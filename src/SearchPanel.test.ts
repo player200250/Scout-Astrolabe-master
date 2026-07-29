@@ -6,7 +6,7 @@
 // 那種 bug 不會報錯、不會當機，只會讓人覺得「我明明記過這件事」，然後怪自己記錯。
 import { describe, it, expect } from 'vitest'
 import type { TLEditorSnapshot } from 'tldraw'
-import { buildCardSearchText, buildSearchIndex, searchFromIndex, typeCountsFor, buildSnippet } from './SearchPanel'
+import { buildCardSearchText, buildSearchIndex, searchFromIndex, typeCountsFor, buildSnippet } from './utils/searchIndex'
 
 const boardNames = new Map([['b_target', '被連到的白板']])
 

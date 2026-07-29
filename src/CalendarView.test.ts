@@ -3,7 +3,7 @@
 // buildMonthEvents 決定月曆格子上看得到什麼。它漏算什麼，使用者就得一天天點進去才知道
 // ——「白板活動」原本就是這樣：右側 agenda 有、月曆沒有。這裡把三種來源都釘住。
 import { describe, it, expect } from 'vitest'
-import { buildMonthEvents } from './CalendarView'
+import { buildMonthEvents } from './utils/calendarEvents'
 import type { BoardRecord } from './db'
 
 const iso = (s: string) => new Date(s).getTime()
