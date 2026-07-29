@@ -1,0 +1,71 @@
+name: Deploy mobile PWA
+
+# 把手機速記 PWA（dist-mobile/）發佈到 GitHub Pages。
+#
+# 為什麼需要這條：區網 preview 要「桌機開著＋同一 Wi-Fi」，與「人在外面速記」互相矛盾；
+# 而且 http 下 service worker 註冊不了＝離線開啟與 Android 背景補送都失效。
+# Pages 是 https，兩個問題一次解決。
+#
+# 網址：https://player200250.github.io/Scout-Astrolabe-master/
+# 子路徑（/Scout-Astrolabe-master/）能運作是因為建置端本來就沒寫死根目錄：
+#   vite.config.mobile.ts base: './'／manifest 的 start_url·scope './'／註冊 './sw.js'
+#
+# ⚠️ 不加 paths 過濾：手機端會 import src/utils/ 的共用邏輯（例如建卡的
+# quickCaptureCard），只看 mobile/ 有沒有變會漏掉那類改動，部署出去的版本就悄悄過期。
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 同時只跑一個部署；不取消進行中的那個，免得半途中斷留下壞掉的線上版本。
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      # 這裡只做前端靜態建置，不需要 Electron 執行檔。
+      ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+    steps:
+      - uses: actions/checkout@v4
+
+      # enablement: true → repo 還沒開 Pages 時由這一步自動開啟，省掉手動設定。
+      - name: 設定 Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: 安裝依賴（依 lockfile 還原）
+        run: npm ci
+
+      # build:mobile ＝ tsc -b → app 建置 → service worker 單獨打包成 sw.js
+      - name: 建置手機 PWA
+        run: npm run build:mobile
+
+      - name: 上傳產物
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist-mobile
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: 部署到 GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

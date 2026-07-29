@@ -69,20 +69,32 @@ npm run dev:mobile       # 開發用，port 5174，已開對外
 `dist-mobile/` 是純靜態檔，**全部用相對路徑**（`base: './'`），所以丟到任何靜態主機都能跑，
 放在子路徑（`https://example.com/astrolabe/`）也不必改設定。
 
-### 正式部署（建議 HTTPS）
+### 正式部署 ＝ GitHub Pages（現行做法）
 
 Service worker 與「加到主畫面」**需要安全來源**（HTTPS，或 localhost）。
-在 `http://192.168.x.x` 上功能都正常，但裝不成獨立 App、也沒有離線開啟能力。
+在 `http://192.168.x.x` 上功能都正常，但裝不成獨立 App、也沒有離線開啟能力——
+這正是區網 preview 不能當正式解的原因（還得加上「桌機要開著＋同一個 Wi-Fi」）。
 
-任選一個靜態主機，把 `dist-mobile/` 整個資料夾丟上去即可：
+**網址**：`https://player200250.github.io/Scout-Astrolabe-master/`
 
-- **Netlify**：把資料夾拖進 netlify.com/drop，即得一個 HTTPS 網址
-- **Vercel**：`npx vercel dist-mobile --prod`
-- **GitHub Pages**：把 `dist-mobile/` 推到 `gh-pages` 分支
-- **Cloudflare Pages**：連 repo，build 指令 `npm run build:mobile`、輸出目錄 `dist-mobile`
+**機制**：`.github/workflows/deploy-mobile.yml`。推上 `main` 就自動 `npm run build:mobile`
+並把 `dist-mobile/` 發佈到 Pages，也可以在 Actions 頁面手動觸發（`workflow_dispatch`）。
+`actions/configure-pages@v5` 帶 `enablement: true`，repo 沒開 Pages 時會自動開，不必先去設定頁。
+
+**刻意不加 `paths` 過濾**：手機端會 import `src/utils/` 的共用邏輯（例如建卡的
+`quickCaptureCard`），只看 `mobile/` 有沒有變會漏掉那類改動，線上版本就會悄悄過期。
+
+**子路徑（`/Scout-Astrolabe-master/`）為什麼不必改設定**：建置端本來就沒寫死根目錄——
+`vite.config.mobile.ts` 的 `base: './'`、`manifest.webmanifest` 的 `start_url`／`scope` 都是 `'./'`、
+service worker 註冊寫 `register('./sw.js')`（scope 因此跟著頁面所在目錄走）。
+
+其他靜態主機同樣可行（`dist-mobile/` 是純靜態）：Netlify 拖資料夾、`npx vercel dist-mobile --prod`、
+Cloudflare Pages（build 指令 `npm run build:mobile`、輸出目錄 `dist-mobile`）。
 
 ⚠️ 部署後任何人都能開那個網址，但**看不到任何資料**——所有內容都要登入才拿得到，
 而資料存取由 Supabase 的 RLS 把關（見 `supabase/schema.sql`）。anon key 本來就是設計上可公開的值。
+**建議一併去 Supabase 後台關掉自由註冊**（Authentication → Sign Ups），否則陌生人能在你的專案裡開帳號；
+他們讀不到你的資料（RLS 以 `user_id` 隔離），但會佔用配額。
 
 > 測試流程、逐項驗證清單與已知陷阱寫在 [testing-strategy.md](testing-strategy.md) 的
 > 「雲端同步與手機端（PWA）的測試」專章。
