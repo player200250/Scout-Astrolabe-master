@@ -79,7 +79,16 @@ Service worker 與「加到主畫面」**需要安全來源**（HTTPS，或 loca
 
 **機制**：`.github/workflows/deploy-mobile.yml`。推上 `main` 就自動 `npm run build:mobile`
 並把 `dist-mobile/` 發佈到 Pages，也可以在 Actions 頁面手動觸發（`workflow_dispatch`）。
-`actions/configure-pages@v5` 帶 `enablement: true`，repo 沒開 Pages 時會自動開，不必先去設定頁。
+
+**⚠️ 一次性的手動前置**：Pages 必須先在 repo 的
+**Settings → Pages → Build and deployment → Source** 選 **GitHub Actions**。
+試過用 `actions/configure-pages` 的 `enablement: true` 自動開，**行不通**——
+建立 Pages 站台的 API 需要 repo admin 權限，workflow 的 `GITHUB_TOKEN` 沒有：
+
+```
+Get Pages site failed.    Error: Not Found
+Create Pages site failed. Error: Resource not accessible by integration
+```
 
 **刻意不加 `paths` 過濾**：手機端會 import `src/utils/` 的共用邏輯（例如建卡的
 `quickCaptureCard`），只看 `mobile/` 有沒有變會漏掉那類改動，線上版本就會悄悄過期。

@@ -34,15 +34,19 @@ jobs:
       # 這裡只做前端靜態建置，不需要 Electron 執行檔。
       ELECTRON_SKIP_BINARY_DOWNLOAD: 1
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      # enablement: true → repo 還沒開 Pages 時由這一步自動開啟，省掉手動設定。
+      # ⚠️ 這裡刻意**不用** `enablement: true`。第一次部署時試過，結果是：
+      #   Get Pages site failed.    Error: Not Found
+      #   Create Pages site failed. Error: Resource not accessible by integration
+      # 建立 Pages 站台的 API 需要 repo admin 權限，workflow 的 GITHUB_TOKEN 沒有，
+      # 所以「自動開啟 Pages」這條路走不通——Pages 必須先在
+      # Settings → Pages → Build and deployment → Source 選一次 **GitHub Actions**。
+      # 開過之後這一步就只是讀設定，不會再失敗。
       - name: 設定 Pages
-        uses: actions/configure-pages@v5
-        with:
-          enablement: true
+        uses: actions/configure-pages@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -55,7 +59,7 @@ jobs:
         run: npm run build:mobile
 
       - name: 上傳產物
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: dist-mobile
 
@@ -68,4 +72,4 @@ jobs:
     steps:
       - name: 部署到 GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
