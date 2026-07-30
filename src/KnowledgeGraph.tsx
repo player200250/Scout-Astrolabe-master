@@ -9,6 +9,29 @@ const ForceGraph2D = _ForceGraph2D as any
 import type { BoardRecord } from './db'
 import { useBacklinks } from './hooks/useBacklinks'
 import { buildGraph, shouldShowNodeLabel, type GraphNode, type GraphLink } from './utils/knowledgeGraph'
+import { FullscreenPanel } from './components/ui/FullscreenPanel'
+import { T } from './theme/tokens'
+
+/* ------------------------------------------------------------------ 畫布配色
+ * A3 的決定：**面板外框跟隨主題（交給 FullscreenPanel），畫布本身維持深色**。
+ * 兩個理由：
+ *   1. 力導向圖的節點與連線在深色底上對比最好，且節點色是 `hsl(…, 60%)` 算出來的，
+ *      那組亮度是為深色背景挑的，換淺色底要整組重挑（成本與收益不成比例）。
+ *   2. canvas 讀不到 CSS 變數，token 在繪製這層本來就用不上——硬要跟隨主題
+ *      得把色值當參數傳進 paintNode，還要記得補 useCallback 的 deps。
+ * 界線就是 header 那條底線：**線以上用 token，線以下（畫布與浮在畫布上的東西）用這裡的常數。**
+ */
+const SURFACE = '#0f172a'
+/** legend／tooltip 的底——浮在畫布上，所以不跟主題走 */
+const SURFACE_OVERLAY = 'rgba(15,23,42,0.92)'
+const INK = {
+    strong: 'rgba(255,255,255,0.9)',
+    normal: 'rgba(255,255,255,0.6)',
+    faint: 'rgba(255,255,255,0.45)',
+    hairline: 'rgba(255,255,255,0.12)',
+}
+const LINK_COLOR = { parent: 'rgba(148,163,184,0.28)', wikilink: 'rgba(96,165,250,0.52)' }
+const LEGEND_COLOR = { card: '#60a5fa', board: '#818cf8', wikilink: 'rgba(96,165,250,0.85)', parent: 'rgba(148,163,184,0.6)' }
 
 /* ------------------------------------------------------------------ types */
 // react-force-graph-2d augments nodes/links with simulation data at runtime
@@ -25,7 +48,10 @@ interface KnowledgeGraphProps {
 
 export function KnowledgeGraph({ boards, onClose, onJumpToCard, onSwitchBoard }: KnowledgeGraphProps) {
     const [connectedOnly, setConnectedOnly] = useState(false)
-    const [dims, setDims] = useState({ w: window.innerWidth, h: window.innerHeight })
+    // 畫布尺寸量的是**容器**、不是視窗：進 FullscreenPanel 後畫布上方多了一條 54px header，
+    // 沿用 window.innerHeight 會讓底部被裁掉。用 ResizeObserver 也免得把 header 高度寫死在這裡。
+    const [dims, setDims] = useState({ w: 0, h: 0 })
+    const surfaceRef = useRef<HTMLDivElement>(null)
     const tooltipRef = useRef<HTMLDivElement>(null)
 
     useEffect(() => {
@@ -35,9 +61,16 @@ export function KnowledgeGraph({ boards, onClose, onJumpToCard, onSwitchBoard }:
     }, [onClose])
 
     useEffect(() => {
-        const h = () => setDims({ w: window.innerWidth, h: window.innerHeight })
-        window.addEventListener('resize', h)
-        return () => window.removeEventListener('resize', h)
+        const el = surfaceRef.current
+        if (!el) return
+        const measure = () => {
+            const r = el.getBoundingClientRect()
+            setDims(prev => (prev.w === r.width && prev.h === r.height ? prev : { w: r.width, h: r.height }))
+        }
+        measure()
+        const ro = new ResizeObserver(measure)
+        ro.observe(el)
+        return () => ro.disconnect()
     }, [])
 
     // mousemove：直接操作 DOM，不觸發 React re-render
@@ -128,85 +161,87 @@ export function KnowledgeGraph({ boards, onClose, onJumpToCard, onSwitchBoard }:
         }
         ctx.fillStyle = node.color; ctx.fill()
         if (node.type === 'board') { ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 1.5; ctx.stroke() }
+        // 註：這些色值是常數、不隨主題變（見檔頭「畫布配色」），所以 paintNode 的 deps 維持空陣列是安全的。
         if (shouldShowNodeLabel(node.type, node.val, globalScale)) {
             const lbl = node.name.slice(0, 20)
             // 字級除以 globalScale：canvas 畫的是「圖座標」，不除的話放大檢視時
             // 標籤會跟著被放大成巨大文字並互相蓋住（自動 fit 之後尤其明顯）。
             // 除完等於「螢幕上恆為 9–10px」，縮放只改變節點疏密、不改變字的大小。
             ctx.font = `${(node.type === 'board' ? 10 : 9) / globalScale}px system-ui`
-            ctx.fillStyle = node.type === 'board' ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.6)'
+            ctx.fillStyle = node.type === 'board' ? INK.strong : INK.normal
             ctx.textAlign = 'center'; ctx.textBaseline = 'top'
             ctx.fillText(lbl, node.x ?? 0, (node.y ?? 0) + r + 3 / globalScale)
         }
     }, [])
 
-    const btnBase: React.CSSProperties = {
-        width: 30, height: 30, borderRadius: 8, border: '1px solid rgba(255,255,255,0.15)',
-        background: 'rgba(255,255,255,0.08)', cursor: 'pointer', fontSize: 14,
-        color: 'rgba(255,255,255,0.7)', display: 'flex', alignItems: 'center',
-        justifyContent: 'center', padding: 0, pointerEvents: 'auto',
-    }
-
     return (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 20000, background: '#0f172a', overflow: 'hidden' }}>
-            {/* Header */}
-            <div style={{
-                position: 'absolute', top: 0, left: 0, right: 0, zIndex: 1,
-                display: 'flex', alignItems: 'center', padding: '12px 20px', gap: 14,
-                background: 'linear-gradient(to bottom, rgba(15,23,42,0.96) 60%, transparent)',
-                pointerEvents: 'none',
-            }}>
-                <span style={{ fontSize: 15, fontWeight: 700, color: 'white' }}>🕸️ 知識圖譜</span>
-                <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)' }}>{nodes.length} 節點 · {links.length} 連結</span>
-                <div style={{ flex: 1 }} />
-                <label style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', pointerEvents: 'auto' }}>
-                    <div onClick={() => setConnectedOnly(v => !v)} style={{ width: 34, height: 19, borderRadius: 10, position: 'relative', cursor: 'pointer', background: connectedOnly ? '#3b82f6' : 'rgba(255,255,255,0.18)', transition: 'background 0.2s', flexShrink: 0 }}>
-                        <div style={{ position: 'absolute', top: 2.5, width: 14, height: 14, borderRadius: '50%', background: 'white', transition: 'left 0.2s', left: connectedOnly ? 17 : 2.5 }} />
+        <FullscreenPanel
+            title="🕸️ 知識圖譜"
+            badge={`${nodes.length} 節點 · ${links.length} 連結`}
+            onClose={onClose}
+            padded={false}
+            headerActions={
+                // 這顆在 header 裡（線以上）＝跟隨主題，用 token
+                <label style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', flexShrink: 0 }}>
+                    <div
+                        onClick={() => setConnectedOnly(v => !v)}
+                        style={{
+                            width: 34, height: 19, borderRadius: 10, position: 'relative', cursor: 'pointer',
+                            background: connectedOnly ? T.accent : T.bgMuted,
+                            border: `1px solid ${T.borderLight}`,
+                            transition: 'background 0.2s', flexShrink: 0,
+                        }}
+                    >
+                        <div style={{ position: 'absolute', top: 2, width: 13, height: 13, borderRadius: '50%', background: '#fff', boxShadow: '0 1px 2px rgba(0,0,0,0.3)', transition: 'left 0.2s', left: connectedOnly ? 17 : 2 }} />
                     </div>
-                    <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', userSelect: 'none' }}>只顯示有連結的節點</span>
+                    <span style={{ fontSize: 12, color: T.textSecondary, userSelect: 'none' }}>只顯示有連結的節點</span>
                 </label>
-                <button onClick={onClose} style={btnBase} onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.18)')} onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.08)')}>✕</button>
-            </div>
+            }
+        >
+            {/* 畫布表面：深色，與 header 以那條底線分界（見檔頭「畫布配色」） */}
+            <div ref={surfaceRef} style={{ position: 'relative', width: '100%', height: '100%', background: SURFACE, overflow: 'hidden' }}>
+                {/* 量到尺寸才掛圖：0×0 掛上去會讓 onEngineStop 的 zoomToFit 以錯的視野收斂 */}
+                {dims.w > 0 && dims.h > 0 && (
+                    <ForceGraph2D
+                        ref={fgRef}
+                        graphData={graphData}
+                        width={dims.w} height={dims.h}
+                        backgroundColor={SURFACE}
+                        nodeCanvasObject={paintNode}
+                        nodeCanvasObjectMode={() => 'replace'}
+                        nodeLabel={() => ''}
+                        onNodeHover={handleNodeHover}
+                        onNodeClick={handleNodeClick}
+                        linkColor={(l: GraphLinkObject) => l.type === 'parent' ? LINK_COLOR.parent : LINK_COLOR.wikilink}
+                        linkWidth={(l: GraphLinkObject) => l.type === 'parent' ? 1 : 1.5}
+                        linkDirectionalArrowLength={(l: GraphLinkObject) => l.type === 'wikilink' ? 5 : 0}
+                        linkDirectionalArrowRelPos={1}
+                        nodeRelSize={1}
+                        cooldownTicks={150}
+                        d3AlphaDecay={0.02}
+                        d3VelocityDecay={0.28}
+                        onEngineStop={handleEngineStop}
+                    />
+                )}
 
-            {/* Graph */}
-            <ForceGraph2D
-                ref={fgRef}
-                graphData={graphData}
-                width={dims.w} height={dims.h}
-                backgroundColor="#0f172a"
-                nodeCanvasObject={paintNode}
-                nodeCanvasObjectMode={() => 'replace'}
-                nodeLabel={() => ''}
-                onNodeHover={handleNodeHover}
-                onNodeClick={handleNodeClick}
-                linkColor={(l: GraphLinkObject) => l.type === 'parent' ? 'rgba(148,163,184,0.28)' : 'rgba(96,165,250,0.52)'}
-                linkWidth={(l: GraphLinkObject) => l.type === 'parent' ? 1 : 1.5}
-                linkDirectionalArrowLength={(l: GraphLinkObject) => l.type === 'wikilink' ? 5 : 0}
-                linkDirectionalArrowRelPos={1}
-                nodeRelSize={1}
-                cooldownTicks={150}
-                d3AlphaDecay={0.02}
-                d3VelocityDecay={0.28}
-                onEngineStop={handleEngineStop}
-            />
+                {/* Legend */}
+                <div style={{ position: 'absolute', bottom: 20, left: 20, zIndex: 1, display: 'flex', gap: 16, alignItems: 'center', background: SURFACE_OVERLAY, borderRadius: 8, padding: '7px 14px', border: `1px solid ${INK.hairline}` }}>
+                    <LegendItem shape="circle" color={LEGEND_COLOR.card} label="卡片" />
+                    <LegendItem shape="diamond" color={LEGEND_COLOR.board} label="白板" />
+                    <LegendItem shape="line" color={LEGEND_COLOR.wikilink} label="[[]] 引用" />
+                    <LegendItem shape="dashed" color={LEGEND_COLOR.parent} label="父子白板" />
+                </div>
 
-            {/* Legend */}
-            <div style={{ position: 'absolute', bottom: 20, left: 20, zIndex: 1, display: 'flex', gap: 16, alignItems: 'center', background: 'rgba(15,23,42,0.75)', borderRadius: 8, padding: '7px 14px', border: '1px solid rgba(255,255,255,0.08)' }}>
-                <LegendItem shape="circle" color="#60a5fa" label="卡片" />
-                <LegendItem shape="diamond" color="#818cf8" label="白板" />
-                <LegendItem shape="line" color="rgba(96,165,250,0.85)" label="[[]] 引用" />
-                <LegendItem shape="dashed" color="rgba(148,163,184,0.6)" label="父子白板" />
+                {/* Tooltip — 用 ref 直接操作 DOM，避免 setState 觸發 re-render 重啟 simulation */}
+                <div
+                    ref={tooltipRef}
+                    style={{ display: 'none', position: 'fixed', zIndex: 2, background: SURFACE_OVERLAY, border: `1px solid ${INK.hairline}`, borderRadius: 8, padding: '7px 12px', pointerEvents: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.5)', maxWidth: 260 }}
+                >
+                    <div className="tt-name" style={{ fontSize: 13, color: '#fff', fontWeight: 500, marginBottom: 2 }} />
+                    <div className="tt-sub" style={{ fontSize: 11, color: INK.faint }} />
+                </div>
             </div>
-
-            {/* Tooltip — 用 ref 直接操作 DOM，避免 setState 觸發 re-render 重啟 simulation */}
-            <div
-                ref={tooltipRef}
-                style={{ display: 'none', position: 'fixed', zIndex: 2, background: 'rgba(15,23,42,0.96)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '7px 12px', pointerEvents: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.5)', maxWidth: 260 }}
-            >
-                <div className="tt-name" style={{ fontSize: 13, color: 'white', fontWeight: 500, marginBottom: 2 }} />
-                <div className="tt-sub" style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }} />
-            </div>
-        </div>
+        </FullscreenPanel>
     )
 }
 
@@ -218,7 +253,7 @@ function LegendItem({ shape, color, label }: { shape: 'circle' | 'diamond' | 'li
             {shape === 'diamond' && <div style={{ width: 9, height: 9, background: color, transform: 'rotate(45deg)', flexShrink: 0 }} />}
             {shape === 'line' && <div style={{ width: 20, height: 2, background: color, flexShrink: 0 }} />}
             {shape === 'dashed' && <div style={{ width: 20, height: 2, flexShrink: 0, background: `repeating-linear-gradient(90deg,${color} 0 4px,transparent 4px 7px)` }} />}
-            <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>{label}</span>
+            <span style={{ fontSize: 11, color: INK.faint }}>{label}</span>
         </div>
     )
 }
