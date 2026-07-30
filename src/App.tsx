@@ -16,6 +16,7 @@ import { FilterPanel } from './FilterPanel'
 import { BackupPanel } from './BackupPanel'
 import { DataSafetyPanel } from './components/DataSafetyPanel'
 import { ReviewCenter } from './ReviewCenter'
+import type { ReviewTab } from './ReviewCenter'
 import { HotkeyPanel } from './HotkeyPanel'
 import { KnowledgeGraph } from './KnowledgeGraph'
 import { CardLibrary } from './CardLibrary'
@@ -62,6 +63,9 @@ export default function App() {
     // 陣列而非單一 id：批次刪除（多選、清理重複）要一次確認全部。
     // 舊版是 string | null，呼叫端跑 forEach 只會留下最後一個 → 其餘靜默不刪。
     const [deletingBoardIds, setDeletingBoardIds] = useState<string[]>([])
+    // 復盤中心開在哪一頁。從側邊欄／快捷鍵／命令面板進去是月曆，
+    // 只有儀表板的「開啟今日日記 →」會指定日記頁。
+    const [reviewTab, setReviewTab] = useState<ReviewTab>('calendar')
     const bannerShownRef = useRef(false)
 
     const { overdueCount, todayCount } = useMemo(() => {
@@ -98,6 +102,13 @@ export default function App() {
         const t2 = setTimeout(() => closePanel('overdueBanner'), 5300)
         return () => { clearTimeout(t1); clearTimeout(t2) }
     }, [loading, overdueCount, openPanel, closePanel])
+
+    // 面板一關就把分頁還原成月曆。放在「關閉」而非各個開啟點，是因為開啟點有四個
+    // （側邊欄／Ctrl+Shift+C／命令面板／儀表板按鈕），其中側邊欄那個直接呼叫 usePanelState
+    // 的 openPanel、碰不到這裡的 state；關閉路徑則一律會讓 panels.reviewCenter 變 false。
+    useEffect(() => {
+        if (!panels.reviewCenter) setReviewTab('calendar')
+    }, [panels.reviewCenter])
 
     const handleDeleteWithConfirm = useCallback((id: string) => {
         setDeletingBoardIds([id])
@@ -235,7 +246,7 @@ export default function App() {
                     isInboxBoard={activeBoardId === INBOX_BOARD_ID}
                     onMoveCard={shapeIds => setMovingCardShapeIds(shapeIds)}
                     onOpenTaskCenter={() => openPanel('taskCenter')}
-                    onOpenReviewCenter={() => openPanel('reviewCenter')}
+                    onOpenTodayJournal={() => { setReviewTab('journal'); openPanel('reviewCenter') }}
                     onOpenOverview={() => openPanel('overview')}
                     onQuickCapture={() => openPanel('quickCapture')}
                     onCardTrashed={handleCardTrashed}
@@ -342,6 +353,7 @@ export default function App() {
             {panels.reviewCenter && (
                 <ReviewCenter
                     boards={boards}
+                    initialTab={reviewTab}
                     onClose={() => closePanel('reviewCenter')}
                     onJumpToBoard={handleSwitch}
                     onSaveJournal={handleSaveJournal}

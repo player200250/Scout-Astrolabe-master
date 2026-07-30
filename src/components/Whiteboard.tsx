@@ -42,7 +42,7 @@ interface WhiteboardProps {
     isInboxBoard: boolean
     onMoveCard: (shapeIds: string[]) => void
     onOpenTaskCenter: () => void
-    onOpenReviewCenter: () => void
+    onOpenTodayJournal: () => void
     onOpenOverview: () => void
     onQuickCapture: () => void
     onCardTrashed?: () => void
@@ -52,7 +52,7 @@ interface WhiteboardProps {
 export function Whiteboard({
     board, boards, onSaveBoard, jumpRef, onOpenSearch, onOpenHotkey, onOpenQuickSwitcher,
     onCreateBoard, onSwitchBoard, sidebarWidth, isInboxBoard, onMoveCard, 
-    onOpenTaskCenter, onOpenReviewCenter,
+    onOpenTaskCenter, onOpenTodayJournal,
     onOpenOverview, onQuickCapture, onCardTrashed,
     recentlyTrashedShapeIds,
 }: WhiteboardProps) {
@@ -73,7 +73,7 @@ export function Whiteboard({
                 boards={boards}
                 onSwitch={onSwitchBoard}
                 onOpenTaskCenter={onOpenTaskCenter}
-                onOpenReviewCenter={onOpenReviewCenter}
+                onOpenTodayJournal={onOpenTodayJournal}
                 onOpenOverview={onOpenOverview}
                 onQuickCapture={onQuickCapture}
                 sidebarWidth={sidebarWidth}

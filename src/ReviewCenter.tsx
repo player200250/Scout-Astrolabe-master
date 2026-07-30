@@ -7,7 +7,7 @@ import { WeeklyReviewContent } from './WeeklyReview'
 import { T } from './theme/tokens'
 import { FullscreenPanel } from './components/ui/FullscreenPanel'
 
-type ReviewTab = 'calendar' | 'journal' | 'weekly'
+export type ReviewTab = 'calendar' | 'journal' | 'weekly'
 
 interface ReviewCenterProps {
     boards: BoardRecord[]
@@ -15,6 +15,11 @@ interface ReviewCenterProps {
     onJumpToBoard: (boardId: string) => void
     onSaveJournal: (boardId: string, dateStr: string, html: string, shapeId: string | null) => void
     onGoToWeeklyCard: () => void
+    /**
+     * 開啟時停在哪個分頁，預設月曆。
+     * 儀表板的「開啟今日日記 →」要落在日記頁——按鈕名稱承諾了目的地就得兌現。
+     */
+    initialTab?: ReviewTab
 }
 
 const TABS: { key: ReviewTab; label: string }[] = [
@@ -23,8 +28,8 @@ const TABS: { key: ReviewTab; label: string }[] = [
     { key: 'weekly',   label: '📊 週回顧' },
 ]
 
-export function ReviewCenter({ boards, onClose, onJumpToBoard, onSaveJournal, onGoToWeeklyCard }: ReviewCenterProps) {
-    const [tab, setTab] = useState<ReviewTab>('calendar')
+export function ReviewCenter({ boards, onClose, onJumpToBoard, onSaveJournal, onGoToWeeklyCard, initialTab = 'calendar' }: ReviewCenterProps) {
+    const [tab, setTab] = useState<ReviewTab>(initialTab)
     const [journalDate, setJournalDate] = useState<Date>(new Date())
 
     useEffect(() => {

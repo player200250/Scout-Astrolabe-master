@@ -23,7 +23,7 @@
 | Low | 0 | 全部修復（L1–L5） |
 | 設計決策 | 1 | M9：軟刪白板時不逐一歸檔內部卡片 |
 | 已修（部分）| 1 | P1-OOM：備份堆積導致 renderer OOM 白屏（備份已修，圖片治本 TD-IMG 已完成）|
-| 已修 | 4 | TD-IMG：image 卡 base64 改存實體檔（astro-img protocol + 混合式遷移）；WO4：`[[]]` 補全按 Enter 無法選取；B-LINK：指向卡片的 `[[連結]]` 點了沒反應；B-DUP：批次刪除白板只刪掉最後一塊＋「清理重複」對序號副本無效（2026-07-30）|
+| 已修 | 5 | TD-IMG：image 卡 base64 改存實體檔（astro-img protocol + 混合式遷移）；WO4：`[[]]` 補全按 Enter 無法選取；B-LINK：指向卡片的 `[[連結]]` 點了沒反應；B-DUP：批次刪除白板只刪掉最後一塊＋「清理重複」對序號副本無效（2026-07-30）；B-JRNL：「開啟今日日記」落在月曆分頁（2026-07-30）|
 | 待觀察 | 1 | WO1：link 卡片的 title / description / thumbnail 欄位從未填充 |
 
 ---
@@ -77,6 +77,24 @@
 ---
 
 ## 已修（本次）
+
+### ~~B-JRNL：儀表板「開啟今日日記 →」打開復盤中心後停在月曆分頁~~ ✅ 已修（2026-07-30）
+
+- **現象**：按鈕名稱承諾「今日日記」，實際落在**月曆**分頁，要自己再點一次。
+- **根因**：`ReviewCenter` 的分頁是內部 state 且寫死起始值（`useState<ReviewTab>('calendar')`），
+  呼叫端無從指定；`Dashboard` 的按鈕與側邊欄／`Ctrl+Shift+C`／命令面板走的是同一個
+  `onOpenReviewCenter`，四個入口沒有任何差別。
+- **修法**：`ReviewCenter` 新增 `initialTab?: ReviewTab`（預設 `'calendar'`，型別改成 export）；
+  `App` 以 `reviewTab` state 決定，儀表板按鈕改走新的 `onOpenTodayJournal`。
+  順帶移除 `Dashboard`／`Whiteboard` 上已無使用者的 `onOpenReviewCenter`
+  （A5(a) 拿掉冗餘捷徑卡之後，那條 prop 只剩這顆按鈕在用）。
+- **⚠️ 關鍵細節：分頁要在面板「關閉」時還原成月曆，不能在各個開啟點各自設定。**
+  開啟點有四個，其中側邊欄那個直接呼叫 `usePanelState.openPanel`、碰不到 `App` 的 state；
+  而關閉路徑一律會讓 `panels.reviewCenter` 變 `false`，掛在那裡才涵蓋得完。
+  沒做這件事的話，開過一次日記頁之後，從側邊欄進去也會停在日記頁。
+- **驗證**：CDP 實測三輪——日記鈕 → `✍️ 今日日記`；`Ctrl+Shift+C` → `📅 月曆`（未被污染）；
+  再點日記鈕 → `✍️ 今日日記`（可重複）。並確認開啟日記頁**不會**替當天生出空日記卡
+  （日誌板 `updatedAt` 未變）。
 
 ### ~~B-DUP：批次刪除白板只刪掉最後一塊；「🧹 清理重複」對它的目標案例完全無效~~ ✅ 已修（2026-07-30）
 

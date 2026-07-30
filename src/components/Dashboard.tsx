@@ -10,7 +10,8 @@ interface DashboardProps {
     boards: BoardRecord[]
     onSwitch: (boardId: string) => void
     onOpenTaskCenter: () => void
-    onOpenReviewCenter: () => void
+    /** 開復盤中心並**落在日記分頁**——按鈕名稱「開啟今日日記」承諾了目的地就得兌現 */
+    onOpenTodayJournal: () => void
     onOpenOverview: () => void
     onQuickCapture: () => void
     sidebarWidth: number
@@ -62,7 +63,7 @@ const CARD_TYPE_ICON: Record<string, string> = {
 }
 
 export function Dashboard({
-    boards, onSwitch, onOpenTaskCenter, onOpenReviewCenter,
+    boards, onSwitch, onOpenTaskCenter, onOpenTodayJournal,
     onOpenOverview, onQuickCapture, sidebarWidth,
 }: DashboardProps) {
     const todayStr = getTodayStr()
@@ -239,7 +240,7 @@ export function Dashboard({
                                 : <EmptyState compact title="今天還沒寫日記" hint="記一句今天發生的事，或回顧昨天。" />
                             }
                         </div>
-                        <button style={actionBtn} onClick={onOpenReviewCenter}>開啟今日日記 →</button>
+                        <button style={actionBtn} onClick={onOpenTodayJournal}>開啟今日日記 →</button>
                     </div>
 
                     <div style={{ background: cardBg, border: `1px solid ${border}`, borderRadius: 12, padding: 20 }}>
