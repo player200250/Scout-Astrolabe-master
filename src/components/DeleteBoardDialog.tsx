@@ -8,7 +8,8 @@ import { stripHtml } from '../utils/stringUtils'
 import { T } from '../theme/tokens'
 
 interface DeleteBoardDialogProps {
-    board: BoardRecord
+    /** 要刪的白板；批次刪除（多選、清理重複）會帶多塊，單板刪除帶一塊。 */
+    boards: BoardRecord[]
     hasInbox: boolean
     onConfirm: (moveToInbox: boolean) => void
     onCancel: () => void
@@ -40,14 +41,18 @@ function getCardPreview(card: SnapshotCardShape): { text: string; extra?: string
 
 const MAX_PREVIEW = 20
 
-export function DeleteBoardDialog({ board, hasInbox, onConfirm, onCancel }: DeleteBoardDialogProps) {
+export function DeleteBoardDialog({ boards, hasInbox, onConfirm, onCancel }: DeleteBoardDialogProps) {
     const [expanded, setExpanded] = useState(false)
     const [moveToInbox, setMoveToInbox] = useState(false)
     const confirmRef = useRef<HTMLButtonElement>(null)
 
-    const cards = getCardShapes(board.snapshot)
+    // shape id 只在自己的白板內唯一，跨板可能撞（例如兩塊板都有 shape:legacy1）→ key 要帶 boardId
+    const cards = boards.flatMap(b =>
+        getCardShapes(b.snapshot).map(card => ({ ...card, key: `${b.id}:${card.id}` }))
+    )
     const visibleCards = cards.slice(0, MAX_PREVIEW)
     const extraCount = cards.length - MAX_PREVIEW
+    const isBatch = boards.length > 1
 
     useEffect(() => {
         confirmRef.current?.focus()
@@ -82,13 +87,29 @@ export function DeleteBoardDialog({ board, hasInbox, onConfirm, onCancel }: Dele
                 display: 'flex', flexDirection: 'column', gap: 12,
             }}>
                 <div style={{ fontSize: 15, fontWeight: 600, color: text }}>
-                    將「{board.name}」移到垃圾桶？
+                    {isBatch
+                        ? `將這 ${boards.length} 塊白板移到垃圾桶？`
+                        : `將「${boards[0].name}」移到垃圾桶？`}
                 </div>
+
+                {isBatch && (
+                    <div style={{
+                        background: listBg, borderRadius: 8, border: `1px solid ${border}`,
+                        padding: '8px 10px', maxHeight: 132, overflowY: 'auto',
+                        display: 'flex', flexDirection: 'column', gap: 4,
+                    }}>
+                        {boards.map(b => (
+                            <div key={b.id} style={{ fontSize: 12, color: text, wordBreak: 'break-word' }}>
+                                • {b.name}
+                            </div>
+                        ))}
+                    </div>
+                )}
 
                 <div style={{ fontSize: 13, color: muted }}>
                     {cards.length > 0
-                        ? `白板內有 ${cards.length} 張卡片將一併移入垃圾桶。`
-                        : '此白板沒有卡片。'}
+                        ? `${isBatch ? '合計' : '白板內'}有 ${cards.length} 張卡片將一併移入垃圾桶。`
+                        : isBatch ? '這些白板都沒有卡片。' : '此白板沒有卡片。'}
                 </div>
 
                 {cards.length > 0 && (
@@ -120,7 +141,7 @@ export function DeleteBoardDialog({ board, hasInbox, onConfirm, onCancel }: Dele
                                 {visibleCards.map(card => {
                                     const { text: preview, extra } = getCardPreview(card)
                                     return (
-                                        <div key={card.id} style={{
+                                        <div key={card.key} style={{
                                             display: 'flex', alignItems: 'flex-start', gap: 8,
                                             padding: '6px 8px', borderRadius: 6,
                                             background: itemBg,

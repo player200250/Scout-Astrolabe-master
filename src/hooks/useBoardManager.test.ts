@@ -789,7 +789,7 @@ describe('useBoardManager — 軟刪並搬卡進 Inbox', () => {
         ])
         const { result } = await setup()
 
-        await act(async () => { await result.current.handleSoftDeleteBoardWithInboxMove('src', true) })
+        await act(async () => { await result.current.handleSoftDeleteBoardsWithInboxMove(['src'], true) })
 
         // 原白板被軟刪（標 deletedAt、移出清單，但非真刪）
         expect(mocks.saveBoard).toHaveBeenCalledWith(expect.objectContaining({ id: 'src', deletedAt: expect.any(Number) }))
@@ -813,7 +813,7 @@ describe('useBoardManager — 軟刪並搬卡進 Inbox', () => {
         ])
         const { result } = await setup()
 
-        await act(async () => { await result.current.handleSoftDeleteBoardWithInboxMove('src', false) })
+        await act(async () => { await result.current.handleSoftDeleteBoardsWithInboxMove(['src'], false) })
 
         expect(result.current.boards.find(b => b.id === 'src')).toBeUndefined()
         // Inbox 仍是空的（沒被塞卡）
@@ -821,13 +821,45 @@ describe('useBoardManager — 軟刪並搬卡進 Inbox', () => {
         expect(Object.values(storeOf(inbox)).filter(r => r.type === 'card')).toHaveLength(0)
     })
 
-    it('找不到白板時 handleSoftDeleteBoardWithInboxMove 為無操作', async () => {
+    it('找不到白板時 handleSoftDeleteBoardsWithInboxMove 為無操作', async () => {
         mocks.loadAllBoards.mockResolvedValue([board({ id: 'b1', name: '板' })])
         const { result } = await setup()
         mocks.saveBoard.mockClear()
 
-        await act(async () => { await result.current.handleSoftDeleteBoardWithInboxMove('不存在', true) })
+        await act(async () => { await result.current.handleSoftDeleteBoardsWithInboxMove(['不存在'], true) })
         expect(mocks.saveBoard).not.toHaveBeenCalled()
+    })
+
+    // 這條是批次化的理由：舊寫法讓呼叫端對單板版跑 forEach，
+    // 每次都從同一份 stale closure 讀 Inbox snapshot → 後者覆蓋前者，只剩最後一塊板的卡片。
+    it('批次刪除多塊板時，所有板的卡片都併進 Inbox（不互相覆蓋）', async () => {
+        mocks.loadAllBoards.mockResolvedValue([
+            board({ id: 'keep', name: '留著' }), // active 落在這裡，不被刪
+            board({
+                id: 's1', name: '來源一',
+                snapshot: snapWith({ 'shape:a': cardRec('shape:a', { type: 'text', text: 'A' }, 0, 0) }),
+            }),
+            board({
+                id: 's2', name: '來源二',
+                snapshot: snapWith({ 'shape:b': cardRec('shape:b', { type: 'text', text: 'B' }, 0, 0) }),
+            }),
+            board({ id: 'inbox', name: 'Inbox', isInbox: true }),
+        ])
+        const { result } = await setup()
+
+        await act(async () => { await result.current.handleSoftDeleteBoardsWithInboxMove(['s1', 's2'], true) })
+
+        // 兩塊都軟刪掉了（不是只有最後一塊）
+        expect(result.current.boards.find(b => b.id === 's1')).toBeUndefined()
+        expect(result.current.boards.find(b => b.id === 's2')).toBeUndefined()
+
+        // 兩塊板的卡片都在 Inbox
+        const inbox = result.current.boards.find(b => b.isInbox)
+        const texts = Object.values(storeOf(inbox))
+            .filter(r => r.type === 'card')
+            .map(r => (r.props as { text?: string }).text)
+        expect(texts).toHaveLength(2)
+        expect(texts).toEqual(expect.arrayContaining(['A', 'B']))
     })
 })
 

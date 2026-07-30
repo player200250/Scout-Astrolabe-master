@@ -28,7 +28,7 @@ function renderDialog(over: Partial<Parameters<typeof DeleteBoardDialog>[0]> = {
     const onCancel = vi.fn()
     render(
         <DeleteBoardDialog
-            board={board()} hasInbox={false}
+            boards={[board()]} hasInbox={false}
             onConfirm={onConfirm} onCancel={onCancel}
             {...over}
         />,
@@ -44,7 +44,7 @@ describe('DeleteBoardDialog', () => {
     })
 
     it('有卡片時顯示卡片數量提示', () => {
-        renderDialog({ board: board({ snapshot: snapWithCards({ id: 's1' }, { id: 's2' }) }) })
+        renderDialog({ boards: [board({ snapshot: snapWithCards({ id: 's1' }, { id: 's2' }) })] })
         expect(screen.getByText('白板內有 2 張卡片將一併移入垃圾桶。')).toBeTruthy()
     })
 
@@ -70,9 +70,46 @@ describe('DeleteBoardDialog', () => {
     })
 
     it('「查看卡片」可展開／收起（按鈕文字切換）', () => {
-        renderDialog({ board: board({ snapshot: snapWithCards({ id: 's1', text: '<p>內容A</p>' }) }) })
+        renderDialog({ boards: [board({ snapshot: snapWithCards({ id: 's1', text: '<p>內容A</p>' }) })] })
         const toggle = screen.getByText('▼ 查看卡片')
         fireEvent.click(toggle)
         expect(screen.getByText('▲ 收起')).toBeTruthy()
+    })
+
+    describe('批次刪除（多選、清理重複）', () => {
+        const two = [
+            board({ id: 'b1', name: '主頁白板', snapshot: snapWithCards({ id: 's1' }) }),
+            board({ id: 'b2', name: '主頁白板 (2)', snapshot: snapWithCards({ id: 's2' }, { id: 's3' }) }),
+        ]
+
+        it('標題講數量、並列出每一塊板的名稱', () => {
+            renderDialog({ boards: two })
+            expect(screen.getByText('將這 2 塊白板移到垃圾桶？')).toBeTruthy()
+            expect(screen.getByText('• 主頁白板')).toBeTruthy()
+            expect(screen.getByText('• 主頁白板 (2)')).toBeTruthy()
+        })
+
+        it('卡片數是跨板合計', () => {
+            renderDialog({ boards: two })
+            expect(screen.getByText('合計有 3 張卡片將一併移入垃圾桶。')).toBeTruthy()
+        })
+
+        it('全部沒有卡片時講清楚', () => {
+            renderDialog({ boards: [board({ id: 'b1', name: 'A' }), board({ id: 'b2', name: 'A (2)' })] })
+            expect(screen.getByText('這些白板都沒有卡片。')).toBeTruthy()
+        })
+
+        it('跨板撞到同一個 shape id 也能正常渲染（key 帶 boardId）', () => {
+            renderDialog({
+                boards: [
+                    board({ id: 'b1', name: 'A', snapshot: snapWithCards({ id: 'shape:legacy1', text: '甲' }) }),
+                    board({ id: 'b2', name: 'A (2)', snapshot: snapWithCards({ id: 'shape:legacy1', text: '乙' }) }),
+                ],
+            })
+            expect(screen.getByText('合計有 2 張卡片將一併移入垃圾桶。')).toBeTruthy()
+            fireEvent.click(screen.getByText('▼ 查看卡片'))
+            expect(screen.getByText('甲')).toBeTruthy()
+            expect(screen.getByText('乙')).toBeTruthy()
+        })
     })
 })

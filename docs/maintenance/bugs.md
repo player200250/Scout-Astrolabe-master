@@ -14,7 +14,7 @@
 
 ---
 
-## 目前狀態摘要（截至 2026-07-15）
+## 目前狀態摘要（截至 2026-07-30）
 
 | 類別 | 數量 | 說明 |
 |------|------|------|
@@ -23,7 +23,7 @@
 | Low | 0 | 全部修復（L1–L5） |
 | 設計決策 | 1 | M9：軟刪白板時不逐一歸檔內部卡片 |
 | 已修（部分）| 1 | P1-OOM：備份堆積導致 renderer OOM 白屏（備份已修，圖片治本 TD-IMG 已完成）|
-| 已修 | 3 | TD-IMG：image 卡 base64 改存實體檔（astro-img protocol + 混合式遷移）；WO4：`[[]]` 補全按 Enter 無法選取；B-LINK：指向卡片的 `[[連結]]` 點了沒反應 |
+| 已修 | 4 | TD-IMG：image 卡 base64 改存實體檔（astro-img protocol + 混合式遷移）；WO4：`[[]]` 補全按 Enter 無法選取；B-LINK：指向卡片的 `[[連結]]` 點了沒反應；B-DUP：批次刪除白板只刪掉最後一塊＋「清理重複」對序號副本無效（2026-07-30）|
 | 待觀察 | 1 | WO1：link 卡片的 title / description / thumbnail 欄位從未填充 |
 
 ---
@@ -77,6 +77,28 @@
 ---
 
 ## 已修（本次）
+
+### ~~B-DUP：批次刪除白板只刪掉最後一塊；「🧹 清理重複」對它的目標案例完全無效~~ ✅ 已修（2026-07-30）
+
+三個互相獨立、但疊在同一條路徑上的問題。**共同症狀是「刪除動作靜默地只做了一部分」**，
+使用者不會收到任何錯誤，只會覺得「我明明選了 5 塊」。
+
+- **B-DUP-1：批次刪除只生效一塊**（最嚴重）
+  - **位置**：`App.tsx` 的 `deletingBoardId: string | null`；呼叫端 `BoardOverview.deleteSelected()` 與「🧹 清理重複」都跑 `forEach(id => onDelete(id))`。
+  - **根因**：`onDelete` ＝ `setDeletingBoardId(id)`，**單一值 state**。迴圈連設 N 次，只有最後一次留下 → 確認對話框只認得最後一塊板，其餘**靜默不刪**。
+  - **修法**：state 改 `deletingBoardIds: string[]`，`DeleteBoardDialog` 的 `board` prop 改 `boards`（標題改講數量並列出每塊板名、卡片數改跨板合計）。
+
+- **B-DUP-2：`moveToInbox` 在批次時互相覆蓋**（改批次時才會踩到，先一步擋掉）
+  - **根因**：`handleSoftDeleteBoardWithInboxMove` 從 `boards` closure 讀收件匣 snapshot。同一個 tick 內連呼叫，第二次讀到的仍是還沒被追加過的舊 snapshot → 後者覆蓋前者，**只有最後一塊板的卡片真的進收件匣**。
+  - **修法**：改成 `handleSoftDeleteBoardsWithInboxMove(ids[], moveToInbox)`，收件匣合併在一次走訪內完成、只存一次。單板版是它的特例（原單板 API 已移除，無其他呼叫端）。
+
+- **B-DUP-3：「🧹 清理重複」對「為之而生」的案例是 no-op**
+  - **根因**：舊邏輯用**完整名稱**分組，但重複白板天生就不同名——`uniqueName()` 會補「 (2)」「 (3)」。D1 主頁畫布搬遷產生的 `主頁白板` / `主頁白板 (2)` / `主頁白板 (3)` 因此永遠分不到同一組。
+  - **另兩個附帶缺陷**：一組全空時 `empties` ＝整組，會**一塊都不留**；`!b.snapshot` 判空會漏掉「有 snapshot 但 0 個 shape」的板。
+  - **修法**：抽成純函式 `utils/duplicateBoards.ts`（`baseBoardName` / `boardHasContent` / `findDuplicateBoards`），改比對去掉序號的**基底名**、實際數 shape、每組必留一塊，並排除資料夾／主頁／收件匣／已在垃圾桶的板，以及有子白板指著的空板。
+  - **抽到 `utils/` 而非留在元件檔**：元件檔匯出純函式會踩 `react-refresh/only-export-components`（見 2026-07-29 的 CI lint 修復）。
+
+- **驗證**：+21 測試（`duplicateBoards.test.ts` 16 案例、`DeleteBoardDialog.test.tsx` 批次 4 案例、`useBoardManager.test.ts` 批次併入 Inbox 1 案例）共 674 綠；真實 App 以 CDP 驗過多選 2/3 塊時對話框列出全部板名與跨板卡片數合計，取消後 IndexedDB 無變動。
 
 ### ~~B-LINK：指向「卡片」的 `[[連結]]` 點了沒反應~~ ✅ 已修（2026-07-15）
 

@@ -196,60 +196,72 @@ export function useBoardManager() {
         refreshTrashCount()
     }, [activeBoardId, boards, refreshTrashCount])
 
-    const handleSoftDeleteBoardWithInboxMove = useCallback(async (boardId: string, moveToInbox: boolean) => {
-        const board = boards.find(b => b.id === boardId)
-        if (!board) return
+    /**
+     * 批次軟刪除白板（單板刪除也走這裡，見下方的單板包裝）。
+     *
+     * 為什麼是批次、而不讓呼叫端自己跑迴圈：moveToInbox 要把卡片併進收件匣，
+     * 而收件匣的 snapshot 是從 `boards` closure 讀的。同一個 tick 內連續呼叫單板版時，
+     * 第二次讀到的仍是「還沒被追加過」的舊 snapshot → 後者覆蓋前者，
+     * 結果只有最後一塊板的卡片真的進到收件匣。所以合併必須在一次走訪內完成、只存一次。
+     */
+    const handleSoftDeleteBoardsWithInboxMove = useCallback(async (boardIds: string[], moveToInbox: boolean) => {
+        const targets = boardIds
+            .map(id => boards.find(b => b.id === id))
+            .filter((b): b is BoardRecord => !!b)
+        if (targets.length === 0) return
 
         let inboxUpdated: BoardRecord | null = null
 
-        if (moveToInbox && board.snapshot) {
+        if (moveToInbox) {
             const inboxBoard = boards.find(b => b.isInbox)
-            if (inboxBoard) {
-                const srcStore = getSnapshotStore(board.snapshot)
-                const cardShapes = Object.values(srcStore).filter(
+            const cardShapes = targets.flatMap(board => board.snapshot
+                ? Object.values(getSnapshotStore(board.snapshot)).filter(
                     s => s.typeName === 'shape' && s.type === 'card'
                 )
+                : []
+            )
 
-                if (cardShapes.length > 0) {
-                    const snap = toMutableSnapshot(inboxBoard.snapshot)
-                    const st = snap.document.store
+            if (inboxBoard && cardShapes.length > 0) {
+                const snap = toMutableSnapshot(inboxBoard.snapshot)
+                const st = snap.document.store
 
-                    const pageId = ensurePageScaffold(st)
-                    let lastIndex = lastShapeIndex(st)
-                    let offsetX = nextAppendX(st)
+                const pageId = ensurePageScaffold(st)
+                let lastIndex = lastShapeIndex(st)
+                let offsetX = nextAppendX(st)
 
-                    for (const shape of cardShapes) {
-                        lastIndex = lastIndex + 'V'
-                        const newId = `shape:ibm_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
-                        st[newId] = {
-                            ...structuredClone(shape),
-                            id: newId,
-                            parentId: pageId,
-                            x: offsetX,
-                            y: 100,
-                            index: lastIndex,
-                        }
-                        offsetX += (shape.props?.w ?? 240) + 40
+                for (const shape of cardShapes) {
+                    lastIndex = lastIndex + 'V'
+                    const newId = `shape:ibm_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
+                    st[newId] = {
+                        ...structuredClone(shape),
+                        id: newId,
+                        parentId: pageId,
+                        x: offsetX,
+                        y: 100,
+                        index: lastIndex,
                     }
-
-                    inboxUpdated = { ...inboxBoard, snapshot: toTLEditorSnapshot(snap), updatedAt: Date.now() }
-                    await saveBoard(inboxUpdated)
+                    offsetX += (shape.props?.w ?? 240) + 40
                 }
+
+                inboxUpdated = { ...inboxBoard, snapshot: toTLEditorSnapshot(snap), updatedAt: Date.now() }
+                await saveBoard(inboxUpdated)
             }
         }
 
         // updatedAt 同步推進，理由同 useTrash.handleSoftDeleteBoard（刪除必須贏過舊版編輯）
         const deletedNow = Date.now()
-        const deleted = { ...board, deletedAt: deletedNow, updatedAt: deletedNow }
-        await saveBoard(deleted)
+        for (const board of targets) {
+            await saveBoard({ ...board, deletedAt: deletedNow, updatedAt: deletedNow })
+        }
 
-        if (activeBoardId === boardId) {
-            const next = boards.filter(b => b.id !== boardId)
+        const deletedIds = new Set(targets.map(b => b.id))
+        if (activeBoardId && deletedIds.has(activeBoardId)) {
+            const next = boards.filter(b => !deletedIds.has(b.id))
             setActiveBoardId(next[0]?.id ?? null)
         }
 
         setBoards(prev => {
-            const filtered = prev.filter(b => b.id !== boardId)
+            const filtered = prev.filter(b => !deletedIds.has(b.id))
             if (inboxUpdated) {
                 return filtered.map(b => b.id === inboxUpdated!.id ? inboxUpdated! : b)
             }
@@ -346,7 +358,7 @@ export function useBoardManager() {
         handleRename,
         handleDelete,
         handleSoftDeleteBoard,
-        handleSoftDeleteBoardWithInboxMove,
+        handleSoftDeleteBoardsWithInboxMove,
         handlePermanentDeleteBoard,
         handleRestoreBoard,
         handleEmptyTrash,

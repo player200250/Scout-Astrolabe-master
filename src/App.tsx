@@ -41,7 +41,7 @@ export default function App() {
         trashCount, refreshTrashCount,
         handleSaveBoard, handleNew, handleCreateBoardFromTemplate, handleSwitch, handleSwitchToChild,
         handleSetParent, handleBack, handleRename,
-        handleSoftDeleteBoardWithInboxMove, handlePermanentDeleteBoard, handleRestoreBoard,
+        handleSoftDeleteBoardsWithInboxMove, handlePermanentDeleteBoard, handleRestoreBoard,
         handleEmptyTrash, handleCardTrashed,
         handleJump, handleSetJournal, handleSetStatus,
         handleRestore, handleGoToWeeklyCard, handleSaveJournal,
@@ -59,7 +59,9 @@ export default function App() {
     })
     const { panels, openPanel, closePanel, togglePanel } = usePanelState()
     const [movingCardShapeIds, setMovingCardShapeIds] = useState<string[] | null>(null)
-    const [deletingBoardId, setDeletingBoardId] = useState<string | null>(null)
+    // 陣列而非單一 id：批次刪除（多選、清理重複）要一次確認全部。
+    // 舊版是 string | null，呼叫端跑 forEach 只會留下最後一個 → 其餘靜默不刪。
+    const [deletingBoardIds, setDeletingBoardIds] = useState<string[]>([])
     const bannerShownRef = useRef(false)
 
     const { overdueCount, todayCount } = useMemo(() => {
@@ -98,7 +100,11 @@ export default function App() {
     }, [loading, overdueCount, openPanel, closePanel])
 
     const handleDeleteWithConfirm = useCallback((id: string) => {
-        setDeletingBoardId(id)
+        setDeletingBoardIds([id])
+    }, [])
+
+    const handleDeleteManyWithConfirm = useCallback((ids: string[]) => {
+        if (ids.length > 0) setDeletingBoardIds(ids)
     }, [])
 
     const toggleTheme = useCallback(() => {
@@ -328,6 +334,7 @@ export default function App() {
                     onCreateFromTemplate={(t) => { handleCreateBoardFromTemplate(t); closePanel('overview') }}
                     onRename={handleRename}
                     onDelete={handleDeleteWithConfirm}
+                    onDeleteMany={handleDeleteManyWithConfirm}
                     onSetStatus={handleSetStatus}
                     onClose={() => closePanel('overview')}
                 />
@@ -383,19 +390,21 @@ export default function App() {
                     onClose={() => closePanel('onboarding')}
                 />
             )}
-            {deletingBoardId && (() => {
-                const board = boards.find(b => b.id === deletingBoardId)
-                if (!board) return null
+            {deletingBoardIds.length > 0 && (() => {
+                const targets = deletingBoardIds
+                    .map(id => boards.find(b => b.id === id))
+                    .filter((b): b is typeof boards[number] => !!b)
+                if (targets.length === 0) return null
                 const hasInbox = boards.some(b => b.isInbox)
                 return (
                     <DeleteBoardDialog
-                        board={board}
+                        boards={targets}
                         hasInbox={hasInbox}
                         onConfirm={(moveToInbox) => {
-                            handleSoftDeleteBoardWithInboxMove(deletingBoardId, moveToInbox)
-                            setDeletingBoardId(null)
+                            handleSoftDeleteBoardsWithInboxMove(targets.map(b => b.id), moveToInbox)
+                            setDeletingBoardIds([])
                         }}
-                        onCancel={() => setDeletingBoardId(null)}
+                        onCancel={() => setDeletingBoardIds([])}
                     />
                 )
             })()}

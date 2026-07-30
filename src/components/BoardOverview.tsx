@@ -9,6 +9,7 @@ import { showToast } from '../utils/toast'
 import { promptName } from '../utils/promptName'
 import { InlineEdit } from './ui/InlineEdit'
 import { EmptyState } from './ui/EmptyState'
+import { findDuplicateBoards } from '../utils/duplicateBoards'
 
 interface BoardOverviewProps {
     boards: BoardRecord[]
@@ -18,11 +19,13 @@ interface BoardOverviewProps {
     onCreateFromTemplate: (template: BoardTemplateRecord) => void
     onRename: (id: string, name: string) => void
     onDelete: (id: string) => void
+    /** 批次刪除：一次帶走全部 id。不可用 onDelete 跑迴圈——確認對話框只認得最後一個。 */
+    onDeleteMany: (ids: string[]) => void
     onSetStatus: (id: string, status: 'active' | 'archived' | 'pinned') => void
     onClose: () => void
 }
 
-export function BoardOverview({ boards, activeBoardId, onSelect, onNew, onCreateFromTemplate, onRename, onDelete, onSetStatus, onClose }: BoardOverviewProps) {
+export function BoardOverview({ boards, activeBoardId, onSelect, onNew, onCreateFromTemplate, onRename, onDelete, onDeleteMany, onSetStatus, onClose }: BoardOverviewProps) {
     const [searchQuery, setSearchQuery] = useState('')
     const [hoveredId, setHoveredId] = useState<string | null>(null)
     const [renamingId, setRenamingId] = useState<string | null>(null)
@@ -118,7 +121,7 @@ export function BoardOverview({ boards, activeBoardId, onSelect, onNew, onCreate
     }
 
     const deleteSelected = () => {
-        selectedIds.forEach(id => onDelete(id))
+        onDeleteMany([...selectedIds])
         exitSelectionMode()
     }
 
@@ -201,24 +204,14 @@ export function BoardOverview({ boards, activeBoardId, onSelect, onNew, onCreate
                     >☑ 選取</button>
                     <button
                         onClick={() => {
-                            const nameCounts: Record<string, BoardRecord[]> = {}
-                            boards.filter(b => !b.isHome).forEach(b => {
-                                if (!nameCounts[b.name]) nameCounts[b.name] = []
-                                nameCounts[b.name].push(b)
-                            })
-                            const toDelete = Object.values(nameCounts)
-                                .flatMap(group => {
-                                    if (group.length <= 1) return []
-                                    const empties = group.filter(b => !b.snapshot)
-                                    return empties.length > 0 ? empties : []
-                                })
+                            const toDelete = findDuplicateBoards(boards)
                             if (toDelete.length === 0) {
                                 showToast('沒有發現重複的空白板。')
                                 return
                             }
-                            toDelete.forEach(b => onDelete(b.id))
+                            onDeleteMany(toDelete.map(b => b.id))
                         }}
-                        title="清理同名且空的重複白板"
+                        title="清理同名且空的重複白板（含「名稱 (2)」這類序號副本）"
                         style={{
                             display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px',
                             borderRadius: 8, border: `1px solid ${inputBorder}`, background: 'transparent', color: countColor,
