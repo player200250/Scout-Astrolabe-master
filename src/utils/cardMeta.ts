@@ -9,10 +9,25 @@
 // 以子集索引此表是安全的。
 
 import type { CardType } from '../components/card-shape/type/CardShape'
+import type { IconName } from '../components/ui/icons'
 
 export const TYPE_ICON: Record<CardType, string> = {
     text: '📝', todo: '✅', link: '🔗', journal: '📖', heading: 'A',
     sticky: '📌', table: '▦', color: '🎨', file: '📎', image: '🖼️', board: '🗂️',
+}
+
+/**
+ * CardType → 線性圖示名稱（`components/ui/icons.tsx` 的 registry key）。
+ * 逐步取代上面那份 emoji 版 TYPE_ICON；兩份並存期間，已改用 <Icon> 的畫面看這份。
+ *
+ * 放在這裡而不是 icons.tsx：icons.tsx 是元件檔，混著匯出常數會踩
+ * `react-refresh/only-export-components`（熱更新退化成整頁重載，CI 也會擋）。
+ * 這裡對 IconName 用 **type-only import**，不會產生執行期相依。
+ */
+export const CARD_TYPE_ICON: Record<CardType, IconName> = {
+    text: 'cardText', todo: 'cardTodo', link: 'cardLink', journal: 'cardJournal',
+    heading: 'cardHeading', sticky: 'cardSticky', table: 'cardTable', color: 'cardColor',
+    file: 'cardFile', image: 'cardImage', board: 'cardBoard',
 }
 
 export const TYPE_LABEL: Record<CardType, string> = {

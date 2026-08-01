@@ -16,9 +16,10 @@ import { promptName } from '../utils/promptName'
 import { showToast } from '../utils/toast'
 import { InlineEdit } from './ui/InlineEdit'
 import { useThumbnailPreview } from './ui/ThumbnailPreview'
+import { Icon, type IconName } from './ui/icons'
 
 interface NavItemDef {
-    icon: string
+    icon: IconName
     label: string
     title: string
     onClick: () => void
@@ -29,7 +30,7 @@ interface NavItemDef {
 /**
  * A5(b)：側欄的兩個「區段」標題（功能／白板）。
  *
- * 與群組標題（最近使用／📌 釘選／資料夾／未分類，見 CollapsibleHeader）刻意分成兩級：
+ * 與群組標題（最近使用／釘選／資料夾／未分類，見 CollapsibleHeader）刻意分成兩級：
  * 區段標題較大、較深、無收合箭頭；群組標題維持 10px muted。
  * 兩者若同樣式，堆在一起會讀成同一層，反而更難分辨「功能區」與「白板清單」。
  *
@@ -184,24 +185,24 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                             <button onClick={onNew} title="新增白板" style={{ width: 28, height: 28, borderRadius: 8, border: '1px dashed var(--border-mid)', background: 'transparent', cursor: 'pointer', fontSize: 18, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
                                 onMouseEnter={e => (e.currentTarget.style.background = hoverBg)}
                                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                            >+</button>
+                            ><Icon name="boardNew" size="md" /></button>
                             <button onClick={() => { setNewFolderName(''); setCreatingFolder(true) }} title="新增資料夾" style={{ width: 28, height: 28, borderRadius: 8, border: '1px dashed var(--border-mid)', background: 'transparent', cursor: 'pointer', fontSize: 13, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
                                 onMouseEnter={e => (e.currentTarget.style.background = hoverBg)}
                                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                            >📁</button>
+                            ><Icon name="folderNew" size="md" /></button>
                             <div style={{ width: 1, height: 16, background: 'var(--border-light)', alignSelf: 'center', flexShrink: 0 }} />
                             <button onClick={() => onOpenPanel('overview')} title="所有白板 (Ctrl+Shift+O)" style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border-light)', background: 'transparent', cursor: 'pointer', fontSize: 14, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
                                 onMouseEnter={e => (e.currentTarget.style.background = hoverBg)}
                                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                            >⊞</button>
+                            ><Icon name="overview" size="md" /></button>
                             <button onClick={() => onOpenPanel('search')} title="搜尋卡片 (Ctrl+F)" style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border-light)', background: 'transparent', cursor: 'pointer', fontSize: 14, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
                                 onMouseEnter={e => (e.currentTarget.style.background = hoverBg)}
                                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                            >🔍</button>
+                            ><Icon name="search" size="md" /></button>
                             <button onClick={() => onOpenPanel('quickCapture')} title="快速新增到收件匣 (Ctrl+Space)" style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border-light)', background: 'transparent', cursor: 'pointer', fontSize: 14, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
                                 onMouseEnter={e => (e.currentTarget.style.background = hoverBg)}
                                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                            >✏️</button>
+                            ><Icon name="quickCapture" size="md" /></button>
                         </div>
                     )}
                 </div>
@@ -210,13 +211,13 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                 {(() => {
                     const hBoard = boards.find(b => b.isHome)
                     const navItems: NavItemDef[] = [
-                        { icon: '🏠', label: '主頁', title: '主頁', onClick: () => { if (hBoard) onSwitch(hBoard.id) }, isActive: hBoard ? activeBoardId === hBoard.id : false },
-                        { icon: '📥', label: '收件匣', title: '收件匣 (Ctrl+Shift+I)', onClick: onGoToInbox, isActive: activeBoardId === INBOX_BOARD_ID, badge: inboxCardCount > 0 ? { count: inboxCardCount, color: '#ef4444' } : undefined },
-                        { icon: '🗂️', label: '卡片庫', title: '卡片庫 (Ctrl+Shift+L)', onClick: () => onOpenPanel('cardLibrary'), isActive: activePanel === 'cardLibrary' },
-                        { icon: '✅', label: '任務中心', title: '任務中心', onClick: () => onOpenPanel('taskCenter'), isActive: activePanel === 'taskCenter', badge: (overdueCount > 0 || todayCount > 0) ? { count: overdueCount > 0 ? overdueCount : todayCount, color: overdueCount > 0 ? '#ef4444' : '#f97316' } : undefined },
-                        { icon: '📔', label: '復盤中心', title: '復盤中心 (Ctrl+Shift+C)', onClick: () => onOpenPanel('reviewCenter'), isActive: activePanel === 'reviewCenter' },
-                        { icon: '🕸️', label: '知識圖譜', title: '知識圖譜 (Ctrl+Shift+G)', onClick: () => onOpenPanel('knowledgeGraph'), isActive: activePanel === 'knowledgeGraph' },
-                        { icon: '🗑️', label: '垃圾桶', title: '垃圾桶 (Ctrl+Shift+T)', onClick: () => onOpenPanel('trash'), isActive: false, badge: (trashCount ?? 0) > 0 ? { count: trashCount!, color: '#94a3b8' } : undefined },
+                        { icon: 'home', label: '主頁', title: '主頁', onClick: () => { if (hBoard) onSwitch(hBoard.id) }, isActive: hBoard ? activeBoardId === hBoard.id : false },
+                        { icon: 'inbox', label: '收件匣', title: '收件匣 (Ctrl+Shift+I)', onClick: onGoToInbox, isActive: activeBoardId === INBOX_BOARD_ID, badge: inboxCardCount > 0 ? { count: inboxCardCount, color: '#ef4444' } : undefined },
+                        { icon: 'cardLibrary', label: '卡片庫', title: '卡片庫 (Ctrl+Shift+L)', onClick: () => onOpenPanel('cardLibrary'), isActive: activePanel === 'cardLibrary' },
+                        { icon: 'taskCenter', label: '任務中心', title: '任務中心', onClick: () => onOpenPanel('taskCenter'), isActive: activePanel === 'taskCenter', badge: (overdueCount > 0 || todayCount > 0) ? { count: overdueCount > 0 ? overdueCount : todayCount, color: overdueCount > 0 ? '#ef4444' : '#f97316' } : undefined },
+                        { icon: 'reviewCenter', label: '復盤中心', title: '復盤中心 (Ctrl+Shift+C)', onClick: () => onOpenPanel('reviewCenter'), isActive: activePanel === 'reviewCenter' },
+                        { icon: 'knowledgeGraph', label: '知識圖譜', title: '知識圖譜 (Ctrl+Shift+G)', onClick: () => onOpenPanel('knowledgeGraph'), isActive: activePanel === 'knowledgeGraph' },
+                        { icon: 'trash', label: '垃圾桶', title: '垃圾桶 (Ctrl+Shift+T)', onClick: () => onOpenPanel('trash'), isActive: false, badge: (trashCount ?? 0) > 0 ? { count: trashCount!, color: '#94a3b8' } : undefined },
                     ]
                     if (collapsed) {
                         return (
@@ -230,14 +231,15 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                                                 width: 28, height: 28, borderRadius: 7,
                                                 border: item.isActive ? '2px solid #2563eb' : '1.5px solid transparent',
                                                 background: item.isActive ? (T.accentBg) : 'transparent',
-                                                cursor: 'pointer', fontSize: 14,
+                                                cursor: 'pointer',
+                                                color: item.isActive ? '#2563eb' : 'var(--text-secondary)',
                                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                                                 padding: 0,
                                             }}
                                             onMouseEnter={e => { if (!item.isActive) e.currentTarget.style.background = hoverBg }}
                                             onMouseLeave={e => { e.currentTarget.style.background = item.isActive ? (T.accentBg) : 'transparent' }}
                                         >
-                                            {item.icon}
+                                            <Icon name={item.icon} size="md" />
                                         </button>
                                         {item.badge && (
                                             <span style={{ position: 'absolute', top: 0, right: 0, background: item.badge.color, color: 'white', fontSize: 8, fontWeight: 700, borderRadius: 999, minWidth: 12, height: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 2px', lineHeight: 1, border: '1.5px solid var(--bg-sidebar)', pointerEvents: 'none' }}>
@@ -269,7 +271,9 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                                     onMouseEnter={e => { if (!item.isActive) e.currentTarget.style.background = hoverBg }}
                                     onMouseLeave={e => { if (!item.isActive) e.currentTarget.style.background = 'transparent' }}
                                 >
-                                    <span style={{ fontSize: 14, width: 36, textAlign: 'center', flexShrink: 0 }}>{item.icon}</span>
+                                    <span style={{ width: 36, display: 'flex', justifyContent: 'center', flexShrink: 0, color: item.isActive ? '#2563eb' : 'var(--text-muted)' }}>
+                                        <Icon name={item.icon} size="md" />
+                                    </span>
                                     <span style={{ fontSize: 13, fontWeight: item.isActive ? 600 : 400, color: item.isActive ? '#2563eb' : 'var(--text-secondary)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.label}</span>
                                     {item.badge && (
                                         <span style={{ marginRight: 10, background: item.badge.color, color: 'white', fontSize: 10, fontWeight: 700, borderRadius: 999, padding: '1px 5px', minWidth: 16, textAlign: 'center', lineHeight: '16px', flexShrink: 0 }}>
@@ -393,7 +397,7 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                                         }}
                                     >
                                         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                            {board.status === 'pinned' ? '📌 ' : ''}{board.name}{board.isJournal ? ' 📔' : ''}
+                                            {board.status === 'pinned' && <Icon name="pin" style={{ width: 11, height: 11, marginRight: 4, display: 'inline-block', verticalAlign: '-1px' }} />}{board.name}{board.isJournal && <Icon name="reviewCenter" style={{ width: 11, height: 11, marginLeft: 4, display: 'inline-block', verticalAlign: '-1px' }} />}
                                             {isStale && <span title="超過 14 天未開啟" style={{ marginLeft: 3, fontSize: 9, opacity: 0.4 }}>🕐</span>}
                                         </span>
                                         {board.isInbox && inboxCardCount > 0 && (
@@ -409,7 +413,7 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                                             style={{ width: 20, height: 20, borderRadius: 4, border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 11, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
                                             onMouseEnter={e => (e.currentTarget.style.background = hoverBg)}
                                             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                                        >✎</button>
+                                        ><Icon name="rename" /></button>
                                         {boards.length > 1 && (
                                             <button
                                                 onClick={() => onDelete(board.id)}
@@ -425,16 +429,18 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                         )
                     }
 
-                    const CollapsibleHeader = ({ label, open, onToggle }: { label: string; open: boolean; onToggle: () => void }) => (
+                    const CollapsibleHeader = ({ label, icon, open, onToggle }: { label: string; icon?: IconName; open: boolean; onToggle: () => void }) => (
                         <button
                             onClick={onToggle}
                             style={{
                                 display: 'flex', alignItems: 'center', gap: 5,
                                 width: '100%', padding: '7px 10px 3px', border: 'none',
                                 background: 'transparent', cursor: 'pointer', textAlign: 'left',
+                                color: 'var(--text-muted)',
                             }}
                         >
                             <span style={{ fontSize: 8, color: 'var(--text-muted)', transition: 'transform 0.15s', transform: open ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block' }}>▶</span>
+                            {icon && <Icon name={icon} style={{ width: 12, height: 12 }} />}
                             <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.7px', textTransform: 'uppercase', userSelect: 'none' }}>{label}</span>
                         </button>
                     )
@@ -498,7 +504,7 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                             {pinnedBoards.length > 0 && (
                                 <>
                                     <div style={{ height: 1, background: 'var(--border-light)', margin: '4px 4px' }} />
-                                    <CollapsibleHeader label="📌 釘選" open={pinnedOpen} onToggle={() => setPinnedOpen(v => !v)} />
+                                    <CollapsibleHeader label="釘選" icon="pin" open={pinnedOpen} onToggle={() => setPinnedOpen(v => !v)} />
                                     {pinnedOpen && pinnedBoards.map(b => renderBoardCard(b))}
                                 </>
                             )}
@@ -523,6 +529,7 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                                                     }}
                                                 >
                                                     <span style={{ fontSize: 8, color: 'var(--text-muted)', transition: 'transform 0.15s', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block', flexShrink: 0 }}>▶</span>
+                                                    <span style={{ color: 'var(--text-muted)', display: 'flex' }}><Icon name="folder" style={{ width: 12, height: 12 }} /></span>
                                                     {renamingId === folder.id ? (
                                                         <InlineEdit
                                                             value={folder.name}
@@ -535,7 +542,7 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                                                             onDoubleClick={e => { e.stopPropagation(); setRenamingId(folder.id) }}
                                                             style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.7px', textTransform: 'uppercase', userSelect: 'none', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
                                                         >
-                                                            📁 {folder.name}{folderBoards.length > 0 ? ` (${folderBoards.length})` : ''}
+                                                            {folder.name}{folderBoards.length > 0 ? ` (${folderBoards.length})` : ''}
                                                         </span>
                                                     )}
                                                 </div>
@@ -571,7 +578,7 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                             {archivedBoards.length > 0 && (
                                 <>
                                     <div style={{ height: 1, background: 'var(--border-light)', margin: '4px 4px' }} />
-                                    <CollapsibleHeader label={`🗄️ 封存 (${archivedBoards.length})`} open={archivedOpen} onToggle={() => setArchivedOpen(v => !v)} />
+                                    <CollapsibleHeader label={`封存 (${archivedBoards.length})`} icon="archive" open={archivedOpen} onToggle={() => setArchivedOpen(v => !v)} />
                                     {archivedOpen && archivedBoards.map(b => renderBoardCard(b, { dimmed: true }))}
                                 </>
                             )}
@@ -619,11 +626,11 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                             </div>
                             <div
                                 onClick={() => { onSetJournal(contextMenu.boardId, !targetBoard.isJournal); setContextMenu(null) }}
-                                style={{ padding: '7px 14px', cursor: 'pointer', fontSize: 13, color: menuText }}
+                                style={{ padding: '7px 14px', cursor: 'pointer', fontSize: 13, color: menuText, display: 'flex', alignItems: 'center', gap: 8 }}
                                 onMouseEnter={e => (e.currentTarget.style.background = menuItemHover)}
                                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                             >
-                                {targetBoard.isJournal ? '📔 取消 Journal 白板' : '📔 設為 Journal 白板'}
+                                <Icon name="reviewCenter" />{targetBoard.isJournal ? '取消 Journal 白板' : '設為 Journal 白板'}
                             </div>
                             <div style={{ height: 1, background: menuDivider, margin: '4px 0' }} />
                             <div
@@ -631,48 +638,48 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                                     onSetStatus(contextMenu.boardId, targetBoard.status === 'pinned' ? 'active' : 'pinned')
                                     setContextMenu(null)
                                 }}
-                                style={{ padding: '7px 14px', cursor: 'pointer', fontSize: 13, color: menuText }}
+                                style={{ padding: '7px 14px', cursor: 'pointer', fontSize: 13, color: menuText, display: 'flex', alignItems: 'center', gap: 8 }}
                                 onMouseEnter={e => (e.currentTarget.style.background = menuItemHover)}
                                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                             >
-                                {targetBoard.status === 'pinned' ? '📌 取消釘選' : '📌 釘選白板'}
+                                <Icon name={targetBoard.status === 'pinned' ? 'unpin' : 'pin'} />{targetBoard.status === 'pinned' ? '取消釘選' : '釘選白板'}
                             </div>
                             <div
                                 onClick={() => {
                                     onSetStatus(contextMenu.boardId, targetBoard.status === 'archived' ? 'active' : 'archived')
                                     setContextMenu(null)
                                 }}
-                                style={{ padding: '7px 14px', cursor: 'pointer', fontSize: 13, color: menuText }}
+                                style={{ padding: '7px 14px', cursor: 'pointer', fontSize: 13, color: menuText, display: 'flex', alignItems: 'center', gap: 8 }}
                                 onMouseEnter={e => (e.currentTarget.style.background = menuItemHover)}
                                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                             >
-                                {targetBoard.status === 'archived' ? '↩ 取消封存' : '🗄️ 封存白板'}
+                                <Icon name={targetBoard.status === 'archived' ? 'unarchive' : 'archive'} />{targetBoard.status === 'archived' ? '取消封存' : '封存白板'}
                             </div>
                             <div style={{ height: 1, background: menuDivider, margin: '4px 0' }} />
                             <div
                                 onClick={() => { setSelectingParentFor(contextMenu.boardId); setContextMenu(null) }}
-                                style={{ padding: '7px 14px', cursor: 'pointer', fontSize: 13, color: menuText }}
+                                style={{ padding: '7px 14px', cursor: 'pointer', fontSize: 13, color: menuText, display: 'flex', alignItems: 'center', gap: 8 }}
                                 onMouseEnter={e => (e.currentTarget.style.background = menuItemHover)}
                                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                             >
-                                📂 設為子板...
+                                <Icon name="folderMove" />設為子板...
                             </div>
                             <div
                                 onClick={() => { setSelectingFolderFor(contextMenu.boardId); setContextMenu(null) }}
-                                style={{ padding: '7px 14px', cursor: 'pointer', fontSize: 13, color: menuText }}
+                                style={{ padding: '7px 14px', cursor: 'pointer', fontSize: 13, color: menuText, display: 'flex', alignItems: 'center', gap: 8 }}
                                 onMouseEnter={e => (e.currentTarget.style.background = menuItemHover)}
                                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                             >
-                                {targetBoard.folderId ? '📁 變更資料夾...' : '📁 移入資料夾...'}
+                                <Icon name="folder" />{targetBoard.folderId ? '變更資料夾...' : '移入資料夾...'}
                             </div>
                             {targetBoard.folderId && (
                                 <div
                                     onClick={() => { onSetFolder(contextMenu.boardId, null); setContextMenu(null) }}
-                                    style={{ padding: '7px 14px', cursor: 'pointer', fontSize: 13, color: menuText }}
+                                    style={{ padding: '7px 14px', cursor: 'pointer', fontSize: 13, color: menuText, display: 'flex', alignItems: 'center', gap: 8 }}
                                     onMouseEnter={e => (e.currentTarget.style.background = menuItemHover)}
                                     onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                                 >
-                                    ↩ 移出資料夾
+                                    <Icon name="unarchive" />移出資料夾
                                 </div>
                             )}
                             <div style={{ height: 1, background: menuDivider, margin: '4px 0' }} />
@@ -689,26 +696,26 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                                         if (name === null) return
                                         try {
                                             await saveBoardAsTemplate(targetBoard, name)
-                                            showToast(`已存為白板模板「${name}」\n在「所有白板」總覽按「⧉ 從模板」即可一鍵新建。`, 'success')
+                                            showToast(`已存為白板模板「${name}」\n在「所有白板」總覽按「從模板」即可一鍵新建。`, 'success')
                                         } catch {
                                             showToast('存為模板失敗，請重試。', 'error')
                                         }
                                     })()
                                 }}
-                                style={{ padding: '7px 14px', cursor: 'pointer', fontSize: 13, color: menuText }}
+                                style={{ padding: '7px 14px', cursor: 'pointer', fontSize: 13, color: menuText, display: 'flex', alignItems: 'center', gap: 8 }}
                                 onMouseEnter={e => (e.currentTarget.style.background = menuItemHover)}
                                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                             >
-                                ⧉ 存為白板模板
+                                <Icon name="duplicate" />存為白板模板
                             </div>
                             <div style={{ height: 1, background: menuDivider, margin: '4px 0' }} />
                             <div
                                 onClick={() => { onDelete(contextMenu.boardId); setContextMenu(null) }}
-                                style={{ padding: '7px 14px', cursor: 'pointer', fontSize: 13, color: '#e03131' }}
+                                style={{ padding: '7px 14px', cursor: 'pointer', fontSize: 13, color: '#e03131', display: 'flex', alignItems: 'center', gap: 8 }}
                                 onMouseEnter={e => (e.currentTarget.style.background = deleteHover)}
                                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                             >
-                                🗑️ 移至垃圾桶
+                                <Icon name="trash" />移至垃圾桶
                             </div>
                             {boards.filter(b => b.parentId === contextMenu.boardId).length > 0 && (() => {
                                 const renderChildren = (parentId: string, depth: number): React.ReactNode => {
@@ -735,7 +742,7 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                                                         {child.name}
                                                     </div>
                                                 )}
-                                                <button onClick={e => { e.stopPropagation(); startRename(child) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: menuMuted, fontSize: 11, padding: '2px 4px', borderRadius: 4, flexShrink: 0 }}>✏️</button>
+                                                <button onClick={e => { e.stopPropagation(); startRename(child) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: menuMuted, fontSize: 11, padding: '2px 4px', borderRadius: 4, flexShrink: 0 }}><Icon name="rename" /></button>
                                                 <button onClick={e => { e.stopPropagation(); onSetParent(child.id, null); setContextMenu(null) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: menuMuted, fontSize: 11, padding: '2px 4px', borderRadius: 4, flexShrink: 0, whiteSpace: 'nowrap' }}>↑主板</button>
                                                 <button onClick={e => { e.stopPropagation(); onDelete(child.id); setContextMenu(null) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ccc', fontSize: 14, padding: '2px 4px', borderRadius: 4, flexShrink: 0 }}>×</button>
                                             </div>
@@ -773,9 +780,9 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                         <div style={{ position: 'fixed', inset: 0, zIndex: Z_CLICK_AWAY }} onClick={() => setFolderContextMenu(null)} />
                         <div style={{ position: 'fixed', right: sidebarWidth, top: folderContextMenu.y, background: menuBg, borderRadius: 10, padding: '4px 0', boxShadow: menuShadow, border: `1px solid ${menuBorderC}`, zIndex: Z_MODAL, minWidth: 160 }}>
                             <div style={{ padding: '4px 12px 6px', fontSize: 11, color: menuMuted, borderBottom: `1px solid ${menuDivider}`, marginBottom: 4 }}>{folder.name}</div>
-                            <div onClick={() => { setRenamingId(folder.id); setFolderContextMenu(null) }} style={{ padding: '7px 14px', cursor: 'pointer', fontSize: 13, color: menuText }} onMouseEnter={e => (e.currentTarget.style.background = menuItemHover)} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>✎ 重新命名</div>
+                            <div onClick={() => { setRenamingId(folder.id); setFolderContextMenu(null) }} style={{ padding: '7px 14px', cursor: 'pointer', fontSize: 13, color: menuText, display: 'flex', alignItems: 'center', gap: 8 }} onMouseEnter={e => (e.currentTarget.style.background = menuItemHover)} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}><Icon name="rename" />重新命名</div>
                             <div style={{ height: 1, background: menuDivider, margin: '4px 0' }} />
-                            <div onClick={() => { onDeleteFolder(folderContextMenu.folderId); setFolderContextMenu(null) }} style={{ padding: '7px 14px', cursor: 'pointer', fontSize: 13, color: '#e03131' }} onMouseEnter={e => (e.currentTarget.style.background = deleteHover)} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>🗑️ 刪除資料夾</div>
+                            <div onClick={() => { onDeleteFolder(folderContextMenu.folderId); setFolderContextMenu(null) }} style={{ padding: '7px 14px', cursor: 'pointer', fontSize: 13, color: '#e03131', display: 'flex', alignItems: 'center', gap: 8 }} onMouseEnter={e => (e.currentTarget.style.background = deleteHover)} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}><Icon name="trash" />刪除資料夾</div>
                         </div>
                     </>
                 )
@@ -794,12 +801,12 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                             <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 4, color: 'var(--text-primary)' }}>移入資料夾</div>
                             <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16 }}>將「{target?.name}」移入哪個資料夾？</div>
                             {folderList.length === 0 ? (
-                                <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 12 }}>尚無資料夾。請先在側邊欄頂部點擊 📁 建立資料夾。</div>
+                                <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 12 }}>尚無資料夾。請先在側邊欄頂部點擊「新增資料夾」鈕建立。</div>
                             ) : (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
                                     {folderList.map(folder => (
                                         <div key={folder.id} onClick={() => { onSetFolder(selectingFolderFor, folder.id); setSelectingFolderFor(null) }} style={{ padding: '8px 12px', borderRadius: 8, cursor: 'pointer', border: `1px solid var(--border-light)`, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-primary)' }} onMouseEnter={e => (e.currentTarget.style.background = hoverBgD)} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                                            📁 {folder.name}
+                                            <Icon name="folder" />{folder.name}
                                         </div>
                                     ))}
                                 </div>

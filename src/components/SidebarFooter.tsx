@@ -3,6 +3,7 @@ import { Z_CLICK_AWAY, Z_MODAL_BACKDROP } from '../constants'
 import type { PanelName } from '../hooks/usePanelState'
 import { T } from '../theme/tokens'
 import { useIsDark } from '../theme/ThemeContext'
+import { Icon, type IconName } from './ui/icons'
 
 interface SidebarFooterProps {
     onOpenPanel: (name: PanelName) => void
@@ -14,7 +15,8 @@ export function SidebarFooter({ onOpenPanel,  onToggleTheme }: SidebarFooterProp
     const [moreMenuOpen, setMoreMenuOpen] = useState(false)
     const iconBtnStyle = {
         width: 28, height: 28, borderRadius: 7, border: 'none',
-        background: 'transparent', cursor: 'pointer', fontSize: 14,
+        background: 'transparent', cursor: 'pointer',
+        color: 'var(--text-muted)',
         display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
     } as const
     const iconHoverBg = T.bgHoverSoft
@@ -23,10 +25,10 @@ export function SidebarFooter({ onOpenPanel,  onToggleTheme }: SidebarFooterProp
         <div style={{ borderTop: '1px solid var(--border-light)', flexShrink: 0, paddingBottom: 2 }}>
             <div style={{ display: 'flex', justifyContent: 'space-around', padding: '4px 12px' }}>
                 {([
-                    { icon: '🔍', title: '篩選卡片', fn: () => onOpenPanel('filter') },
-                    { icon: '🔒', title: '自動備份', fn: () => onOpenPanel('backup') },
-                    { icon: '⌨️', title: '快捷鍵', fn: () => onOpenPanel('hotkey') },
-                ] as { icon: string; title: string; fn: () => void }[]).map(({ icon, title, fn }) => (
+                    { icon: 'filter', title: '篩選卡片', fn: () => onOpenPanel('filter') },
+                    { icon: 'backup', title: '自動備份', fn: () => onOpenPanel('backup') },
+                    { icon: 'hotkey', title: '快捷鍵', fn: () => onOpenPanel('hotkey') },
+                ] as { icon: IconName; title: string; fn: () => void }[]).map(({ icon, title, fn }) => (
                     <button
                         key={title}
                         onClick={fn}
@@ -34,7 +36,7 @@ export function SidebarFooter({ onOpenPanel,  onToggleTheme }: SidebarFooterProp
                         style={iconBtnStyle}
                         onMouseEnter={e => (e.currentTarget.style.background = iconHoverBg)}
                         onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                    >{icon}</button>
+                    ><Icon name={icon} size="md" /></button>
                 ))}
                 <button
                     onClick={onToggleTheme}
@@ -42,7 +44,7 @@ export function SidebarFooter({ onOpenPanel,  onToggleTheme }: SidebarFooterProp
                     style={iconBtnStyle}
                     onMouseEnter={e => (e.currentTarget.style.background = iconHoverBg)}
                     onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                >{isDark ? '☀️' : '🌙'}</button>
+                ><Icon name={isDark ? 'themeLight' : 'themeDark'} size="md" /></button>
                 <div style={{ position: 'relative' }}>
                     <button
                         onClick={() => setMoreMenuOpen(v => !v)}
@@ -54,7 +56,7 @@ export function SidebarFooter({ onOpenPanel,  onToggleTheme }: SidebarFooterProp
                         }}
                         onMouseEnter={e => (e.currentTarget.style.background = iconHoverBg)}
                         onMouseLeave={e => (e.currentTarget.style.background = moreMenuOpen ? iconHoverBg : 'transparent')}
-                    >⋯</button>
+                    ><Icon name="more" size="md" /></button>
                     {moreMenuOpen && (
                         <>
                             <div style={{ position: 'fixed', inset: 0, zIndex: Z_CLICK_AWAY }} onClick={() => setMoreMenuOpen(false)} />
@@ -67,10 +69,10 @@ export function SidebarFooter({ onOpenPanel,  onToggleTheme }: SidebarFooterProp
                                 zIndex: Z_MODAL_BACKDROP, minWidth: 160,
                             }}>
                                 {([
-                                    { icon: '⌘', label: '命令面板 (Ctrl+K)', panel: 'commandPalette' as const },
-                                    { icon: '🛡️', label: '資料安全中心', panel: 'dataSafety' as const },
-                                    { icon: '☁️', label: '雲端同步', panel: 'cloudSync' as const },
-                                    { icon: '📖', label: '使用導覽', panel: 'onboarding' as const },
+                                    { icon: 'command' as IconName, label: '命令面板 (Ctrl+K)', panel: 'commandPalette' as const },
+                                    { icon: 'dataSafety' as IconName, label: '資料安全中心', panel: 'dataSafety' as const },
+                                    { icon: 'cloudSync' as IconName, label: '雲端同步', panel: 'cloudSync' as const },
+                                    { icon: 'onboarding' as IconName, label: '使用導覽', panel: 'onboarding' as const },
                                 ]).map(({ icon, label, panel }) => (
                                     <div
                                         key={panel}
@@ -84,7 +86,7 @@ export function SidebarFooter({ onOpenPanel,  onToggleTheme }: SidebarFooterProp
                                         onMouseEnter={e => (e.currentTarget.style.background = T.bgHoverSoft)}
                                         onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                                     >
-                                        {icon} {label}
+                                        <Icon name={icon} />{label}
                                     </div>
                                 ))}
                             </div>

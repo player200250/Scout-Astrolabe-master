@@ -5,6 +5,9 @@ import { getTodayStr, formatRelativeDate, toDateStr } from '../utils/date'
 import { stripHtml } from '../utils/stringUtils'
 import { EmptyState } from './ui/EmptyState'
 import { T } from '../theme/tokens'
+import { Icon } from './ui/icons'
+import { TYPE_COLOR, CARD_TYPE_ICON } from '../utils/cardMeta'
+import type { CardType } from './card-shape/type/CardShape'
 
 interface DashboardProps {
     boards: BoardRecord[]
@@ -53,14 +56,6 @@ function getDateLabel(): string {
     return `今天是 ${m} 月 ${d} 日（週${weekDay}） 第 ${weekNum} 週`
 }
 
-const CARD_TYPE_ICON: Record<string, string> = {
-    todo: '✅',
-    link: '🔗',
-    image: '🖼️',
-    journal: '📔',
-    board: '🗂️',
-    text: '📝',
-}
 
 export function Dashboard({
     boards, onSwitch, onOpenTaskCenter, onOpenTodayJournal,
@@ -328,7 +323,7 @@ export function Dashboard({
                                     }}>
                                         {board.thumbnail
                                             ? <img src={board.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                            : <span style={{ fontSize: 22, opacity: 0.5 }}>🗂️</span>
+                                            : <span style={{ color: textMuted, opacity: 0.5 }}><Icon name="overview" size="md" /></span>
                                         }
                                     </div>
                                     <div style={{ padding: '8px 10px' }}>
@@ -361,8 +356,8 @@ export function Dashboard({
                                     padding: '8px 12px', borderRadius: 8,
                                     background: cardBgHover, border: `1px solid ${border}`,
                                 }}>
-                                    <span style={{ fontSize: 14 }}>
-                                        {CARD_TYPE_ICON[shape.props.type ?? 'text'] ?? '📝'}
+                                    <span style={{ display: 'flex', color: TYPE_COLOR[(shape.props.type ?? 'text') as CardType] ?? textMuted }}>
+                                        <Icon name={CARD_TYPE_ICON[(shape.props.type ?? 'text') as CardType] ?? 'cardText'} size="md" />
                                     </span>
                                     <span style={{
                                         flex: 1, fontSize: 13, color: textPrimary,
