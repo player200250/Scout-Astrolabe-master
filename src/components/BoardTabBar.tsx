@@ -26,6 +26,25 @@ interface NavItemDef {
     badge?: { count: number; color: string }
 }
 
+/**
+ * A5(b)：側欄的兩個「區段」標題（功能／白板）。
+ *
+ * 與群組標題（最近使用／📌 釘選／資料夾／未分類，見 CollapsibleHeader）刻意分成兩級：
+ * 區段標題較大、較深、無收合箭頭；群組標題維持 10px muted。
+ * 兩者若同樣式，堆在一起會讀成同一層，反而更難分辨「功能區」與「白板清單」。
+ *
+ * 不做成可收合：功能區收起來就沒有導覽入口了，而白板清單是側欄存在的理由。
+ */
+function SectionLabel({ children }: { children: React.ReactNode }) {
+    return (
+        <div style={{
+            fontSize: 11, fontWeight: 700, letterSpacing: '0.5px',
+            color: 'var(--text-secondary)',
+            padding: '8px 10px 4px', userSelect: 'none', flexShrink: 0,
+        }}>{children}</div>
+    )
+}
+
 interface BoardTabBarProps {
     boards: BoardRecord[]
     activeBoardId: string
@@ -231,7 +250,8 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                         )
                     }
                     return (
-                        <div style={{ flexShrink: 0, borderBottom: '1px solid var(--border-light)' }}>
+                        <div style={{ flexShrink: 0, borderBottom: '1px solid var(--border-light)', paddingBottom: 4 }}>
+                            <SectionLabel>功能</SectionLabel>
                             {navItems.map(item => (
                                 <button
                                     key={item.label}
@@ -462,10 +482,14 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                     const isFolderExpanded = (fid: string) => folderOpen[fid] !== false
 
                     return (
-                        <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '6px 6px', scrollbarWidth: 'none', display: 'flex', flexDirection: 'column', gap: 1 }}>
+                        // A5(b)：「白板」標題放在捲動容器**之外**（flexShrink:0）。
+                        // 放在裡面的話，清單一捲動標題就跟著消失，功能區下方又變回
+                        // 「一列被切一半的白板」直接貼著分隔線＝兩種內容再次讀成同一串。
+                        <>
+                            <SectionLabel>白板</SectionLabel>
+                            <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '0 6px 6px', scrollbarWidth: 'none', display: 'flex', flexDirection: 'column', gap: 1 }}>
                             {recentBoards.length > 0 && (
                                 <>
-                                    <div style={{ height: 1, background: 'var(--border-light)', margin: '4px 4px' }} />
                                     <CollapsibleHeader label="最近使用" open={recentOpen} onToggle={() => setRecentOpen(v => !v)} />
                                     {recentOpen && recentBoards.map(b => renderBoardCard(b))}
                                 </>
@@ -551,7 +575,8 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                                     {archivedOpen && archivedBoards.map(b => renderBoardCard(b, { dimmed: true }))}
                                 </>
                             )}
-                        </div>
+                            </div>
+                        </>
                     )
                 })()}
 
