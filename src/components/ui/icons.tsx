@@ -25,7 +25,8 @@ import {
     AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter,
     Circle, CircleDashed, CircleOff, CircleDot, Square, SquareCheck,
     Flag, SignalHigh, SignalMedium, SignalLow,
-    Users, BookMarked, Bug, Target, Lightbulb, ChevronRight, X,
+    Users, BookMarked, Bug, Target, Lightbulb, ChevronRight, X, Check, Info, TriangleAlert, Rows3,
+    Compass, MousePointerClick, FileImage, FileVideo, FileAudio, FileArchive, File, CopyMinus,
     Pilcrow, Heading1, Heading2, Heading3, List, ListOrdered, Quote, SquareCode, Minus,
     Sigma, Bold, Italic, Underline, Strikethrough, Highlighter, Code,
 } from 'lucide-react'
@@ -160,6 +161,31 @@ const REGISTRY = {
     fmtStrike: Strikethrough,
     fmtHighlight: Highlighter,
     fmtCode: Code,
+
+    // 檢視切換（卡片庫的清單／格狀）
+    viewList: Rows3,
+    viewGrid: LayoutGrid,
+
+    // 白板總覽
+    check: Check,
+    cleanupDuplicates: CopyMinus,
+
+    // Toast 的三種語氣（見 ui/ToastHost）。success 沿用 done 那顆 CircleCheck，
+    // 不另開一個——「完成」在整個 App 就該只有一種樣子。
+    toastInfo: Info,
+    toastError: TriangleAlert,
+
+    // 使用導覽（OnboardingModal 四步）
+    welcome: Compass,
+    rightClick: MousePointerClick,
+
+    // 檔案卡的檔型圖示（見 FileContent）。Office 類刻意維持 PDF／DOC／XLS／PPT
+    // 三字母文字牌 —— 那是比任何圖示都準的標示，只有沒有公認縮寫的類型才用圖示。
+    fileImage: FileImage,
+    fileVideo: FileVideo,
+    fileAudio: FileAudio,
+    fileArchive: FileArchive,
+    fileGeneric: File,
 
     // 卡片型別（對照 CardType，見 utils/cardMeta.ts 的 TYPE_LABEL／TYPE_COLOR）
     cardText: FileText,

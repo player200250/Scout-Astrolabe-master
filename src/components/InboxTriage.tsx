@@ -13,7 +13,8 @@ import {
     buildTriageQueue, nextCursor, prevCursor, triageProgress, summarizeDecisions,
     type TriageDecision,
 } from '../utils/inboxTriage'
-import { TYPE_ICON, TYPE_LABEL, TYPE_COLOR, hexToRgba } from '../utils/cardMeta'
+import { CARD_TYPE_ICON, TYPE_LABEL, TYPE_COLOR, hexToRgba } from '../utils/cardMeta'
+import { Icon } from './ui/icons'
 import { MoveCardModal } from './MoveCardModal'
 import { Z_MODAL } from '../constants'
 import { T } from '../theme/tokens'
@@ -189,8 +190,9 @@ export function InboxTriage({ boards, onMoveCard, onUpdateCardProps, onTrashCard
                                         fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 5,
                                         color: TYPE_COLOR[item.type],
                                         background: hexToRgba(TYPE_COLOR[item.type], isDark ? 0.2 : 0.1),
+                                        display: 'inline-flex', alignItems: 'center', gap: 4,
                                     }}>
-                                        {TYPE_ICON[item.type]} {TYPE_LABEL[item.type]}
+                                        <Icon name={CARD_TYPE_ICON[item.type]} />{TYPE_LABEL[item.type]}
                                     </span>
                                     {item.tags.map(tag => (
                                         <span key={tag} style={{ fontSize: 11, padding: '2px 7px', borderRadius: 5, background: trackBg, color: mutedColor }}>

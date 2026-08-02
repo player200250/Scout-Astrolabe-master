@@ -1,10 +1,12 @@
 // src/CardLibrary.tsx
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
+import type { ReactNode } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import type { BoardRecord } from './db'
 import { getCardShapes } from './utils/snapshot'
 import { splitTitleBody } from './utils/stringUtils'
-import { TYPE_ICON, TYPE_LABEL, TYPE_COLOR, hexToRgba } from './utils/cardMeta'
+import { CARD_TYPE_ICON, TYPE_LABEL, TYPE_COLOR, hexToRgba, STATUS_ICON, STATUS_LABEL, PRIORITY_ICON, PRIORITY_LABEL } from './utils/cardMeta'
+import { Icon } from './components/ui/icons'
 import { loadTagColors, getTagColor, type TagColorMap } from './utils/tagColors'
 import { EmptyState } from './components/ui/EmptyState'
 import { T } from './theme/tokens'
@@ -44,19 +46,21 @@ const ALL_TYPES: LibCardType[]    = ['text', 'todo', 'link', 'journal', 'heading
 const ALL_STATUSES: StatusType[]  = ['none', 'todo', 'in-progress', 'done']
 const ALL_PRIORITIES: PriorityType[] = ['none', 'low', 'medium', 'high']
 
-/* P6 — 「無」改為「未設定」，避免語義混淆 */
-const STATUS_CONFIG: Record<StatusType, { label: string; color: string; bg: string; darkBg: string }> = {
-    none:          { label: '未設定', color: '#6b7280', bg: '#f3f4f6', darkBg: '#374151' },
-    todo:          { label: '待辦',   color: '#374151', bg: '#f0f0f0', darkBg: '#2d3748' },
-    'in-progress': { label: '進行中', color: '#1d4ed8', bg: '#dbeafe', darkBg: '#1e3a5f' },
-    done:          { label: '完成',   color: '#15803d', bg: '#dcfce7', darkBg: '#14532d' },
+// 只留顏色。文字標籤走共用的 STATUS_LABEL／PRIORITY_LABEL（utils/cardMeta）。
+// ⚠️ P6 當年在這裡把「無」改寫成「未設定」，但只改了卡片庫這一份 —— 同一個值
+// 在篩選面板叫「無」、在這裡叫「未設定」。統一成「無」，語義由區塊標題（狀態／優先度）帶。
+const STATUS_CONFIG: Record<StatusType, { color: string; bg: string; darkBg: string }> = {
+    none:          { color: '#6b7280', bg: '#f3f4f6', darkBg: '#374151' },
+    todo:          { color: '#374151', bg: '#f0f0f0', darkBg: '#2d3748' },
+    'in-progress': { color: '#1d4ed8', bg: '#dbeafe', darkBg: '#1e3a5f' },
+    done:          { color: '#15803d', bg: '#dcfce7', darkBg: '#14532d' },
 }
 
-const PRIORITY_CONFIG: Record<PriorityType, { label: string; color: string }> = {
-    none:   { label: '未設定', color: '#9ca3af' },
-    low:    { label: '低',     color: '#ca8a04' },
-    medium: { label: '中',     color: '#ea580c' },
-    high:   { label: '高',     color: '#dc2626' },
+const PRIORITY_CONFIG: Record<PriorityType, { color: string }> = {
+    none:   { color: '#9ca3af' },
+    low:    { color: '#ca8a04' },
+    medium: { color: '#ea580c' },
+    high:   { color: '#dc2626' },
 }
 
 const SORT_OPTIONS: { key: SortKey; label: string }[] = [
@@ -287,9 +291,10 @@ export function CardLibrary({ boards, onJump, onClose }: CardLibraryProps) {
         </button>
     )
 
-    const pill = (label: string, active: boolean, onClick: () => void) => (
+    // key 必須另外傳：label 改成 ReactNode（圖示＋文字）之後就不能再當 React key 用了
+    const pill = (key: string, label: ReactNode, active: boolean, onClick: () => void) => (
         <button
-            key={label}
+            key={key}
             onClick={onClick}
             style={{
                 height: 28, padding: '0 10px', borderRadius: 6, border: 'none', cursor: 'pointer',
@@ -352,9 +357,9 @@ export function CardLibrary({ boards, onJump, onClose }: CardLibraryProps) {
                     background: hexToRgba(typeColor, isDark ? 0.22 : 0.14),
                     color: typeColor,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 18, fontWeight: 700, marginTop: 1,
+                    marginTop: 1,
                 }}>
-                    {TYPE_ICON[card.type]}
+                    <span style={{ display: 'flex', transform: 'scale(1.25)' }}><Icon name={CARD_TYPE_ICON[card.type]} size="md" /></span>
                 </div>
                 <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
                     {/* B6/D5 — 類型文字標籤（上色）＋文字卡標題分層 */}
@@ -387,13 +392,13 @@ export function CardLibrary({ boards, onJump, onClose }: CardLibraryProps) {
                             padding: '1px 7px', borderRadius: 5,
                         }}>{card.boardName}</span>
                         {card.status !== 'none' && (
-                            <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 5, background: isDark ? statusCfg.darkBg : statusCfg.bg, color: statusCfg.color, fontWeight: 600 }}>
-                                {statusCfg.label}
+                            <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 5, background: isDark ? statusCfg.darkBg : statusCfg.bg, color: statusCfg.color, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                                <Icon name={STATUS_ICON[card.status]} />{STATUS_LABEL[card.status]}
                             </span>
                         )}
                         {card.priority !== 'none' && (
-                            <span style={{ fontSize: 10, color: priorityCfg.color, fontWeight: 700 }}>
-                                {card.priority === 'low' ? '↓' : card.priority === 'medium' ? '→' : '↑'} {priorityCfg.label}
+                            <span style={{ fontSize: 10, color: priorityCfg.color, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                                <Icon name={PRIORITY_ICON[card.priority]} />{PRIORITY_LABEL[card.priority]}
                             </span>
                         )}
                         {card.tags.slice(0, 3).map(tag => {
@@ -437,12 +442,11 @@ export function CardLibrary({ boards, onJump, onClose }: CardLibraryProps) {
                         width: 22, height: 22, borderRadius: 6, flexShrink: 0,
                         background: hexToRgba(typeColor, isDark ? 0.22 : 0.14), color: typeColor,
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: 13, fontWeight: 700,
-                    }}>{TYPE_ICON[card.type]}</span>
+                    }}><Icon name={CARD_TYPE_ICON[card.type]} /></span>
                     <span style={{ fontSize: 11, color: typeColor, fontWeight: 700 }}>{TYPE_LABEL[card.type]}</span>
                     {card.status !== 'none' && (
-                        <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 5, background: isDark ? statusCfg.darkBg : statusCfg.bg, color: statusCfg.color, marginLeft: 'auto', fontWeight: 600 }}>
-                            {statusCfg.label}
+                        <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 5, background: isDark ? statusCfg.darkBg : statusCfg.bg, color: statusCfg.color, marginLeft: 'auto', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                            <Icon name={STATUS_ICON[card.status]} />{STATUS_LABEL[card.status]}
                         </span>
                     )}
                 </div>
@@ -485,7 +489,7 @@ export function CardLibrary({ boards, onJump, onClose }: CardLibraryProps) {
     /* ─── Render ─── */
     return (
         <FullscreenPanel
-            title="🗂️ 卡片庫"
+            title="卡片庫" titleIcon="cardLibrary"
             badge={`${filteredCards.length} / ${allCards.length}`}
             onClose={onClose}
             padded={false}
@@ -520,7 +524,7 @@ export function CardLibrary({ boards, onJump, onClose }: CardLibraryProps) {
                                     padding: 2,
                                 }}
                                 title="清除搜尋"
-                            >✕</button>
+                            ><Icon name="close" /></button>
                         )}
                     </div>
     
@@ -569,7 +573,7 @@ export function CardLibrary({ boards, onJump, onClose }: CardLibraryProps) {
                                     cursor: 'pointer', fontSize: 15,
                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                                 }}
-                            >{mode === 'list' ? '☰' : '⊞'}</button>
+                            ><Icon name={mode === 'list' ? 'viewList' : 'viewGrid'} size="md" /></button>
                         ))}
                     </div>
                 </div>
@@ -602,9 +606,10 @@ export function CardLibrary({ boards, onJump, onClose }: CardLibraryProps) {
                         {sectionHeader('卡片類型', 'type')}
                         {!collapsed['type'] && (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                {pill('全部', filterType === 'all', () => setFilterType('all'))}
+                                {pill('type-all', '全部', filterType === 'all', () => setFilterType('all'))}
                                 {ALL_TYPES.map(t => pill(
-                                    `${TYPE_ICON[t]} ${TYPE_LABEL[t]}`,
+                                    t,
+                                    <><Icon name={CARD_TYPE_ICON[t]} />{TYPE_LABEL[t]}</>,
                                     filterType === t,
                                     () => setFilterType(filterType === t ? 'all' : t)
                                 ))}
@@ -617,7 +622,7 @@ export function CardLibrary({ boards, onJump, onClose }: CardLibraryProps) {
                         {sectionHeader('白板', 'board')}
                         {!collapsed['board'] && (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                {pill('全部', filterBoard === 'all', () => setFilterBoard('all'))}
+                                {pill('board-all', '全部', filterBoard === 'all', () => setFilterBoard('all'))}
                                 {nonSystemBoards.map(b => {
                                     const isActive = filterBoard === b.id
                                     const dotColor = getBoardColor(b.id)
@@ -660,9 +665,10 @@ export function CardLibrary({ boards, onJump, onClose }: CardLibraryProps) {
                         {sectionHeader('狀態', 'status')}
                         {!collapsed['status'] && (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                {pill('全部', filterStatus === 'all', () => setFilterStatus('all'))}
+                                {pill('status-all', '全部', filterStatus === 'all', () => setFilterStatus('all'))}
                                 {ALL_STATUSES.map(s => pill(
-                                    STATUS_CONFIG[s].label,
+                                    s,
+                                    <><Icon name={STATUS_ICON[s]} />{STATUS_LABEL[s]}</>,
                                     filterStatus === s,
                                     () => setFilterStatus(filterStatus === s ? 'all' : s)
                                 ))}
@@ -675,9 +681,10 @@ export function CardLibrary({ boards, onJump, onClose }: CardLibraryProps) {
                         {sectionHeader('優先度', 'priority')}
                         {!collapsed['priority'] && (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                {pill('全部', filterPriority === 'all', () => setFilterPriority('all'))}
+                                {pill('priority-all', '全部', filterPriority === 'all', () => setFilterPriority('all'))}
                                 {ALL_PRIORITIES.map(p => pill(
-                                    PRIORITY_CONFIG[p].label,
+                                    p,
+                                    <><Icon name={PRIORITY_ICON[p]} />{PRIORITY_LABEL[p]}</>,
                                     filterPriority === p,
                                     () => setFilterPriority(filterPriority === p ? 'all' : p)
                                 ))}
@@ -696,8 +703,9 @@ export function CardLibrary({ boards, onJump, onClose }: CardLibraryProps) {
                                     </span>
                                 ) : (
                                     <>
-                                        {pill('全部', filterTag === null, () => setFilterTag(null))}
+                                        {pill('tag-all', '全部', filterTag === null, () => setFilterTag(null))}
                                         {allTags.map(tag => pill(
+                                            tag,
                                             `#${tag}`,
                                             filterTag === tag,
                                             () => setFilterTag(filterTag === tag ? null : tag)
@@ -719,13 +727,13 @@ export function CardLibrary({ boards, onJump, onClose }: CardLibraryProps) {
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
                             {allCards.length === 0 ? (
                                 <EmptyState
-                                    icon="🗃️"
+                                    icon="cardLibrary"
                                     title="還沒有任何卡片"
                                     hint="卡片庫會蒐集所有白板上的卡片。按 Ctrl+Space 快速新增，或在白板上按 n 建一張。"
                                 />
                             ) : (
                                 <EmptyState
-                                    icon="🔍"
+                                    icon="search"
                                     title="沒有符合條件的卡片"
                                     hint={hasActiveFilters ? '目前的篩選條件可能太嚴格。' : '換個關鍵字再試試。'}
                                     actionLabel={hasActiveFilters ? '清除篩選' : undefined}

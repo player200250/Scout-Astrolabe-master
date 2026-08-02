@@ -11,6 +11,8 @@
 import type { ReactNode } from 'react'
 import { Z_PANEL } from '../../constants'
 import { T } from '../../theme/tokens'
+import { Icon } from './icons'
+import type { IconName } from './icons'
 
 export type DrawerWidth = 'list' | 'form'
 
@@ -18,6 +20,8 @@ const DRAWER_WIDTH: Record<DrawerWidth, number> = { list: 360, form: 440 }
 
 export interface SideDrawerProps {
     title: ReactNode
+    /** 標題左側的線性圖示。原本各面板把 emoji 直接寫進 title 字串（「🔍 篩選卡片」）。 */
+    titleIcon?: IconName
     /** 標題右邊的小標，例如「3 逾期」 */
     badge?: ReactNode
     width?: DrawerWidth
@@ -38,7 +42,7 @@ export interface SideDrawerProps {
 }
 
 export function SideDrawer({
-    title, badge, width = 'list', offsetRight = 0,
+    title, titleIcon, badge, width = 'list', offsetRight = 0,
     onClose, headerActions, headerExtra, footer, bodyPadding = 16, children,
 }: SideDrawerProps) {
     return (
@@ -55,7 +59,9 @@ export function SideDrawer({
                 padding: '14px 16px 10px', flexShrink: 0,
                 borderBottom: headerExtra ? 'none' : `1px solid ${T.borderLight}`,
             }}>
-                <span style={{ fontSize: 16, fontWeight: 600, color: T.textPrimary }}>{title}</span>
+                <span style={{ fontSize: 16, fontWeight: 600, color: T.textPrimary, display: 'flex', alignItems: 'center', gap: 7 }}>
+                    {titleIcon && <Icon name={titleIcon} size="md" />}{title}
+                </span>
                 {badge}
                 <div style={{ flex: 1 }} />
                 {headerActions}
@@ -95,6 +101,6 @@ export function DrawerCloseButton({ onClose }: { onClose: () => void }) {
             }}
             onMouseEnter={e => (e.currentTarget.style.background = T.bgHover)}
             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-        >✕</button>
+        ><Icon name="close" size="md" /></button>
     )
 }

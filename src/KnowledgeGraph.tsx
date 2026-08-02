@@ -176,7 +176,7 @@ export function KnowledgeGraph({ boards, onClose, onJumpToCard, onSwitchBoard }:
 
     return (
         <FullscreenPanel
-            title="🕸️ 知識圖譜"
+            title="知識圖譜" titleIcon="knowledgeGraph"
             badge={`${nodes.length} 節點 · ${links.length} 連結`}
             onClose={onClose}
             padded={false}

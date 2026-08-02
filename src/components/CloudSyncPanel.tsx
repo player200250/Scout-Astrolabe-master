@@ -201,7 +201,7 @@ export function CloudSyncPanel({ boards, activeBoardId, onClose }: CloudSyncPane
 
     return (
         <SideDrawer
-            title="☁️ 雲端同步"
+            title="雲端同步" titleIcon="cloudSync"
             // 表單級寬度：這裡有 Project URL 與 anon key 兩個長輸入框，清單級的 360 會擠
             width="form"
             badge={(

@@ -126,7 +126,7 @@ export function BackupPanel({ sidebarWidth, onClose, onRestore, onMigrateImages 
             )}
 
             <SideDrawer
-                title="🔒 自動備份"
+                title="自動備份" titleIcon="backup"
                 // 這個抽屜刻意不貼齊右邊界：它從側邊欄的選單開啟，蓋住側邊欄會看不到來源
                 offsetRight={sidebarWidth}
                 onClose={onClose}

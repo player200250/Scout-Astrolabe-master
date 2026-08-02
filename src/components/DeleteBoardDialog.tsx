@@ -6,6 +6,10 @@ import type { SnapshotCardShape } from '../utils/snapshot'
 import { Z_MODAL_BACKDROP, Z_MODAL } from '../constants'
 import { stripHtml } from '../utils/stringUtils'
 import { T } from '../theme/tokens'
+import { CARD_TYPE_ICON } from '../utils/cardMeta'
+import type { CardType } from './card-shape/type/CardShape'
+import { Icon } from './ui/icons'
+import type { IconName } from './ui/icons'
 
 interface DeleteBoardDialogProps {
     /** 要刪的白板；批次刪除（多選、清理重複）會帶多塊，單板刪除帶一塊。 */
@@ -15,15 +19,13 @@ interface DeleteBoardDialogProps {
     onCancel: () => void
 }
 
-function getTypeIcon(type: string | undefined): string {
-    switch (type) {
-        case 'todo': return '✅'
-        case 'link': return '🔗'
-        case 'image': return '🖼️'
-        case 'board': return '📋'
-        case 'journal': return '📔'
-        default: return '📝'
-    }
+/**
+ * 卡片型別圖示走共用的 `CARD_TYPE_ICON`（cardMeta），不再自己維護一份 switch。
+ * 舊版只列了 6 種、其餘全掉進 `default` 當成文字卡——便利貼／表格／檔案在
+ * 刪除確認清單裡都顯示成「文字」，看的人無從判斷自己要刪掉什麼。
+ */
+function getTypeIcon(type: string | undefined): IconName {
+    return CARD_TYPE_ICON[type as CardType] ?? 'cardText'
 }
 
 function getCardPreview(card: SnapshotCardShape): { text: string; extra?: string } {
@@ -147,8 +149,8 @@ export function DeleteBoardDialog({ boards, hasInbox, onConfirm, onCancel }: Del
                                             background: itemBg,
                                             fontSize: 12, color: text,
                                         }}>
-                                            <span style={{ flexShrink: 0, lineHeight: 1.4 }}>
-                                                {getTypeIcon(card.props.type as string | undefined)}
+                                            <span style={{ flexShrink: 0, display: 'flex', marginTop: 2, color: muted }}>
+                                                <Icon name={getTypeIcon(card.props.type as string | undefined)} />
                                             </span>
                                             <span style={{ flex: 1, wordBreak: 'break-word', lineHeight: 1.4 }}>
                                                 {preview}

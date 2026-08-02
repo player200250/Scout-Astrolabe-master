@@ -299,7 +299,7 @@ export function TaskCenter({ boards, onJump, onClose }: TaskCenterProps) {
                                但底部狀態列同時寫著「待辦 N」——畫面自己打自己。
                                所以空狀態要講出真相，並給展開的入口。 */
                             <EmptyState
-                                icon="📭"
+                                icon="inbox"
                                 title={`${hiddenNoDueDateCount} 筆待辦沒有設截止日`}
                                 hint="沒有截止日的任務不會排進逾期／今天／本週，所以上面是空的。"
                                 actionLabel="展開查看 →"
@@ -307,7 +307,7 @@ export function TaskCenter({ boards, onJump, onClose }: TaskCenterProps) {
                             />
                         ) : (
                             <EmptyState
-                                icon="✅"
+                                icon="done"
                                 title={tab === 'all' ? '所有白板都沒有待辦項目' : '這個分類沒有任務'}
                                 hint={tab === 'all'
                                     ? '在白板上建立待辦卡片（斜線選單的「待辦」），設好到期日就會集中到這裡。'

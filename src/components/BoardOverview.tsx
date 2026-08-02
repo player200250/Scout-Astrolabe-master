@@ -10,6 +10,7 @@ import { promptName } from '../utils/promptName'
 import { InlineEdit } from './ui/InlineEdit'
 import { EmptyState } from './ui/EmptyState'
 import { findDuplicateBoards } from '../utils/duplicateBoards'
+import { Icon } from './ui/icons'
 
 interface BoardOverviewProps {
     boards: BoardRecord[]
@@ -69,7 +70,9 @@ export function BoardOverview({ boards, activeBoardId, onSelect, onNew, onCreate
         if (name === null) return
         await saveBoardAsTemplate(board, name)
         await refreshTemplates()
-        showToast(`已存為白板模板「${name}」\n按頂部「⧉ 從模板」即可一鍵新建。`, 'success')
+        // ⚠️ 文案指的是頂部那顆按鈕的**名字**，不要再寫成圖示字元（原本是「⧉ 從模板」）——
+        // 圖示一換，用字元指路的句子就會指向畫面上已經不存在的東西。
+        showToast(`已存為白板模板「${name}」\n按頂部的「從模板」即可一鍵新建。`, 'success')
     }, [refreshTemplates])
 
     const removeTemplate = useCallback(async (id: string, e: React.MouseEvent) => {
@@ -171,13 +174,14 @@ export function BoardOverview({ boards, activeBoardId, onSelect, onNew, onCreate
                                 fontSize: 12, fontWeight: archiveFilter === v ? 600 : 400,
                                 cursor: 'pointer',
                                 boxShadow: archiveFilter === v ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                                display: 'flex', alignItems: 'center', gap: 5,
                             }}>
-                                {v === 'all' ? '一般' : '🗄️ 封存'}
+                                {v === 'all' ? '一般' : <><Icon name="archive" />封存</>}
                             </button>
                         ))}
                     </div>
                     <div style={{ flex: 1, maxWidth: 300, marginLeft: 4, position: 'relative' }}>
-                        <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: countColor, fontSize: 13, pointerEvents: 'none' }}>🔍</span>
+                        <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: countColor, display: 'flex', pointerEvents: 'none' }}><Icon name="search" /></span>
                         <input
                             autoFocus={!selectionMode}
                             value={searchQuery}
@@ -201,7 +205,7 @@ export function BoardOverview({ boards, activeBoardId, onSelect, onNew, onCreate
                             color: selectionMode ? '#2563eb' : countColor,
                             fontSize: 13, cursor: 'pointer', flexShrink: 0,
                         }}
-                    >☑ 選取</button>
+                    ><Icon name="checkboxOn" />選取</button>
                     <button
                         onClick={() => {
                             const toDelete = findDuplicateBoards(boards)
@@ -219,7 +223,7 @@ export function BoardOverview({ boards, activeBoardId, onSelect, onNew, onCreate
                         }}
                         onMouseEnter={e => { e.currentTarget.style.background = T.dangerBgSoft; e.currentTarget.style.color = '#e03131'; e.currentTarget.style.borderColor = T.dangerBorder }}
                         onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = countColor; e.currentTarget.style.borderColor = inputBorder }}
-                    >🧹 清理重複</button>
+                    ><Icon name="cleanupDuplicates" />清理重複</button>
                     <button
                         onClick={openPicker}
                         title="從白板模板一鍵新建"
@@ -230,7 +234,7 @@ export function BoardOverview({ boards, activeBoardId, onSelect, onNew, onCreate
                         }}
                         onMouseEnter={e => { e.currentTarget.style.background = T.accentBg; e.currentTarget.style.color = '#2563eb'; e.currentTarget.style.borderColor = '#2563eb' }}
                         onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = countColor; e.currentTarget.style.borderColor = inputBorder }}
-                    >⧉ 從模板</button>
+                    ><Icon name="template" />從模板</button>
                     <button
                         onClick={() => { onNew(); onClose() }}
                         style={{
@@ -288,7 +292,7 @@ export function BoardOverview({ boards, activeBoardId, onSelect, onNew, onCreate
                                     }}
                                     onClick={e => toggleSelect(board.id, e)}
                                 >
-                                    {isSelected ? '✓' : ''}
+                                    {isSelected && <Icon name="check" />}
                                 </div>
                             )}
 
@@ -312,10 +316,10 @@ export function BoardOverview({ boards, activeBoardId, onSelect, onNew, onCreate
                                     </div>
                                 )}
                                 {childCount(board.id) > 0 && (
-                                    <div style={{ position: 'absolute', bottom: 7, left: 7, background: 'rgba(0,0,0,0.55)', color: 'white', fontSize: 10, padding: '2px 6px', borderRadius: 4 }}>📋 {childCount(board.id)} 個子板</div>
+                                    <div style={{ position: 'absolute', bottom: 7, left: 7, background: 'rgba(0,0,0,0.55)', color: 'white', fontSize: 10, padding: '2px 6px', borderRadius: 4, display: 'flex', alignItems: 'center', gap: 4 }}><Icon name="cardBoard" />{childCount(board.id)} 個子板</div>
                                 )}
                                 {board.isJournal && (
-                                    <div style={{ position: 'absolute', bottom: 7, right: 7, background: 'rgba(99,56,6,0.8)', color: 'white', fontSize: 10, padding: '2px 6px', borderRadius: 4 }}>📔 Journal</div>
+                                    <div style={{ position: 'absolute', bottom: 7, right: 7, background: 'rgba(99,56,6,0.8)', color: 'white', fontSize: 10, padding: '2px 6px', borderRadius: 4, display: 'flex', alignItems: 'center', gap: 4 }}><Icon name="cardJournal" />Journal</div>
                                 )}
                             </div>
 
@@ -335,14 +339,14 @@ export function BoardOverview({ boards, activeBoardId, onSelect, onNew, onCreate
                                         </div>
                                         {!selectionMode && hoveredId === board.id && (
                                             <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
-                                                <button onClick={e => saveAsTemplate(board, e)} title="存為白板模板" style={{ width: 24, height: 24, borderRadius: 6, border: `1px solid ${inputBorder}`, background: cardBg, cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, color: textPrimary }}>⧉</button>
-                                                <button onClick={e => startRename(board, e)} title="重新命名" style={{ width: 24, height: 24, borderRadius: 6, border: `1px solid ${inputBorder}`, background: cardBg, cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, color: textPrimary }}>✎</button>
+                                                <button onClick={e => saveAsTemplate(board, e)} title="存為白板模板" style={{ width: 24, height: 24, borderRadius: 6, border: `1px solid ${inputBorder}`, background: cardBg, cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, color: textPrimary }}><Icon name="template" /></button>
+                                                <button onClick={e => startRename(board, e)} title="重新命名" style={{ width: 24, height: 24, borderRadius: 6, border: `1px solid ${inputBorder}`, background: cardBg, cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, color: textPrimary }}><Icon name="rename" /></button>
                                                 {boards.filter(b => !b.isHome).length > 1 && (
                                                     <button
                                                         onClick={e => { e.stopPropagation(); onDelete(board.id) }}
                                                         title="刪除"
                                                         style={{ width: 24, height: 24, borderRadius: 6, border: `1px solid ${inputBorder}`, background: cardBg, cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, color: '#e84040' }}
-                                                    >✕</button>
+                                                    ><Icon name="trash" /></button>
                                                 )}
                                             </div>
                                         )}
@@ -357,13 +361,13 @@ export function BoardOverview({ boards, activeBoardId, onSelect, onNew, onCreate
                     <div style={{ gridColumn: '1 / -1', padding: '40px 0' }}>
                         {searchQuery ? (
                             <EmptyState
-                                icon="🔍"
+                                icon="search"
                                 title={`找不到「${searchQuery}」相關的白板`}
                                 hint="換個關鍵字，或清空搜尋看全部白板。"
                             />
                         ) : (
                             <EmptyState
-                                icon="🗂️"
+                                icon="overview"
                                 title="還沒有白板"
                                 hint="白板是放卡片的地方；也可以從既有模板直接建一塊。"
                                 actionLabel="＋ 新增白板"
@@ -397,7 +401,7 @@ export function BoardOverview({ boards, activeBoardId, onSelect, onNew, onCreate
                             color: selectedIds.size > 0 ? 'white' : textMuted,
                             fontSize: 13, cursor: selectedIds.size > 0 ? 'pointer' : 'default', fontWeight: 500,
                         }}
-                    >🗄️ 封存選取</button>
+                    ><Icon name="archive" />封存選取</button>
                     <button
                         onClick={deleteSelected}
                         disabled={selectedIds.size === 0}
@@ -407,7 +411,7 @@ export function BoardOverview({ boards, activeBoardId, onSelect, onNew, onCreate
                             color: selectedIds.size > 0 ? 'white' : textMuted,
                             fontSize: 13, cursor: selectedIds.size > 0 ? 'pointer' : 'default', fontWeight: 500,
                         }}
-                    >🗑️ 刪除選取</button>
+                    ><Icon name="trash" />刪除選取</button>
                     <button
                         onClick={exitSelectionMode}
                         style={{
@@ -439,17 +443,17 @@ export function BoardOverview({ boards, activeBoardId, onSelect, onNew, onCreate
                         }}
                     >
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '14px 20px', borderBottom: `1px solid ${headerBorder}` }}>
-                            <span style={{ fontSize: 15, fontWeight: 600, color: textPrimary }}>⧉ 從白板模板新建</span>
+                            <span style={{ fontSize: 15, fontWeight: 600, color: textPrimary, display: 'flex', alignItems: 'center', gap: 7 }}><Icon name="template" size="md" />從白板模板新建</span>
                             <span style={{ fontSize: 11, color: countColor, background: countBg, borderRadius: 6, padding: '2px 8px' }}>{templates.length}</span>
                             <div style={{ flex: 1 }} />
-                            <button onClick={() => setPickerOpen(false)} title="關閉 (Esc)" style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${inputBorder}`, background: 'transparent', cursor: 'pointer', fontSize: 14, color: countColor, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>✕</button>
+                            <button onClick={() => setPickerOpen(false)} title="關閉 (Esc)" style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${inputBorder}`, background: 'transparent', cursor: 'pointer', fontSize: 14, color: countColor, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}><Icon name="trash" /></button>
                         </div>
                         <div style={{ flex: 1, overflowY: 'auto', padding: 18 }}>
                             {templates.length === 0 ? (
                                 <EmptyState
-                                    icon="⧉"
+                                    icon="template"
                                     title="還沒有白板模板"
-                                    hint="把游標移到任一白板卡片上、按 ⧉，即可把整塊白板存成模板。"
+                                    hint="把游標移到任一白板卡片上，按「存為白板模板」，即可把整塊白板存成模板。"
                                 />
                             ) : (
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12 }}>
@@ -476,14 +480,14 @@ export function BoardOverview({ boards, activeBoardId, onSelect, onNew, onCreate
                                                 {isRasterThumbnail(t.thumbnail) ? (
                                                     <img src={t.thumbnail} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 8, boxSizing: 'border-box' }} alt="" />
                                                 ) : (
-                                                    <span style={{ fontSize: 22, opacity: 0.15 }}>⧉</span>
+                                                    <span style={{ opacity: 0.15, display: 'flex', transform: 'scale(1.5)' }}><Icon name="template" size="md" /></span>
                                                 )}
                                                 {hovered && !renaming && (
                                                     <div style={{ position: 'absolute', top: 6, right: 6, display: 'flex', gap: 4 }}>
                                                         <button onClick={e => startTemplateRename(t, e)} title="重新命名"
-                                                            style={{ width: 22, height: 22, borderRadius: 6, border: 'none', background: 'rgba(0,0,0,0.5)', color: 'white', cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>✎</button>
+                                                            style={{ width: 22, height: 22, borderRadius: 6, border: 'none', background: 'rgba(0,0,0,0.5)', color: 'white', cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}><Icon name="rename" /></button>
                                                         <button onClick={e => removeTemplate(t.id, e)} title="刪除此模板"
-                                                            style={{ width: 22, height: 22, borderRadius: 6, border: 'none', background: 'rgba(0,0,0,0.5)', color: 'white', cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>✕</button>
+                                                            style={{ width: 22, height: 22, borderRadius: 6, border: 'none', background: 'rgba(0,0,0,0.5)', color: 'white', cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}><Icon name="trash" /></button>
                                                     </div>
                                                 )}
                                             </div>

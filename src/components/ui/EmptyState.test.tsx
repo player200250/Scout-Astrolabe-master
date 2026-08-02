@@ -34,13 +34,14 @@ describe('EmptyState', () => {
         expect(screen.queryByRole('button')).toBeNull()
     })
 
+    // 圖示已從 emoji 文字改成 lucide SVG，所以斷言查的是 svg.lucide 而不是文字節點
     it('compact 模式不渲染大圖示', () => {
-        render(<EmptyState compact icon="📔" title="今天還沒寫日記" />)
-        expect(screen.queryByText('📔')).toBeNull()
+        const { container } = render(<EmptyState compact icon="cardJournal" title="今天還沒寫日記" />)
+        expect(container.querySelector('svg.lucide')).toBeNull()
     })
 
     it('非 compact 模式才顯示圖示', () => {
-        render(<EmptyState icon="📔" title="今天還沒寫日記" />)
-        expect(screen.getByText('📔')).toBeTruthy()
+        const { container } = render(<EmptyState icon="cardJournal" title="今天還沒寫日記" />)
+        expect(container.querySelector('svg.lucide')).toBeTruthy()
     })
 })

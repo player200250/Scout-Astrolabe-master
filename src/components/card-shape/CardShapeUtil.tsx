@@ -30,12 +30,16 @@ import { TextContent } from './sub-components/TextContent'
 import { CardContent } from './sub-components/CardContent'
 import { CardPropsBar } from './sub-components/CardPropsBar'
 import { T } from '../../theme/tokens'
+import { Icon } from '../ui/icons'
+import type { IconName } from '../ui/icons'
 
 /* ----------------------------------------------------------------- 卡片屬性常數 */
-const STATUS_BADGE: Record<string, { label: string; color: string; bg: string }> = {
-    'todo':        { label: '📋 待辦',  color: '#555',    bg: '#f0f0f0' },
-    'in-progress': { label: '🔵 進行中', color: '#2563eb', bg: '#dbeafe' },
-    'done':        { label: '✅ 完成',   color: '#16a34a', bg: '#dcfce7' },
+// 圖示與右鍵選單的「批次設定狀態」子選單同一組（statusTodo／statusInProgress／done）——
+// 卡片上顯示的狀態、與設定狀態的入口長得一樣，才不用學兩次。
+const STATUS_BADGE: Record<string, { icon: IconName; label: string; color: string; bg: string }> = {
+    'todo':        { icon: 'statusTodo',       label: '待辦',  color: '#555',    bg: '#f0f0f0' },
+    'in-progress': { icon: 'statusInProgress', label: '進行中', color: '#2563eb', bg: '#dbeafe' },
+    'done':        { icon: 'done',             label: '完成',   color: '#16a34a', bg: '#dcfce7' },
 }
 
 const PRIORITY_DOT: Record<string, string> = {
@@ -178,7 +182,9 @@ function CardShapeComponent({ shape, editor }: { shape: TLCardShape; editor: Edi
                             color: STATUS_BADGE[p.cardStatus].color,
                             background: STATUS_BADGE[p.cardStatus].bg,
                             borderRadius: 5, padding: '1px 6px',
+                            display: 'flex', alignItems: 'center', gap: 3,
                         }}>
+                            <Icon name={STATUS_BADGE[p.cardStatus].icon} />
                             {STATUS_BADGE[p.cardStatus].label}
                         </div>
                     )}

@@ -7,6 +7,8 @@ import type { TLGeoShapeGeoStyle } from "@tldraw/tlschema"
 import type { TLCardShape, CardType } from "./components/card-shape/type/CardShape"
 import { canAttachFile } from "./platform/fileStore"
 import { T } from './theme/tokens'
+import { Icon } from './components/ui/icons'
+import type { IconName } from './components/ui/icons'
 
 /* ─── Style constants ─── */
 const DRAW_COLORS: { id: TLDefaultColorStyle; css: string; label: string }[] = [
@@ -411,13 +413,15 @@ function AlignSubmenu({ onAlign, alignMenuBg, alignMenuBorder, btnHover }: {
     const menuBg = alignMenuBg ?? 'white'
     const menuBorder = alignMenuBorder ?? '#eee'
 
-    const alignButtons = [
-        { dir: 'left'   as const, icon: '⇤', label: '靠左對齊' },
-        { dir: 'center' as const, icon: '↔', label: '水平置中' },
-        { dir: 'right'  as const, icon: '⇥', label: '靠右對齊' },
-        { dir: 'top'    as const, icon: '⇡', label: '靠上對齊' },
-        { dir: 'middle' as const, icon: '↕', label: '垂直置中' },
-        { dir: 'bottom' as const, icon: '⇣', label: '靠下對齊' },
+    // 與右鍵選單的「對齊」子選單是同六個操作，所以用同一組圖示 —— 兩個入口
+    // 長得不一樣的話，使用者得分別學兩次。（原本是 ⇤↔⇥⇡↕⇣ 單色箭頭。）
+    const alignButtons: { dir: 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom'; icon: IconName; label: string }[] = [
+        { dir: 'left',   icon: 'alignLeft',    label: '靠左對齊' },
+        { dir: 'center', icon: 'alignCenterX', label: '水平置中' },
+        { dir: 'right',  icon: 'alignRight',   label: '靠右對齊' },
+        { dir: 'top',    icon: 'alignTop',     label: '靠上對齊' },
+        { dir: 'middle', icon: 'alignCenterY', label: '垂直置中' },
+        { dir: 'bottom', icon: 'alignBottom',  label: '靠下對齊' },
     ]
 
     return (
@@ -466,7 +470,7 @@ function AlignSubmenu({ onAlign, alignMenuBg, alignMenuBorder, btnHover }: {
                             }}
                             onMouseEnter={e => (e.currentTarget.style.background = hBg)}
                             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                        >{btn.icon}</button>
+                        ><Icon name={btn.icon} size="md" /></button>
                     ))}
                 </div>
             )}

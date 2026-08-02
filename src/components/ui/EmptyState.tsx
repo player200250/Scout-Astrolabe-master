@@ -1,5 +1,7 @@
 import React from 'react'
 import { T } from '../../theme/tokens'
+import { Icon } from './icons'
+import type { IconName } from './icons'
 
 /**
  * 共用空狀態（ux-audit A4）。
@@ -12,8 +14,8 @@ import { T } from '../../theme/tokens'
  * `compact` 給塞在既有卡片區塊裡的小空位用（不放大 icon、不撐高度）。
  */
 export interface EmptyStateProps {
-    /** emoji 圖示；compact 模式會忽略 */
-    icon?: string
+    /** `components/ui/icons.tsx` 的 registry key；compact 模式會忽略 */
+    icon?: IconName
     /** 現況一句話 */
     title: string
     /** 下一步提示；沒有可按的入口時，這裡就是唯一的引導 */
@@ -45,7 +47,16 @@ export function EmptyState({ icon, title, hint, actionLabel, onAction, compact }
             padding: compact ? 0 : '40px 16px',
             gap: 4,
         }}>
-            {!compact && icon && <span style={{ fontSize: 36, opacity: 0.7, marginBottom: 4 }}>{icon}</span>}
+            {/* 空狀態的圖示是插圖不是 chrome —— 用 scale 放大，不在 registry 開第三級尺寸。
+                opacity 壓低是刻意的：空狀態要引導到 hint 與按鈕，圖示只是定調。 */}
+            {!compact && icon && (
+                <span style={{
+                    display: 'flex', opacity: 0.5, marginBottom: 10,
+                    color: T.textSecondary, transform: 'scale(2.25)',
+                }}>
+                    <Icon name={icon} size="md" />
+                </span>
+            )}
             <div style={{ fontSize: compact ? 13 : 14, color: T.textSecondary }}>{title}</div>
             {hint && (
                 <div style={{ fontSize: compact ? 12 : 13, color: T.textMuted, lineHeight: 1.6, maxWidth: 360 }}>

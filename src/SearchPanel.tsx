@@ -1,8 +1,10 @@
 // src/SearchPanel.tsx
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import type { ReactNode } from 'react'
 import { Z_MODAL_BACKDROP, Z_MODAL, MODAL_TOP, MODAL_WIDTH, MODAL_BACKDROP } from './constants'
 import { T } from './theme/tokens'
-import { TYPE_ICON, TYPE_LABEL } from './utils/cardMeta'
+import { CARD_TYPE_ICON, TYPE_LABEL } from './utils/cardMeta'
+import { Icon } from './components/ui/icons'
 import type { CardType } from './components/card-shape/type/CardShape'
 // 搜尋的純邏輯住在 utils/searchIndex.ts——元件檔只留元件，
 // 免得 react-refresh 的熱更新因為混合匯出而退化成整頁重載。
@@ -18,7 +20,8 @@ interface SearchPanelProps {
 }
 
 function TypeChip({ label, count, active, onClick }: {
-    label: string
+    // ReactNode 而非 string：型別 chip 現在是「圖示＋文字」，不是一串含 emoji 的字
+    label: ReactNode
     count: number
     active: boolean
     onClick: () => void
@@ -34,7 +37,7 @@ function TypeChip({ label, count, active, onClick }: {
                 color: active ? T.accent : T.textSecondary,
                 fontWeight: active ? 600 : 400,
             }}
-        >{label} <span style={{ opacity: 0.7 }}>{count}</span></button>
+        ><span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>{label}</span> <span style={{ opacity: 0.7 }}>{count}</span></button>
     )
 }
 
@@ -144,7 +147,7 @@ export function SearchPanel({ boards, onJump, onClose }: SearchPanelProps) {
                         {[...typeCounts.entries()].map(([type, count]) => (
                             <TypeChip
                                 key={type}
-                                label={`${TYPE_ICON[type]} ${TYPE_LABEL[type]}`}
+                                label={<><Icon name={CARD_TYPE_ICON[type]} />{TYPE_LABEL[type]}</>}
                                 count={count}
                                 active={typeFilter === type}
                                 onClick={() => setTypeFilter(type)}
@@ -179,7 +182,7 @@ export function SearchPanel({ boards, onJump, onClose }: SearchPanelProps) {
                                         display: 'flex', alignItems: 'flex-start', gap: 10,
                                     }}
                                 >
-                                    <span style={{ fontSize: 18, flexShrink: 0, marginTop: 1 }}>{TYPE_ICON[r.type]}</span>
+                                    <span style={{ flexShrink: 0, marginTop: 3, color: T.textMuted, display: 'flex' }}><Icon name={CARD_TYPE_ICON[r.type]} size="md" /></span>
                                     <div style={{ flex: 1, minWidth: 0 }}>
                                         <div style={{ fontSize: 13, color: textPrimary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                             {r.preview

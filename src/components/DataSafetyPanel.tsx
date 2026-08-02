@@ -93,7 +93,7 @@ export function DataSafetyPanel({ boards, onClose, onOpenBackup }: DataSafetyPan
 
     return (
         <FullscreenPanel
-            title="🛡️ 資料安全中心"
+            title="資料安全中心" titleIcon="dataSafety"
             badge={<span style={{ background: trackBg, borderRadius: 6, padding: '2px 8px' }}>統計與備份設定</span>}
             onClose={onClose}
             padded={false}

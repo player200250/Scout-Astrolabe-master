@@ -6,6 +6,8 @@ import { onAppEvent } from '../../utils/appEvents'
 import type { ToastKind } from '../../utils/toast'
 import { Z_TOAST } from '../../constants'
 import { T } from '../../theme/tokens'
+import { Icon } from './icons'
+import type { IconName } from './icons'
 
 interface ToastItem {
     id: number
@@ -17,7 +19,7 @@ interface ToastItem {
 /** 一般訊息 3.5 秒、錯誤 6 秒（錯誤通常要讀完＋可能想截圖回報）。 */
 const DURATION: Record<ToastKind, number> = { info: 3500, success: 3500, error: 6000 }
 
-const ICON: Record<ToastKind, string> = { info: 'ℹ️', success: '✅', error: '⚠️' }
+const ICON: Record<ToastKind, IconName> = { info: 'toastInfo', success: 'done', error: 'toastError' }
 
 const ACCENT: Record<ToastKind, string> = { info: T.accent, success: '#22c55e', error: T.danger }
 
@@ -73,7 +75,11 @@ export function ToastHost() {
                         whiteSpace: 'pre-wrap', wordBreak: 'break-word',
                     }}
                 >
-                    <span style={{ fontSize: 14, flexShrink: 0 }}>{ICON[t.kind]}</span>
+                    {/* 圖示吃該語氣的 accent 色（與左側 3px 邊條同色）——三種語氣本來就靠
+                        顏色分辨，這裡不是規則 1 要防的裝飾用色。 */}
+                    <span style={{ flexShrink: 0, display: 'flex', color: ACCENT[t.kind] }}>
+                        <Icon name={ICON[t.kind]} size="md" />
+                    </span>
                     <span>{t.message}</span>
                     {t.action && (
                         <button

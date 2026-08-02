@@ -51,22 +51,32 @@ export function CardPropsBar({ editor, shape, isDark = false }: CardPropsBarProp
                 background: T.bgApp, flexShrink: 0, minHeight: 30,
             }}
         >
+            {/*
+                狀態／優先級是原生 <select>，而 **<option> 裡放不了 SVG**（瀏覽器只渲染
+                文字節點）—— 所以這兩欄無法比照右鍵選單改用 <Icon>。日後想統一的話，
+                要付的代價是把 select 換成自訂下拉，而這裡位於卡片內部、疊在 tldraw 的
+                事件系統上（見 arch_three_event_systems），風險遠高於收益。
+
+                折衷＝**拿掉 emoji、只留文字**。原本的 ⬜📋🔵✅ 與 —🟡🟠🔴 是純裝飾：
+                「待辦／進行中／完成」「高／中/低」中文本身已經講完了，emoji 只多帶了
+                一排各自為政的顏色。右鍵選單的批次設定才是有圖示的那個入口。
+            */}
             <select value={currentStatus} onChange={e => setStatus(e.target.value as CardStatusType)}
-                onPointerDown={e => e.stopPropagation()} style={selectStyle}
+                onPointerDown={e => e.stopPropagation()} style={selectStyle} title="卡片狀態"
             >
-                <option value="none">⬜ 無</option>
-                <option value="todo">📋 待辦</option>
-                <option value="in-progress">🔵 進行中</option>
-                <option value="done">✅ 完成</option>
+                <option value="none">狀態：無</option>
+                <option value="todo">待辦</option>
+                <option value="in-progress">進行中</option>
+                <option value="done">完成</option>
             </select>
 
             <select value={currentPriority} onChange={e => setPriority(e.target.value as PriorityType)}
-                onPointerDown={e => e.stopPropagation()} style={selectStyle}
+                onPointerDown={e => e.stopPropagation()} style={selectStyle} title="優先級"
             >
-                <option value="none">— 無</option>
-                <option value="low">🟡 低</option>
-                <option value="medium">🟠 中</option>
-                <option value="high">🔴 高</option>
+                <option value="none">優先級：無</option>
+                <option value="low">低</option>
+                <option value="medium">中</option>
+                <option value="high">高</option>
             </select>
 
             <div style={{ width: 1, height: 14, background: '#e0e0e0', flexShrink: 0 }} />

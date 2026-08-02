@@ -1,24 +1,27 @@
 import { useState, useEffect, useCallback } from 'react'
 import { T } from '../theme/tokens'
+import { Icon } from './ui/icons'
+import type { IconName } from './ui/icons'
 
-const STEPS = [
+const STEPS: { icon: IconName; title: string; desc: string; callToAction?: string }[] = [
     {
-        icon: '🌟',
+        // Compass 而不是「星星」：這個 App 叫 Astrolabe（星盤），導覽第一頁用導航器具
+        icon: 'welcome',
         title: '歡迎使用 Scout Astrolabe',
         desc: '這是你的個人視覺化白板，\n把想法、筆記、任務全部放在這裡。\n完全離線，資料只存在你的電腦。\n\n花 30 秒了解四個核心概念。',
     },
     {
-        icon: '📋',
+        icon: 'overview',
         title: '白板是你的工作空間',
         desc: '每個白板是一個主題的容器。\n可以建立「工作」、「讀書筆記」、「個人計畫」等白板，\n側邊欄可以快速切換。\n不確定放哪裡？先放收件匣。',
     },
     {
-        icon: '📝',
+        icon: 'rightClick',
         title: '右鍵建立卡片',
         desc: '在白板空白處按右鍵，\n可以建立文字、待辦清單、連結、圖片卡片。\n雙擊卡片可以編輯內容。',
     },
     {
-        icon: '🔍',
+        icon: 'search',
         title: '搜尋與快速整理',
         desc: 'Ctrl+F 搜尋所有白板的卡片內容。\nCtrl+Space 快速把想法丟進收件匣，之後再整理。\nCtrl+Shift+O 一次看所有白板。',
         callToAction: '試試在白板上按右鍵建立第一張卡片！',
@@ -98,7 +101,16 @@ export function OnboardingModal({ onClose }: OnboardingModalProps) {
 
                 {/* Icon + content */}
                 <div style={{ textAlign: 'center', marginBottom: 32 }}>
-                    <div style={{ fontSize: 56, marginBottom: 18, lineHeight: 1 }}>{current.icon}</div>
+                    {/* 導覽的主視覺，不是 chrome 圖示 —— 同 FileContent，用 scale 放大
+                        而非在 registry 開第三級尺寸。色用次級灰，讓標題是頁面的重點。 */}
+                    <div style={{
+                        marginBottom: 18, display: 'flex', justifyContent: 'center',
+                        color: T.textSecondary,
+                    }}>
+                        <span style={{ display: 'flex', transform: 'scale(2.5)' }}>
+                            <Icon name={current.icon} size="md" />
+                        </span>
+                    </div>
                     <div style={{ fontSize: 20, fontWeight: 700, color: textColor, marginBottom: 14, lineHeight: 1.3 }}>
                         {current.title}
                     </div>

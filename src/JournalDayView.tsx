@@ -178,7 +178,7 @@ export function JournalDayContent({ date, boards, onSaveJournal, onDateChange, o
             {!journalBoardId ? (
                 <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <EmptyState
-                        icon="📔"
+                        icon="cardJournal"
                         title="尚未設定 Journal 白板"
                         hint="在側邊欄的白板上按右鍵，選「設為 Journal 白板」，之後每天的日記都會存進那塊板。"
                     />

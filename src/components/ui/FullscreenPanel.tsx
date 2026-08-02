@@ -9,9 +9,13 @@
 import type { ReactNode } from 'react'
 import { Z_FULLSCREEN_PANEL, Z_FULLSCREEN_PANEL_ABOVE } from '../../constants'
 import { T } from '../../theme/tokens'
+import { Icon } from './icons'
+import type { IconName } from './icons'
 
 export interface FullscreenPanelProps {
     title: ReactNode
+    /** 標題左側的線性圖示。原本各面板把 emoji 直接寫進 title 字串（「🗂️ 所有白板」）。 */
+    titleIcon?: IconName
     /** 標題右邊的小標，例如「12 / 340」或「統計與備份設定」 */
     badge?: ReactNode
     /** header 中段，會撐開（搜尋框、分頁列…） */
@@ -32,7 +36,7 @@ export interface FullscreenPanelProps {
 }
 
 export function FullscreenPanel({
-    title, badge, headerContent, headerActions, onClose,
+    title, titleIcon, badge, headerContent, headerActions, onClose,
     subHeader, elevated = false, padded = true, children,
 }: FullscreenPanelProps) {
     return (
@@ -52,7 +56,8 @@ export function FullscreenPanel({
                 <span style={{
                     fontSize: 16, fontWeight: 700, color: T.textPrimary,
                     flexShrink: 0, userSelect: 'none',
-                }}>{title}</span>
+                    display: 'flex', alignItems: 'center', gap: 8,
+                }}>{titleIcon && <Icon name={titleIcon} size="md" />}{title}</span>
                 {badge && (
                     <span style={{ fontSize: 12, color: T.textMuted, flexShrink: 0 }}>{badge}</span>
                 )}
@@ -84,6 +89,6 @@ export function PanelCloseButton({ onClose }: { onClose: () => void }) {
             }}
             onMouseEnter={e => (e.currentTarget.style.background = T.bgHover)}
             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-        >✕</button>
+        ><Icon name="close" size="md" /></button>
     )
 }

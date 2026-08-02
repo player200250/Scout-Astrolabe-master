@@ -5,7 +5,8 @@ import { getCardShapes } from './utils/snapshot'
 import { SideDrawer } from './components/ui/SideDrawer'
 import { stripHtml } from './utils/stringUtils'
 import { loadTagColors, getTagColor, type TagColorMap } from './utils/tagColors'
-import { hexToRgba } from './utils/cardMeta'
+import { hexToRgba, STATUS_ICON, STATUS_LABEL, PRIORITY_ICON, PRIORITY_LABEL } from './utils/cardMeta'
+import { Icon } from './components/ui/icons'
 import { T } from './theme/tokens'
 import { useIsDark } from './theme/ThemeContext'
 
@@ -33,18 +34,20 @@ interface FilterPanelProps {
     onClose: () => void
 }
 
-const STATUS_CONFIG: Record<CardStatusType, { label: string; color: string; bg: string }> = {
-    none:          { label: '無',    color: '#888',    bg: '#f5f5f5' },
-    todo:          { label: '待辦',  color: '#555',    bg: '#f0f0f0' },
-    'in-progress': { label: '進行中', color: '#2563eb', bg: '#dbeafe' },
-    done:          { label: '完成',  color: '#16a34a', bg: '#dcfce7' },
+// 只留顏色。文字標籤與圖示一律走 utils/cardMeta 的 STATUS_LABEL／STATUS_ICON——
+// 這裡原本自己也存了一份 label，是「同一組詞彙散在四個檔案」的其中一份。
+const STATUS_CONFIG: Record<CardStatusType, { color: string; bg: string }> = {
+    none:          { color: '#888',    bg: '#f5f5f5' },
+    todo:          { color: '#555',    bg: '#f0f0f0' },
+    'in-progress': { color: '#2563eb', bg: '#dbeafe' },
+    done:          { color: '#16a34a', bg: '#dcfce7' },
 }
 
-const PRIORITY_CONFIG: Record<PriorityType, { label: string; color: string }> = {
-    none:   { label: '無', color: '#bbb' },
-    low:    { label: '低', color: '#ca8a04' },
-    medium: { label: '中', color: '#ea580c' },
-    high:   { label: '高', color: '#dc2626' },
+const PRIORITY_CONFIG: Record<PriorityType, { color: string }> = {
+    none:   { color: '#bbb' },
+    low:    { color: '#ca8a04' },
+    medium: { color: '#ea580c' },
+    high:   { color: '#dc2626' },
 }
 
 function parseCardStatus(value: unknown): CardStatusType {
@@ -127,13 +130,13 @@ function FilterResultRow({ result, onJump,  tagColors }: FilterResultRowProps) {
         >
             <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
                 {result.cardStatus !== 'none' && (
-                    <span style={{ fontSize: 10, fontWeight: 600, color: sCfg.color, background: sCfg.bg, borderRadius: 4, padding: '1px 5px', flexShrink: 0 }}>
-                        {sCfg.label}
+                    <span style={{ fontSize: 10, fontWeight: 600, color: sCfg.color, background: sCfg.bg, borderRadius: 4, padding: '1px 5px', flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                        <Icon name={STATUS_ICON[result.cardStatus]} />{STATUS_LABEL[result.cardStatus]}
                     </span>
                 )}
                 {result.priority !== 'none' && (
-                    <span style={{ fontSize: 12, flexShrink: 0, color: pCfg.color, fontWeight: 700 }}>
-                        {result.priority === 'low' ? '🟡' : result.priority === 'medium' ? '🟠' : '🔴'}
+                    <span style={{ flexShrink: 0, color: pCfg.color, display: 'flex' }} title={`優先級：${PRIORITY_LABEL[result.priority]}`}>
+                        <Icon name={PRIORITY_ICON[result.priority]} />
                     </span>
                 )}
                 <span style={{ fontSize: 11, color: '#bbb', marginLeft: 'auto', flexShrink: 0 }}>{result.boardName}</span>
@@ -195,7 +198,7 @@ export function FilterPanel({ boards, onJump, onClose }: FilterPanelProps) {
     })
     return (
         <SideDrawer
-            title="🔍 篩選卡片"
+            title="篩選卡片" titleIcon="filter"
             onClose={onClose}
             bodyPadding={0}
             headerActions={hasFilter ? (
@@ -211,13 +214,12 @@ export function FilterPanel({ boards, onJump, onClose }: FilterPanelProps) {
                             {CARD_STATUSES.map(s => {
                                 const cfg = STATUS_CONFIG[s]
                                 const active = filterStatuses.has(s)
-                                const label = s === 'none' ? '⬜ 無' : s === 'todo' ? '📋 待辦' : s === 'in-progress' ? '🔵 進行中' : '✅ 完成'
                                 return (
                                     <button key={s} onClick={() => toggleStatus(s)}
-                                        style={chipStyle(active, cfg.color, cfg.bg)}
+                                        style={{ ...chipStyle(active, cfg.color, cfg.bg), display: 'inline-flex', alignItems: 'center', gap: 4 }}
                                         onMouseEnter={e => { if (!active) e.currentTarget.style.background = hoverBg }}
                                         onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent' }}
-                                    >{label}</button>
+                                    ><Icon name={STATUS_ICON[s]} />{STATUS_LABEL[s]}</button>
                                 )
                             })}
                         </div>
@@ -229,13 +231,12 @@ export function FilterPanel({ boards, onJump, onClose }: FilterPanelProps) {
                             {PRIORITIES.map(p => {
                                 const cfg = PRIORITY_CONFIG[p]
                                 const active = filterPriorities.has(p)
-                                const label = p === 'none' ? '— 無' : p === 'low' ? '🟡 低' : p === 'medium' ? '🟠 中' : '🔴 高'
                                 return (
                                     <button key={p} onClick={() => togglePriority(p)}
-                                        style={chipStyle(active, cfg.color, `${cfg.color}22`)}
+                                        style={{ ...chipStyle(active, cfg.color, `${cfg.color}22`), display: 'inline-flex', alignItems: 'center', gap: 4 }}
                                         onMouseEnter={e => { if (!active) e.currentTarget.style.background = hoverBg }}
                                         onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent' }}
-                                    >{label}</button>
+                                    ><Icon name={PRIORITY_ICON[p]} />{PRIORITY_LABEL[p]}</button>
                                 )
                             })}
                         </div>
