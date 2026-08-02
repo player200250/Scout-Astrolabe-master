@@ -11,8 +11,11 @@ import {
     enqueueNote, flushOutbox, getOutbox, migrateLegacyOutbox, loadLastSyncedAt,
     rememberSession, forgetSession, type OutboxNote,
 } from './mobileCapture'
+import { fetchBoardsCore, fetchBoardSnapshotCore, type MobileBoard } from './mobileSyncCore'
+import { readBoardCards, type MobileCard } from './mobileCards'
+import { BoardListScreen, BoardCardsScreen } from './MobileBrowse'
 
-type Screen = 'capture' | 'settings'
+type Screen = 'capture' | 'settings' | 'boards' | 'board'
 
 const formatAgo = (at: number): string => {
     const min = Math.floor((Date.now() - at) / 60000)
@@ -34,6 +37,13 @@ export function MobileApp() {
     const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null)
     const [inboxCount, setInboxCount] = useState<number | null>(null)
     const [busy, setBusy] = useState(false)
+
+    // ── S2 唯讀瀏覽 ──────────────────────────────────────────────────────
+    const [boards, setBoards] = useState<MobileBoard[] | null>(null)
+    const [boardsError, setBoardsError] = useState<string | null>(null)
+    const [openBoard, setOpenBoard] = useState<MobileBoard | null>(null)
+    const [openCards, setOpenCards] = useState<MobileCard[] | null>(null)
+    const [browseBusy, setBrowseBusy] = useState(false)
     const [message, setMessage] = useState<{ text: string; kind: 'ok' | 'err' } | null>(null)
     const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -129,11 +139,30 @@ export function MobileApp() {
         notify('已登入')
     }, [config, email, password, notify])
 
+    const loadBoards = useCallback(async () => {
+        setBrowseBusy(true); setBoardsError(null)
+        const r = await fetchBoardsCore()
+        setBrowseBusy(false)
+        if (!r.ok || !r.boards) { setBoardsError(r.error ?? '讀取失敗'); return }
+        setBoards(r.boards)
+    }, [])
+
+    const openBoardCards = useCallback(async (board: MobileBoard) => {
+        setOpenBoard(board); setOpenCards(null); setScreen('board')
+        setBrowseBusy(true); setBoardsError(null)
+        const r = await fetchBoardSnapshotCore(board.id)
+        setBrowseBusy(false)
+        if (!r.ok) { setBoardsError(r.error ?? '讀取失敗'); return }
+        setOpenCards(readBoardCards(r.snapshot ?? null))
+    }, [])
+
     const handleSignOut = useCallback(async () => {
         await signOut()
         await forgetSession()
         setUserEmail(null)
         setInboxCount(null)
+        // 登出就把瀏覽過的內容清掉——留著的話下一個人登入會先看到上一個人的白板
+        setBoards(null); setOpenBoard(null); setOpenCards(null)
         notify('已登出')
     }, [notify])
 
@@ -225,12 +254,43 @@ export function MobileApp() {
         )
     }
 
+    // ── S2：白板清單 ─────────────────────────────────────────────────────────
+    if (screen === 'boards') {
+        return (
+            <BoardListScreen
+                boards={boards}
+                busy={browseBusy}
+                error={boardsError}
+                onBack={() => setScreen('capture')}
+                onReload={() => void loadBoards()}
+                onOpen={b => void openBoardCards(b)}
+                message={message}
+            />
+        )
+    }
+
+    // ── S2：單塊板的卡片 ─────────────────────────────────────────────────────
+    if (screen === 'board' && openBoard) {
+        return (
+            <BoardCardsScreen
+                board={openBoard}
+                cards={openCards}
+                busy={browseBusy}
+                error={boardsError}
+                onBack={() => { setScreen('boards'); setBoardsError(null) }}
+                onReload={() => void openBoardCards(openBoard)}
+                message={message}
+            />
+        )
+    }
+
     // ── 速記畫面 ─────────────────────────────────────────────────────────────
     return (
         <div className="screen">
             <header className="bar">
                 <span className="title">📥 速記</span>
                 {outbox.length > 0 && <span className="badge">{outbox.length} 待送</span>}
+                <button className="ghost" onClick={() => { setScreen('boards'); if (!boards) void loadBoards() }}>白板</button>
                 <button className="ghost" onClick={() => setScreen('settings')}>設定</button>
             </header>
 

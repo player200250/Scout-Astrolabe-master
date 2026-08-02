@@ -211,4 +211,105 @@ export async function flushOutboxCore(): Promise<FlushResult> {
     }
 }
 
+// ── S2：唯讀瀏覽（白板清單／單塊板的卡片）────────────────────────────────
+//
+// 只讀不寫，所以與速記的 outbox 完全無關；但**共用同一套憑證與 token 更新**，
+// 否則會出現「速記送得出去、清單卻 401」這種只有一半壞掉的狀態。
+
+export interface MobileBoard {
+    id: string
+    name: string
+    updatedAt: number
+    isHome: boolean
+    isInbox: boolean
+    isJournal: boolean
+    isFolder: boolean
+}
+
+interface BoardListRow {
+    id: string
+    name: string
+    updated_at: number
+    is_home: boolean | null
+    is_inbox: boolean | null
+    is_journal: boolean | null
+    is_folder: boolean | null
+    deleted_at: number | null
+}
+
+/**
+ * 帶 token 更新的 GET。與 flushOutboxCore 同樣的兩段式：先確保 token 沒過期，
+ * 真的撞到 401 再換一次重試一次（伺服器端可能已撤銷）。
+ */
+async function authedGet<T>(path: string): Promise<{ ok: boolean; data?: T; error?: string }> {
+    const stored = await loadAuth()
+    if (!stored) return { ok: false, error: '尚未登入' }
+    let auth = await ensureFreshToken(stored)
+    if (!auth) return { ok: false, error: '登入已過期，請重新登入' }
+
+    const call = async (a: StoredAuth) => {
+        const res = await fetch(`${a.url}${path}`, { headers: headers(a) })
+        return { res, body: res.ok ? await res.json() as T : null }
+    }
+
+    try {
+        let { res, body } = await call(auth)
+        if (res.status === 401) {
+            const renewed = await refreshAccessToken(auth)
+            if (!renewed) return { ok: false, error: '登入已過期，請重新登入' }
+            auth = renewed
+            ;({ res, body } = await call(auth))
+        }
+        if (!res.ok) return { ok: false, error: await describeRestError(res) }
+        return { ok: true, data: body as T }
+    } catch (e) {
+        return { ok: false, error: describeNetworkError(e) }
+    }
+}
+
+/**
+ * 取白板清單。
+ * ⚠️ `select` 刻意**不含 snapshot 也不含 thumbnail**——清單只需要名字，
+ * 而 snapshot 是整列最大的東西（好幾 MB）。在行動網路上，為了畫一份清單
+ * 就把所有白板的內容全下載一次是不能接受的；snapshot 等點進去那一塊才拉。
+ *
+ * 資料夾也排除：手機端不做資料夾層級，直接平鋪比較好按。
+ */
+export async function fetchBoardsCore(): Promise<{ ok: boolean; boards?: MobileBoard[]; error?: string }> {
+    const r = await authedGet<BoardListRow[]>(
+        '/rest/v1/boards?select=id,name,updated_at,is_home,is_inbox,is_journal,is_folder,deleted_at'
+        + '&order=updated_at.desc',
+    )
+    if (!r.ok || !r.data) return { ok: false, error: r.error }
+
+    const boards = r.data
+        // 墓碑與垃圾桶裡的板都有 deleted_at，兩者在手機上都不該出現
+        .filter(row => row.deleted_at === null && !row.is_folder)
+        .map(row => ({
+            id: row.id,
+            name: row.name,
+            updatedAt: row.updated_at,
+            isHome: !!row.is_home,
+            isInbox: !!row.is_inbox,
+            isJournal: !!row.is_journal,
+            isFolder: !!row.is_folder,
+        }))
+    return { ok: true, boards }
+}
+
+/**
+ * 取單一塊板的 snapshot。這是唯一會下載大量資料的呼叫，所以只在使用者
+ * 真的點進某塊板時才發生。
+ */
+export async function fetchBoardSnapshotCore(
+    boardId: string,
+): Promise<{ ok: boolean; snapshot?: TLEditorSnapshot | null; error?: string }> {
+    const r = await authedGet<{ snapshot: TLEditorSnapshot | null }[]>(
+        `/rest/v1/boards?id=eq.${encodeURIComponent(boardId)}&select=snapshot&limit=1`,
+    )
+    if (!r.ok || !r.data) return { ok: false, error: r.error }
+    if (r.data.length === 0) return { ok: false, error: '雲端沒有這塊白板' }
+    return { ok: true, snapshot: r.data[0].snapshot }
+}
+
 export type { OutboxNote, StoredAuth }
