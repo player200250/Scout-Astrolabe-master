@@ -7,6 +7,8 @@ import { getCardShapes } from './utils/snapshot'
 import { EmptyState } from './components/ui/EmptyState'
 import { SideDrawer } from './components/ui/SideDrawer'
 import { T } from './theme/tokens'
+import { Icon } from './components/ui/icons'
+import type { IconName } from './components/ui/icons'
 
 interface TaskItem {
     boardId: string
@@ -56,12 +58,14 @@ function scanBoards(boards: BoardRecord[]): TaskItem[] {
     return items
 }
 
-const GROUP_CONFIG: Record<GroupKey, { label: string; color: string; bg: string }> = {
-    overdue:   { label: '⚠️ 已逾期', color: '#ff4d4f', bg: '#fff5f5' },
-    today:     { label: '🌟 今天',   color: '#e67e00', bg: '#fff7f0' },
-    week:      { label: '📅 本週',   color: '#3b82f6', bg: '#eff6ff' },
-    later:     { label: '🗓️ 之後',  color: '#888',    bg: '#f5f5f5' },
-    noduedate: { label: '📋 無截止日', color: '#aaa',  bg: '#fafafa' },
+// 五個分組是同一條時間軸上的刻度，所以圖示也走同一族（Alarm→Calendar*→Inbox），
+// 不像原本 ⚠️🌟📅🗓️📋 那樣每個各自為政。緊迫感靠既有的 color/bg 表達。
+const GROUP_CONFIG: Record<GroupKey, { icon: IconName; label: string; color: string; bg: string }> = {
+    overdue:   { icon: 'dueOverdue',   label: '已逾期',   color: '#ff4d4f', bg: '#fff5f5' },
+    today:     { icon: 'dueToday',     label: '今天',     color: '#e67e00', bg: '#fff7f0' },
+    week:      { icon: 'dueWeek',      label: '本週',     color: '#3b82f6', bg: '#eff6ff' },
+    later:     { icon: 'dueLater',     label: '之後',     color: '#888',    bg: '#f5f5f5' },
+    noduedate: { icon: 'dueNone',      label: '無截止日', color: '#aaa',    bg: '#fafafa' },
 }
 
 interface TaskItemRowProps {
@@ -97,7 +101,7 @@ function TaskItemRow({ item, todayStr, weekStr, onJump }: TaskItemRowProps) {
                 flexShrink: 0, marginTop: 2,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
-                {item.checked && <span style={{ color: 'white', fontSize: 9, lineHeight: 1 }}>✓</span>}
+                {item.checked && <span style={{ color: 'white', display: 'flex' }}><Icon name="check" /></span>}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{
@@ -119,8 +123,9 @@ function TaskItemRow({ item, todayStr, weekStr, onJump }: TaskItemRowProps) {
                             background: T.accentBg,
                             border: `1px solid ${T.accentBorder}`,
                             borderRadius: 4, padding: '1px 6px',
+                            display: 'inline-flex', alignItems: 'center', gap: 4,
                         }}
-                    >🗂 {item.boardName}</span>
+                    ><Icon name="cardBoard" />{item.boardName}</span>
                     {item.cardTitle && (
                         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.cardTitle}</span>
                     )}
@@ -278,7 +283,7 @@ export function TaskCenter({ boards, onJump, onClose }: TaskCenterProps) {
                                     display: 'flex', alignItems: 'center', gap: 6,
                                     position: 'sticky', top: 0, zIndex: 1,
                                 }}>
-                                    {config.label}
+                                    <Icon name={config.icon} />{config.label}
                                     <span style={{ fontSize: 10, fontWeight: 400, color: '#aaa' }}>{items.length} 項</span>
                                 </div>
                                 {items.map(item => (

@@ -26,6 +26,8 @@ import {
     Circle, CircleDashed, CircleOff, CircleDot, Square, SquareCheck,
     Flag, SignalHigh, SignalMedium, SignalLow,
     Users, BookMarked, Bug, Target, Lightbulb, ChevronRight, X, Check, Info, TriangleAlert, Rows3,
+    AlarmClock, CalendarClock, CalendarRange, CalendarDays,
+    Smartphone, RefreshCw, CloudAlert, CloudUpload, CloudDownload,
     Compass, MousePointerClick, FileImage, FileVideo, FileAudio, FileArchive, File, CopyMinus,
     Pilcrow, Heading1, Heading2, Heading3, List, ListOrdered, Quote, SquareCode, Minus,
     Sigma, Bold, Italic, Underline, Strikethrough, Highlighter, Code,
@@ -162,6 +164,14 @@ const REGISTRY = {
     fmtHighlight: Highlighter,
     fmtCode: Code,
 
+    // 任務中心的到期分組。五個是同一條時間軸上的刻度，所以走同一族圖示；
+    // 緊迫感由各組既有的 color/bg 表達，不靠圖示的顏色。
+    dueOverdue: AlarmClock,
+    dueToday: CalendarClock,
+    dueWeek: CalendarRange,
+    dueLater: CalendarDays,
+    dueNone: Inbox,
+
     // 檢視切換（卡片庫的清單／格狀）
     viewList: Rows3,
     viewGrid: LayoutGrid,
@@ -169,6 +179,14 @@ const REGISTRY = {
     // 白板總覽
     check: Check,
     cleanupDuplicates: CopyMinus,
+
+    // 雲端同步面板。三種狀態走同一族雲圖示（正常＝cloudSync／要注意／同步中），
+    // 推拉用 CloudUpload/CloudDownload 而不是純箭頭——面板裡同時有好幾種「上下」。
+    mobile: Smartphone,
+    syncing: RefreshCw,
+    syncAlert: CloudAlert,
+    push: CloudUpload,
+    pull: CloudDownload,
 
     // Toast 的三種語氣（見 ui/ToastHost）。success 沿用 done 那顆 CircleCheck，
     // 不另開一個——「完成」在整個 App 就該只有一種樣子。

@@ -19,6 +19,7 @@ import { onAppEvent } from '../utils/appEvents'
 import { getCardShapes } from '../utils/snapshot'
 import { showToast } from '../utils/toast'
 import { T } from '../theme/tokens'
+import { Icon } from './ui/icons'
 import { SideDrawer } from './ui/SideDrawer'
 
 interface CloudSyncPanelProps {
@@ -33,13 +34,17 @@ const input: React.CSSProperties = {
     border: `1px solid ${T.borderLight}`, borderRadius: 7,
     background: T.bgApp, color: T.textPrimary, outline: 'none', fontFamily: 'inherit',
 }
+// ⚠️ inline-flex 是必要的，不是排版偏好：<Icon> render 出來的 svg 是 display:block，
+// 放進預設的 inline-block 按鈕裡會自己占一行，圖示就疊在文字上面而不是並排。
 const btn: React.CSSProperties = {
     padding: '7px 14px', fontSize: 12.5, borderRadius: 7, cursor: 'pointer',
     border: 'none', background: T.accent, color: T.textOnActive, fontWeight: 600,
+    display: 'inline-flex', alignItems: 'center', gap: 6,
 }
 const btnGhost: React.CSSProperties = {
     padding: '7px 14px', fontSize: 12.5, borderRadius: 7, cursor: 'pointer',
     border: `1px solid ${T.borderLight}`, background: 'transparent', color: T.textSecondary,
+    display: 'inline-flex', alignItems: 'center', gap: 6,
 }
 const section: React.CSSProperties = {
     padding: '14px 16px', borderBottom: `1px solid ${T.borderLight}`,
@@ -247,8 +252,8 @@ export function CloudSyncPanel({ boards, activeBoardId, onClose }: CloudSyncPane
                             value={config.mobileUrl ?? ''}
                             onChange={e => setConfig(c => ({ ...c, mobileUrl: e.target.value }))}
                         />
-                        <button onClick={() => void handleCopyMobileLink()} style={{ ...btnGhost, marginTop: 8 }}>
-                            📱 複製手機設定連結
+                        <button onClick={() => void handleCopyMobileLink()} style={{ ...btnGhost, marginTop: 8, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                            <Icon name="mobile" />複製手機設定連結
                         </button>
                         <div style={{ fontSize: 10.5, color: T.textMuted, marginTop: 8, lineHeight: 1.6 }}>
                             連結把設定放在 <code>#</code> 之後，<b>不會隨請求送到任何伺服器</b>；
@@ -262,7 +267,7 @@ export function CloudSyncPanel({ boards, activeBoardId, onClose }: CloudSyncPane
                     <div style={{ fontSize: 12, fontWeight: 600, color: T.textPrimary, marginBottom: 10 }}>2. 登入</div>
                     {userEmail ? (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                            <span style={{ fontSize: 12, color: T.textPrimary, flex: 1 }}>✅ {userEmail}</span>
+                            <span style={{ fontSize: 12, color: T.textPrimary, flex: 1, display: 'inline-flex', alignItems: 'center', gap: 6 }}><Icon name="done" />{userEmail}</span>
                             <button onClick={handleSignOut} style={btnGhost}>登出</button>
                         </div>
                     ) : (
@@ -304,7 +309,10 @@ export function CloudSyncPanel({ boards, activeBoardId, onClose }: CloudSyncPane
                         borderRadius: 7, background: T.bgApp, border: `1px solid ${T.borderLight}`,
                         marginBottom: 10,
                     }}>
-                        <span style={{ fontSize: 13 }}>{status.phase === 'syncing' ? '🔄' : isSyncAttention(status) ? '⚠️' : '☁️'}</span>
+                        {/* 三種狀態走同一族的雲圖示（同步中／要注意／正常），不像原本 🔄⚠️☁️ 各自為政 */}
+                        <span style={{ display: 'flex', color: isSyncAttention(status) ? T.danger : T.textSecondary }}>
+                            <Icon name={status.phase === 'syncing' ? 'syncing' : isSyncAttention(status) ? 'syncAlert' : 'cloudSync'} size="md" />
+                        </span>
                         <span style={{
                             flex: 1, fontSize: 11.5,
                             color: isSyncAttention(status) ? T.danger : T.textSecondary,
@@ -336,10 +344,10 @@ export function CloudSyncPanel({ boards, activeBoardId, onClose }: CloudSyncPane
                     </div>
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                         <button onClick={() => void handlePush()} disabled={!activeBoard || busy === 'push'} style={btn}>
-                            {busy === 'push' ? '推送中…' : '⬆ 推送目前白板'}
+                            {busy === 'push' ? '推送中…' : <><Icon name="push" />推送目前白板</>}
                         </button>
                         <button onClick={() => void handleList()} disabled={busy === 'list'} style={btnGhost}>
-                            {busy === 'list' ? '讀取中…' : '🔄 列出雲端白板'}
+                            {busy === 'list' ? '讀取中…' : <><Icon name="syncing" />列出雲端白板</>}
                         </button>
                     </div>
 
@@ -371,7 +379,7 @@ export function CloudSyncPanel({ boards, activeBoardId, onClose }: CloudSyncPane
                                             </div>
                                         </div>
                                         <button onClick={() => void handlePull(r.id)} disabled={busy === 'pull'} style={{ ...btnGhost, padding: '4px 9px', fontSize: 11 }}>
-                                            ⬇ 取回
+                                            <Icon name="pull" />取回
                                         </button>
                                     </div>
                                 )
@@ -393,7 +401,7 @@ export function CloudSyncPanel({ boards, activeBoardId, onClose }: CloudSyncPane
                             </div>
                             <div style={{ display: 'flex', gap: 8 }}>
                                 <button onClick={() => void handleOverwriteLocal()} style={{ ...btn, background: T.danger }}>
-                                    ⚠ 以此覆蓋本機並重載
+                                    <Icon name="toastError" />以此覆蓋本機並重載
                                 </button>
                                 <button onClick={() => setPulled(null)} style={btnGhost}>取消</button>
                             </div>

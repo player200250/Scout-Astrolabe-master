@@ -144,8 +144,8 @@ export function InboxTriage({ boards, onMoveCard, onUpdateCardProps, onTrashCard
                 >
                     {/* 標題 + 進度 */}
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: mutedColor }}>
-                            📥 收件匣整理
+                        <div style={{ fontSize: 13, fontWeight: 600, color: mutedColor, display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <Icon name="inboxTriage" />收件匣整理
                         </div>
                         <div style={{ fontSize: 12, color: mutedColor }}>
                             {total === 0 ? '收件匣是空的' : `${progress.current} / ${progress.total}`}

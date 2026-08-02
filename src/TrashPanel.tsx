@@ -5,6 +5,9 @@ import { emitAppEvent, onAppEvent } from './utils/appEvents'
 import { deleteStoredFile } from './platform/fileStore'
 import { T } from './theme/tokens'
 import { FullscreenPanel } from './components/ui/FullscreenPanel'
+import { Icon } from './components/ui/icons'
+import { CARD_TYPE_ICON } from './utils/cardMeta'
+import type { CardType } from './components/card-shape/type/CardShape'
 
 interface TrashPanelProps {
     onClose: () => void
@@ -150,7 +153,7 @@ export function TrashPanel({
 
     return (
         <FullscreenPanel
-            title="🗑️ 垃圾桶"
+            title="垃圾桶" titleIcon="trash"
             badge={`${totalCount} 個項目`}
             onClose={onClose}
             // 垃圾桶原本就寫死比其他全螢幕面板更高的 z-index，統一時保留這個層級
@@ -244,11 +247,13 @@ export function TrashPanel({
                                             width: 40, height: 40, borderRadius: 8, flexShrink: 0,
                                             background: T.bgApp,
                                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            fontSize: 18,
+                                            color: T.textMuted,
                                         }}>
-                                            {card.type === 'text' ? '📝' : card.type === 'todo' ? '✅'
-                                                : card.type === 'link' ? '🔗' : card.type === 'image' ? '🖼️'
-                                                : card.type === 'journal' ? '📔' : '📄'}
+                                            {/* 型別圖示走共用的 CARD_TYPE_ICON——垃圾桶原本自己寫了一份只認 5 種的
+                                                三元鏈，其餘（便利貼／表格／檔案…）全顯示成同一顆通用圖示。 */}
+                                            <span style={{ display: 'flex', transform: 'scale(1.25)' }}>
+                                                <Icon name={CARD_TYPE_ICON[card.type as CardType] ?? 'cardText'} size="md" />
+                                            </span>
                                         </div>
                                         <div style={{ flex: 1, minWidth: 0 }}>
                                             <div style={{
@@ -409,7 +414,7 @@ function Empty({ label }: { label: string }) {
             display: 'flex', flexDirection: 'column', alignItems: 'center',
             justifyContent: 'center', height: 240, gap: 12,
         }}>
-            <span style={{ fontSize: 48 }}>🗑️</span>
+            <span style={{ opacity: 0.4, color: T.textMuted, display: 'flex', transform: 'scale(2.5)' }}><Icon name="trash" size="md" /></span>
             <span style={{ fontSize: 14, color: T.textMuted }}>{label}</span>
         </div>
     )

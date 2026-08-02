@@ -99,7 +99,7 @@ export function TagManager({ boards, onRewriteTag, onClose }: TagManagerProps) {
 
     return (
         <SideDrawer
-            title="🏷️ 標籤管理"
+            title="標籤管理" titleIcon="tag"
             badge={<span style={{ fontSize: 11, color: mutedColor }}>{stats.length} 個標籤</span>}
             onClose={onClose}
             bodyPadding={0}

@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, useMemo } from 'react'
 import type { BoardRecord } from './db'
 import { Z_MODAL_BACKDROP, Z_MODAL, MODAL_TOP, MODAL_WIDTH, MODAL_BACKDROP } from './constants'
 import { T } from './theme/tokens'
+import { Icon } from './components/ui/icons'
 
 interface QuickSwitcherProps {
     boards: BoardRecord[]
@@ -94,7 +95,7 @@ export function QuickSwitcher({ boards, activeBoardId, onSwitch, onClose }: Quic
             }}>
                 {/* Search row */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', borderBottom: `1px solid ${border}` }}>
-                    <span style={{ fontSize: 16, color: muted, flexShrink: 0 }}>🔍</span>
+                    <span style={{ color: muted, flexShrink: 0, display: 'flex' }}><Icon name="search" size="md" /></span>
                     <input
                         ref={inputRef}
                         value={query}
@@ -156,8 +157,8 @@ export function QuickSwitcher({ boards, activeBoardId, onSwitch, onClose }: Quic
                                     {board.thumbnail ? (
                                         <img src={board.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                     ) : (
-                                        <span style={{ fontSize: 14, opacity: 0.4 }}>
-                                            {board.isHome ? '🏠' : board.isInbox ? '📥' : board.isJournal ? '📔' : '📋'}
+                                        <span style={{ opacity: 0.4, display: 'flex' }}>
+                                            <Icon name={board.isHome ? 'home' : board.isInbox ? 'inbox' : board.isJournal ? 'cardJournal' : 'cardBoard'} size="md" />
                                         </span>
                                     )}
                                 </div>
@@ -176,13 +177,13 @@ export function QuickSwitcher({ boards, activeBoardId, onSwitch, onClose }: Quic
                                         }}>目前</span>
                                     )}
                                     {board.status === 'pinned' && (
-                                        <span style={{ fontSize: 11, flexShrink: 0, opacity: 0.65 }}>📌</span>
+                                        <span style={{ flexShrink: 0, opacity: 0.65, display: 'flex' }} title="已釘選"><Icon name="pin" /></span>
                                     )}
                                     {board.isInbox && (
-                                        <span style={{ fontSize: 11, flexShrink: 0, opacity: 0.65 }}>📥</span>
+                                        <span style={{ flexShrink: 0, opacity: 0.65, display: 'flex' }} title="收件匣"><Icon name="inbox" /></span>
                                     )}
                                     {board.isJournal && (
-                                        <span style={{ fontSize: 11, flexShrink: 0, opacity: 0.65 }}>📔</span>
+                                        <span style={{ flexShrink: 0, opacity: 0.65, display: 'flex' }} title="日誌板"><Icon name="cardJournal" /></span>
                                     )}
                                 </div>
 
