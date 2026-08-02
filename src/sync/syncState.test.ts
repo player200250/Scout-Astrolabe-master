@@ -13,7 +13,7 @@ const st = (
     pushed: Record<string, number>,
     userId: string | null = USER,
     thumbHash: Record<string, string> = {},
-): SyncState => ({ userId, pushed, thumbHash, uploadedImages: [], lastPulledAt: null })
+): SyncState => ({ userId, pushed, thumbHash, uploadedImages: [], shapeHashes: {}, lastPulledAt: null })
 
 describe('syncState — dirty 判斷', () => {
     it('從沒推過的板算 dirty', () => {
@@ -125,19 +125,19 @@ describe('syncState — 持久化', () => {
     })
 
     it('存了之後讀得回來', () => {
-        saveSyncState({ userId: USER, pushed: { b1: 123 }, thumbHash: {}, uploadedImages: [], lastPulledAt: 456 })
-        expect(loadSyncState(USER)).toEqual({ userId: USER, pushed: { b1: 123 }, thumbHash: {}, uploadedImages: [], lastPulledAt: 456 })
+        saveSyncState({ userId: USER, pushed: { b1: 123 }, thumbHash: {}, uploadedImages: [], shapeHashes: {}, lastPulledAt: 456 })
+        expect(loadSyncState(USER)).toEqual({ userId: USER, pushed: { b1: 123 }, thumbHash: {}, uploadedImages: [], shapeHashes: {}, lastPulledAt: 456 })
     })
 
     // 這條是這個檔案最重要的保護：換帳號後若沿用舊記錄，新帳號雲端明明是空的、
     // 本機卻以為「都推過了」，結果一塊板都不會上傳。
     it('userId 不符時整份作廢（換帳號 ⇒ 全部重推）', () => {
-        saveSyncState({ userId: USER, pushed: { b1: 123 }, thumbHash: {}, uploadedImages: [], lastPulledAt: 456 })
+        saveSyncState({ userId: USER, pushed: { b1: 123 }, thumbHash: {}, uploadedImages: [], shapeHashes: {}, lastPulledAt: 456 })
         expect(loadSyncState('another-user')).toEqual({ ...EMPTY_SYNC_STATE, userId: 'another-user' })
     })
 
     it('未登入（userId null）也不會沿用別人的記錄', () => {
-        saveSyncState({ userId: USER, pushed: { b1: 123 }, thumbHash: {}, uploadedImages: [], lastPulledAt: null })
+        saveSyncState({ userId: USER, pushed: { b1: 123 }, thumbHash: {}, uploadedImages: [], shapeHashes: {}, lastPulledAt: null })
         expect(loadSyncState(null).pushed).toEqual({})
     })
 
@@ -147,7 +147,7 @@ describe('syncState — 持久化', () => {
     })
 
     it('clear 之後回到空記錄', () => {
-        saveSyncState({ userId: USER, pushed: { b1: 1 }, thumbHash: {}, uploadedImages: [], lastPulledAt: 1 })
+        saveSyncState({ userId: USER, pushed: { b1: 1 }, thumbHash: {}, uploadedImages: [], shapeHashes: {}, lastPulledAt: 1 })
         clearSyncState()
         expect(loadSyncState(USER).pushed).toEqual({})
     })

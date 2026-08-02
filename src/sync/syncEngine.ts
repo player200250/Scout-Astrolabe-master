@@ -22,12 +22,14 @@
 import { db, type BoardRecord } from '../db'
 import { getCurrentUserId } from './supabaseClient'
 import { isSyncConfigured, isAutoSyncEnabled } from './syncConfig'
-import { pushBoard, pullBoard, listRemoteBoards, decideSync } from './boardSync'
+import { pushBoard, pullBoard, listRemoteBoards, decideSync, type RemoteBoardSummary } from './boardSync'
 import {
     loadSyncState, saveSyncState, markPushed, markPulled, markThumbPushed,
     hashThumbnail, isThumbnailUnchanged, selectDirtyBoards, pruneState,
-    isImageUploaded, markImagesUploaded, pruneUploadedImages, type SyncState,
+    isImageUploaded, markImagesUploaded, pruneUploadedImages,
+    getShapeHashes, markShapeHashes, type SyncState,
 } from './syncState'
+import { hashSnapshotShapes, mergeSnapshots, describeMerge } from '../utils/snapshotMerge'
 import { collectImageNames, uploadImages, downloadMissingImages } from './imageSync'
 import { INITIAL_SYNC_STATUS, type SyncStatus } from './syncStatus'
 import { emitAppEvent } from '../utils/appEvents'
@@ -199,19 +201,37 @@ async function runSync(reason: string): Promise<void> {
         let state = loadSyncState(userId)
         const localBoards: BoardRecord[] = await db.table('boards').toArray()
 
-        const push = await pushPhase(localBoards, state)
+        // ⚠️ 雲端清單改在**推送之前**取，這是卡片級合併的前提。
+        // 舊版在推完才列清單，於是推送階段根本不知道「這塊板在雲端也被改過」——
+        // pushBoard 是無條件 upsert，直接把另一台的修改蓋掉（實測：連 LWW 都不是，
+        // 是「先同步的那一台贏」）。要合併就必須先知道遠端的狀態。
+        let remoteList: RemoteBoardSummary[] = []
+        let listError: string | null = null
+        try {
+            const list = await listRemoteBoards()
+            if (!list.ok) throw new Error(list.error ?? '讀取雲端清單失敗')
+            remoteList = list.data ?? []
+        } catch (e) {
+            listError = e instanceof Error ? e.message : String(e)
+        }
+
+        const push = await pushPhase(localBoards, state, remoteList)
         state = push.state
 
         // 推送有失敗也照樣拉取：拉是唯讀的，不該被「某塊板推不上去」連累。
         // 真的是離線的話這裡也會失敗，由下面的 pullError 一起回報。
         let applied: BoardRecord[] = []
-        let pullError: string | null = null
-        try {
-            const pull = await pullPhase(localBoards, state)
-            applied = pull.applied
-            state = pull.state
-        } catch (e) {
-            pullError = e instanceof Error ? e.message : String(e)
+        let pullError: string | null = listError
+        if (!listError) {
+            try {
+                // localBoards 在推送階段可能被合併改寫過，用最新的重讀一次
+                const fresh: BoardRecord[] = await db.table('boards').toArray()
+                const pull = await pullPhase(fresh, state, remoteList)
+                applied = pull.applied
+                state = pull.state
+            } catch (e) {
+                pullError = e instanceof Error ? e.message : String(e)
+            }
         }
 
         const knownIds = new Set([...localBoards.map(b => b.id), ...applied.map(b => b.id)])
@@ -274,10 +294,11 @@ export interface PushFailure {
     error: string
 }
 
-/** 把所有還沒推上雲的板推上去 */
+/** 把所有還沒推上雲的板推上去；遠端也動過的先做卡片級合併 */
 async function pushPhase(
     localBoards: BoardRecord[],
     state: SyncState,
+    remoteList: RemoteBoardSummary[],
 ): Promise<{ state: SyncState; failures: PushFailure[] }> {
     const dirty = selectDirtyBoards(localBoards, state)
     if (dirty.length === 0) return { state, failures: [] }
@@ -285,8 +306,34 @@ async function pushPhase(
     setStatus({ pendingCount: dirty.length })
     let next = state
     const failures: PushFailure[] = []
+    const remoteById = new Map(remoteList.map(r => [r.id, r]))
 
-    for (const board of dirty) {
+    for (const original of dirty) {
+        // ── 卡片級合併 ──────────────────────────────────────────────────
+        // 這塊板本機改過（dirty），而雲端那列又比我們上次推的還新
+        // ⇒ 另一台也改過它。直接 push 會把對方的修改整塊蓋掉。
+        let board = original
+        const remote = remoteById.get(board.id)
+        const lastPushed = next.pushed[board.id]
+        const remoteAlsoChanged =
+            remote !== undefined && lastPushed !== undefined && remote.updatedAt > lastPushed
+
+        if (remoteAlsoChanged && !remote.deletedAt) {
+            const mergedBoard = await mergeWithRemote(board, next)
+            if (mergedBoard) {
+                board = mergedBoard
+                // 合併結果先寫回本機再推——順序反過來的話，推成功而本機寫入失敗
+                // 就會讓兩邊永久不一致，而且本機看不到對方的卡片
+                await db.table('boards').put(board)
+                emitAppEvent('sync-boards-updated', { boards: [board] })
+            }
+        }
+
+        await pushOne(board)
+    }
+
+    /** 推一塊板（含它引用到的圖片）。失敗記進 failures，不中止整輪。 */
+    async function pushOne(board: BoardRecord): Promise<void> {
         // ⚠️ 圖片一定要**先於**白板列上傳，而且失敗就不推這塊板。
         // 反過來（先推板、圖片慢慢補）會讓另一台裝置在這個空窗期拉到一塊指向
         // 不存在物件的板＝破圖；而且 board 一旦記進 pushed[]，它就不再 dirty，
@@ -303,7 +350,7 @@ async function pushPhase(
                 name: board.name,
                 error: `圖片上傳失敗（${first.storedName}：${first.error}）`,
             })
-            continue
+            return
         }
 
         // 縮圖沒變就整個欄位不送（upsert 語意下＝保留雲端現值）。
@@ -318,12 +365,48 @@ async function pushPhase(
             // 一塊推不上去的板（太大、資料壞掉、撞到 RLS）會讓其他所有板
             // 連同拉取階段一起永遠同步不了，而畫面上只看得到一個籠統的錯誤。
             failures.push({ id: board.id, name: board.name, error: res.error ?? '推送失敗' })
-            continue
+            return
         }
         next = markPushed(next, board.id, board.updatedAt)
         next = markThumbPushed(next, board.id, hashThumbnail(board.thumbnail))
+        // 推成功＝雲端現在就是這個樣子。記下每張卡的指紋當作**下一次合併的共同祖先**。
+        next = markShapeHashes(next, board.id, hashSnapshotShapes(board.snapshot))
     }
+
     return { state: next, failures }
+}
+
+/**
+ * 把遠端版本合併進本機這塊板。回傳合併後的 board；沒有實質差異或拿不到遠端時回 null。
+ *
+ * ⚠️ `updatedAt` 要**推進到現在**，不是沿用任何一邊的。合併後的內容是一個
+ * 兩邊都沒有過的新版本，時間戳必須比雙方都大，否則另一台會覺得「我的比較新」
+ * 而把合併結果再蓋掉一次。
+ */
+async function mergeWithRemote(board: BoardRecord, state: SyncState): Promise<BoardRecord | null> {
+    const got = await pullBoard(board.id)
+    if (!got.ok || !got.data) return null
+
+    const remoteBoard = got.data
+    const result = mergeSnapshots(
+        getShapeHashes(state, board.id),
+        board.snapshot,
+        remoteBoard.snapshot,
+        {
+            // 同一張卡兩邊都改時只能挑一邊——挑板的 updatedAt 比較新的那一邊。
+            // 這是整個合併裡唯一會丟資料的地方，所以用最直覺可解釋的規則。
+            preferRemoteOnConflict: remoteBoard.updatedAt > board.updatedAt,
+        },
+    )
+    if (!result.changed) return null
+
+    const summary = describeMerge(result.stats)
+    if (summary) {
+        console.info(`[sync] 合併「${board.name}」：${summary}`)
+        emitAppEvent('ui-toast', { message: `「${board.name}」與雲端合併：${summary}`, kind: 'info' })
+    }
+
+    return { ...board, snapshot: result.snapshot, updatedAt: Date.now() }
 }
 
 /** 把這輪的失敗湊成一句人看得懂的話 */
@@ -342,15 +425,13 @@ function describeFailures(failures: PushFailure[], pullError: string | null): st
 async function pullPhase(
     localBoards: BoardRecord[],
     state: SyncState,
+    remoteList: RemoteBoardSummary[],
 ): Promise<{ applied: BoardRecord[]; state: SyncState }> {
-    const list = await listRemoteBoards()
-    if (!list.ok) throw new Error(list.error ?? '讀取雲端清單失敗')
-
     const localById = new Map(localBoards.map(b => [b.id, b]))
     const applied: BoardRecord[] = []
     let next = state
 
-    for (const remote of list.data ?? []) {
+    for (const remote of remoteList) {
         const local = localById.get(remote.id)
         const decision = decideSync(local?.updatedAt ?? null, remote.updatedAt)
         if (decision !== 'pull' && decision !== 'remote-only') continue
@@ -385,6 +466,8 @@ async function pullPhase(
         // ⚠️ 直接寫 db，不走 saveBoard——後者會通知引擎，把剛拉回來的東西再推一次
         await db.table('boards').put(got.data)
         next = markPulled(next, got.data.id, got.data.updatedAt)
+        // 拉回來之後本機與雲端同版本 ⇒ 這就是下一次合併的共同祖先
+        next = markShapeHashes(next, got.data.id, hashSnapshotShapes(got.data.snapshot))
         applied.push(got.data)
         // 圖片不在這裡下載——統一交給 runSync 的 downloadPhase（見那裡的說明）。
     }

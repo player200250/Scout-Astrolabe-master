@@ -33,12 +33,23 @@ export interface SyncState {
      * 換一張圖就是換一個 storedName，不會出現「同名但內容變了」。
      */
     uploadedImages: string[]
+    /**
+     * 卡片級合併的**共同祖先指紋**：boardId → (shapeId → 內容雜湊)。
+     *
+     * 記的是「上一次與雲端同步時，這塊板的每張卡長什麼樣」。合併時光靠這個就能
+     * 回答「這一邊有沒有動過這張卡」——只看兩邊的話，永遠分不出「A 刪掉了」
+     * 和「B 新增了」（兩種情況的資料一模一樣）。詳見 utils/snapshotMerge.ts。
+     *
+     * 只存雜湊不存整份 snapshot：一塊板約幾百 bytes，可以放 localStorage；
+     * 存 snapshot 本身是好幾 MB，不可能。
+     */
+    shapeHashes: Record<string, Record<string, string>>
     /** 最後一次成功跑完拉取檢查的時間；純供 UI 顯示「上次同步」*/
     lastPulledAt: number | null
 }
 
 export const EMPTY_SYNC_STATE: SyncState = {
-    userId: null, pushed: {}, thumbHash: {}, uploadedImages: [], lastPulledAt: null,
+    userId: null, pushed: {}, thumbHash: {}, uploadedImages: [], shapeHashes: {}, lastPulledAt: null,
 }
 
 /**
@@ -128,14 +139,32 @@ export function pruneUploadedImages(state: SyncState, referenced: Iterable<strin
     return next.length === state.uploadedImages.length ? state : { ...state, uploadedImages: next }
 }
 
+// ── 卡片級合併的 base 指紋 ───────────────────────────────────────────────
+
+/** 這塊板上次同步時的每張卡指紋；沒有紀錄（第一次同步）回空物件 */
+export function getShapeHashes(state: SyncState, boardId: string): Record<string, string> {
+    return state.shapeHashes[boardId] ?? {}
+}
+
+/** 記下「這塊板現在長這樣」——推送成功、拉取套用、合併寫回之後都要更新 */
+export function markShapeHashes(
+    state: SyncState,
+    boardId: string,
+    hashes: Record<string, string>,
+): SyncState {
+    return { ...state, shapeHashes: { ...state.shapeHashes, [boardId]: hashes } }
+}
+
 /** 忘掉某塊板（永久刪除後用，避免記錄無限長大）*/
 export function forgetBoard(state: SyncState, boardId: string): SyncState {
-    if (!(boardId in state.pushed) && !(boardId in state.thumbHash)) return state
+    if (!(boardId in state.pushed) && !(boardId in state.thumbHash) && !(boardId in state.shapeHashes)) return state
     const pushed = { ...state.pushed }
     const thumbHash = { ...state.thumbHash }
+    const shapeHashes = { ...state.shapeHashes }
     delete pushed[boardId]
     delete thumbHash[boardId]
-    return { ...state, pushed, thumbHash }
+    delete shapeHashes[boardId]
+    return { ...state, pushed, thumbHash, shapeHashes }
 }
 
 /** 清掉本機已不存在的板的記錄（每次全量同步後呼叫一次即可）*/
@@ -149,9 +178,14 @@ export function pruneState(state: SyncState, existingIds: Iterable<string>): Syn
     for (const [id, h] of Object.entries(state.thumbHash)) {
         if (keep.has(id)) thumbHash[id] = h
     }
+    const shapeHashes: Record<string, Record<string, string>> = {}
+    for (const [id, h] of Object.entries(state.shapeHashes)) {
+        if (keep.has(id)) shapeHashes[id] = h
+    }
     const unchanged = Object.keys(pushed).length === Object.keys(state.pushed).length
         && Object.keys(thumbHash).length === Object.keys(state.thumbHash).length
-    return unchanged ? state : { ...state, pushed, thumbHash }
+        && Object.keys(shapeHashes).length === Object.keys(state.shapeHashes).length
+    return unchanged ? state : { ...state, pushed, thumbHash, shapeHashes }
 }
 
 // ── 持久化 ────────────────────────────────────────────────────────────────
@@ -173,6 +207,9 @@ export function loadSyncState(userId: string | null): SyncState {
             thumbHash: parsed.thumbHash && typeof parsed.thumbHash === 'object' ? parsed.thumbHash : {},
             // 同上：舊記錄沒有這欄＝當成一張都沒上傳過，下一輪會把現有的圖補上去
             uploadedImages: Array.isArray(parsed.uploadedImages) ? parsed.uploadedImages : [],
+            // 舊記錄沒有這欄＝沒有共同祖先可比。合併時會把兩邊的卡都當成新增，
+            // 一張都不會掉（見 snapshotMerge 的「沒有 base」測試），下一輪就補齊了。
+            shapeHashes: parsed.shapeHashes && typeof parsed.shapeHashes === 'object' ? parsed.shapeHashes : {},
             lastPulledAt: typeof parsed.lastPulledAt === 'number' ? parsed.lastPulledAt : null,
         }
     } catch {

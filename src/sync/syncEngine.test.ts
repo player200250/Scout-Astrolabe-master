@@ -63,6 +63,7 @@ import {
     getSyncStatus, __resetSyncEngineForTest,
 } from './syncEngine'
 import { loadSyncState, saveSyncState } from './syncState'
+import { hashSnapshotShapes } from '../utils/snapshotMerge'
 import { onAppEvent } from '../utils/appEvents'
 
 const board = (id: string, updatedAt: number, extra: Partial<BoardRecord> = {}): BoardRecord => ({
@@ -248,7 +249,7 @@ describe('syncEngine — 縮圖省流量', () => {
 describe('syncEngine — 拉取', () => {
     it('雲端較新的板會被拉回來寫進 DB 並發出事件', async () => {
         setLocal([board('b1', 100)])
-        saveSyncState({ userId: 'user-1', pushed: { b1: 100 }, thumbHash: {}, uploadedImages: [], lastPulledAt: null })
+        saveSyncState({ userId: 'user-1', pushed: { b1: 100 }, thumbHash: {}, uploadedImages: [], shapeHashes: {}, lastPulledAt: null })
         listRemoteBoards.mockImplementation(async () => ({ ok: true, data: [remote('b1', 500)] }))
         pullBoard.mockImplementation(async () => ({ ok: true, data: board('b1', 500, { name: '雲端版' }) }))
 
@@ -335,7 +336,7 @@ describe('syncEngine — 刪除不會復活', () => {
     // 刪掉的板下一輪就自己長回來了。
     it('本機刪掉（曾推過）的板不會被拉回，改推一列墓碑', async () => {
         setLocal([])   // b1 已被永久刪除
-        saveSyncState({ userId: 'user-1', pushed: { b1: 100 }, thumbHash: {}, uploadedImages: [], lastPulledAt: null })
+        saveSyncState({ userId: 'user-1', pushed: { b1: 100 }, thumbHash: {}, uploadedImages: [], shapeHashes: {}, lastPulledAt: null })
         listRemoteBoards.mockImplementation(async () => ({ ok: true, data: [remote('b1', 100)] }))
 
         await syncNow()
@@ -350,7 +351,7 @@ describe('syncEngine — 刪除不會復活', () => {
     // 反過來的安全閥：另一台裝置在我們刪除之後又改過它 ⇒ 有人還在用，別當成刪除
     it('雲端版本比我們最後推的還新時，照常拉回來（不推墓碑）', async () => {
         setLocal([])
-        saveSyncState({ userId: 'user-1', pushed: { b1: 100 }, thumbHash: {}, uploadedImages: [], lastPulledAt: null })
+        saveSyncState({ userId: 'user-1', pushed: { b1: 100 }, thumbHash: {}, uploadedImages: [], shapeHashes: {}, lastPulledAt: null })
         listRemoteBoards.mockImplementation(async () => ({ ok: true, data: [remote('b1', 999)] }))
         pullBoard.mockImplementation(async () => ({ ok: true, data: board('b1', 999) }))
 
@@ -365,7 +366,7 @@ describe('syncEngine — 刪除不會復活', () => {
     // 於是這些板變成「沒推過」⇒ 走這條路徑拉回來，而不是被推墓碑刪掉。
     it('沒推過紀錄的遠端板照常拉回來（還原備份後不會把雲端多出來的板刪掉）', async () => {
         setLocal([])
-        saveSyncState({ userId: 'user-1', pushed: {}, thumbHash: {}, uploadedImages: [], lastPulledAt: null })
+        saveSyncState({ userId: 'user-1', pushed: {}, thumbHash: {}, uploadedImages: [], shapeHashes: {}, lastPulledAt: null })
         listRemoteBoards.mockImplementation(async () => ({ ok: true, data: [remote('fromOtherDevice', 100)] }))
         pullBoard.mockImplementation(async () => ({ ok: true, data: board('fromOtherDevice', 100) }))
 
@@ -459,7 +460,7 @@ describe('syncEngine — 圖片同步', () => {
         setLocal([board('b1', 100)])
         saveSyncState({
             userId: 'user-1', pushed: { b1: 100 }, thumbHash: {},
-            uploadedImages: ['a.png'], lastPulledAt: null,
+            uploadedImages: ['a.png'], shapeHashes: {}, lastPulledAt: null,
         })
         collectImageNames.mockImplementation(() => ['a.png'])
 
@@ -474,7 +475,7 @@ describe('syncEngine — 圖片同步', () => {
         setLocal([board('b1', 100)])
         saveSyncState({
             userId: 'user-1', pushed: { b1: 100 }, thumbHash: {},
-            uploadedImages: [], lastPulledAt: null,
+            uploadedImages: [], shapeHashes: {}, lastPulledAt: null,
         })
         collectImageNames.mockImplementation(() => ['local-only.png'])
 
@@ -485,7 +486,7 @@ describe('syncEngine — 圖片同步', () => {
 
     it('下載成功的圖會記進 uploadedImages（雲端確實有，日後不必重傳）', async () => {
         setLocal([board('b1', 100)])
-        saveSyncState({ userId: 'user-1', pushed: { b1: 100 }, thumbHash: {}, uploadedImages: [], lastPulledAt: null })
+        saveSyncState({ userId: 'user-1', pushed: { b1: 100 }, thumbHash: {}, uploadedImages: [], shapeHashes: {}, lastPulledAt: null })
         listRemoteBoards.mockImplementation(async () => ({ ok: true, data: [remote('b1', 500)] }))
         pullBoard.mockImplementation(async () => ({ ok: true, data: board('b1', 500) }))
         collectImageNames.mockImplementation(() => ['fromOther.png'])
@@ -500,7 +501,7 @@ describe('syncEngine — 圖片同步', () => {
 
     it('拉回一塊板之後會補下載它引用到的圖', async () => {
         setLocal([board('b1', 100)])
-        saveSyncState({ userId: 'user-1', pushed: { b1: 100 }, thumbHash: {}, uploadedImages: [], lastPulledAt: null })
+        saveSyncState({ userId: 'user-1', pushed: { b1: 100 }, thumbHash: {}, uploadedImages: [], shapeHashes: {}, lastPulledAt: null })
         listRemoteBoards.mockImplementation(async () => ({ ok: true, data: [remote('b1', 500)] }))
         pullBoard.mockImplementation(async () => ({ ok: true, data: board('b1', 500) }))
         collectImageNames.mockImplementation(() => ['c.png'])
@@ -514,7 +515,7 @@ describe('syncEngine — 圖片同步', () => {
     // 而且 downloadMissingImages 不記狀態，下一輪會自己再試。
     it('圖片下載失敗仍然套用白板內容', async () => {
         setLocal([board('b1', 100)])
-        saveSyncState({ userId: 'user-1', pushed: { b1: 100 }, thumbHash: {}, uploadedImages: [], lastPulledAt: null })
+        saveSyncState({ userId: 'user-1', pushed: { b1: 100 }, thumbHash: {}, uploadedImages: [], shapeHashes: {}, lastPulledAt: null })
         listRemoteBoards.mockImplementation(async () => ({ ok: true, data: [remote('b1', 500)] }))
         pullBoard.mockImplementation(async () => ({ ok: true, data: board('b1', 500, { name: '雲端版' }) }))
         collectImageNames.mockImplementation(() => ['c.png'])
@@ -532,12 +533,116 @@ describe('syncEngine — 圖片同步', () => {
         setLocal([board('b1', 100)])
         saveSyncState({
             userId: 'user-1', pushed: { b1: 100 }, thumbHash: {},
-            uploadedImages: ['old.png', 'keep.png'], lastPulledAt: null,
+            uploadedImages: ['old.png', 'keep.png'], shapeHashes: {}, lastPulledAt: null,
         })
         collectImageNames.mockImplementation(() => ['keep.png'])
 
         await syncNow()
 
         expect(loadSyncState('user-1').uploadedImages).toEqual(['keep.png'])
+    })
+})
+
+// ── 卡片級合併 ───────────────────────────────────────────────────────────────
+// 舊行為：本機 dirty 就無條件 upsert 上去，把另一台的修改整塊蓋掉——實測連 LWW
+// 都不是，是「先同步的那一台贏」。這一組測的就是那條路現在會先合併。
+describe('syncEngine — 卡片級合併', () => {
+    /** 造一份含指定卡片的 snapshot（與 utils/snapshot 的 getCardShapes 相容） */
+    const snap = (cards: Record<string, string>) => {
+        const store: Record<string, unknown> = {
+            'page:page': { typeName: 'page', id: 'page:page', name: 'Page 1', index: 'a1' },
+        }
+        for (const [id, text] of Object.entries(cards)) {
+            store[id] = { typeName: 'shape', id, type: 'card', parentId: 'page:page', index: 'a1', props: { type: 'text', text } }
+        }
+        return { document: { store, schema: { schemaVersion: 2, sequences: {} } }, session: {} } as never
+    }
+    const cardsOf = (b: BoardRecord) =>
+        Object.entries((b.snapshot as unknown as { document: { store: Record<string, { typeName: string; props?: { text?: string } }> } }).document.store)
+            .filter(([, r]) => r.typeName === 'shape')
+            .map(([id, r]) => `${id}=${r.props?.text}`)
+            .sort()
+
+    it('兩端各改一張不同的卡 ⇒ 推上去的是合併結果，兩邊的修改都在', async () => {
+        const localBoard = board('b1', 200, { snapshot: snap({ 'shape:a': 'A 本機改', 'shape:b': 'B' }) })
+        setLocal([localBoard])
+        // base ＝ 上次同步時兩張卡都還沒動
+        saveSyncState({
+            userId: 'user-1', pushed: { b1: 100 }, thumbHash: {}, uploadedImages: [],
+            shapeHashes: { b1: hashSnapshotShapes(snap({ 'shape:a': 'A', 'shape:b': 'B' })) },
+            lastPulledAt: null,
+        })
+        listRemoteBoards.mockImplementation(async () => ({ ok: true, data: [remote('b1', 500)] }))
+        pullBoard.mockImplementation(async () => ({
+            ok: true, data: board('b1', 500, { snapshot: snap({ 'shape:a': 'A', 'shape:b': 'B 遠端改' }) }),
+        }))
+
+        await syncNow()
+
+        const pushed = pushBoard.mock.calls[0][0]
+        expect(cardsOf(pushed)).toEqual(['shape:a=A 本機改', 'shape:b=B 遠端改'])
+    })
+
+    it('合併結果會先寫回本機（不是只推上去）', async () => {
+        setLocal([board('b1', 200, { snapshot: snap({ 'shape:a': 'A 本機改' }) })])
+        saveSyncState({
+            userId: 'user-1', pushed: { b1: 100 }, thumbHash: {}, uploadedImages: [],
+            shapeHashes: { b1: hashSnapshotShapes(snap({ 'shape:a': 'A' })) },
+            lastPulledAt: null,
+        })
+        listRemoteBoards.mockImplementation(async () => ({ ok: true, data: [remote('b1', 500)] }))
+        pullBoard.mockImplementation(async () => ({
+            ok: true, data: board('b1', 500, { snapshot: snap({ 'shape:a': 'A', 'shape:new': '遠端新增' }) }),
+        }))
+
+        await syncNow()
+
+        const written = boardsTable.put.mock.calls.map(c => c[0] as BoardRecord).find(b => b.id === 'b1')
+        expect(written).toBeTruthy()
+        expect(cardsOf(written!)).toContain('shape:new=遠端新增')
+    })
+
+    // 合併結果是兩邊都沒有過的新版本，時間戳必須比雙方都大，
+    // 否則另一台會覺得「我的比較新」而把合併結果再蓋掉一次。
+    it('合併後的 updatedAt 比兩邊都新', async () => {
+        const before = Date.now()
+        setLocal([board('b1', 200, { snapshot: snap({ 'shape:a': 'A 本機改' }) })])
+        saveSyncState({
+            userId: 'user-1', pushed: { b1: 100 }, thumbHash: {}, uploadedImages: [],
+            shapeHashes: { b1: hashSnapshotShapes(snap({ 'shape:a': 'A' })) },
+            lastPulledAt: null,
+        })
+        listRemoteBoards.mockImplementation(async () => ({ ok: true, data: [remote('b1', 500)] }))
+        pullBoard.mockImplementation(async () => ({
+            ok: true, data: board('b1', 500, { snapshot: snap({ 'shape:a': 'A', 'shape:new': 'X' }) }),
+        }))
+
+        await syncNow()
+
+        const pushed = pushBoard.mock.calls[0][0]
+        expect(pushed.updatedAt).toBeGreaterThanOrEqual(before)
+        expect(pushed.updatedAt).toBeGreaterThan(500)
+    })
+
+    it('遠端沒動過（updatedAt 不比上次推的新）就不合併，照舊直接推', async () => {
+        setLocal([board('b1', 200, { snapshot: snap({ 'shape:a': 'A' }) })])
+        saveSyncState({
+            userId: 'user-1', pushed: { b1: 100 }, thumbHash: {}, uploadedImages: [],
+            shapeHashes: {}, lastPulledAt: null,
+        })
+        listRemoteBoards.mockImplementation(async () => ({ ok: true, data: [remote('b1', 100)] }))
+
+        await syncNow()
+
+        expect(pullBoard).not.toHaveBeenCalled()
+        expect(pushBoard).toHaveBeenCalledTimes(1)
+    })
+
+    it('推送成功後會記下每張卡的指紋，當作下一次合併的共同祖先', async () => {
+        setLocal([board('b1', 200, { snapshot: snap({ 'shape:a': 'A' }) })])
+        await syncNow()
+
+        const hashes = loadSyncState('user-1').shapeHashes.b1
+        expect(Object.keys(hashes)).toEqual(['shape:a'])
     })
 })
