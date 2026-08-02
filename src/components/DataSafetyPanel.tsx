@@ -6,6 +6,10 @@ import { BACKUP_LIMIT_OPTIONS, getBackupLimit, setBackupLimit } from '../utils/b
 import { showToast } from '../utils/toast'
 import { T } from '../theme/tokens'
 import { FullscreenPanel } from './ui/FullscreenPanel'
+import { Icon } from './ui/icons'
+import { isSyncConfigured } from '../sync/syncConfig'
+import { getSyncStatus } from '../sync/syncEngine'
+import { scanCloudLeftovers, cleanupCloudLeftovers, type CleanupPlan } from '../sync/cloudCleanup'
 
 interface DataSafetyPanelProps {
     boards: BoardRecord[]
@@ -23,6 +27,32 @@ export function DataSafetyPanel({ boards, onClose, onOpenBackup }: DataSafetyPan
     const [backups, setBackups] = useState<BackupRecord[]>([])
     const [estimate, setEstimate] = useState<{ usage: number; quota: number } | null>(null)
     const [backupLimit, setBackupLimitState] = useState(() => getBackupLimit())
+
+    // ── 雲端殘留清理 ────────────────────────────────────────────────────
+    // 刻意做成「掃描 → 看數字 → 按了才刪」：墓碑刪太早會讓別台把板復活，
+    // 孤兒圖刪錯就是使用者的圖永久消失，兩件事都不該在背景靜默發生。
+    const syncOn = isSyncConfigured()
+    const [cleanupBusy, setCleanupBusy] = useState<'scan' | 'delete' | null>(null)
+    const [plan, setPlan] = useState<CleanupPlan | null>(null)
+    const [cleanupError, setCleanupError] = useState<string | null>(null)
+
+    const handleScan = async () => {
+        setCleanupBusy('scan'); setCleanupError(null); setPlan(null)
+        const r = await scanCloudLeftovers()
+        setCleanupBusy(null)
+        if (!r.ok || !r.plan) { setCleanupError(r.error ?? '掃描失敗'); return }
+        setPlan(r.plan)
+    }
+
+    const handleCleanup = async () => {
+        if (!plan) return
+        setCleanupBusy('delete'); setCleanupError(null)
+        const r = await cleanupCloudLeftovers(plan)
+        setCleanupBusy(null)
+        if (!r.ok) { setCleanupError(r.error ?? '清理失敗'); return }
+        setPlan(null)
+        showToast(`已清掉 ${r.deletedTombstones} 列墓碑、${r.deletedImages} 個孤兒圖片。`, 'success')
+    }
 
     useEffect(() => {
         let alive = true
@@ -180,6 +210,65 @@ export function DataSafetyPanel({ boards, onClose, onOpenBackup }: DataSafetyPan
                         </div>
                     </div>
                 </Section>
+
+                {/* 雲端殘留清理 */}
+                {syncOn && (
+                    <Section title="雲端殘留">
+                        <div style={{ background: cardBg, border: `1px solid ${border}`, borderRadius: 12, padding: '16px 18px' }}>
+                            <div style={{ fontSize: 12, color: textMuted, lineHeight: 1.7, marginBottom: 12 }}>
+                                白板永久刪除後，雲端會留一列<strong>墓碑</strong>（讓另一台知道它沒了）；
+                                卡片刪掉後，Storage 裡那張<strong>圖片</strong>也沒人再引用。兩者都不會自己消失。
+                                <br />
+                                ⚠️ 判斷「還有沒有人引用」用的是<strong>本機的白板</strong>，所以請先確認同步是完成的狀態再清理。
+                            </div>
+
+                            {plan ? (
+                                <>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 10, marginBottom: 12 }}>
+                                        <Stat label="可清墓碑" value={plan.tombstones.length} hint="刪除超過 60 天" />
+                                        <Stat label="孤兒圖片" value={plan.orphanImages.length} hint="沒有卡片引用" />
+                                    </div>
+                                    {plan.tombstones.length + plan.orphanImages.length === 0 ? (
+                                        <div style={{ fontSize: 13, color: textMuted }}>雲端很乾淨，沒有可以清掉的東西。</div>
+                                    ) : (
+                                        <button
+                                            onClick={() => { void handleCleanup() }}
+                                            disabled={cleanupBusy !== null}
+                                            style={{
+                                                display: 'inline-flex', alignItems: 'center', gap: 6,
+                                                padding: '7px 14px', borderRadius: 8, border: 'none',
+                                                background: T.danger, color: 'white', fontSize: 13, fontWeight: 600,
+                                                cursor: cleanupBusy ? 'default' : 'pointer',
+                                            }}
+                                        >
+                                            <Icon name="trash" />
+                                            {cleanupBusy === 'delete' ? '清理中…' : '確認清理（無法復原）'}
+                                        </button>
+                                    )}
+                                </>
+                            ) : (
+                                <button
+                                    onClick={() => { void handleScan() }}
+                                    disabled={cleanupBusy !== null || getSyncStatus().phase === 'syncing'}
+                                    style={{
+                                        display: 'inline-flex', alignItems: 'center', gap: 6,
+                                        padding: '7px 14px', borderRadius: 8,
+                                        border: `1px solid ${border}`, background: 'transparent',
+                                        color: textPrimary, fontSize: 13, fontWeight: 500,
+                                        cursor: cleanupBusy ? 'default' : 'pointer',
+                                    }}
+                                >
+                                    <Icon name="search" />
+                                    {cleanupBusy === 'scan' ? '掃描中…' : '掃描雲端殘留'}
+                                </button>
+                            )}
+
+                            {cleanupError && (
+                                <div style={{ marginTop: 10, fontSize: 12, color: T.danger, lineHeight: 1.6 }}>{cleanupError}</div>
+                            )}
+                        </div>
+                    </Section>
+                )}
 
                 {/* 說明 + 入口 */}
                 <div style={{ background: T.accentBg, border: `1px solid ${T.accentBorder}`, borderRadius: 12, padding: '14px 16px', fontSize: 13, color: T.accent, lineHeight: 1.7 }}>
