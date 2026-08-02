@@ -18,6 +18,11 @@ export interface IElectronAPI {
     openFile: (storedName: string) => Promise<void>
     deleteFile: (storedName: string) => Promise<void>
     saveImage: (bytes: ArrayBuffer, ext: string) => Promise<{ storedName: string }>
+    /** 圖片同步（Supabase Storage）用的三個接縫；舊版 preload 沒有，故為選填。 */
+    hasStoredFile?: (storedName: string) => Promise<boolean>
+    readStoredFile?: (storedName: string) => Promise<ArrayBuffer | null>
+    /** ⚠️ 與 saveImage 不同：沿用呼叫端指定的 storedName，不另產 uuid。 */
+    writeStoredFile?: (storedName: string, bytes: ArrayBuffer) => Promise<boolean>
     /** N3：托盤選單／全域快捷鍵觸發快速捕捉；回傳 unsubscribe */
     onTriggerQuickCapture?: (callback: () => void) => () => void
 }

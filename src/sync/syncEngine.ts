@@ -25,8 +25,10 @@ import { isSyncConfigured, isAutoSyncEnabled } from './syncConfig'
 import { pushBoard, pullBoard, listRemoteBoards, decideSync } from './boardSync'
 import {
     loadSyncState, saveSyncState, markPushed, markPulled, markThumbPushed,
-    hashThumbnail, isThumbnailUnchanged, selectDirtyBoards, pruneState, type SyncState,
+    hashThumbnail, isThumbnailUnchanged, selectDirtyBoards, pruneState,
+    isImageUploaded, markImagesUploaded, pruneUploadedImages, type SyncState,
 } from './syncState'
+import { collectImageNames, uploadImages, downloadMissingImages } from './imageSync'
 import { INITIAL_SYNC_STATUS, type SyncStatus } from './syncStatus'
 import { emitAppEvent } from '../utils/appEvents'
 
@@ -213,7 +215,18 @@ async function runSync(reason: string): Promise<void> {
         }
 
         const knownIds = new Set([...localBoards.map(b => b.id), ...applied.map(b => b.id)])
-        state = { ...pruneState(state, knownIds), lastPulledAt: Date.now() }
+        state = pruneState(state, knownIds)
+
+        // 圖片記錄也要修剪，否則它只會長不會短（每張刪掉的圖都永遠留一筆）。
+        // ⚠️ 用 applied 覆寫 localBoards 的同 id 版本再收集——localBoards 是這輪
+        // **開頭**讀的，剛拉回來的板在它裡面是舊的，直接用會把新圖判成沒人引用。
+        const latestById = new Map(localBoards.map(b => [b.id, b]))
+        for (const b of applied) latestById.set(b.id, b)
+        const referenced = new Set<string>()
+        for (const b of latestById.values()) {
+            for (const name of collectImageNames(b.snapshot)) referenced.add(name)
+        }
+        state = { ...pruneUploadedImages(state, referenced), lastPulledAt: Date.now() }
         saveSyncState(state)
 
         if (applied.length > 0) {
@@ -270,6 +283,25 @@ async function pushPhase(
     const failures: PushFailure[] = []
 
     for (const board of dirty) {
+        // ⚠️ 圖片一定要**先於**白板列上傳，而且失敗就不推這塊板。
+        // 反過來（先推板、圖片慢慢補）會讓另一台裝置在這個空窗期拉到一塊指向
+        // 不存在物件的板＝破圖；而且 board 一旦記進 pushed[]，它就不再 dirty，
+        // 補圖的機會也跟著沒了。寧可整塊板留在 dirty 等下一輪重試。
+        const images = await uploadImages(
+            collectImageNames(board.snapshot),
+            name => isImageUploaded(next, name),
+        )
+        next = markImagesUploaded(next, images.uploaded)
+        if (images.failures.length > 0) {
+            const first = images.failures[0]
+            failures.push({
+                id: board.id,
+                name: board.name,
+                error: `圖片上傳失敗（${first.storedName}：${first.error}）`,
+            })
+            continue
+        }
+
         // 縮圖沒變就整個欄位不送（upsert 語意下＝保留雲端現值）。
         // 實測 8KB 內容配 57KB 縮圖——改一個字重傳整張圖是純粹的浪費。
         // ⚠️ 只有「雲端已經有這塊板」時才能省，否則會 INSERT 出 thumbnail = null 的列；
@@ -350,6 +382,18 @@ async function pullPhase(
         await db.table('boards').put(got.data)
         next = markPulled(next, got.data.id, got.data.updatedAt)
         applied.push(got.data)
+
+        // 圖片在**寫入 db 之後**才補。順序與推送相反，而且是刻意的：
+        // 板的內容（文字、位置、其他卡片）本身就有價值，不該因為某張圖下載不到
+        // 就整塊不套用。缺的圖下一輪會再試一次——downloadMissingImages 不記錄
+        // 「下載過什麼」，每輪都以「本機檔案在不在」為準，所以它是自我修復的。
+        const missing = await downloadMissingImages(collectImageNames(got.data.snapshot))
+        if (missing.failures.length > 0) {
+            console.warn(
+                `[sync] 「${got.data.name}」有 ${missing.failures.length} 張圖沒下載成功，下一輪會再試`,
+                missing.failures,
+            )
+        }
     }
 
     return { applied, state: next }

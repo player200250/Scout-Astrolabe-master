@@ -5,6 +5,7 @@ import {
     isDirty, selectDirtyBoards, markPushed, forgetBoard, pruneState,
     hashThumbnail, markThumbPushed, isThumbnailUnchanged,
     loadSyncState, saveSyncState, clearSyncState, EMPTY_SYNC_STATE, type SyncState,
+    isImageUploaded, markImagesUploaded, pruneUploadedImages,
 } from './syncState'
 
 const USER = 'user-abc'
@@ -12,7 +13,7 @@ const st = (
     pushed: Record<string, number>,
     userId: string | null = USER,
     thumbHash: Record<string, string> = {},
-): SyncState => ({ userId, pushed, thumbHash, lastPulledAt: null })
+): SyncState => ({ userId, pushed, thumbHash, uploadedImages: [], lastPulledAt: null })
 
 describe('syncState — dirty 判斷', () => {
     it('從沒推過的板算 dirty', () => {
@@ -124,19 +125,19 @@ describe('syncState — 持久化', () => {
     })
 
     it('存了之後讀得回來', () => {
-        saveSyncState({ userId: USER, pushed: { b1: 123 }, thumbHash: {}, lastPulledAt: 456 })
-        expect(loadSyncState(USER)).toEqual({ userId: USER, pushed: { b1: 123 }, thumbHash: {}, lastPulledAt: 456 })
+        saveSyncState({ userId: USER, pushed: { b1: 123 }, thumbHash: {}, uploadedImages: [], lastPulledAt: 456 })
+        expect(loadSyncState(USER)).toEqual({ userId: USER, pushed: { b1: 123 }, thumbHash: {}, uploadedImages: [], lastPulledAt: 456 })
     })
 
     // 這條是這個檔案最重要的保護：換帳號後若沿用舊記錄，新帳號雲端明明是空的、
     // 本機卻以為「都推過了」，結果一塊板都不會上傳。
     it('userId 不符時整份作廢（換帳號 ⇒ 全部重推）', () => {
-        saveSyncState({ userId: USER, pushed: { b1: 123 }, thumbHash: {}, lastPulledAt: 456 })
+        saveSyncState({ userId: USER, pushed: { b1: 123 }, thumbHash: {}, uploadedImages: [], lastPulledAt: 456 })
         expect(loadSyncState('another-user')).toEqual({ ...EMPTY_SYNC_STATE, userId: 'another-user' })
     })
 
     it('未登入（userId null）也不會沿用別人的記錄', () => {
-        saveSyncState({ userId: USER, pushed: { b1: 123 }, thumbHash: {}, lastPulledAt: null })
+        saveSyncState({ userId: USER, pushed: { b1: 123 }, thumbHash: {}, uploadedImages: [], lastPulledAt: null })
         expect(loadSyncState(null).pushed).toEqual({})
     })
 
@@ -146,8 +147,48 @@ describe('syncState — 持久化', () => {
     })
 
     it('clear 之後回到空記錄', () => {
-        saveSyncState({ userId: USER, pushed: { b1: 1 }, thumbHash: {}, lastPulledAt: 1 })
+        saveSyncState({ userId: USER, pushed: { b1: 1 }, thumbHash: {}, uploadedImages: [], lastPulledAt: 1 })
         clearSyncState()
         expect(loadSyncState(USER).pushed).toEqual({})
+    })
+})
+
+describe('syncState — 圖片上傳記錄', () => {
+    const withImages = (uploadedImages: string[]): SyncState => ({ ...st({}), uploadedImages })
+
+    it('記過的圖回 true、沒記過的回 false', () => {
+        const s = withImages(['a.png'])
+        expect(isImageUploaded(s, 'a.png')).toBe(true)
+        expect(isImageUploaded(s, 'b.png')).toBe(false)
+    })
+
+    it('markImagesUploaded 會去重', () => {
+        const s = markImagesUploaded(withImages(['a.png']), ['a.png', 'b.png'])
+        expect(s.uploadedImages).toEqual(['a.png', 'b.png'])
+    })
+
+    it('沒有新東西時回原物件（避免無謂重存 localStorage）', () => {
+        const before = withImages(['a.png'])
+        expect(markImagesUploaded(before, ['a.png'])).toBe(before)
+        expect(markImagesUploaded(before, [])).toBe(before)
+    })
+
+    it('pruneUploadedImages 只留還被引用的圖', () => {
+        const s = pruneUploadedImages(withImages(['a.png', 'b.png', 'c.png']), ['b.png'])
+        expect(s.uploadedImages).toEqual(['b.png'])
+    })
+
+    it('全部都還被引用時回原物件', () => {
+        const before = withImages(['a.png'])
+        expect(pruneUploadedImages(before, ['a.png', 'z.png'])).toBe(before)
+    })
+
+    // 舊版記錄沒有這個欄位。當成「一張都沒上傳過」＝下一輪把現有的圖補上去，
+    // 這比當成「都上傳過了」安全：後者會讓既有的圖永遠不進雲端且毫無徵兆。
+    it('讀到舊格式（沒有 uploadedImages）時視為空陣列', () => {
+        localStorage.setItem('astrolabe-sync-state', JSON.stringify({
+            userId: USER, pushed: { b1: 1 }, thumbHash: {}, lastPulledAt: 1,
+        }))
+        expect(loadSyncState(USER).uploadedImages).toEqual([])
     })
 })

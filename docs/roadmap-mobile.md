@@ -29,7 +29,7 @@
 
 - ✅ **好處**：手機端**不需要跑 tldraw**，用既有工具（`getCardShapes` / `toMutableSnapshot` / `getSnapshotStore` / `utils/snapshotCards`）即可純 JSON 讀寫卡片。
 - ⚠️ **限制一**：`file` 卡存的是桌機本機路徑（`storedName`），手機**無法開啟檔案**——初版僅顯示檔名。
-- ⚠️ **限制二**：`image` 卡體積。桌面端已由 **TD-IMG** 治本（改存 `userData/files`，snapshot 只留 `storedName`、`image:null`；`imageStore.ts` 是 PWA S0(a) 平台抽象的首個落地）。但 PWA 端無 `userData` 檔案系統，需把圖片接到 **Supabase Storage**（storedName ↔ 雲端物件 key）；舊 vault 中尚未遷移的殘留 base64 仍會膨脹同步體積，初版可選擇不同步大圖或延後優化。
+- ⚠️ **限制二**：`image` 卡體積。桌面端已由 **TD-IMG** 治本（改存 `userData/files`，snapshot 只留 `storedName`、`image:null`；`imageStore.ts` 是 PWA S0(a) 平台抽象的首個落地）。**桌機之間的圖片同步已完成**（`src/sync/imageSync.ts`，見下方「圖片接 Supabase Storage」）。**PWA 端仍看不到圖**：手機沒有 `userData` 檔案系統也沒有 `electronAPI`，`canSyncImages()` 回 false ⇒ 整條路徑是 no-op；手機要看到圖屬於 S2（手機讀全部）。
 
 同步單位：整個 `BoardRecord`（含 snapshot）。雲端 `boards` 表鏡像本機 schema（見 [data-model.md](data-model.md)）。
 
@@ -96,7 +96,7 @@
 | **登出看起來像沒設定** | 拿不到 userId 就回 `phase: 'disabled'`，與「從沒填過設定」同一句「未啟用」。token 長期離線刷新失敗時，同步靜靜停掉而面板毫無線索 | 新增 `signed-out` 階段＝「已登出，請重新登入」，並列入 `isSyncAttention`（顯眼提示） |
 | **縮圖佔了 85% 流量** | 實測一塊板 8 KB 內容配 **57 KB 縮圖**（17 塊板合計 506 KB，縮圖是大宗）。整列 upsert 表示改一個字就重傳整張圖 | `syncState` 記縮圖指紋（djb2），沒變就從 payload **省略 `thumbnail` 欄位**——upsert 語意下等於保留雲端現值。⚠️ 雲端還沒有那列時不能省（會 INSERT 成 null），`isThumbnailUnchanged` 要求指紋有紀錄，正好涵蓋此條件 |
 
-**尚未做**：圖片接 Supabase Storage（`image` 卡目前只同步 `storedName`，手機看不到圖）、卡片級合併（現為整板 LWW）、墓碑列的 GC、還原備份會連帶刪除雲端與另一台的板（`handleRestore` 走 `db.clear()` 繞過 `deleteBoard`，下一輪同步會把備份裡沒有的板判定成本機已刪 → 推墓碑）。
+**尚未做**：卡片級合併（現為整板 LWW）、墓碑列的 GC、Storage 孤兒物件的 GC、還原備份會連帶刪除雲端與另一台的板（`handleRestore` 走 `db.clear()` 繞過 `deleteBoard`，下一輪同步會把備份裡沒有的板判定成本機已刪 → 推墓碑）。
 
 **設計取捨備忘**：
 - `updated_at` 用**本機的 epoch 毫秒**存成 `bigint`，不是 `timestamptz`——兩端比大小才不會有時區/精度問題。
@@ -126,7 +126,7 @@ S2/S3 在 S0 穩定後再做。
 | 桌機回填遠端編輯 | 手機改了某板，桌機需在切換/聚焦/輪詢時重載該板 snapshot；若該板正開著編輯，遠端較新時要**提示而非靜默覆蓋** | ✅ 已實作：`syncEngine` 跳過活躍板、改發 `sync-remote-newer` 事件 → 帶「立即載入」按鈕的提示 |
 | **一個帳號綁到兩份 vault** | `home_board`／`inbox_board` 是跨 vault 共用的固定 id，兩份 vault 連同一個 Supabase 專案時這兩塊會互相覆蓋 | 一個 Supabase 專案只綁一份 vault。⚠️ 打包後的 App 與 `ELECTRON_PROD_TEST=1` 是**同一份** vault（同 file:// origin），`npm run dev` 是**另一份** |
 | 整板 LWW 粒度粗 | 兩端同時改同一張板會丟其中一邊 | **同步前自動備份**（複用既有自動備份機制，現保留 5 份）；之後可升級為卡片級合併 |
-| 同步體積（image base64） | 大圖卡膨脹 payload | 初版不同步大圖／設上限；之後改存物件儲存（Supabase Storage） |
+| 同步體積（image base64） | 大圖卡膨脹 payload | ✅ 已解：TD-IMG 之後 snapshot 只留 `storedName`，圖片本體走 Supabase Storage（見下節） |
 | `file` 卡跨裝置 | 手機無桌機檔案路徑 | 初版只顯示檔名，不提供開啟 |
 | 隱私（資料上雲） | 違反原 local-first 承諾 | 自用情境已接受；見 ADR 0006。仍保持「本機 IndexedDB 為 ground truth、雲為同步層」 |
 
@@ -152,3 +152,45 @@ S2/S3 在 S0 穩定後再做。
 - [tldraw-snapshot.md](tldraw-snapshot.md) — snapshot 讀寫
 - [card-shape-spec.md](card-shape-spec.md) — 卡片型別
 - [roadmap-v2.md](roadmap-v2.md) — 主路線圖
+
+---
+
+## 圖片接 Supabase Storage（2026-08-02 完成）
+
+**問題**：TD-IMG 之後 `image` 卡的 snapshot 只留 `props.storedName`，實體檔在
+`userData/files/<storedName>`。同步只搬 snapshot ⇒ **另一台裝置拿到的是一個指向它沒有的
+檔案的名字**，畫面上是破圖，而且完全沒有錯誤訊息可查。
+
+**做法**（`src/sync/imageSync.ts`）：實體檔上傳到 Storage 的 `card-images` bucket，
+物件路徑 `<user_id>/<storedName>`。**路徑第一層就是 RLS 的判斷依據**——政策用
+`storage.foldername(name)[1]` 比對 `auth.uid()`（見 `supabase/schema.sql` 最後一段）。
+
+| 時機 | 動作 |
+|------|------|
+| 推送前 | `collectImageNames(snapshot)` → 沒上傳過的上傳。記錄存 `syncState.uploadedImages` |
+| 拉取後 | 同上收集 → 本機沒有的下載回來，**沿用原本的 storedName** |
+
+**兩個順序是相反的，而且都是刻意的**：
+
+- **推送：圖片先、白板列後，圖片失敗就不推這塊板。** 反過來會讓另一台在空窗期拉到破圖；
+  更糟的是 board 一旦記進 `pushed[]` 就不再 dirty，補圖的機會也跟著沒了。
+- **拉取：白板列先、圖片後，圖片失敗仍照常套用。** 文字與位置本身就有價值，不該被一張圖
+  中斷。`downloadMissingImages` **不記錄下載過什麼**，每輪都以「本機檔案在不在」為準
+  ⇒ 自我修復（手動刪掉 `userData/files` 的檔，下一輪會補回來）。
+
+**為什麼上傳可以只記一次就永遠有效**：`storedName` 是 uuid + 副檔名且**內容不可變**
+（換一張圖 = 換一個 storedName），不會出現「同名但內容變了」。
+
+**新增的三個 Electron IPC**：`has-stored-file` / `read-stored-file` / `write-stored-file`。
+⚠️ 既有的 `save-image` **不能重用**——它一律自己產生新的 uuid 名字，而下載回來的圖
+必須沿用原名，否則 snapshot 裡的參照就對不上。三個都用 `path.basename` 淨化（同 `astro-img` handler）。
+
+**刻意的邊界**：
+1. **只管 `image` 卡**。`file` 卡雖然也用 `storedName`、也在同一個資料夾，但大小無上限
+   （可以是一支 500MB 的影片）。要不要同步是另一個決定。
+2. **不刪雲端的孤兒物件**。卡片刪掉後 Storage 那份會留著，與墓碑列的 GC 一起處理。
+3. **PWA 不在這條路徑上**（見上方限制二）。
+
+⚠️ **升級後必須到 Supabase 的 SQL Editor 重跑一次 `supabase/schema.sql`**，否則
+所有含圖片的板都會推不上去。`describeStorageError` 已把 `Bucket not found` 轉成這句話——
+刻意不從程式自動建 bucket，那需要 service role key，而整個設計只帶 anon key。

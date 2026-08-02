@@ -300,3 +300,46 @@ ipcMain.handle('save-image', async (_, bytes, ext) => {
   await fs.promises.writeFile(destPath, Buffer.from(bytes))
   return { storedName }
 })
+
+// ── 圖片同步（Supabase Storage）用的三個 IPC ────────────────────────────────
+// 上面的 save-image 一律自己產生新的 uuid 名字，對「把雲端那張圖存回來、而且必須
+// 沿用同一個 storedName」是不能用的——名字一變，snapshot 裡的參照就對不上了。
+// 三個都用 basename 淨化 storedName，只允許碰 filesDir 內的檔（同 astro-img handler）。
+
+/** 圖片存在嗎（決定要不要從雲端下載）。 */
+ipcMain.handle('has-stored-file', async (_, storedName) => {
+  const name = path.basename(storedName || '')
+  if (!name) return false
+  try {
+    await fs.promises.access(path.join(filesDir, name))
+    return true
+  } catch {
+    return false
+  }
+})
+
+/** 讀出圖片位元組供上傳。檔案不存在回 null（呼叫端據此跳過，不是錯誤）。 */
+ipcMain.handle('read-stored-file', async (_, storedName) => {
+  const name = path.basename(storedName || '')
+  if (!name) return null
+  try {
+    const buf = await fs.promises.readFile(path.join(filesDir, name))
+    // 轉成 ArrayBuffer 才能過 structured clone 給 renderer
+    return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength)
+  } catch {
+    return null
+  }
+})
+
+/** 把雲端下載回來的圖片**以指定的 storedName** 寫進 filesDir。 */
+ipcMain.handle('write-stored-file', async (_, storedName, bytes) => {
+  const name = path.basename(storedName || '')
+  if (!name) return false
+  try {
+    await fs.promises.writeFile(path.join(filesDir, name), Buffer.from(bytes))
+    return true
+  } catch (err) {
+    console.error('❌ write-stored-file 失敗:', err)
+    return false
+  }
+})

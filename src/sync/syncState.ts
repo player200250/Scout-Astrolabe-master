@@ -25,11 +25,21 @@ export interface SyncState {
      * 有了指紋就能在推送時省略沒變的縮圖欄位，改一個字不必重傳 57KB。
      */
     thumbHash: Record<string, string>
+    /**
+     * 已經上傳到 Supabase Storage 的圖片 storedName。
+     *
+     * 用陣列不用物件：這裡只需要「有沒有在裡面」，沒有要記時間戳。
+     * 可以只記一次就永遠有效，是因為 **storedName 是 uuid 且圖片內容不可變**——
+     * 換一張圖就是換一個 storedName，不會出現「同名但內容變了」。
+     */
+    uploadedImages: string[]
     /** 最後一次成功跑完拉取檢查的時間；純供 UI 顯示「上次同步」*/
     lastPulledAt: number | null
 }
 
-export const EMPTY_SYNC_STATE: SyncState = { userId: null, pushed: {}, thumbHash: {}, lastPulledAt: null }
+export const EMPTY_SYNC_STATE: SyncState = {
+    userId: null, pushed: {}, thumbHash: {}, uploadedImages: [], lastPulledAt: null,
+}
 
 /**
  * 縮圖指紋（djb2 + 長度）。只用來回答「跟上次推的那張一不一樣」，
@@ -90,6 +100,34 @@ export function isThumbnailUnchanged(
     return known !== undefined && known === hashThumbnail(thumbnail)
 }
 
+// ── 圖片上傳記錄 ──────────────────────────────────────────────────────────
+
+/** 這張圖上傳過了嗎 */
+export function isImageUploaded(state: SyncState, storedName: string): boolean {
+    return state.uploadedImages.includes(storedName)
+}
+
+/** 記下「這些圖已經在雲端了」（去重；沒有新東西時回原物件，避免無謂的重存） */
+export function markImagesUploaded(state: SyncState, storedNames: string[]): SyncState {
+    const known = new Set(state.uploadedImages)
+    const added = storedNames.filter(n => !known.has(n))
+    if (added.length === 0) return state
+    return { ...state, uploadedImages: [...state.uploadedImages, ...added] }
+}
+
+/**
+ * 清掉「本機已經沒有任何卡片引用到」的圖片記錄。
+ *
+ * ⚠️ 這只是**修剪本機記錄**，不會去刪雲端的物件——那是孤兒物件 GC 的範疇，
+ * 與墓碑列的 GC 一起做（見 roadmap-mobile「尚未做」）。記錄清掉的效果是：
+ * 萬一同一個 storedName 日後又被引用（從備份還原），會重新上傳一次。
+ */
+export function pruneUploadedImages(state: SyncState, referenced: Iterable<string>): SyncState {
+    const keep = new Set(referenced)
+    const next = state.uploadedImages.filter(n => keep.has(n))
+    return next.length === state.uploadedImages.length ? state : { ...state, uploadedImages: next }
+}
+
 /** 忘掉某塊板（永久刪除後用，避免記錄無限長大）*/
 export function forgetBoard(state: SyncState, boardId: string): SyncState {
     if (!(boardId in state.pushed) && !(boardId in state.thumbHash)) return state
@@ -133,6 +171,8 @@ export function loadSyncState(userId: string | null): SyncState {
             pushed: parsed.pushed && typeof parsed.pushed === 'object' ? parsed.pushed : {},
             // 舊記錄沒有這個欄位＝當成「不知道雲端的縮圖長怎樣」，下次推送會補送一次
             thumbHash: parsed.thumbHash && typeof parsed.thumbHash === 'object' ? parsed.thumbHash : {},
+            // 同上：舊記錄沒有這欄＝當成一張都沒上傳過，下一輪會把現有的圖補上去
+            uploadedImages: Array.isArray(parsed.uploadedImages) ? parsed.uploadedImages : [],
             lastPulledAt: typeof parsed.lastPulledAt === 'number' ? parsed.lastPulledAt : null,
         }
     } catch {

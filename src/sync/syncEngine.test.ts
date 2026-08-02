@@ -30,6 +30,11 @@ const h = vi.hoisted(() => {
             data: { id: string; name: string; updatedAt: number; deletedAt: number | null }[]
             error?: string
         }),
+        collectImageNames: vi.fn((_s: unknown) => [] as string[]),
+        uploadImages: vi.fn(async (names: string[]) =>
+            ({ transferred: names.length, failures: [] as { storedName: string; error: string }[], uploaded: names })),
+        downloadMissingImages: vi.fn(async () =>
+            ({ transferred: 0, failures: [] as { storedName: string; error: string }[] })),
     }
 })
 
@@ -45,7 +50,13 @@ vi.mock('./boardSync', async importOriginal => {
     return { ...actual, pushBoard: h.pushBoard, pullBoard: h.pullBoard, listRemoteBoards: h.listRemoteBoards }
 })
 
-const { boardsTable, pushBoard, pullBoard, listRemoteBoards } = h
+vi.mock('./imageSync', () => ({
+    collectImageNames: h.collectImageNames,
+    uploadImages: h.uploadImages,
+    downloadMissingImages: h.downloadMissingImages,
+}))
+
+const { boardsTable, pushBoard, pullBoard, listRemoteBoards, collectImageNames, uploadImages, downloadMissingImages } = h
 
 import {
     startSyncEngine, setActiveBoardForSync, notifyBoardSaved, syncNow,
@@ -74,6 +85,10 @@ beforeEach(() => {
     pushBoard.mockClear(); pushBoard.mockImplementation(async () => ({ ok: true }))
     pullBoard.mockClear(); pullBoard.mockImplementation(async () => ({ ok: true, data: null }))
     listRemoteBoards.mockClear(); listRemoteBoards.mockImplementation(async () => ({ ok: true, data: [] }))
+    collectImageNames.mockClear(); collectImageNames.mockImplementation(() => [])
+    uploadImages.mockClear()
+    uploadImages.mockImplementation(async (names: string[]) => ({ transferred: names.length, failures: [], uploaded: names }))
+    downloadMissingImages.mockClear(); downloadMissingImages.mockImplementation(async () => ({ transferred: 0, failures: [] }))
     __resetSyncEngineForTest()
 })
 
@@ -233,7 +248,7 @@ describe('syncEngine — 縮圖省流量', () => {
 describe('syncEngine — 拉取', () => {
     it('雲端較新的板會被拉回來寫進 DB 並發出事件', async () => {
         setLocal([board('b1', 100)])
-        saveSyncState({ userId: 'user-1', pushed: { b1: 100 }, thumbHash: {}, lastPulledAt: null })
+        saveSyncState({ userId: 'user-1', pushed: { b1: 100 }, thumbHash: {}, uploadedImages: [], lastPulledAt: null })
         listRemoteBoards.mockImplementation(async () => ({ ok: true, data: [remote('b1', 500)] }))
         pullBoard.mockImplementation(async () => ({ ok: true, data: board('b1', 500, { name: '雲端版' }) }))
 
@@ -320,7 +335,7 @@ describe('syncEngine — 刪除不會復活', () => {
     // 刪掉的板下一輪就自己長回來了。
     it('本機刪掉（曾推過）的板不會被拉回，改推一列墓碑', async () => {
         setLocal([])   // b1 已被永久刪除
-        saveSyncState({ userId: 'user-1', pushed: { b1: 100 }, thumbHash: {}, lastPulledAt: null })
+        saveSyncState({ userId: 'user-1', pushed: { b1: 100 }, thumbHash: {}, uploadedImages: [], lastPulledAt: null })
         listRemoteBoards.mockImplementation(async () => ({ ok: true, data: [remote('b1', 100)] }))
 
         await syncNow()
@@ -335,7 +350,7 @@ describe('syncEngine — 刪除不會復活', () => {
     // 反過來的安全閥：另一台裝置在我們刪除之後又改過它 ⇒ 有人還在用，別當成刪除
     it('雲端版本比我們最後推的還新時，照常拉回來（不推墓碑）', async () => {
         setLocal([])
-        saveSyncState({ userId: 'user-1', pushed: { b1: 100 }, thumbHash: {}, lastPulledAt: null })
+        saveSyncState({ userId: 'user-1', pushed: { b1: 100 }, thumbHash: {}, uploadedImages: [], lastPulledAt: null })
         listRemoteBoards.mockImplementation(async () => ({ ok: true, data: [remote('b1', 999)] }))
         pullBoard.mockImplementation(async () => ({ ok: true, data: board('b1', 999) }))
 
@@ -366,5 +381,102 @@ describe('syncEngine — 未設定時完全不動作', () => {
         expect(pushBoard).not.toHaveBeenCalled()
         expect(listRemoteBoards).not.toHaveBeenCalled()
         expect(getSyncStatus().phase).toBe('signed-out')
+    })
+})
+
+// ── 圖片同步（Supabase Storage）─────────────────────────────────────────────
+// 這一組測的是「圖片與白板列的先後順序」。順序錯了不會有錯誤訊息，
+// 只會讓另一台裝置在某個時間窗內拉到一塊指向不存在物件的板＝破圖。
+describe('syncEngine — 圖片同步', () => {
+    it('推送前會先上傳這塊板引用到的圖', async () => {
+        setLocal([board('b1', 100)])
+        collectImageNames.mockImplementation(() => ['a.png'])
+
+        await syncNow()
+
+        expect(uploadImages).toHaveBeenCalledTimes(1)
+        expect(uploadImages.mock.calls[0][0]).toEqual(['a.png'])
+        expect(pushBoard).toHaveBeenCalledTimes(1)
+        // 記進 uploadedImages，第二輪就不會重傳
+        expect(loadSyncState('user-1').uploadedImages).toEqual(['a.png'])
+    })
+
+    // ⚠️ 最重要的一條：圖片沒上去就不能推板，也**不能記成已推**。
+    // 記了的話那塊板從此不 dirty，補圖的機會也一起沒了。
+    it('圖片上傳失敗時不推這塊板，也不記成已推', async () => {
+        setLocal([board('b1', 100)])
+        collectImageNames.mockImplementation(() => ['a.png'])
+        uploadImages.mockImplementation(async () => ({
+            transferred: 0, failures: [{ storedName: 'a.png', error: '沒有權限' }], uploaded: [],
+        }))
+
+        await syncNow()
+
+        expect(pushBoard).not.toHaveBeenCalled()
+        expect(loadSyncState('user-1').pushed).toEqual({})
+        expect(getSyncStatus().phase).toBe('error')
+        expect(getSyncStatus().lastError).toContain('圖片上傳失敗')
+    })
+
+    it('一塊板的圖失敗不會連累另一塊板', async () => {
+        setLocal([board('b1', 100), board('b2', 200)])
+        collectImageNames.mockImplementation(() => ['x.png'])
+        // 只讓**第一次**上傳失敗（dirty 依 selectDirtyBoards 的順序＝b1、b2）
+        let call = 0
+        uploadImages.mockImplementation(async (names: string[]) => {
+            call++
+            return call === 1
+                ? { transferred: 0, failures: [{ storedName: 'x.png', error: '壞了' }], uploaded: [] }
+                : { transferred: names.length, failures: [], uploaded: names }
+        })
+
+        await syncNow()
+
+        // 第一塊卡住，第二塊照樣推上去
+        expect(pushBoard).toHaveBeenCalledTimes(1)
+        expect(Object.keys(loadSyncState('user-1').pushed)).toEqual(['b2'])
+    })
+
+    it('拉回一塊板之後會補下載它引用到的圖', async () => {
+        setLocal([board('b1', 100)])
+        saveSyncState({ userId: 'user-1', pushed: { b1: 100 }, thumbHash: {}, uploadedImages: [], lastPulledAt: null })
+        listRemoteBoards.mockImplementation(async () => ({ ok: true, data: [remote('b1', 500)] }))
+        pullBoard.mockImplementation(async () => ({ ok: true, data: board('b1', 500) }))
+        collectImageNames.mockImplementation(() => ['c.png'])
+
+        await syncNow()
+
+        expect(downloadMissingImages).toHaveBeenCalledWith(['c.png'])
+    })
+
+    // 圖片下載失敗不該讓整塊板不套用——文字/位置本身就有價值，
+    // 而且 downloadMissingImages 不記狀態，下一輪會自己再試。
+    it('圖片下載失敗仍然套用白板內容', async () => {
+        setLocal([board('b1', 100)])
+        saveSyncState({ userId: 'user-1', pushed: { b1: 100 }, thumbHash: {}, uploadedImages: [], lastPulledAt: null })
+        listRemoteBoards.mockImplementation(async () => ({ ok: true, data: [remote('b1', 500)] }))
+        pullBoard.mockImplementation(async () => ({ ok: true, data: board('b1', 500, { name: '雲端版' }) }))
+        collectImageNames.mockImplementation(() => ['c.png'])
+        downloadMissingImages.mockImplementation(async () => ({
+            transferred: 0, failures: [{ storedName: 'c.png', error: '找不到物件' }],
+        }))
+
+        await syncNow()
+
+        expect(boardsTable.put).toHaveBeenCalled()
+        expect(getSyncStatus().phase).toBe('idle')
+    })
+
+    it('本機已經沒人引用的圖，記錄會被修剪掉', async () => {
+        setLocal([board('b1', 100)])
+        saveSyncState({
+            userId: 'user-1', pushed: { b1: 100 }, thumbHash: {},
+            uploadedImages: ['old.png', 'keep.png'], lastPulledAt: null,
+        })
+        collectImageNames.mockImplementation(() => ['keep.png'])
+
+        await syncNow()
+
+        expect(loadSyncState('user-1').uploadedImages).toEqual(['keep.png'])
     })
 })
