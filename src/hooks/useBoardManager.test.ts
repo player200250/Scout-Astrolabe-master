@@ -784,7 +784,7 @@ describe('useBoardManager — 全量還原（備份重灌）', () => {
         const { result } = await setup()
         mocks.clearSyncState.mockClear()
 
-        await act(async () => { await result.current.handleRestore([board({ id: 'r1' })]) })
+        await act(async () => { await result.current.handleRestore([board({ id: 'r1', name: '備份一' })]) })
 
         expect(mocks.clearSyncState).toHaveBeenCalledTimes(1)
     })
