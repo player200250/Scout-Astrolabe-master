@@ -360,6 +360,21 @@ describe('syncEngine — 刪除不會復活', () => {
         expect(pushBoard).not.toHaveBeenCalled()
     })
 
+    // 還原備份靠的就是這一條。handleRestore 走 db.clear() 繞過 deleteBoard，
+    // 所以「備份裡沒有、雲端有」的板在還原後只是本機不存在——它同時會 clearSyncState()，
+    // 於是這些板變成「沒推過」⇒ 走這條路徑拉回來，而不是被推墓碑刪掉。
+    it('沒推過紀錄的遠端板照常拉回來（還原備份後不會把雲端多出來的板刪掉）', async () => {
+        setLocal([])
+        saveSyncState({ userId: 'user-1', pushed: {}, thumbHash: {}, uploadedImages: [], lastPulledAt: null })
+        listRemoteBoards.mockImplementation(async () => ({ ok: true, data: [remote('fromOtherDevice', 100)] }))
+        pullBoard.mockImplementation(async () => ({ ok: true, data: board('fromOtherDevice', 100) }))
+
+        await syncNow()
+
+        expect(boardsTable.put).toHaveBeenCalledWith(expect.objectContaining({ id: 'fromOtherDevice' }))
+        expect(pushBoard).not.toHaveBeenCalled()   // 沒有墓碑
+    })
+
     it('另一端軟刪除的板會被套用到本機（帶著 deletedAt 進垃圾桶）', async () => {
         setLocal([board('b1', 100)])
         listRemoteBoards.mockImplementation(async () => ({ ok: true, data: [remote('b1', 500, 500)] }))

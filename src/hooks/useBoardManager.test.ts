@@ -36,6 +36,7 @@ const mocks = vi.hoisted(() => {
         db: { table: vi.fn<(name: string) => typeof tableApi>(() => tableApi) },
         saveAutoBackup: vi.fn(async () => undefined),
         trimBackups: vi.fn(async () => 0),
+        clearSyncState: vi.fn(),
     }
 })
 
@@ -53,6 +54,7 @@ vi.mock('../db', () => ({
     saveAutoBackup: mocks.saveAutoBackup,
     trimBackups: mocks.trimBackups,
 }))
+vi.mock('../sync/syncState', () => ({ clearSyncState: mocks.clearSyncState }))
 
 // 替身設定完才能 import hook（import 時 hook 內部就會抓到替身版的 boardDb/db）
 import { useBoardManager } from './useBoardManager'
@@ -772,6 +774,19 @@ describe('useBoardManager — 全量還原（備份重灌）', () => {
         expect(result.current.boards.map(b => b.id)).toEqual(['r1', 'r2'])
         expect(result.current.activeBoardId).toBe('r1')
         expect(result.current.navigationStack).toEqual(['r1'])
+    })
+
+    // ⚠️ 這條防的是資料遺失，不是效能：db.clear() 繞過 deleteBoard，所以
+    // 「備份裡沒有、雲端有」的板在還原後只是本機不存在。syncState 若還記得
+    // 我們推過它們，同步引擎就會把它們判成本機已刪 → 推墓碑 →
+    // **雲端與另一台裝置上的那些板一起消失**。清掉記錄才會改成正常拉回來。
+    it('handleRestore 會清掉 syncState（否則下一輪同步會把雲端多出來的板推墓碑刪掉）', async () => {
+        const { result } = await setup()
+        mocks.clearSyncState.mockClear()
+
+        await act(async () => { await result.current.handleRestore([board({ id: 'r1' })]) })
+
+        expect(mocks.clearSyncState).toHaveBeenCalledTimes(1)
     })
 })
 

@@ -6,6 +6,7 @@ import { loadAllBoards, saveBoard, deleteBoard, generateId, uniqueName } from '.
 import { JUMP_DELAY_MS } from '../constants'
 import { emitAppEvent } from '../utils/appEvents'
 import { deleteStoredFile } from '../platform/fileStore'
+import { clearSyncState } from '../sync/syncState'
 import {
     getSnapshotStore, withUpdatedStore, toMutableSnapshot, toTLEditorSnapshot,
 } from '../utils/snapshot'
@@ -304,9 +305,27 @@ export function useBoardManager() {
         await refreshTrashCount()
     }, [boards, recentlyTrashedShapeIds, refreshTrashCount])
 
+    /**
+     * 還原自動備份：清空 boards 表，灌入備份裡的那批。
+     *
+     * ⚠️ **`clearSyncState()` 不是順手清快取，是防資料遺失的必要步驟。**
+     *
+     * `db.clear()` 繞過了 `deleteBoard`，所以「備份裡沒有、但雲端有」的板，在還原後
+     * 就只是**本機不存在**而已。而同步引擎判斷「本機刪掉了」的依據是
+     * 「雲端有、本機沒有、而且 syncState 記得我們推過它」——記錄還在的話，
+     * 這些板會被判成本機已刪 ⇒ **推墓碑 ⇒ 雲端與另一台裝置上的那些板一起消失**。
+     * 還原一份三天前的備份，就這樣把三天內在另一台建的板全刪了，而且沒有任何提示。
+     *
+     * 清掉記錄之後，那些板變成「雲端有、本機沒有、我們沒推過」＝正常拉回來。
+     * 代價是所有還原回來的板會被重推一次（跟換帳號登入同一條路徑），這是可接受的。
+     *
+     * ⚠️ 副作用要知道：備份裡沒有的板**會從雲端回來**，而不是消失。
+     * 真的想刪掉它們要走正常的刪除流程（那才會推正確的墓碑）。
+     */
     const handleRestore = useCallback(async (restoredBoards: BoardRecord[]) => {
         await db.table('boards').clear()
         await Promise.all(restoredBoards.map(b => db.table('boards').put(b)))
+        clearSyncState()
         setBoards(restoredBoards)
         const firstId = restoredBoards[0]?.id ?? null
         setActiveBoardId(firstId)

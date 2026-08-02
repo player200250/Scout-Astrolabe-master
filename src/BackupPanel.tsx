@@ -6,6 +6,8 @@ import { canSaveImage } from './platform/imageStore'
 import { getBackupLimit } from './utils/backupSettings'
 import { T } from './theme/tokens'
 import { SideDrawer } from './components/ui/SideDrawer'
+import { Icon } from './components/ui/icons'
+import { isSyncConfigured } from './sync/syncConfig'
 
 interface BackupPanelProps {
     sidebarWidth: number
@@ -62,6 +64,9 @@ export function BackupPanel({ sidebarWidth, onClose, onRestore, onMigrateImages 
         loadBackups().then(all => { setBackups(all); setLoading(false) })
     }, [])
 
+    // 只有真的設定過雲端同步的人才需要看到「備份裡沒有的板會被拉回來」那段警語
+    const syncEnabled = isSyncConfigured()
+
     const handleRestore = async () => {
         if (!confirmRestore) return
         setRestoringId(confirmRestore.id)
@@ -105,11 +110,20 @@ export function BackupPanel({ sidebarWidth, onClose, onRestore, onMigrateImages 
                         zIndex: Z_BACKUP_PANEL + 1, width: 320,
                         border: `1px solid ${borderCol}`,
                     }}>
-                        <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8, color: titleColor }}>⚠️ 確認還原備份</div>
+                        <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8, color: titleColor, display: 'flex', alignItems: 'center', gap: 7 }}>
+                            <Icon name="toastError" size="md" />確認還原備份
+                        </div>
                         <div style={{ fontSize: 13, color: T.textSecondary, lineHeight: 1.6, marginBottom: 16 }}>
                             還原至 <strong>{formatFull(confirmRestore.timestamp)}</strong> 的備份。
                             <br /><br />
                             <span style={{ color: '#e03131', fontWeight: 500 }}>還原後目前所有白板資料會被覆蓋，此操作無法復原。</span>
+                            {syncEnabled && (
+                                <>
+                                    <br /><br />
+                                    你開了雲端同步：<strong>備份裡沒有、但雲端有的白板會被拉回來</strong>，
+                                    不會被從雲端刪掉。真的要清掉它們請還原後再手動刪除。
+                                </>
+                            )}
                         </div>
                         <div style={{ display: 'flex', gap: 8 }}>
                             <button
