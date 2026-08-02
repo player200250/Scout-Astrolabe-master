@@ -217,7 +217,6 @@ async function runSync(reason: string): Promise<void> {
         const knownIds = new Set([...localBoards.map(b => b.id), ...applied.map(b => b.id)])
         state = pruneState(state, knownIds)
 
-        // 圖片記錄也要修剪，否則它只會長不會短（每張刪掉的圖都永遠留一筆）。
         // ⚠️ 用 applied 覆寫 localBoards 的同 id 版本再收集——localBoards 是這輪
         // **開頭**讀的，剛拉回來的板在它裡面是舊的，直接用會把新圖判成沒人引用。
         const latestById = new Map(localBoards.map(b => [b.id, b]))
@@ -226,6 +225,11 @@ async function runSync(reason: string): Promise<void> {
         for (const b of latestById.values()) {
             for (const name of collectImageNames(b.snapshot)) referenced.add(name)
         }
+
+        state = await downloadPhase(state, referenced, applied)
+
+        // 圖片記錄也要修剪，否則它只會長不會短（每張刪掉的圖都永遠留一筆）。
+        // 一定要在 downloadPhase **之後**——那裡會把剛下載成功的圖記進來。
         state = { ...pruneUploadedImages(state, referenced), lastPulledAt: Date.now() }
         saveSyncState(state)
 
@@ -382,21 +386,51 @@ async function pullPhase(
         await db.table('boards').put(got.data)
         next = markPulled(next, got.data.id, got.data.updatedAt)
         applied.push(got.data)
-
-        // 圖片在**寫入 db 之後**才補。順序與推送相反，而且是刻意的：
-        // 板的內容（文字、位置、其他卡片）本身就有價值，不該因為某張圖下載不到
-        // 就整塊不套用。缺的圖下一輪會再試一次——downloadMissingImages 不記錄
-        // 「下載過什麼」，每輪都以「本機檔案在不在」為準，所以它是自我修復的。
-        const missing = await downloadMissingImages(collectImageNames(got.data.snapshot))
-        if (missing.failures.length > 0) {
-            console.warn(
-                `[sync] 「${got.data.name}」有 ${missing.failures.length} 張圖沒下載成功，下一輪會再試`,
-                missing.failures,
-            )
-        }
+        // 圖片不在這裡下載——統一交給 runSync 的 downloadPhase（見那裡的說明）。
     }
 
     return { applied, state: next }
+}
+
+// ── 圖片下載（拉取之後的統一補圖）────────────────────────────────────────────
+
+/**
+ * 把「本機缺、但雲端有」的圖補回來。
+ *
+ * ⚠️ **這件事刻意不放在 pullPhase 的迴圈裡**，儘管那是最直覺的位置。
+ * 放在那裡的話，補圖只會發生在「這一輪真的有拉到板」的時候，於是：
+ *   - 某張圖第一次下載失敗（離線、暫時性錯誤）之後，那塊板已經與雲端同版本，
+ *     下一輪 decideSync 判成 in-sync ⇒ **永遠不會再試**，破圖就這樣留著。
+ *   - 使用者手動刪掉 userData/files 裡的檔，也永遠補不回來。
+ * 改成每輪掃一次「所有本機板引用到的圖」，這兩種情況都自我修復。
+ *
+ * **只掃「已知雲端有」的圖**（曾經上傳過的 ＋ 這輪剛拉回來的板引用到的），
+ * 否則本機獨有、根本沒上雲的圖會每 60 秒去撞一次 404。
+ *
+ * 成本是每輪對這些名字各做一次 fs.access（`hasImage`），不打網路。
+ */
+async function downloadPhase(
+    state: SyncState,
+    referenced: Set<string>,
+    applied: BoardRecord[],
+): Promise<SyncState> {
+    const knownInCloud = new Set(state.uploadedImages)
+    // 剛拉回來的板：圖是**另一台裝置**上傳的，不會在我們自己的 uploadedImages 裡
+    for (const b of applied) {
+        for (const name of collectImageNames(b.snapshot)) knownInCloud.add(name)
+    }
+
+    const candidates = [...referenced].filter(name => knownInCloud.has(name))
+    if (candidates.length === 0) return state
+
+    const result = await downloadMissingImages(candidates)
+    if (result.failures.length > 0) {
+        // 只警告不中止：白板內容本身已經套用好了，缺圖不該讓整輪算失敗。
+        // 下一輪會再掃一次，所以這裡不需要重試邏輯。
+        console.warn(`[sync] ${result.failures.length} 張圖沒下載成功，下一輪會再試`, result.failures)
+    }
+    // 下載成功＝這張圖確實在雲端。記下來，日後編輯到這塊板時就不會再上傳一次。
+    return markImagesUploaded(state, result.downloaded)
 }
 
 // ── 活躍板衝突提示（第 4 項）─────────────────────────────────────────────────

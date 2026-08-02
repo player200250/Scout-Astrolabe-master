@@ -12,7 +12,9 @@
 // 所以「上傳過就永遠不用再上傳」，這讓整條路徑可以做得很簡單：
 //
 //   推送前：這塊板引用到的圖，沒上傳過的就上傳
-//   拉取後：這塊板引用到的圖，本機沒有的就下載
+//   每輪拉取後：所有本機板引用到、且「已知雲端有」的圖，本機缺的就補下來
+//              （排程在 syncEngine 的 downloadPhase，刻意不放在 pullPhase 的迴圈裡，
+//               理由見那裡的註解——放迴圈裡的話下載失敗就永遠不會重試）
 //
 // ── 三個刻意的邊界 ──────────────────────────────────────────────────────────
 // 1. **只管 image 卡**。file 卡雖然也用 storedName、也存在同一個資料夾，但它的大小
@@ -63,6 +65,14 @@ export interface ImageSyncResult {
 }
 
 const EMPTY_RESULT: ImageSyncResult = { transferred: 0, failures: [] }
+
+export interface DownloadResult extends ImageSyncResult {
+    /**
+     * 這輪真的從雲端抓下來的名字。呼叫端用它更新「已知雲端有這張圖」的記錄——
+     * 下載成功本身就是「雲端確實有」的證明，之後編輯到那塊板就不必再上傳一次。
+     */
+    downloaded: string[]
+}
 
 /**
  * 把 Storage 的錯誤轉成有下一步的話。
@@ -148,19 +158,21 @@ export async function uploadImages(
 /**
  * 確保這些圖在本機都有；缺的就從 Storage 下載回來。
  *
- * 刻意**不記錄「下載過哪些」**：每輪都問一次「本機有沒有這個檔」很便宜（一次 fs.access），
- * 而且這樣是自我修復的——使用者手動刪掉 userData/files 裡的檔，下一輪同步就會補回來。
- * 相對地，上傳那邊非記不可，因為「雲端有沒有」要打網路才知道。
+ * 判斷「要不要下載」只看**本機檔案在不在**（一次 fs.access，不打網路），不看任何記錄——
+ * 所以它是自我修復的：手動刪掉 userData/files 裡的檔、或某次下載失敗，下一輪都會再試。
+ * 相對地，上傳那邊非記不可，因為「雲端有沒有」不打網路是不知道的。
+ *
+ * 呼叫端要負責先篩掉「雲端根本沒有」的名字，否則那些會每輪撞一次 404（見 downloadPhase）。
  */
-export async function downloadMissingImages(storedNames: string[]): Promise<ImageSyncResult> {
-    if (storedNames.length === 0 || !canSyncImages()) return EMPTY_RESULT
+export async function downloadMissingImages(storedNames: string[]): Promise<DownloadResult> {
+    if (storedNames.length === 0 || !canSyncImages()) return { ...EMPTY_RESULT, downloaded: [] }
 
     const supabase = getSupabase()
-    if (!supabase) return EMPTY_RESULT
+    if (!supabase) return { ...EMPTY_RESULT, downloaded: [] }
     const userId = await getCurrentUserId()
-    if (!userId) return EMPTY_RESULT
+    if (!userId) return { ...EMPTY_RESULT, downloaded: [] }
 
-    let transferred = 0
+    const downloaded: string[] = []
     const failures: ImageSyncResult['failures'] = []
 
     for (const storedName of storedNames) {
@@ -175,11 +187,11 @@ export async function downloadMissingImages(storedNames: string[]): Promise<Imag
 
             const ok = await writeImageBytes(storedName, await data.arrayBuffer())
             if (!ok) { failures.push({ storedName, error: '寫入本機失敗' }); continue }
-            transferred++
+            downloaded.push(storedName)
         } catch (e) {
             failures.push({ storedName, error: describeNetworkError(e) })
         }
     }
 
-    return { transferred, failures }
+    return { transferred: downloaded.length, failures, downloaded }
 }

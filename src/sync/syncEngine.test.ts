@@ -34,7 +34,7 @@ const h = vi.hoisted(() => {
         uploadImages: vi.fn(async (names: string[]) =>
             ({ transferred: names.length, failures: [] as { storedName: string; error: string }[], uploaded: names })),
         downloadMissingImages: vi.fn(async () =>
-            ({ transferred: 0, failures: [] as { storedName: string; error: string }[] })),
+            ({ transferred: 0, failures: [] as { storedName: string; error: string }[], downloaded: [] as string[] })),
     }
 })
 
@@ -88,7 +88,7 @@ beforeEach(() => {
     collectImageNames.mockClear(); collectImageNames.mockImplementation(() => [])
     uploadImages.mockClear()
     uploadImages.mockImplementation(async (names: string[]) => ({ transferred: names.length, failures: [], uploaded: names }))
-    downloadMissingImages.mockClear(); downloadMissingImages.mockImplementation(async () => ({ transferred: 0, failures: [] }))
+    downloadMissingImages.mockClear(); downloadMissingImages.mockImplementation(async () => ({ transferred: 0, failures: [], downloaded: [] }))
     __resetSyncEngineForTest()
 })
 
@@ -437,6 +437,52 @@ describe('syncEngine — 圖片同步', () => {
         expect(Object.keys(loadSyncState('user-1').pushed)).toEqual(['b2'])
     })
 
+    // ⚠️ 這兩條防的是一個真的寫出來過的 bug：補圖原本放在 pullPhase 的迴圈裡，
+    // 於是只有「這輪真的拉到板」才會補。第一次下載失敗之後那塊板已與雲端同版本，
+    // 下一輪判成 in-sync ⇒ 永遠不會再試，破圖就一直留著。
+    it('沒有拉到任何板時，仍會掃描本機缺的圖（下載失敗才有機會重試）', async () => {
+        setLocal([board('b1', 100)])
+        saveSyncState({
+            userId: 'user-1', pushed: { b1: 100 }, thumbHash: {},
+            uploadedImages: ['a.png'], lastPulledAt: null,
+        })
+        collectImageNames.mockImplementation(() => ['a.png'])
+
+        await syncNow()
+
+        expect(pullBoard).not.toHaveBeenCalled()
+        expect(downloadMissingImages).toHaveBeenCalledWith(['a.png'])
+    })
+
+    // 反過來也要成立：本機獨有、從沒上雲的圖不能每輪去撞一次 404。
+    it('沒上傳過的圖不會被拿去下載', async () => {
+        setLocal([board('b1', 100)])
+        saveSyncState({
+            userId: 'user-1', pushed: { b1: 100 }, thumbHash: {},
+            uploadedImages: [], lastPulledAt: null,
+        })
+        collectImageNames.mockImplementation(() => ['local-only.png'])
+
+        await syncNow()
+
+        expect(downloadMissingImages).not.toHaveBeenCalled()
+    })
+
+    it('下載成功的圖會記進 uploadedImages（雲端確實有，日後不必重傳）', async () => {
+        setLocal([board('b1', 100)])
+        saveSyncState({ userId: 'user-1', pushed: { b1: 100 }, thumbHash: {}, uploadedImages: [], lastPulledAt: null })
+        listRemoteBoards.mockImplementation(async () => ({ ok: true, data: [remote('b1', 500)] }))
+        pullBoard.mockImplementation(async () => ({ ok: true, data: board('b1', 500) }))
+        collectImageNames.mockImplementation(() => ['fromOther.png'])
+        downloadMissingImages.mockImplementation(async () => ({
+            transferred: 1, failures: [], downloaded: ['fromOther.png'],
+        }))
+
+        await syncNow()
+
+        expect(loadSyncState('user-1').uploadedImages).toEqual(['fromOther.png'])
+    })
+
     it('拉回一塊板之後會補下載它引用到的圖', async () => {
         setLocal([board('b1', 100)])
         saveSyncState({ userId: 'user-1', pushed: { b1: 100 }, thumbHash: {}, uploadedImages: [], lastPulledAt: null })
@@ -458,7 +504,7 @@ describe('syncEngine — 圖片同步', () => {
         pullBoard.mockImplementation(async () => ({ ok: true, data: board('b1', 500, { name: '雲端版' }) }))
         collectImageNames.mockImplementation(() => ['c.png'])
         downloadMissingImages.mockImplementation(async () => ({
-            transferred: 0, failures: [{ storedName: 'c.png', error: '找不到物件' }],
+            transferred: 0, failures: [{ storedName: 'c.png', error: '找不到物件' }], downloaded: [],
         }))
 
         await syncNow()
