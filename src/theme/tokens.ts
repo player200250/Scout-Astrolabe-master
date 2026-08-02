@@ -55,7 +55,6 @@ export const T = {
     shadowModal: 'var(--shadow-modal)',
     shadowUp: 'var(--shadow-up)',
     ringSubtle: 'var(--ring-subtle)',
-    shadowCard: 'var(--shadow-card)',
     shadowPanel: 'var(--shadow-panel)',
 
     // 圓角

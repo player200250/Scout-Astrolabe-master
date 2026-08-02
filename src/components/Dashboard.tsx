@@ -39,13 +39,6 @@ function getISOWeekNumber(date: Date): number {
     return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
 }
 
-function getGreeting(): string {
-    const h = new Date().getHours()
-    if (h >= 6 && h < 12) return '早安'
-    if (h >= 12 && h < 18) return '午安'
-    return '晚安'
-}
-
 function getDateLabel(): string {
     const now = new Date()
     const m = now.getMonth() + 1
@@ -147,16 +140,58 @@ export function Dashboard({
         textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 14,
     }
 
+    // 區塊右上的導覽連結。原本是 accent 藍字＋「→」，同一個畫面出現四次＝
+    // 四個同樣搶眼的東西在競爭注意力，但它們都只是「去別的地方」。
+    // 改成預設次級灰、hover 才轉 accent；箭頭是裝飾，拿掉。
     const linkBtn: React.CSSProperties = {
-        fontSize: 12, color: accentColor, background: 'transparent',
+        fontSize: 12, color: textMuted, background: 'transparent',
         border: 'none', cursor: 'pointer', fontWeight: 500, padding: 0,
+        transition: 'color 0.12s',
+    }
+    const linkHover = {
+        onMouseEnter: (e: React.MouseEvent<HTMLButtonElement>) => { e.currentTarget.style.color = accentColor },
+        onMouseLeave: (e: React.MouseEvent<HTMLButtonElement>) => { e.currentTarget.style.color = textMuted },
     }
 
     const actionBtn: React.CSSProperties = {
         marginTop: 14, padding: '7px 14px', borderRadius: 7,
         border: `1px solid ${border}`, background: 'transparent',
-        color: accentColor, cursor: 'pointer', fontSize: 12, fontWeight: 500,
+        color: textSecondary, cursor: 'pointer', fontSize: 12, fontWeight: 500,
+        transition: 'color 0.12s, border-color 0.12s',
     }
+    const actionHover = {
+        onMouseEnter: (e: React.MouseEvent<HTMLButtonElement>) => {
+            e.currentTarget.style.color = accentColor
+            e.currentTarget.style.borderColor = accentColor
+        },
+        onMouseLeave: (e: React.MouseEvent<HTMLButtonElement>) => {
+            e.currentTarget.style.color = textSecondary
+            e.currentTarget.style.borderColor = border
+        },
+    }
+
+    // 區塊外框。「最近使用白板」與「收件匣預覽」原本也是卡片，於是整個儀表板
+    // 從上到下八個圓角白盒——什麼都是卡片就等於什麼都不是重點。
+    // 它們其實只是頁面上的段落，拿掉外框後只靠 sectionLabel 分段。
+    const plainSection: React.CSSProperties = { marginBottom: 28 }
+    const panelCard: React.CSSProperties = {
+        background: cardBg, border: `1px solid ${border}`, borderRadius: 12, padding: 20,
+    }
+
+    /**
+     * 狀態列。原本是四格 KPI 卡（28px 粗體數字），但實測四格常年有三格是 0——
+     * 用一整格的視覺重量宣告「沒有逾期任務」是在演儀表板，不是在給資訊。
+     * 改成一行、**只列不為 0 的**；全部為 0 時就直說今天沒事。
+     */
+    const statItems = ([
+        {
+            key: 'inbox', label: '待整理', value: stats.inboxCount, color: textPrimary,
+            onClick: inboxBoard ? () => onSwitch(inboxBoard.id) : undefined,
+        },
+        { key: 'overdue', label: '逾期', value: stats.overdueCount, color: '#ef4444', onClick: onOpenTaskCenter },
+        { key: 'today', label: '今日到期', value: stats.todayCount, color: '#f97316', onClick: onOpenTaskCenter },
+        { key: 'weekDone', label: '本週完成', value: stats.weekDoneCount, color: '#22c55e', onClick: onOpenTaskCenter },
+    ] as const).filter(s => s.value > 0)
 
     return (
         <div style={{
@@ -167,12 +202,12 @@ export function Dashboard({
         }}>
             <div style={{ maxWidth: 800, margin: '0 auto', padding: '32px 24px', color: textPrimary }}>
 
-                {/* ── Header ── */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 }}>
-                    <div>
-                        <div style={{ fontSize: 22, fontWeight: 700 }}>{getGreeting()}</div>
-                        <div style={{ fontSize: 14, color: textSecondary, marginTop: 4 }}>{getDateLabel()}</div>
-                    </div>
+                {/* ── Header ──
+                    原本第一行是「早安／午安／晚安」。那是最典型的「助理在跟你打招呼」，
+                    佔了整個畫面最大的字級卻不帶任何資訊；真正有用的是它下面那行日期。
+                    直接把日期升上來當標題。 */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+                    <div style={{ fontSize: 17, fontWeight: 600 }}>{getDateLabel()}</div>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
                         <button
                             onClick={onQuickCapture}
@@ -187,47 +222,34 @@ export function Dashboard({
                     </div>
                 </div>
 
-                {/* ── Stats ── */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 24 }}>
-                    {([
-                        {
-                            label: '收件匣待整理', value: stats.inboxCount,
-                            color: textSecondary,
-                            onClick: inboxBoard ? () => onSwitch(inboxBoard.id) : undefined,
-                        },
-                        {
-                            label: '逾期任務', value: stats.overdueCount,
-                            color: stats.overdueCount > 0 ? '#ef4444' : textSecondary,
-                            onClick: onOpenTaskCenter,
-                        },
-                        {
-                            label: '今日到期', value: stats.todayCount,
-                            color: stats.todayCount > 0 ? '#f97316' : textSecondary,
-                            onClick: onOpenTaskCenter,
-                        },
-                        {
-                            label: '本週完成', value: stats.weekDoneCount,
-                            color: '#22c55e',
-                            onClick: onOpenTaskCenter,
-                        },
-                    ] as const).map((s, i) => (
-                        <div
-                            key={i}
+                {/* ── 狀態列（原四格 KPI，見上方 statItems 的說明）── */}
+                <div style={{
+                    display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: '6px 20px',
+                    marginBottom: 28, fontSize: 13,
+                }}>
+                    {statItems.length === 0 ? (
+                        <span style={{ color: textMuted }}>目前沒有待處理的事。</span>
+                    ) : statItems.map(s => (
+                        <button
+                            key={s.key}
                             onClick={s.onClick}
+                            disabled={!s.onClick}
                             style={{
-                                background: cardBg, border: `1px solid ${border}`, borderRadius: 12,
-                                padding: '16px 18px', cursor: s.onClick ? 'pointer' : 'default',
+                                display: 'inline-flex', alignItems: 'baseline', gap: 5,
+                                background: 'transparent', border: 'none', padding: 0,
+                                cursor: s.onClick ? 'pointer' : 'default', fontSize: 13,
+                                fontFamily: 'inherit',
                             }}
                         >
-                            <div style={{ fontSize: 28, fontWeight: 700, color: s.color, lineHeight: 1 }}>{s.value}</div>
-                            <div style={{ fontSize: 12, color: textMuted, marginTop: 6 }}>{s.label}</div>
-                        </div>
+                            <span style={{ fontSize: 15, fontWeight: 700, color: s.color }}>{s.value}</span>
+                            <span style={{ color: textMuted }}>{s.label}</span>
+                        </button>
                     ))}
                 </div>
 
                 {/* ── Journal + Today Todos ── */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
-                    <div style={{ background: cardBg, border: `1px solid ${border}`, borderRadius: 12, padding: 20 }}>
+                    <div style={panelCard}>
                         <div style={sectionLabel}>今日日記</div>
                         <div style={{ fontSize: 14, color: textSecondary, lineHeight: 1.7, minHeight: 64 }}>
                             {journalPreview
@@ -235,10 +257,10 @@ export function Dashboard({
                                 : <EmptyState compact title="今天還沒寫日記" hint="記一句今天發生的事，或回顧昨天。" />
                             }
                         </div>
-                        <button style={actionBtn} onClick={onOpenTodayJournal}>開啟今日日記 →</button>
+                        <button style={actionBtn} {...actionHover} onClick={onOpenTodayJournal}>開啟今日日記</button>
                     </div>
 
-                    <div style={{ background: cardBg, border: `1px solid ${border}`, borderRadius: 12, padding: 20 }}>
+                    <div style={panelCard}>
                         <div style={sectionLabel}>今日待辦</div>
                         {todayTodos.length === 0 ? (
                             <div style={{ minHeight: 64 }}>
@@ -291,22 +313,22 @@ export function Dashboard({
                                 )}
                             </div>
                         )}
-                        <button style={actionBtn} onClick={onOpenTaskCenter}>查看全部 →</button>
+                        <button style={actionBtn} {...actionHover} onClick={onOpenTaskCenter}>查看全部</button>
                     </div>
                 </div>
 
                 {/* ── Recent Boards ── */}
-                <div style={{ background: cardBg, border: `1px solid ${border}`, borderRadius: 12, padding: 20, marginBottom: 24 }}>
+                <div style={plainSection}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-                        <div style={sectionLabel}>最近使用白板</div>
-                        <button style={linkBtn} onClick={onOpenOverview}>白板總覽 →</button>
+                        <div style={{ ...sectionLabel, marginBottom: 0 }}>最近使用白板</div>
+                        <button style={linkBtn} {...linkHover} onClick={onOpenOverview}>白板總覽</button>
                     </div>
                     {recentBoards.length === 0 ? (
                         <EmptyState
                             compact
                             title="還沒有最近開過的白板"
                             hint="白板總覽可以新增白板，或從模板建一塊。"
-                            actionLabel="白板總覽 →"
+                            actionLabel="白板總覽"
                             onAction={onOpenOverview}
                         />
                     ) : (
@@ -342,11 +364,11 @@ export function Dashboard({
 
                 {/* ── Inbox Preview ── */}
                 {inboxPreviews.length > 0 && (
-                    <div style={{ background: cardBg, border: `1px solid ${border}`, borderRadius: 12, padding: 20, marginBottom: 24 }}>
+                    <div style={plainSection}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-                            <div style={sectionLabel}>收件匣預覽</div>
+                            <div style={{ ...sectionLabel, marginBottom: 0 }}>收件匣預覽</div>
                             {inboxBoard && (
-                                <button style={linkBtn} onClick={() => onSwitch(inboxBoard.id)}>開啟收件匣 →</button>
+                                <button style={linkBtn} {...linkHover} onClick={() => onSwitch(inboxBoard.id)}>開啟收件匣</button>
                             )}
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
