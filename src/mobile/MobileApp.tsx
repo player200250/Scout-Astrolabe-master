@@ -11,8 +11,11 @@ import {
     enqueueNote, flushOutbox, getOutbox, migrateLegacyOutbox, loadLastSyncedAt,
     rememberSession, forgetSession, type OutboxNote,
 } from './mobileCapture'
-import { fetchBoardsCore, fetchBoardSnapshotCore, type MobileBoard } from './mobileSyncCore'
+import { fetchBoardsCore, fetchBoardSnapshotCore, saveBoardWithMergeCore, type MobileBoard } from './mobileSyncCore'
 import { readBoardCards, type MobileCard } from './mobileCards'
+import { hashSnapshotShapes } from '../utils/snapshotMerge'
+import { toggleTodo, setCardText } from '../utils/snapshotPatch'
+import type { TLEditorSnapshot } from 'tldraw'
 import { BoardListScreen, BoardCardsScreen } from './MobileBrowse'
 
 type Screen = 'capture' | 'settings' | 'boards' | 'board'
@@ -44,6 +47,11 @@ export function MobileApp() {
     const [openBoard, setOpenBoard] = useState<MobileBoard | null>(null)
     const [openCards, setOpenCards] = useState<MobileCard[] | null>(null)
     const [browseBusy, setBrowseBusy] = useState(false)
+    // S3：手上這塊板的 snapshot 與**讀進來當下的指紋**。後者是寫回時三方合併的
+    // 共同祖先——沒有它，手機的每次寫入都會退回「整塊覆蓋」。
+    const [openSnapshot, setOpenSnapshot] = useState<TLEditorSnapshot | null>(null)
+    const [openBase, setOpenBase] = useState<Record<string, string>>({})
+    const [saving, setSaving] = useState(false)
     const [message, setMessage] = useState<{ text: string; kind: 'ok' | 'err' } | null>(null)
     const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -153,8 +161,47 @@ export function MobileApp() {
         const r = await fetchBoardSnapshotCore(board.id)
         setBrowseBusy(false)
         if (!r.ok) { setBoardsError(r.error ?? '讀取失敗'); return }
+        setOpenSnapshot(r.snapshot ?? null)
+        setOpenBase(r.baseHashes ?? {})
         setOpenCards(readBoardCards(r.snapshot ?? null))
     }, [])
+
+    /**
+     * 把改過的 snapshot 存回雲端。
+     * ⚠️ 存成功之後**要用合併結果重畫**，不是用本機那份——桌機這段期間的修改
+     * 是在合併時才進來的，用本機那份會讓畫面看不到對方的卡片。
+     */
+    const saveEdited = useCallback(async (next: TLEditorSnapshot) => {
+        if (!openBoard) return
+        setSaving(true)
+        // 先樂觀更新畫面：手機上按了沒反應會讓人一直重按
+        setOpenSnapshot(next)
+        setOpenCards(readBoardCards(next))
+
+        const r = await saveBoardWithMergeCore(openBoard.id, openBase, next)
+        setSaving(false)
+
+        if (!r.ok) {
+            // 沒有離線編輯佇列——存不出去就當場說，不要默默排隊
+            notify(r.error ?? '存檔失敗，改動沒有上傳', 'err')
+            return
+        }
+        setOpenSnapshot(r.snapshot ?? null)
+        setOpenCards(readBoardCards(r.snapshot ?? null))
+        // 合併後雲端就是這個樣子 ⇒ 更新共同祖先，下一次編輯才比對得對
+        setOpenBase(hashSnapshotShapes(r.snapshot ?? null))
+        notify(r.mergeSummary ? `已儲存（${r.mergeSummary}）` : '已儲存')
+    }, [openBoard, openBase, notify])
+
+    const handleToggleTodo = useCallback((shapeId: string, todoId: string, checked: boolean) => {
+        if (!openSnapshot) return
+        void saveEdited(toggleTodo(openSnapshot, shapeId, todoId, checked))
+    }, [openSnapshot, saveEdited])
+
+    const handleSaveText = useCallback((shapeId: string, text: string) => {
+        if (!openSnapshot) return
+        void saveEdited(setCardText(openSnapshot, shapeId, text))
+    }, [openSnapshot, saveEdited])
 
     const handleSignOut = useCallback(async () => {
         await signOut()
@@ -163,6 +210,7 @@ export function MobileApp() {
         setInboxCount(null)
         // 登出就把瀏覽過的內容清掉——留著的話下一個人登入會先看到上一個人的白板
         setBoards(null); setOpenBoard(null); setOpenCards(null)
+        setOpenSnapshot(null); setOpenBase({})
         notify('已登出')
     }, [notify])
 
@@ -280,6 +328,7 @@ export function MobileApp() {
                 onBack={() => { setScreen('boards'); setBoardsError(null) }}
                 onReload={() => void openBoardCards(openBoard)}
                 message={message}
+                edit={{ onToggleTodo: handleToggleTodo, onSaveText: handleSaveText, saving }}
             />
         )
     }

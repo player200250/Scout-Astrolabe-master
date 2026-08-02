@@ -8,6 +8,7 @@
 // ⚠️ 手機端**沒有圖片與檔案**：image/file 卡的實體檔在桌機的 userData，
 // 手機既沒有檔案系統也沒有 electronAPI。所以這兩種卡只顯示檔名並明說打不開，
 // 不要做成看起來可以點的樣子（那是承諾了做不到的事）。
+import { useState } from 'react'
 import type { MobileBoard } from './mobileSyncCore'
 import { summarizeCards, type MobileCard, type MobileCardType } from './mobileCards'
 
@@ -74,8 +75,17 @@ export function BoardListScreen({
 
 // ── 單塊板的卡片 ────────────────────────────────────────────────────────
 
+export interface CardEditHandlers {
+    /** 勾／取消勾一個待辦項目 */
+    onToggleTodo: (shapeId: string, todoId: string, checked: boolean) => void
+    /** 改文字卡內容 */
+    onSaveText: (shapeId: string, text: string) => void
+    /** 有沒有正在存 */
+    saving: boolean
+}
+
 export function BoardCardsScreen({
-    board, cards, busy, error, onBack, onReload, message,
+    board, cards, busy, error, onBack, onReload, message, edit,
 }: {
     board: MobileBoard
     cards: MobileCard[] | null
@@ -84,6 +94,7 @@ export function BoardCardsScreen({
     onBack: () => void
     onReload: () => void
     message: Msg
+    edit: CardEditHandlers
 }) {
     return (
         <div className="screen">
@@ -101,7 +112,7 @@ export function BoardCardsScreen({
                     <p className="muted small">{summarizeCards(cards)}</p>
                 )}
 
-                {cards?.map(c => <CardView key={c.id} card={c} />)}
+                {cards?.map(c => <CardView key={c.id} card={c} edit={edit} />)}
             </div>
 
             {message && <div className={`toast ${message.kind}`}>{message.text}</div>}
@@ -109,7 +120,16 @@ export function BoardCardsScreen({
     )
 }
 
-function CardView({ card }: { card: MobileCard }) {
+function CardView({ card, edit }: { card: MobileCard; edit: CardEditHandlers }) {
+    const [editing, setEditing] = useState(false)
+    const [draft, setDraft] = useState('')
+
+    const startEdit = () => {
+        // 編輯用的是「標題＋內文」還原成的純文字——手機上不做 HTML 編輯
+        setDraft([card.title, card.body].filter(Boolean).join('\n'))
+        setEditing(true)
+    }
+
     return (
         <div className="card-item">
             <div className="row">
@@ -117,18 +137,49 @@ function CardView({ card }: { card: MobileCard }) {
                 {card.tags.map(t => <span key={t} className="chip small tag">#{t}</span>)}
             </div>
 
-            {card.title && <div className="card-title">{card.title}</div>}
-            {card.body && <div className="card-body small">{card.body}</div>}
+            {editing ? (
+                <>
+                    <textarea
+                        className="note edit"
+                        value={draft}
+                        onChange={e => setDraft(e.target.value)}
+                        autoFocus
+                    />
+                    <div className="row gap">
+                        <button className="ghost small" onClick={() => setEditing(false)}>取消</button>
+                        <button
+                            className="primary small"
+                            disabled={edit.saving}
+                            onClick={() => { edit.onSaveText(card.id, draft); setEditing(false) }}
+                        >{edit.saving ? '存檔中…' : '儲存'}</button>
+                    </div>
+                </>
+            ) : (
+                <>
+                    {card.title && <div className="card-title">{card.title}</div>}
+                    {card.body && <div className="card-body small">{card.body}</div>}
+                    {/* 只有文字類的卡能在手機上編輯。表格、顏色樣本那些的結構
+                        沒辦法用一個 textarea 表達，硬給編輯入口只會讓人把資料改壞。 */}
+                    {(card.type === 'text' || card.type === 'journal' || card.type === 'sticky' || card.type === 'heading') && (
+                        <button className="ghost small edit-btn" onClick={startEdit}>編輯</button>
+                    )}
+                </>
+            )}
 
             {card.todos.length > 0 && (
                 <ul className="todo-list">
-                    {card.todos.map((t, i) => (
-                        <li key={i} className={t.checked ? 'done' : ''}>
-                            {/* 唯讀：用符號而不是 <input type=checkbox>，免得看起來按得動
-                                （能不能勾是 S3 的事） */}
-                            <span className="box">{t.checked ? '☑' : '☐'}</span>
-                            <span className="grow">{t.text}</span>
-                            {t.dueDate && <span className="muted small">{t.dueDate}</span>}
+                    {card.todos.map(t => (
+                        <li key={t.id} className={t.checked ? 'done' : ''}>
+                            {/* 整列都可以按——手機上只給 14px 的方框當點擊區太小了 */}
+                            <button
+                                className="todo-row"
+                                disabled={edit.saving}
+                                onClick={() => edit.onToggleTodo(card.id, t.id, !t.checked)}
+                            >
+                                <span className="box">{t.checked ? '☑' : '☐'}</span>
+                                <span className="grow">{t.text}</span>
+                                {t.dueDate && <span className="muted small">{t.dueDate}</span>}
+                            </button>
                         </li>
                     ))}
                 </ul>

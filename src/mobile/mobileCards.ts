@@ -23,6 +23,11 @@ export type MobileCardType =
     | 'sticky' | 'table' | 'color' | 'file' | 'image' | 'board' | 'unknown'
 
 export interface MobileTodo {
+    /**
+     * ⚠️ 勾選一定要用 id 定位，不是陣列索引。索引會隨著另一端新增/刪除項目而位移，
+     * 拿索引去勾等於「勾到當時排在第 N 個的那一項」——兩端一起動時會勾錯人。
+     */
+    id: string
     text: string
     checked: boolean
     dueDate: string | null
@@ -88,13 +93,15 @@ export function toMobileCard(shape: {
     const { title, body } = splitCardText(typeof p.text === 'string' ? p.text : '')
 
     const todos: MobileTodo[] = Array.isArray(p.todos)
-        ? (p.todos as { text?: string; checked?: boolean; dueDate?: string | null }[])
+        ? (p.todos as { id?: string; text?: string; checked?: boolean; dueDate?: string | null }[])
             .map(t => ({
+                id: typeof t.id === 'string' ? t.id : '',
                 text: stripHtml(t.text ?? ''),
                 checked: !!t.checked,
                 dueDate: t.dueDate ?? null,
             }))
-            .filter(t => t.text.length > 0)
+            // 沒有 id 的項目（很舊的資料）不給勾——沒有 id 就無法安全定位
+            .filter(t => t.text.length > 0 && t.id.length > 0)
         : []
 
     // 各型別的「標題」來源不一樣，硬套第一行會讓連結卡與檔案卡整列空白

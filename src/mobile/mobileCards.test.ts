@@ -49,14 +49,15 @@ describe('toMobileCard', () => {
         const c = toMobileCard(card('shape:t', {
             type: 'todo',
             todos: [
-                { text: '做完的', checked: true, dueDate: '2026-08-10' },
-                { text: '沒做的', checked: false },
-                { text: '', checked: false },   // 空項目不該出現在手機上
+                { id: 't1', text: '做完的', checked: true, dueDate: '2026-08-10' },
+                { id: 't2', text: '沒做的', checked: false },
+                { id: 't3', text: '', checked: false },      // 空項目不該出現在手機上
+                { text: '沒有 id 的舊資料', checked: false }, // 沒有 id 就無法安全定位 ⇒ 不顯示
             ],
         }))
         expect(c.todos).toEqual([
-            { text: '做完的', checked: true, dueDate: '2026-08-10' },
-            { text: '沒做的', checked: false, dueDate: null },
+            { id: 't1', text: '做完的', checked: true, dueDate: '2026-08-10' },
+            { id: 't2', text: '沒做的', checked: false, dueDate: null },
         ])
     })
 
@@ -121,7 +122,7 @@ describe('summarizeCards', () => {
 
     it('有未完成待辦時一併報出來', () => {
         const cards = readBoardCards(snap([
-            card('shape:t', { type: 'todo', todos: [{ text: 'a', checked: false }, { text: 'b', checked: true }] }),
+            card('shape:t', { type: 'todo', todos: [{ id: 'a', text: 'a', checked: false }, { id: 'b', text: 'b', checked: true }] }),
             card('shape:x', { type: 'text', text: 'hi' }),
         ]))
         expect(summarizeCards(cards)).toBe('2 張卡 · 1 項未完成')
@@ -129,7 +130,7 @@ describe('summarizeCards', () => {
 
     it('全部完成時不顯示待辦數', () => {
         const cards = readBoardCards(snap([
-            card('shape:t', { type: 'todo', todos: [{ text: 'a', checked: true }] }),
+            card('shape:t', { type: 'todo', todos: [{ id: 'a', text: 'a', checked: true }] }),
         ]))
         expect(summarizeCards(cards)).toBe('1 張卡')
     })
