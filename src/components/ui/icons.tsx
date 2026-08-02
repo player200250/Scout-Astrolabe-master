@@ -16,9 +16,18 @@ import type { LucideIcon } from 'lucide-react'
 import {
     House, Inbox, Library, ListChecks, NotebookPen, Network, Trash2,
     Filter, Archive, ArchiveRestore, History, Keyboard, Command, ShieldCheck, Cloud, BookOpen,
-    Sun, Moon, Ellipsis, Pin, PinOff, Folder, FolderPlus, FolderInput, Plus, LayoutGrid,
+    Sun, Moon, SunMoon, Ellipsis, Pin, PinOff, Folder, FolderPlus, FolderInput, Plus, LayoutGrid,
     Search, Pencil, Copy, Zap, Calendar, ChartNoAxesColumn, CircleCheck,
     FileText, SquareCheckBig, Link2, Heading, StickyNote, Table, Palette, Paperclip, Image, Frame,
+    PackageOpen, Tag, ZoomIn, Group, SquarePen, Star, FileInput, FilePlus, LayoutTemplate,
+    AlignStartVertical, AlignCenterVertical, AlignEndVertical,
+    AlignStartHorizontal, AlignCenterHorizontal, AlignEndHorizontal,
+    AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter,
+    Circle, CircleDashed, CircleOff, CircleDot, Square, SquareCheck,
+    Flag, SignalHigh, SignalMedium, SignalLow,
+    Users, BookMarked, Bug, Target, Lightbulb, ChevronRight, X,
+    Pilcrow, Heading1, Heading2, Heading3, List, ListOrdered, Quote, SquareCode, Minus,
+    Sigma, Bold, Italic, Underline, Strikethrough, Highlighter, Code,
 } from 'lucide-react'
 
 /** 線寬：1.75 比 lucide 預設的 2 細一點，跟 13–14px 的中文字重比較搭。 */
@@ -74,6 +83,83 @@ const REGISTRY = {
     calendar: Calendar,
     stats: ChartNoAxesColumn,
     done: CircleCheck,
+
+    // 命令面板／選單的其餘入口
+    inboxTriage: PackageOpen,
+    tag: Tag,
+    // 「切換深色/淺色」用 SunMoon（一個圖示表達「切換」）；themeLight／themeDark
+    // 是側邊欄那顆「目前是什麼主題」的指示，語意不同，不要互換。
+    themeToggle: SunMoon,
+    template: LayoutTemplate,
+    star: Star,
+    close: X,
+    chevronRight: ChevronRight,
+
+    // 右鍵選單：卡片操作
+    zoomToCard: ZoomIn,
+    edit: SquarePen,
+    /** 卡片移到別塊白板（不是資料夾搬移，那個是 folderMove）。 */
+    moveToBoard: FileInput,
+    blankCard: FilePlus,
+
+    // 右鍵選單：對齊／分佈（多選時才出現）
+    alignGroup: Group,
+    alignLeft: AlignStartVertical,
+    alignCenterX: AlignCenterVertical,
+    alignRight: AlignEndVertical,
+    alignTop: AlignStartHorizontal,
+    alignCenterY: AlignCenterHorizontal,
+    alignBottom: AlignEndHorizontal,
+    distributeX: AlignHorizontalDistributeCenter,
+    distributeY: AlignVerticalDistributeCenter,
+
+    // 右鍵選單：批次狀態／優先級
+    // 狀態走「同一顆圓的四種狀態」，優先級走 Signal 高低階梯 —— 兩組都靠**形狀**
+    // 表達等級，不靠顏色（原本的 🔴🟠🟡 正是規則 1 說的「一排彩虹」）。
+    statusTodo: Circle,
+    statusInProgress: CircleDashed,
+    statusNone: CircleOff,
+    priority: Flag,
+    priorityHigh: SignalHigh,
+    priorityMedium: SignalMedium,
+    priorityLow: SignalLow,
+    // 「清除」共用 CircleOff（與 statusNone 同一顆），刻意不用 SignalZero：
+    // 實測 SignalZero 只畫底部一個點，在選單裡看起來像圖示沒載出來。
+    // 而且「清除」是與三個等級不同性質的動作，長得不一樣才對。
+    priorityNone: CircleOff,
+
+    // 選單裡的勾選／單選狀態
+    checkboxOn: SquareCheck,
+    checkboxOff: Square,
+    radioOn: CircleDot,
+    radioOff: Circle,
+
+    // 內建文字模板（右鍵 →「從模板新增」）
+    tmplMeeting: Users,
+    tmplReading: BookMarked,
+    tmplDebug: Bug,
+    tmplGoal: Target,
+    tmplIdea: Lightbulb,
+
+    // 文字卡的 `/` 選單（見 utils/slashCommands.ts）
+    fmtParagraph: Pilcrow,
+    fmtH1: Heading1,
+    fmtH2: Heading2,
+    fmtH3: Heading3,
+    fmtBulletList: List,
+    fmtOrderedList: ListOrdered,
+    fmtQuote: Quote,
+    fmtCodeBlock: SquareCode,
+    fmtDivider: Minus,
+    fmtCallout: Lightbulb,
+    fmtToggle: ChevronRight,
+    fmtMath: Sigma,
+    fmtBold: Bold,
+    fmtItalic: Italic,
+    fmtUnderline: Underline,
+    fmtStrike: Strikethrough,
+    fmtHighlight: Highlighter,
+    fmtCode: Code,
 
     // 卡片型別（對照 CardType，見 utils/cardMeta.ts 的 TYPE_LABEL／TYPE_COLOR）
     cardText: FileText,

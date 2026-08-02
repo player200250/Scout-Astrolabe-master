@@ -24,6 +24,7 @@ import { buildSlashCommands, matchSlashQuery, groupSlashCommands, type SlashComm
 import { filterCommands } from '../../../utils/commands'
 import { buildLinkTargets, filterLinkTargets, groupLinkTargets, type LinkTarget } from '../../../utils/cardLinks'
 import { T } from '../../../theme/tokens'
+import { Icon } from '../../ui/icons'
 
 // registry 是純資料、與元件無關 → 模組層建一次即可，不隨每次 render 重算
 const SLASH_COMMANDS = buildSlashCommands()
@@ -847,13 +848,14 @@ export function TextContent({ editor: tldrawEditor, shape, isEditing, exitEdit, 
                                             borderLeft: active ? '2px solid #3b82f6' : '2px solid transparent',
                                         }}
                                     >
+                                        {/* 顏色項用該色本身當圖示色（Icon 吃 currentColor）；其餘一律次級灰。 */}
                                         <span style={{
-                                            width: 20, flexShrink: 0, textAlign: 'center',
-                                            fontSize: 11, fontFamily: 'monospace',
+                                            width: 20, flexShrink: 0,
+                                            display: 'flex', justifyContent: 'center',
                                             color: cmd.id.startsWith('color-')
                                                 ? cmd.id.slice(6)
                                                 : (T.textSecondary),
-                                        }}>{cmd.icon}</span>
+                                        }}><Icon name={cmd.icon} /></span>
                                         <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                             {cmd.title}
                                         </span>

@@ -7,6 +7,8 @@ import type { Command } from './utils/commands'
 import { filterCommands } from './utils/commands'
 import { Z_MODAL_BACKDROP, Z_MODAL, MODAL_TOP, MODAL_WIDTH, MODAL_BACKDROP } from './constants'
 import { T } from './theme/tokens'
+import { Icon } from './components/ui/icons'
+import type { IconName } from './components/ui/icons'
 
 interface CommandPaletteProps {
     commands: Command[]
@@ -20,7 +22,7 @@ interface CommandPaletteProps {
 interface PaletteItem {
     id: string
     title: string
-    icon: string
+    icon: IconName
     group: string
     keywords?: string
     shortcut?: string
@@ -33,8 +35,8 @@ const RECENT_BOARDS_WHEN_EMPTY = 5
 // 分組顯示順序由 buildCommands 的清單順序保證（命令群組連續在前），
 // boardItems 併在最後 → filterCommands 保序，渲染時遇新 group 即插 header。
 
-function boardIcon(b: BoardRecord): string {
-    return b.isHome ? '🏠' : b.isInbox ? '📥' : b.isJournal ? '📔' : '📋'
+function boardIcon(b: BoardRecord): IconName {
+    return b.isHome ? 'home' : b.isInbox ? 'inbox' : b.isJournal ? 'cardJournal' : 'cardBoard'
 }
 
 export function CommandPalette({ commands, boards, activeBoardId, onSwitchBoard, onClose }: CommandPaletteProps) {
@@ -165,7 +167,9 @@ export function CommandPalette({ commands, boards, activeBoardId, onSwitchBoard,
                                         borderLeft: `3px solid ${isSel ? '#3b82f6' : 'transparent'}`,
                                     }}
                                 >
-                                    <span style={{ fontSize: 15, width: 20, textAlign: 'center', flexShrink: 0 }}>{item.icon}</span>
+                                    <span style={{ width: 20, flexShrink: 0, display: 'flex', justifyContent: 'center', color: isSel ? text : muted }}>
+                                        <Icon name={item.icon} />
+                                    </span>
                                     <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: text, fontWeight: isActiveBoard ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                         {item.title}
                                     </span>

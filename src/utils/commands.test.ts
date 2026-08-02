@@ -27,6 +27,14 @@ describe('buildCommands', () => {
         }
     })
 
+    // icon 已是 IconName（型別會擋 emoji），但型別哪天被放寬成 string
+    // 就會安靜地退回原樣 —— 這條在執行期再擋一次。
+    it('icon 一律是 icons.tsx 的 registry key，不含 emoji', () => {
+        for (const c of buildCommands(makeActions())) {
+            expect(c.icon, `${c.id} 的 icon`).toMatch(/^[a-zA-Z][a-zA-Z0-9]*$/)
+        }
+    })
+
     it('run() 呼叫對應的 action', () => {
         const a = makeActions()
         const cmds = buildCommands(a)

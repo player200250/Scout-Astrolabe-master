@@ -13,6 +13,7 @@ import type { SnapshotShapeProps } from './snapshot'
 import { canAttachFile } from '../platform/fileStore'
 import { ContextMenuUI, SaveTemplateModal, BatchAddTagModal } from '../ContextMenu'
 import type { MenuItem } from '../ContextMenu'
+import type { IconName } from '../components/ui/icons'
 
 // ── Alignment helpers ───────────────────────────────────────────────────────
 
@@ -159,33 +160,33 @@ function setTableColumns(editor: Editor, shapeId: TLShapeId, newCols: number) {
 
 // ── Built-in templates ──────────────────────────────────────────────────────
 
-const BUILTIN_TEMPLATES: { icon: string; name: string; w: number; h: number; content: string }[] = [
+const BUILTIN_TEMPLATES: { icon: IconName; name: string; w: number; h: number; content: string }[] = [
     {
-        icon: '📝',
+        icon: 'tmplMeeting',
         name: '會議記錄',
         w: 280, h: 320,
         content: '<h2>會議記錄</h2><p><strong>日期：</strong></p><p><strong>參與者：</strong></p><p><strong>討論重點</strong></p><p></p><p><strong>待辦事項</strong></p><p></p>',
     },
     {
-        icon: '📚',
+        icon: 'tmplReading',
         name: '讀書筆記',
         w: 280, h: 380,
         content: '<h2>讀書筆記</h2><p><strong>書名：</strong></p><p><strong>重點摘要</strong></p><p></p><p><strong>我的想法</strong></p><p></p><p><strong>行動</strong></p><p></p>',
     },
     {
-        icon: '🐛',
+        icon: 'tmplDebug',
         name: '問題拆解',
         w: 280, h: 380,
         content: '<h2>問題拆解</h2><p><strong>問題描述：</strong></p><p><strong>可能原因</strong></p><p></p><p><strong>嘗試方案</strong></p><p></p><p><strong>結果</strong></p><p></p>',
     },
     {
-        icon: '🎯',
+        icon: 'tmplGoal',
         name: '目標設定',
         w: 280, h: 320,
         content: '<h2>目標設定</h2><p><strong>目標：</strong></p><p><strong>為什麼重要：</strong></p><p><strong>行動步驟</strong></p><p></p><p><strong>截止日：</strong></p>',
     },
     {
-        icon: '💡',
+        icon: 'tmplIdea',
         name: '想法捕捉',
         w: 280, h: 260,
         content: '<h2>想法捕捉</h2><p><strong>想法：</strong></p><p><strong>背景：</strong></p><p><strong>下一步：</strong></p>',
@@ -316,7 +317,7 @@ export function useContextMenu({
 
                 const items: MenuItem[] = [
                     {
-                        icon: '🔍',
+                        icon: 'zoomToCard',
                         label: '縮放至此卡片',
                         action: () => {
                             editor.select(hitShape.id)
@@ -324,7 +325,7 @@ export function useContextMenu({
                         },
                     },
                     {
-                        icon: '📋',
+                        icon: 'duplicate',
                         label: opCount > 1 ? `複製 ${opCount} 張卡片` : '複製卡片',
                         action: () => {
                             editor.duplicateShapes(idsToOperate, { x: 20, y: 20 })
@@ -333,20 +334,22 @@ export function useContextMenu({
                 ]
 
                 if (opCount > 1) {
+                    // 對齊／均分改用 lucide 的 Align* 系列：原本的 ⬅↔➡ 只是方向箭頭，
+                    // 「水平置中」與「水平均分」共用同一個 ↔ ＝ 兩個不同操作長得一模一樣。
                     const alignSubmenu: MenuItem[] = [
-                        { icon: '⬅', label: '靠左對齊',  action: () => alignShapes(editor, idsToOperate, 'left') },
-                        { icon: '↔', label: '水平置中',  action: () => alignShapes(editor, idsToOperate, 'centerX') },
-                        { icon: '➡', label: '靠右對齊',  action: () => alignShapes(editor, idsToOperate, 'right') },
-                        { icon: '⬆', label: '靠上對齊',  action: () => alignShapes(editor, idsToOperate, 'top') },
-                        { icon: '↕', label: '垂直置中',  action: () => alignShapes(editor, idsToOperate, 'centerY') },
-                        { icon: '⬇', label: '靠下對齊',  action: () => alignShapes(editor, idsToOperate, 'bottom') },
+                        { icon: 'alignLeft', label: '靠左對齊',  action: () => alignShapes(editor, idsToOperate, 'left') },
+                        { icon: 'alignCenterX', label: '水平置中',  action: () => alignShapes(editor, idsToOperate, 'centerX') },
+                        { icon: 'alignRight', label: '靠右對齊',  action: () => alignShapes(editor, idsToOperate, 'right') },
+                        { icon: 'alignTop', label: '靠上對齊',  action: () => alignShapes(editor, idsToOperate, 'top') },
+                        { icon: 'alignCenterY', label: '垂直置中',  action: () => alignShapes(editor, idsToOperate, 'centerY') },
+                        { icon: 'alignBottom', label: '靠下對齊',  action: () => alignShapes(editor, idsToOperate, 'bottom') },
                         ...(opCount >= 3 ? [
-                            { icon: '↔', label: '水平均分', divider: true, action: () => distributeShapes(editor, idsToOperate, 'x') } as MenuItem,
-                            { icon: '↕', label: '垂直均分', action: () => distributeShapes(editor, idsToOperate, 'y') } as MenuItem,
+                            { icon: 'distributeX', label: '水平均分', divider: true, action: () => distributeShapes(editor, idsToOperate, 'x') } as MenuItem,
+                            { icon: 'distributeY', label: '垂直均分', action: () => distributeShapes(editor, idsToOperate, 'y') } as MenuItem,
                         ] : []),
                     ]
                     items.push({
-                        icon: '⬛',
+                        icon: 'alignGroup',
                         label: '對齊',
                         divider: true,
                         action: () => {},
@@ -354,13 +357,13 @@ export function useContextMenu({
                     })
 
                     const statusSubmenu: MenuItem[] = [
-                        { icon: '📋', label: '待辦',   action: () => setBatchStatus(editor, idsToOperate, 'todo') },
-                        { icon: '🔵', label: '進行中', action: () => setBatchStatus(editor, idsToOperate, 'in-progress') },
-                        { icon: '✅', label: '完成',   action: () => setBatchStatus(editor, idsToOperate, 'done') },
-                        { icon: '⬜', label: '清除狀態', divider: true, action: () => setBatchStatus(editor, idsToOperate, 'none') },
+                        { icon: 'statusTodo', label: '待辦',   action: () => setBatchStatus(editor, idsToOperate, 'todo') },
+                        { icon: 'statusInProgress', label: '進行中', action: () => setBatchStatus(editor, idsToOperate, 'in-progress') },
+                        { icon: 'done', label: '完成',   action: () => setBatchStatus(editor, idsToOperate, 'done') },
+                        { icon: 'statusNone', label: '清除狀態', divider: true, action: () => setBatchStatus(editor, idsToOperate, 'none') },
                     ]
                     items.push({
-                        icon: '📊',
+                        icon: 'stats',
                         label: `批次設定狀態（${opCount}）`,
                         divider: true,
                         action: () => {},
@@ -368,20 +371,20 @@ export function useContextMenu({
                     })
 
                     const prioritySubmenu: MenuItem[] = [
-                        { icon: '🔴', label: '高', action: () => setBatchPriority(editor, idsToOperate, 'high') },
-                        { icon: '🟠', label: '中', action: () => setBatchPriority(editor, idsToOperate, 'medium') },
-                        { icon: '🟡', label: '低', action: () => setBatchPriority(editor, idsToOperate, 'low') },
-                        { icon: '—', label: '清除優先級', divider: true, action: () => setBatchPriority(editor, idsToOperate, 'none') },
+                        { icon: 'priorityHigh', label: '高', action: () => setBatchPriority(editor, idsToOperate, 'high') },
+                        { icon: 'priorityMedium', label: '中', action: () => setBatchPriority(editor, idsToOperate, 'medium') },
+                        { icon: 'priorityLow', label: '低', action: () => setBatchPriority(editor, idsToOperate, 'low') },
+                        { icon: 'priorityNone', label: '清除優先級', divider: true, action: () => setBatchPriority(editor, idsToOperate, 'none') },
                     ]
                     items.push({
-                        icon: '⚑',
+                        icon: 'priority',
                         label: `批次設定優先級（${opCount}）`,
                         action: () => {},
                         submenu: prioritySubmenu,
                     })
 
                     items.push({
-                        icon: '🏷',
+                        icon: 'tag',
                         label: `批次附加標籤（${opCount}）`,
                         action: () => {
                             setMenu(null)
@@ -392,7 +395,7 @@ export function useContextMenu({
 
                 if (isLink) {
                     items.push({
-                        icon: '✏️',
+                        icon: 'edit',
                         label: '編輯連結',
                         divider: true,
                         action: () => {
@@ -408,7 +411,7 @@ export function useContextMenu({
                 if (isTable) {
                     const headerOn = shape.props.tableHeaderRow ?? true
                     items.push({
-                        icon: headerOn ? '☑' : '☐',
+                        icon: headerOn ? 'checkboxOn' : 'checkboxOff',
                         label: headerOn ? '關閉標題列' : '開啟標題列',
                         divider: true,
                         action: () => {
@@ -421,7 +424,7 @@ export function useContextMenu({
 
                     const curCols = shape.props.tableCols ?? 3
                     const colSubmenu: MenuItem[] = ([2, 3, 4] as const).map(n => ({
-                        icon: n === curCols ? '●' : '○',
+                        icon: n === curCols ? 'radioOn' : 'radioOff',
                         label: `${n} 欄`,
                         action: () => {
                             if (n < curCols) {
@@ -432,14 +435,14 @@ export function useContextMenu({
                             setTableColumns(editor, hitShape.id, n)
                         },
                     }))
-                    items.push({ icon: '▦', label: '欄數', action: () => {}, submenu: colSubmenu })
+                    items.push({ icon: 'cardTable', label: '欄數', action: () => {}, submenu: colSubmenu })
                 }
 
                 // 存為模板：僅限純文字卡片
                 if (isText) {
                     const cardContent: string = shape.props?.text ?? ''
                     items.push({
-                        icon: '⭐',
+                        icon: 'star',
                         label: '存為模板',
                         divider: true,
                         action: () => {
@@ -451,7 +454,7 @@ export function useContextMenu({
 
                 if (onMoveCard) {
                     items.push({
-                        icon: '📦',
+                        icon: 'moveToBoard',
                         label: opCount > 1 ? `移動 ${opCount} 張到白板...` : '移到白板...',
                         divider: true,
                         action: () => onMoveCard(idsToOperate),
@@ -459,7 +462,7 @@ export function useContextMenu({
                 }
 
                 items.push({
-                    icon: '🗑️',
+                    icon: 'trash',
                     label: opCount > 1 ? `刪除 ${opCount} 張卡片` : '刪除卡片',
                     danger: true,
                     divider: !isInboxBoard && !isLink && !isText,
@@ -504,7 +507,7 @@ export function useContextMenu({
                 // 建立內建模板 submenu items
                 const templateSubmenu: MenuItem[] = [
                     {
-                        icon: '✨',
+                        icon: 'blankCard',
                         label: '空白文字卡片',
                         action: () => createTextCard(px, py),
                     },
@@ -528,7 +531,7 @@ export function useContextMenu({
                     customs.forEach((t, i) => {
                         const tmplContent = t.content
                         templateSubmenu.push({
-                            icon: '⭐',
+                            icon: 'star',
                             label: t.name,
                             divider: i === 0,
                             action: () => createTextCardWithContent(px, py, tmplContent),
@@ -540,7 +543,7 @@ export function useContextMenu({
                         const tmplId = t.id
                         const tmplName = t.name
                         templateSubmenu.push({
-                            icon: '🗑️',
+                            icon: 'trash',
                             label: `刪除「${tmplName}」`,
                             divider: i === 0,
                             danger: true,
@@ -556,14 +559,18 @@ export function useContextMenu({
                     })
                 }
 
+                // 便利貼六色是 MenuItem.iconColor 的正當用途：顏色本身就是選項的內容。
+                // 用 darkBg（飽和版）而非 bg（淺色貼紙底）—— 線性圖示只有筆畫，
+                // 拿 #FEF08A 這種淺黃畫線在面板上幾乎看不見。
                 const stickySubmenu: MenuItem[] = STICKY_COLOR_LIST.map(color => ({
-                    icon: '●',
+                    icon: 'cardSticky',
+                    iconColor: STICKY_COLORS[color].darkBg,
                     label: STICKY_COLORS[color].label,
                     action: () => createStickyCard?.(color, px, py),
                 }))
 
                 const tableSubmenu: MenuItem[] = [2, 3, 4].map(cols => ({
-                    icon: '▦',
+                    icon: 'cardTable' as IconName,
                     label: `${cols} 欄`,
                     action: () => createTableCard?.(cols, px, py),
                 }))
@@ -571,27 +578,29 @@ export function useContextMenu({
                 setMenu({
                     x: e.clientX, y: e.clientY,
                     items: [
-                        { icon: '📝', label: '新增文字卡片', action: () => createTextCard(px, py) },
-                        { icon: '✅', label: '新增待辦清單', action: () => createTodoCard(px, py) },
-                        { icon: '🔗', label: '新增連結卡片', action: () => createLinkCard(px, py) },
-                        { icon: '🖼️', label: '新增圖片卡片', action: () => openImageInput() },
-                        { icon: 'A', label: '新增標題卡片', action: () => createHeadingCard?.(px, py) },
+                        // 「新增 X 卡片」一律用 CARD_TYPE_ICON 的同一顆圖示，
+                        // 這樣右鍵選單、卡片庫、搜尋結果講到同一種卡時長得一樣。
+                        { icon: 'cardText', label: '新增文字卡片', action: () => createTextCard(px, py) },
+                        { icon: 'cardTodo', label: '新增待辦清單', action: () => createTodoCard(px, py) },
+                        { icon: 'cardLink', label: '新增連結卡片', action: () => createLinkCard(px, py) },
+                        { icon: 'cardImage', label: '新增圖片卡片', action: () => openImageInput() },
+                        { icon: 'cardHeading', label: '新增標題卡片', action: () => createHeadingCard?.(px, py) },
                         {
-                            icon: '📌',
+                            icon: 'cardSticky',
                             label: '新增便利貼',
                             action: () => createStickyCard?.('yellow', px, py),
                             submenu: stickySubmenu,
                         },
                         {
-                            icon: '▦',
+                            icon: 'cardTable',
                             label: '新增表格',
                             action: () => createTableCard?.(3, px, py),
                             submenu: tableSubmenu,
                         },
-                        { icon: '🎨', label: '新增顏色樣本', action: () => createColorCard?.(px, py) },
-                        ...(createFileCard && canAttachFile() ? [{ icon: '📎', label: '上傳檔案', action: () => createFileCard(px, py) }] : []),
+                        { icon: 'cardColor', label: '新增顏色樣本', action: () => createColorCard?.(px, py) },
+                        ...(createFileCard && canAttachFile() ? [{ icon: 'cardFile' as IconName, label: '上傳檔案', action: () => createFileCard(px, py) }] : []),
                         {
-                            icon: '📋',
+                            icon: 'template',
                             label: '從模板新增',
                             divider: true,
                             action: () => {},

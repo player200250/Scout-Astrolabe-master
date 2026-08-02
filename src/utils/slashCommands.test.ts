@@ -10,6 +10,13 @@ describe('buildSlashCommands', () => {
         expect(new Set(ids).size).toBe(ids.length)
     })
 
+    // 同 commands.test.ts：型別已擋 emoji，這條防的是型別日後被放寬成 string。
+    it('icon 一律是 icons.tsx 的 registry key，不含 emoji 或排字符號', () => {
+        for (const c of buildSlashCommands()) {
+            expect(c.icon, `${c.id} 的 icon`).toMatch(/^[a-zA-Z][a-zA-Z0-9]*$/)
+        }
+    })
+
     it('每個命令有 title/icon/group/apply', () => {
         for (const c of buildSlashCommands()) {
             expect(c.title).toBeTruthy()

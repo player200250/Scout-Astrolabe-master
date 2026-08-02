@@ -4,14 +4,32 @@ import { CARD_COLORS, STICKY_COLORS, STICKY_COLOR_LIST } from './components/card
 import type { CardColor } from './components/card-shape/type/CardShape'
 import { Z_CLICK_AWAY, Z_MODAL, Z_ABOVE_MODAL } from './constants'
 import { T } from './theme/tokens'
+import { Icon } from './components/ui/icons'
+import type { IconName } from './components/ui/icons'
 
 export interface MenuItem {
     label: string
-    icon: string
+    /** `components/ui/icons.tsx` 的 registry key，不是 emoji。 */
+    icon: IconName
+    /**
+     * 圖示色的唯一合法例外（icons.tsx 規則 1 是「一律 currentColor」）：
+     * **選色用的項目**，顏色本身就是選項的內容（便利貼六色）。
+     * 其餘任何「想讓這一列醒目一點」的理由都不算，用 `danger` 或標籤文字表達。
+     */
+    iconColor?: string
     action: () => void
     danger?: boolean
     divider?: boolean
     submenu?: MenuItem[]
+}
+
+/** 選單列左側 20px 的圖示欄；`color` 由外層列決定（danger 紅字時圖示也跟著紅）。 */
+function MenuIcon({ item }: { item: MenuItem }) {
+    return (
+        <span style={{ width: 20, flexShrink: 0, display: 'flex', justifyContent: 'center', color: item.iconColor }}>
+            <Icon name={item.icon} />
+        </span>
+    )
 }
 
 interface ContextMenuProps {
@@ -122,7 +140,7 @@ export function ContextMenuUI({ x, y, items, onClose, showColorPicker, onColorPi
                             }}
                             onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
                         >
-                            <span style={{ fontSize: 15, width: 20, textAlign: 'center', flexShrink: 0 }}>{sub.icon}</span>
+                            <MenuIcon item={sub} />
                             <span>{sub.label}</span>
                         </div>
                     </div>
@@ -159,7 +177,7 @@ export function ContextMenuUI({ x, y, items, onClose, showColorPicker, onColorPi
                                     onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.2)')}
                                     onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
                                 >
-                                    {key === 'none' && <span style={{ fontSize: 10, color: mutedColor }}>✕</span>}
+                                    {key === 'none' && <span style={{ color: mutedColor, display: 'flex' }}><Icon name="close" /></span>}
                                 </div>
                             ))}
                         </div>
@@ -226,9 +244,11 @@ export function ContextMenuUI({ x, y, items, onClose, showColorPicker, onColorPi
                                 borderRadius: 6, margin: '0 4px', transition: 'background 0.1s',
                             }}
                         >
-                            <span style={{ fontSize: 15, width: 20, textAlign: 'center', flexShrink: 0 }}>{item.icon}</span>
+                            <MenuIcon item={item} />
                             <span style={{ flex: 1 }}>{item.label}</span>
-                            {item.submenu && <span style={{ opacity: 0.45, fontSize: 12 }}>›</span>}
+                            {item.submenu && (
+                                <span style={{ opacity: 0.45, display: 'flex' }}><Icon name="chevronRight" /></span>
+                            )}
                         </div>
                     </div>
                 ))}
@@ -273,7 +293,9 @@ export function SaveTemplateModal({ defaultName, cardContent, onConfirm, onClose
                 style={{ background: bg, borderRadius: 14, padding: '22px 26px', minWidth: 320, boxShadow: '0 12px 40px rgba(0,0,0,0.25)', pointerEvents: 'auto' }}
                 onMouseDown={(e) => e.stopPropagation()}
             >
-                <div style={{ fontWeight: 600, fontSize: 15, color: text, marginBottom: 14 }}>⭐ 存為模板</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600, fontSize: 15, color: text, marginBottom: 14 }}>
+                    <Icon name="star" size="md" />存為模板
+                </div>
                 <input
                     ref={inputRef}
                     value={name}
@@ -336,7 +358,9 @@ export function BatchAddTagModal({ count, onConfirm, onClose }: BatchAddTagModal
                 style={{ background: bg, borderRadius: 14, padding: '22px 26px', minWidth: 320, boxShadow: '0 12px 40px rgba(0,0,0,0.25)', pointerEvents: 'auto' }}
                 onMouseDown={(e) => e.stopPropagation()}
             >
-                <div style={{ fontWeight: 600, fontSize: 15, color: text, marginBottom: 14 }}>🏷 為 {count} 張卡片附加標籤</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600, fontSize: 15, color: text, marginBottom: 14 }}>
+                    <Icon name="tag" size="md" />為 {count} 張卡片附加標籤
+                </div>
                 <input
                     ref={inputRef}
                     value={tag}

@@ -11,6 +11,7 @@
 // 過濾直接複用 commands.ts 的 filterCommands（泛型，支援中英別名與多詞 AND）。
 
 import type { Editor } from '@tiptap/react'
+import type { IconName } from '../components/ui/icons'
 
 export type SlashGroup = '基本' | '清單' | '區塊' | '格式' | '顏色' | '連結'
 
@@ -22,7 +23,12 @@ export interface SlashRange {
 export interface SlashCommand {
     id: string
     title: string
-    icon: string
+    /**
+     * `components/ui/icons.tsx` 的 registry key。
+     * 舊版是排字符號（`¶`／`H1`／`B`／`` ` ``）＋三個 emoji（💡🖍🔗）——排字符號本身沒問題，
+     * 但與 emoji 混排時字重、基線、寬度全不一致，一欄圖示看起來像沒對齊。
+     */
+    icon: IconName
     group: SlashGroup
     /** 額外搜尋詞（中英別名），讓 `/h1`、`/quote`、`/引用` 都命中 */
     keywords?: string
@@ -51,36 +57,39 @@ export function buildSlashCommands(): SlashCommand[] {
         // 基本
         // keywords 一律含 Notion 式縮寫（h1/ul/ol/hr/code…）——那是使用者的肌肉記憶，
         // 而 filterCommands 只搜 title+keywords，不搜 icon。
-        { id: 'paragraph', title: '文字', icon: '¶', group: '基本', keywords: 'text paragraph p 內文 段落', apply: (e, r) => at(e, r).setParagraph().run() },
-        { id: 'h1', title: '標題 1', icon: 'H1', group: '基本', keywords: 'h1 heading1 heading title 標題 大標', hint: '# ', apply: (e, r) => at(e, r).toggleHeading({ level: 1 }).run() },
-        { id: 'h2', title: '標題 2', icon: 'H2', group: '基本', keywords: 'h2 heading2 heading title 標題 中標', hint: '## ', apply: (e, r) => at(e, r).toggleHeading({ level: 2 }).run() },
-        { id: 'h3', title: '標題 3', icon: 'H3', group: '基本', keywords: 'h3 heading3 heading title 標題 小標', hint: '### ', apply: (e, r) => at(e, r).toggleHeading({ level: 3 }).run() },
+        { id: 'paragraph', title: '文字', icon: 'fmtParagraph', group: '基本', keywords: 'text paragraph p 內文 段落', apply: (e, r) => at(e, r).setParagraph().run() },
+        { id: 'h1', title: '標題 1', icon: 'fmtH1', group: '基本', keywords: 'h1 heading1 heading title 標題 大標', hint: '# ', apply: (e, r) => at(e, r).toggleHeading({ level: 1 }).run() },
+        { id: 'h2', title: '標題 2', icon: 'fmtH2', group: '基本', keywords: 'h2 heading2 heading title 標題 中標', hint: '## ', apply: (e, r) => at(e, r).toggleHeading({ level: 2 }).run() },
+        { id: 'h3', title: '標題 3', icon: 'fmtH3', group: '基本', keywords: 'h3 heading3 heading title 標題 小標', hint: '### ', apply: (e, r) => at(e, r).toggleHeading({ level: 3 }).run() },
 
         // 清單
-        { id: 'bullet-list', title: '條列清單', icon: '•', group: '清單', keywords: 'ul bullet list unordered 項目 清單 列表', hint: '- ', apply: (e, r) => at(e, r).toggleBulletList().run() },
-        { id: 'ordered-list', title: '編號清單', icon: '1.', group: '清單', keywords: 'ol ordered numbered list 數字 編號 列表', hint: '1. ', apply: (e, r) => at(e, r).toggleOrderedList().run() },
+        { id: 'bullet-list', title: '條列清單', icon: 'fmtBulletList', group: '清單', keywords: 'ul bullet list unordered 項目 清單 列表', hint: '- ', apply: (e, r) => at(e, r).toggleBulletList().run() },
+        { id: 'ordered-list', title: '編號清單', icon: 'fmtOrderedList', group: '清單', keywords: 'ol ordered numbered list 數字 編號 列表', hint: '1. ', apply: (e, r) => at(e, r).toggleOrderedList().run() },
 
         // 區塊
-        { id: 'blockquote', title: '引用', icon: '❝', group: '區塊', keywords: 'quote blockquote 引言 引用', hint: '> ', apply: (e, r) => at(e, r).toggleBlockquote().run() },
-        { id: 'code-block', title: '程式碼區塊', icon: '</>', group: '區塊', keywords: 'code codeblock block 程式 語法高亮', hint: '``` ', apply: (e, r) => at(e, r).toggleCodeBlock().run() },
-        { id: 'divider', title: '分隔線', icon: '—', group: '區塊', keywords: 'hr divider horizontal rule line 分隔 水平線', hint: '--- ', apply: (e, r) => at(e, r).setHorizontalRule().run() },
-        { id: 'callout', title: '提示框', icon: '💡', group: '區塊', keywords: 'callout note info admonition 提示 標註 重點框', apply: (e, r) => at(e, r).toggleCallout().run() },
-        { id: 'toggle', title: '摺疊區塊', icon: '▸', group: '區塊', keywords: 'toggle details collapse fold 摺疊 折疊 收合 展開', apply: (e, r) => at(e, r).setToggle().run() },
-        { id: 'math', title: '數學式', icon: '∑', group: '區塊', keywords: 'math latex equation formula katex 數學 公式 方程式', apply: (e, r) => at(e, r).setMathBlock().run() },
+        { id: 'blockquote', title: '引用', icon: 'fmtQuote', group: '區塊', keywords: 'quote blockquote 引言 引用', hint: '> ', apply: (e, r) => at(e, r).toggleBlockquote().run() },
+        { id: 'code-block', title: '程式碼區塊', icon: 'fmtCodeBlock', group: '區塊', keywords: 'code codeblock block 程式 語法高亮', hint: '``` ', apply: (e, r) => at(e, r).toggleCodeBlock().run() },
+        { id: 'divider', title: '分隔線', icon: 'fmtDivider', group: '區塊', keywords: 'hr divider horizontal rule line 分隔 水平線', hint: '--- ', apply: (e, r) => at(e, r).setHorizontalRule().run() },
+        { id: 'callout', title: '提示框', icon: 'fmtCallout', group: '區塊', keywords: 'callout note info admonition 提示 標註 重點框', apply: (e, r) => at(e, r).toggleCallout().run() },
+        { id: 'toggle', title: '摺疊區塊', icon: 'fmtToggle', group: '區塊', keywords: 'toggle details collapse fold 摺疊 折疊 收合 展開', apply: (e, r) => at(e, r).setToggle().run() },
+        { id: 'math', title: '數學式', icon: 'fmtMath', group: '區塊', keywords: 'math latex equation formula katex 數學 公式 方程式', apply: (e, r) => at(e, r).setMathBlock().run() },
 
         // 格式
-        { id: 'bold', title: '粗體', icon: 'B', group: '格式', keywords: 'b bold strong 粗', hint: 'Ctrl+B', apply: (e, r) => at(e, r).toggleBold().run() },
-        { id: 'italic', title: '斜體', icon: 'I', group: '格式', keywords: 'i italic em 斜', hint: 'Ctrl+I', apply: (e, r) => at(e, r).toggleItalic().run() },
-        { id: 'underline', title: '底線', icon: 'U', group: '格式', keywords: 'u underline 底線', hint: 'Ctrl+U', apply: (e, r) => at(e, r).toggleUnderline().run() },
-        { id: 'strike', title: '刪除線', icon: 'S', group: '格式', keywords: 's strike strikethrough del 刪除線', apply: (e, r) => at(e, r).toggleStrike().run() },
-        { id: 'highlight', title: '螢光筆', icon: '🖍', group: '格式', keywords: 'highlight mark 螢光筆 標記 醒目', apply: (e, r) => at(e, r).toggleHighlight().run() },
-        { id: 'inline-code', title: '行內程式碼', icon: '`', group: '格式', keywords: 'code inline 行內 程式', apply: (e, r) => at(e, r).toggleCode().run() },
+        { id: 'bold', title: '粗體', icon: 'fmtBold', group: '格式', keywords: 'b bold strong 粗', hint: 'Ctrl+B', apply: (e, r) => at(e, r).toggleBold().run() },
+        { id: 'italic', title: '斜體', icon: 'fmtItalic', group: '格式', keywords: 'i italic em 斜', hint: 'Ctrl+I', apply: (e, r) => at(e, r).toggleItalic().run() },
+        { id: 'underline', title: '底線', icon: 'fmtUnderline', group: '格式', keywords: 'u underline 底線', hint: 'Ctrl+U', apply: (e, r) => at(e, r).toggleUnderline().run() },
+        { id: 'strike', title: '刪除線', icon: 'fmtStrike', group: '格式', keywords: 's strike strikethrough del 刪除線', apply: (e, r) => at(e, r).toggleStrike().run() },
+        { id: 'highlight', title: '螢光筆', icon: 'fmtHighlight', group: '格式', keywords: 'highlight mark 螢光筆 標記 醒目', apply: (e, r) => at(e, r).toggleHighlight().run() },
+        { id: 'inline-code', title: '行內程式碼', icon: 'fmtCode', group: '格式', keywords: 'code inline 行內 程式', apply: (e, r) => at(e, r).toggleCode().run() },
 
         // 顏色
+        // 六色都用同一顆 Palette，靠**渲染端把 icon 欄的 color 設成該色**來區分
+        // （見 TextContent 的 `/` 選單：從 id 的 `color-` 後綴取 hex）。
+        // 這是 icons.tsx 規則 1 的正當例外：顏色就是選項本身。
         ...SLASH_COLORS.map(c => ({
             id: `color-${c.hex}`,
             title: `文字顏色：${c.name}`,
-            icon: '●',
+            icon: 'cardColor' as IconName,
             group: '顏色' as const,
             keywords: `color 顏色 ${c.name}`,
             apply: (e: Editor, r: SlashRange) => at(e, r).setColor(c.hex).run(),
@@ -90,7 +99,7 @@ export function buildSlashCommands(): SlashCommand[] {
         {
             id: 'wikilink',
             title: '卡片連結',
-            icon: '🔗',
+            icon: 'cardLink',
             group: '連結',
             keywords: 'link wikilink 連結 卡片 backlink',
             hint: '[[',
