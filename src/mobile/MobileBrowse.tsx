@@ -125,7 +125,9 @@ function CardView({ card, edit }: { card: MobileCard; edit: CardEditHandlers }) 
     const [draft, setDraft] = useState('')
 
     const startEdit = () => {
-        // 編輯用的是「標題＋內文」還原成的純文字——手機上不做 HTML 編輯
+        // 編輯用的是「標題＋內文」還原成的純文字——手機上不做 HTML 編輯。
+        // ⚠️ `card.body` 必須是**全文**：這個字串按下儲存就會整個蓋回卡片，
+        // 拿預覽字串來填等於幫使用者刪掉看不見的那一段（見 mobileCards.ts 的 NO_LIMIT）。
         setDraft([card.title, card.body].filter(Boolean).join('\n'))
         setEditing(true)
     }

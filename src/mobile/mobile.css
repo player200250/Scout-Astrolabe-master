@@ -205,7 +205,13 @@ button {
     border: 1px solid var(--border); border-radius: 10px; background: var(--panel);
 }
 .card-title { font-size: 15px; font-weight: 600; margin-top: 6px; }
-.card-body { margin-top: 4px; line-height: 1.6; opacity: 0.85; word-break: break-word; }
+/* 收合狀態只顯示前幾行。⚠️ 收「顯示」不收「資料」——card.body 是全文，
+   編輯草稿要拿它去填，在資料層截斷會讓存檔吃掉後面的內容。 */
+.card-body {
+    margin-top: 4px; line-height: 1.6; opacity: 0.85; word-break: break-word;
+    white-space: pre-line;   /* body 現在保留段落換行，壓成一段就看不出結構 */
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 6; overflow: hidden;
+}
 
 .chip {
     display: inline-block; padding: 1px 7px; margin-right: 5px;
@@ -229,6 +235,7 @@ button {
     text-align: left; cursor: pointer;
 }
 .todo-row:disabled { opacity: 0.6; cursor: default; }
-.note.edit { min-height: 90px; margin-top: 8px; }
+/* 草稿是整張卡的全文（日記那種可以好幾百字），90px 只看得到三四行 */
+.note.edit { min-height: 200px; margin-top: 8px; }
 .row.gap { display: flex; gap: 8px; margin-top: 8px; }
 .edit-btn { margin-top: 8px; }

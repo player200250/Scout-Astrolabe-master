@@ -15,7 +15,7 @@
 // 不能進 service worker**（SW 沒有 DOMParser）。速記的送出路徑刻意不碰這裡，
 // 就是為了讓 sw.ts 維持自足。測試檔因此要標 `@vitest-environment jsdom`。
 import { getCardShapes } from '../utils/snapshot'
-import { stripHtml, splitTitleBody } from '../utils/stringUtils'
+import { stripHtml } from '../utils/stringUtils'
 import type { TLEditorSnapshot } from 'tldraw'
 
 export type MobileCardType =
@@ -38,7 +38,13 @@ export interface MobileCard {
     type: MobileCardType
     /** 列表上那一行粗體字；沒有可辨識的標題時為空字串 */
     title: string
-    /** 標題底下的內容預覽（已去掉 HTML） */
+    /**
+     * 標題底下的內容，**去掉 HTML 的全文，不是預覽**。
+     *
+     * ⚠️ 這裡絕對不可以截斷：S3 的編輯草稿就是用 `title + '\n' + body` 組出來的，
+     * 截斷過的字串存回去 ＝ 使用者按一次「編輯 → 儲存」就永久刪掉後面的內容。
+     * 要顯示多長是 UI 的事（`.card-body` 用 CSS line-clamp 收），不要退回這一層做。
+     */
     body: string
     todos: MobileTodo[]
     /** link 卡的網址；其餘型別為 null */
@@ -57,24 +63,52 @@ const KNOWN_TYPES = new Set<MobileCardType>([
 ])
 
 /**
+ * 把卡片 HTML 切成「一行一行的純文字」。
+ *
+ * ⚠️ **不能直接 `stripHtml` 再切**：它把區塊元素之間壓成一個空格，`<p>a</p><p>b</p>`
+ * 剝完是「a b」一整行，那時候再怎麼切都分不出行。所以先把區塊結尾與 `<br>` 換成
+ * 真的換行，再逐行剝。純文字卡（速記）本來就用 `\n`，一起走同一條路。
+ */
+function htmlToLines(html: string): string[] {
+    return html
+        .replace(/<\/(p|div|li|h[1-6]|blockquote|pre|tr)>|<br\s*\/?>/gi, '$&\n')
+        .split('\n')
+        .map(l => stripHtml(l).trim())
+        .filter(Boolean)
+}
+
+/**
  * 從卡片內容取出標題與內文。
  *
- * ⚠️ **一定要在剝掉 HTML 之前分**。`stripHtml` 會把區塊元素之間壓成一個空格，
- * 所以 `<h2>標題</h2><p>內文</p>` 剝完是「標題 內文」一整行——那時候再怎麼切
- * 都分不出標題。（第一版就是寫成「剝完取第一行」，測試當場抓到。）
+ * 有 H1/H2 就拿它當標題（與桌機 `splitTitleBody` 同一套規則）；沒有標題標籤的卡
+ * ——速記卡、以及在手機上編輯過的卡——才退成「第一行當標題」。
  *
- * 有 H1/H2 就用桌機那套 `splitTitleBody`（單一真相來源）；沒有標題標籤的卡
- * ——速記卡就是純文字——才退成「第一行當標題」。
+ * ⚠️⚠️ **這裡的 body 是「可以存回去的全文」，不是預覽字串**，兩件事因此不能省：
+ *
+ * ① **不截斷**。桌機 `splitTitleBody` 預設截到 200 字，那是給卡片庫**預覽格子**用的；
+ *    手機的 body 卻會被 `MobileBrowse` 當成編輯草稿的原文 ⇒ 沿用預設值等於
+ *    「在手機上編輯一次，200 字以後的內容就永久消失」。2026-08-04 真的吃掉了
+ *    8/3 的日記（存回去只剩 207 字，斷在句子中間）。
+ * ② **保留行**。存檔走 `plainTextToHtml`（一行一個 `<p>`、**沒有 `\n`**），所以若這裡
+ *    把行壓成空格，下一次讀回來就只剩一行 ⇒ 整篇變成標題、body 空的，再編一次
+ *    段落就全黏死。往返要穩定，切行與組行必須是同一套規則。
+ *
+ * 剩下的已知損耗（**還沒解**）：粗體、清單、`<h2>` 以外的結構在手機編輯後回不來，
+ * 因為手機編的就是純文字。第一次編輯 h2 卡時標題會降級成普通段落。
  */
 export function splitCardText(html: string): { title: string; body: string } {
-    const viaHeading = splitTitleBody(html)
-    if (viaHeading.title) return { title: viaHeading.title, body: viaHeading.body }
+    const hMatch = html.match(/<h[12][^>]*>([\s\S]*?)<\/h[12]>/i)
+    if (hMatch) {
+        const title = stripHtml(hMatch[1])
+        if (title) {
+            const rest = html.replace(/<h[12][^>]*>[\s\S]*?<\/h[12]>/i, ' ')
+            return { title, body: htmlToLines(rest).join('\n') }
+        }
+    }
 
-    // ⚠️ 同樣的理由要再小心一次：`stripHtml` 連純文字裡的換行也會壓成空格，
-    // 所以要**先按換行切、再逐行剝**，不能剝完才切。
-    const lines = html.split('\n').map(l => stripHtml(l).trim()).filter(Boolean)
+    const lines = htmlToLines(html)
     if (lines.length === 0) return { title: '', body: '' }
-    return { title: lines[0], body: lines.slice(1).join(' ') }
+    return { title: lines[0], body: lines.slice(1).join('\n') }
 }
 
 /** 把一張 snapshot card shape 轉成顯示模型 */
