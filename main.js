@@ -110,6 +110,24 @@ function createWindow() {
     },
     
   });
+  // 連結卡的 YouTube 內嵌：正式版與 ELECTRON_PROD_TEST 都用 file:// 載入 ⇒ 送不出 Referer、
+  // origin 是 null ⇒ YouTube 的 embed 直接拒播。實測（含「確定可嵌」的對照影片與
+  // youtube-nocookie 版本）三者全掛，所以不是影片本身關掉嵌入。這裡只替 youtube 網域補 Referer。
+  //
+  // ⚠️ 三件事都是實測出來的，別憑直覺改：
+  //   ① Referer 不能填 youtube.com 自己 —— 錯誤碼會從 153 變成 152-4，一樣播不了。
+  //   ② 不可以順手加 Origin —— 播放器內部的 youtubei API 會回 403，整個畫面白掉。
+  //   ③ 不要改 renderer 自己的 origin 來解 —— IndexedDB 按 origin 分隔，換掉＝整份 vault 讀不到。
+  const YT_REFERER = 'https://scout-astrolabe.app/'; // 只是一個合法的 https 來源，不需要真實存在
+  win.webContents.session.webRequest.onBeforeSendHeaders(
+    { urls: ['https://*.youtube.com/*', 'https://*.youtube-nocookie.com/*'] },
+    (details, callback) => {
+      const requestHeaders = { ...details.requestHeaders };
+      if (!requestHeaders.Referer) requestHeaders.Referer = YT_REFERER;
+      callback({ requestHeaders });
+    }
+  );
+
   // 💡 加入這段：攔截所有 window.open 或 target="_blank" 的連結
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith('http')) {
