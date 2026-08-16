@@ -32,6 +32,7 @@ import {
     Pilcrow, Heading1, Heading2, Heading3, List, ListOrdered, Quote, SquareCode, Minus,
     Sigma, Bold, Italic, Underline, Strikethrough, Highlighter, Code,
     Timer, Play, Pause, RotateCcw, SkipForward,
+    Magnet, Grid2x2,
 } from 'lucide-react'
 
 /** 線寬：1.75 比 lucide 預設的 2 細一點，跟 13–14px 的中文字重比較搭。 */
@@ -123,6 +124,11 @@ const REGISTRY = {
     alignBottom: AlignEndHorizontal,
     distributeX: AlignHorizontalDistributeCenter,
     distributeY: AlignVerticalDistributeCenter,
+    // 重新整理＝把選取的卡片打包成格狀；磁吸＝拖曳時吸附到別張卡的邊／中心
+    // ⚠️ 不用 LayoutGrid：它已經是「總覽」與「格狀檢視」的圖示，
+    // 同一顆圖代表三件事會讓人分不出來（本檔的規則是一圖一義）。
+    tidy: Grid2x2,
+    snap: Magnet,
 
     // 右鍵選單：批次狀態／優先級
     // 狀態走「同一顆圓的四種狀態」，優先級走 Signal 高低階梯 —— 兩組都靠**形狀**

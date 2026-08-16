@@ -1,7 +1,10 @@
 import { useState, useRef, useEffect, type ReactNode } from "react"
 import { useEditor, DefaultColorStyle, DefaultSizeStyle } from "tldraw"
 import { Z_TOOL_SUBMENU, Z_MODAL } from "./constants"
-import type { TLDefaultColorStyle, TLDefaultSizeStyle } from "tldraw"
+import type { TLDefaultColorStyle, TLDefaultSizeStyle, TLShapeId } from "tldraw"
+import { useSnapMode } from "./hooks/useSnapMode"
+import { resolveTidyTargets, TIDY_GAP } from "./utils/snapPref"
+import { showToast } from "./utils/toast"
 import { GeoShapeGeoStyle } from "@tldraw/tlschema"
 import type { TLGeoShapeGeoStyle } from "@tldraw/tlschema"
 import type { TLCardShape, CardType } from "./components/card-shape/type/CardShape"
@@ -401,8 +404,9 @@ function SidebarButton({
 /* ================================================
    對齊子選單
 ================================================ */
-function AlignSubmenu({ onAlign, alignMenuBg, alignMenuBorder, btnHover }: {
+function AlignSubmenu({ onAlign, onTidy, alignMenuBg, alignMenuBorder, btnHover }: {
     onAlign: (dir: 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom') => void
+    onTidy: () => void
     alignMenuBg?: string
     alignMenuBorder?: string
     btnHover?: string
@@ -472,6 +476,23 @@ function AlignSubmenu({ onAlign, alignMenuBg, alignMenuBorder, btnHover }: {
                             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                         ><Icon name={btn.icon} size="md" /></button>
                     ))}
+
+                    {/* 重新整理：跨滿三欄，因為它不是「第七個對齊方向」而是另一種操作
+                        （對齊只動一個軸，這個會重新擺放全部選取的卡）。 */}
+                    <button
+                        onClick={() => { onTidy(); setOpen(false) }}
+                        title="重新整理（把選取的卡片排成格狀）"
+                        style={{
+                            gridColumn: '1 / -1', marginTop: 4, height: 30, borderRadius: 6,
+                            border: `1px solid ${menuBorder}`, background: 'transparent', cursor: 'pointer',
+                            // ⚠️ inline-flex 不能省：<Icon> 的 svg 是 display:block，
+                            // 放進預設 inline-block 的按鈕會自己占一行、圖示疊到文字上。
+                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+                            color: T.textPrimary, fontSize: 12, whiteSpace: 'nowrap',
+                        }}
+                        onMouseEnter={e => (e.currentTarget.style.background = hBg)}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                    ><Icon name="tidy" size="sm" />重新整理</button>
                 </div>
             )}
         </div>
@@ -779,6 +800,7 @@ export default function TldrawToolPanel({
     const editor = useEditor()
     const currentTool = editor.getCurrentToolId()
     const setTool = (tool: string) => editor.setCurrentTool(tool)
+    const { snap, toggle: toggleSnap } = useSnapMode(editor)
     const draggingCardType = useRef<string | null>(null)
     const toolbarRef = useRef<HTMLDivElement>(null)
 
@@ -930,6 +952,18 @@ export default function TldrawToolPanel({
         editor.updateShapes(updates)
     }
 
+    /* ── 重新整理（把選取的卡片打包成格狀）──
+       用 tldraw 內建的 packShapes（potpack），不自己算格線：它會就地置中，
+       不會把整批卡搬到別的地方去。 */
+    const tidySelected = () => {
+        const targets = resolveTidyTargets(editor.getSelectedShapeIds())
+        if (!targets) {
+            showToast('先選取 2 張以上的卡片再重新整理', 'info')
+            return
+        }
+        editor.packShapes(targets as TLShapeId[], TIDY_GAP)
+    }
+
     /* ── Theme tokens ── */
     const panelBg      = T.bgPanel
     const panelBorder  = `1px solid ${T.borderLight}`
@@ -1011,7 +1045,19 @@ export default function TldrawToolPanel({
                 {/* ── 對齊工具 ── */}
                 <AlignSubmenu
                     onAlign={alignSelected}
+                    onTidy={tidySelected}
                     alignMenuBg={alignMenuBg} alignMenuBorder={alignMenuBorder} btnHover={btnHover}
+                />
+
+                {/* ── 磁吸開關 ──
+                    吸附本身是 tldraw editor 層做的，這顆只是把它的 isSnapMode 偏好
+                    露出來（hideUi 讓 tldraw 自己的偏好選單碰不到）。 */}
+                <SidebarButton
+                    icon={<Icon name="snap" size="md" />}
+                    label={snap ? '磁吸：開（點擊關閉）' : '磁吸：關（點擊開啟）'}
+                    onClick={toggleSnap}
+                    isActive={snap}
+                    {...shared}
                 />
             </div>
         </>
