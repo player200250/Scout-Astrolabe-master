@@ -16,6 +16,7 @@ export type PanelName =
     | 'reviewCenter'
     | 'backup'
     | 'knowledgeGraph'
+    | 'pomodoro'
     | 'cardLibrary'
     | 'quickCapture'
     | 'onboarding'
@@ -32,7 +33,7 @@ export type PanelState = Record<PanelName, boolean>
 
 export const PANEL_NAMES: PanelName[] = [
     'search', 'hotkey', 'overview', 'taskCenter', 'filter',
-    'reviewCenter', 'backup', 'knowledgeGraph', 'cardLibrary',
+    'reviewCenter', 'backup', 'knowledgeGraph', 'pomodoro', 'cardLibrary',
     'quickCapture', 'onboarding', 'trash', 'quickSwitcher', 'overdueBanner',
     'dataSafety', 'commandPalette', 'inboxTriage', 'tagManager', 'cloudSync',
 ]

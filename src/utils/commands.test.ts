@@ -6,7 +6,7 @@ import { buildCommands, filterCommands, type CommandActions } from './commands'
 const makeActions = (): CommandActions => ({
     goHome: vi.fn(), goToInbox: vi.fn(), openOverview: vi.fn(), newBoard: vi.fn(),
     quickCapture: vi.fn(), openInboxTriage: vi.fn(), openSearch: vi.fn(), openCardLibrary: vi.fn(), openTaskCenter: vi.fn(),
-    openReviewCenter: vi.fn(), openKnowledgeGraph: vi.fn(), openFilter: vi.fn(),
+    openReviewCenter: vi.fn(), openKnowledgeGraph: vi.fn(), openPomodoro: vi.fn(), openFilter: vi.fn(),
     openTagManager: vi.fn(), openTrash: vi.fn(),
     openBackup: vi.fn(), openDataSafety: vi.fn(), toggleTheme: vi.fn(), openOnboarding: vi.fn(), openHotkey: vi.fn(),
 })

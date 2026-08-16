@@ -1,6 +1,9 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useBoardManager } from './hooks/useBoardManager'
 import { usePanelState } from './hooks/usePanelState'
+import { usePomodoro } from './hooks/usePomodoro'
+import { PomodoroPanel } from './components/PomodoroPanel'
+import { formatRemaining } from './utils/pomodoro'
 import { ThemeProvider } from './theme/ThemeContext'
 import { CloudSyncPanel } from './components/CloudSyncPanel'
 import { ToastHost } from './components/ui/ToastHost'
@@ -59,6 +62,8 @@ export default function App() {
         try { return localStorage.getItem('theme') === 'dark' } catch { return false }
     })
     const { panels, openPanel, closePanel, togglePanel } = usePanelState()
+    // ⚠️ 掛在這裡而不是面板裡：面板關掉計時器必須繼續跑。
+    const pomodoro = usePomodoro()
     const [movingCardShapeIds, setMovingCardShapeIds] = useState<string[] | null>(null)
     // 陣列而非單一 id：批次刪除（多選、清理重複）要一次確認全部。
     // 舊版是 string | null，呼叫端跑 forEach 只會留下最後一個 → 其餘靜默不刪。
@@ -144,6 +149,7 @@ export default function App() {
         openTaskCenter: () => openPanel('taskCenter'),
         openReviewCenter: () => openPanel('reviewCenter'),
         openKnowledgeGraph: () => openPanel('knowledgeGraph'),
+        openPomodoro: () => openPanel('pomodoro'),
         openFilter: () => openPanel('filter'),
         openTagManager: () => openPanel('tagManager'),
         openTrash: () => openPanel('trash'),
@@ -171,6 +177,7 @@ export default function App() {
         : panels.taskCenter ? 'taskCenter'
         : panels.reviewCenter ? 'reviewCenter'
         : panels.knowledgeGraph ? 'knowledgeGraph'
+        : panels.pomodoro ? 'pomodoro'
         : null
 
     const inboxCardCount = useMemo(() => {
@@ -276,6 +283,7 @@ export default function App() {
                 inboxCardCount={inboxCardCount}
                 overdueCount={overdueCount}
                 todayCount={todayCount}
+                pomodoroNote={pomodoro.running ? formatRemaining(pomodoro.remaining) : null}
                 activePanel={activePanel}
                 trashCount={trashCount}
                 onCreateFolder={handleCreateFolder}
@@ -300,6 +308,7 @@ export default function App() {
                 />
             )}
             {panels.hotkey && <HotkeyPanel onClose={() => closePanel('hotkey')} />}
+            {panels.pomodoro && <PomodoroPanel {...pomodoro} onClose={() => closePanel('pomodoro')} />}
             {panels.taskCenter && (
                 <TaskCenter
                     boards={boards}

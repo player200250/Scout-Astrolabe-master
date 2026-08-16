@@ -25,6 +25,11 @@ interface NavItemDef {
     onClick: () => void
     isActive: boolean
     badge?: { count: number; color: string }
+    /**
+     * 徽章放不下的短文字（目前只有番茄鐘的倒數 "24:31"）。
+     * 不塞進 badge 是因為 badge.count 是數字，把「剩幾分鐘」顯示成計數會被讀成「有幾件事」。
+     */
+    note?: string
 }
 
 /**
@@ -68,6 +73,8 @@ interface BoardTabBarProps {
     inboxCardCount: number
     overdueCount: number
     todayCount: number
+    /** 番茄鐘進行中的倒數（"24:31"）；沒在跑時為 null，側欄就不顯示。 */
+    pomodoroNote?: string | null
     activePanel?: string | null
     trashCount?: number
     onCreateFolder: (name: string) => void
@@ -96,7 +103,7 @@ function SortableBoardItem({ id, children }: { id: string; children: React.React
     )
 }
 
-export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelete, onOpenPanel, onSetJournal, navigationStack, onBack, onSetParent, onSwitchToChild, collapsed, onToggleCollapse, onSetStatus, onGoToInbox,  onToggleTheme, onReorderBoards, inboxCardCount, overdueCount, todayCount, activePanel, trashCount, onCreateFolder, onSetFolder, onDeleteFolder }: BoardTabBarProps) {
+export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelete, onOpenPanel, onSetJournal, navigationStack, onBack, onSetParent, onSwitchToChild, collapsed, onToggleCollapse, onSetStatus, onGoToInbox,  onToggleTheme, onReorderBoards, inboxCardCount, overdueCount, todayCount, pomodoroNote, activePanel, trashCount, onCreateFolder, onSetFolder, onDeleteFolder }: BoardTabBarProps) {
     const [hoveredId, setHoveredId] = useState<string | null>(null)
     const [renamingId, setRenamingId] = useState<string | null>(null)
     const [contextMenu, setContextMenu] = useState<{ boardId: string; y: number } | null>(null)
@@ -217,6 +224,7 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                         { icon: 'taskCenter', label: '任務中心', title: '任務中心', onClick: () => onOpenPanel('taskCenter'), isActive: activePanel === 'taskCenter', badge: (overdueCount > 0 || todayCount > 0) ? { count: overdueCount > 0 ? overdueCount : todayCount, color: overdueCount > 0 ? '#ef4444' : '#f97316' } : undefined },
                         { icon: 'reviewCenter', label: '復盤中心', title: '復盤中心 (Ctrl+Shift+C)', onClick: () => onOpenPanel('reviewCenter'), isActive: activePanel === 'reviewCenter' },
                         { icon: 'knowledgeGraph', label: '知識圖譜', title: '知識圖譜 (Ctrl+Shift+G)', onClick: () => onOpenPanel('knowledgeGraph'), isActive: activePanel === 'knowledgeGraph' },
+                        { icon: 'pomodoro', label: '番茄鐘', title: '番茄鐘', onClick: () => onOpenPanel('pomodoro'), isActive: activePanel === 'pomodoro', note: pomodoroNote ?? undefined },
                         { icon: 'trash', label: '垃圾桶', title: '垃圾桶 (Ctrl+Shift+T)', onClick: () => onOpenPanel('trash'), isActive: false, badge: (trashCount ?? 0) > 0 ? { count: trashCount!, color: '#94a3b8' } : undefined },
                     ]
                     if (collapsed) {
@@ -245,6 +253,10 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                                             <span style={{ position: 'absolute', top: 0, right: 0, background: item.badge.color, color: 'white', fontSize: 8, fontWeight: 700, borderRadius: 999, minWidth: 12, height: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 2px', lineHeight: 1, border: '1.5px solid var(--bg-sidebar)', pointerEvents: 'none' }}>
                                                 {item.badge.count > 99 ? '99+' : item.badge.count}
                                             </span>
+                                        )}
+                                        {/* 收合時放不下 "24:31"，改用一個綠點表示「還在跑」 */}
+                                        {!item.badge && item.note && (
+                                            <span style={{ position: 'absolute', top: 1, right: 1, width: 7, height: 7, borderRadius: 999, background: '#16a34a', border: '1.5px solid var(--bg-sidebar)', pointerEvents: 'none' }} />
                                         )}
                                     </div>
                                 ))}
@@ -278,6 +290,12 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                                     {item.badge && (
                                         <span style={{ marginRight: 10, background: item.badge.color, color: 'white', fontSize: 10, fontWeight: 700, borderRadius: 999, padding: '1px 5px', minWidth: 16, textAlign: 'center', lineHeight: '16px', flexShrink: 0 }}>
                                             {item.badge.count > 99 ? '99+' : item.badge.count}
+                                        </span>
+                                    )}
+                                    {!item.badge && item.note && (
+                                        // 等寬數字，否則秒數跳動時整排字會左右抖
+                                        <span style={{ marginRight: 10, fontSize: 11, color: '#16a34a', fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>
+                                            {item.note}
                                         </span>
                                     )}
                                 </button>
