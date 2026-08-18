@@ -23,23 +23,36 @@ export function stripHtml(html: string): string {
 }
 
 /**
- * 將卡片 HTML 拆為「標題 + 內文」，供卡片庫列表/格狀分層顯示，
- * 打破文字卡「整片都是字」的辨識困難（B6/D5）。
+ * 將卡片 HTML 拆為「標題 + 完整內文」（**不截斷**）。
  *
  * - 若含 H1/H2：標題取其純文字，內文取「移除該標題後」的純文字（避免標題與內文重複）
- * - 否則：標題為 null，內文為整段純文字（呼叫端照舊只顯示內文）
+ * - 否則：標題為 null，內文為整段純文字
  *
- * 內文以 `bodyLimit`（預設 200）字元截斷。依賴 `stripHtml`（需 DOM 環境）。
+ * ⚠️ 預覽用途請走 `splitTitleBody`（會截斷）。**要拿內文去搜尋／比對的一律用這個**——
+ * 截斷過的預覽字串只代表卡片的前 200 字，拿它當內容的全貌會安靜地漏掉後面所有文字
+ * （卡片庫的搜尋就這樣漏了三個月：188 張卡只有前 200 字搜得到，搜不到看起來像卡片不存在）。
+ * 呼叫 `stripHtml` 一次，兩種用途共用結果。
  */
-export function splitTitleBody(html: string, bodyLimit = 200): { title: string | null; body: string } {
+export function splitTitleBodyFull(html: string): { title: string | null; body: string } {
     if (!html) return { title: null, body: '' }
     const hMatch = html.match(/<h[12][^>]*>([\s\S]*?)<\/h[12]>/i)
     if (hMatch) {
         const title = hMatch[1].replace(/<[^>]+>/g, '').trim()
         if (title) {
             const rest = html.replace(/<h[12][^>]*>[\s\S]*?<\/h[12]>/i, ' ')
-            return { title, body: stripHtml(rest).slice(0, bodyLimit) }
+            return { title, body: stripHtml(rest) }
         }
     }
-    return { title: null, body: stripHtml(html).slice(0, bodyLimit) }
+    return { title: null, body: stripHtml(html) }
+}
+
+/**
+ * 將卡片 HTML 拆為「標題 + 內文」，供卡片庫列表/格狀分層顯示，
+ * 打破文字卡「整片都是字」的辨識困難（B6/D5）。
+ *
+ * 內文以 `bodyLimit`（預設 200）字元截斷。依賴 `stripHtml`（需 DOM 環境）。
+ */
+export function splitTitleBody(html: string, bodyLimit = 200): { title: string | null; body: string } {
+    const { title, body } = splitTitleBodyFull(html)
+    return { title, body: body.slice(0, bodyLimit) }
 }

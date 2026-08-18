@@ -4,7 +4,7 @@ import type { ReactNode } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import type { BoardRecord } from './db'
 import { getCardShapes } from './utils/snapshot'
-import { splitTitleBody } from './utils/stringUtils'
+import { splitTitleBodyFull } from './utils/stringUtils'
 import { CARD_TYPE_ICON, TYPE_LABEL, TYPE_COLOR, hexToRgba, STATUS_ICON, STATUS_LABEL, PRIORITY_ICON, PRIORITY_LABEL } from './utils/cardMeta'
 import { Icon } from './components/ui/icons'
 import { loadTagColors, getTagColor, type TagColorMap } from './utils/tagColors'
@@ -27,6 +27,8 @@ interface LibraryCard {
     type: LibCardType
     title: string | null
     preview: string
+    /** 全文（未截斷）。只給搜尋用，不顯示——顯示一律走 `preview`。 */
+    searchText: string
     tags: string[]
     status: StatusType
     priority: PriorityType
@@ -45,6 +47,8 @@ export interface CardLibraryProps {
 const ALL_TYPES: LibCardType[]    = ['text', 'todo', 'link', 'journal', 'heading', 'sticky', 'table', 'color', 'file']
 const ALL_STATUSES: StatusType[]  = ['none', 'todo', 'in-progress', 'done']
 const ALL_PRIORITIES: PriorityType[] = ['none', 'low', 'medium', 'high']
+/** 列表／格狀顯示的內文字數上限。**只影響顯示，不影響搜尋**（搜尋走 `searchText` 全文）。 */
+const PREVIEW_LIMIT = 200
 
 // 只留顏色。文字標籤走共用的 STATUS_LABEL／PRIORITY_LABEL（utils/cardMeta）。
 // ⚠️ P6 當年在這裡把「無」改寫成「未設定」，但只改了卡片庫這一份 —— 同一個值
@@ -161,11 +165,14 @@ export function CardLibrary({ boards, onJump, onClose }: CardLibraryProps) {
                 const t = shape.props.type
                 if (t !== 'text' && t !== 'todo' && t !== 'link' && t !== 'journal' && t !== 'heading' && t !== 'sticky' && t !== 'table' && t !== 'color' && t !== 'file') continue
                 let preview = ''
+                let searchText = ''
                 let title: string | null = null
                 if (t === 'table') {
                     const td = (shape.props as { tableData?: { cells: { content: string }[] }[] }).tableData ?? []
                     const headers = td[0]?.cells.map(c => c.content).filter(Boolean).join(' | ') ?? ''
                     preview = headers || '（表格）'
+                    // 預覽只放表頭，但搜尋要吃得到每一格
+                    searchText = td.flatMap(r => r.cells.map(c => c.content)).filter(Boolean).join(' ')
                 } else if (t === 'color') {
                     const sw = (shape.props as { swatches?: { hex: string; name: string }[] }).swatches ?? []
                     preview = sw.map(s => s.name ? `${s.hex} ${s.name}` : s.hex).join('  ') || '（顏色樣本）'
@@ -178,9 +185,12 @@ export function CardLibrary({ boards, onJump, onClose }: CardLibraryProps) {
                     preview = size ? `${name}（${size}）` : name
                 } else {
                     /* B6/D5 — 文字類卡片拆「標題（H1/H2）＋內文」分層，打破整片文字感 */
-                    const split = splitTitleBody(shape.props.text ?? '')
+                    const split = splitTitleBodyFull(shape.props.text ?? '')
                     title = split.title
-                    preview = split.body
+                    preview = split.body.slice(0, PREVIEW_LIMIT)
+                    // ⚠️ 搜尋吃全文不吃 preview：卡片超過 200 字的部分本來永遠搜不到，
+                    // 而且搜不到跟「沒有這張卡」長得一模一樣（2026-08-18 修）
+                    searchText = split.body
                 }
                 cards.push({
                     shapeId: shape.id,
@@ -189,6 +199,7 @@ export function CardLibrary({ boards, onJump, onClose }: CardLibraryProps) {
                     type: t as LibCardType,
                     title,
                     preview,
+                    searchText: searchText || preview,
                     tags: Array.isArray(shape.props.tags) ? (shape.props.tags as string[]) : [],
                     status: parseStatus(shape.props.cardStatus),
                     priority: parsePriority(shape.props.priority),
@@ -212,7 +223,7 @@ export function CardLibrary({ boards, onJump, onClose }: CardLibraryProps) {
         const q = search.trim().toLowerCase()
         let cards = allCards
         if (q) cards = cards.filter(c =>
-            c.preview.toLowerCase().includes(q) ||
+            c.searchText.toLowerCase().includes(q) ||
             (c.title?.toLowerCase().includes(q) ?? false) ||
             c.boardName.toLowerCase().includes(q) ||
             c.tags.some(t => t.toLowerCase().includes(q))
