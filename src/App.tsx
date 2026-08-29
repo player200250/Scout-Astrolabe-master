@@ -1,6 +1,9 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useBoardManager } from './hooks/useBoardManager'
 import { usePanelState } from './hooks/usePanelState'
+import { useTheme } from './hooks/useTheme'
+import { useOverdueStats } from './hooks/useOverdueStats'
+import { useGlobalHotkeys } from './hooks/useGlobalHotkeys'
 import { usePomodoro } from './hooks/usePomodoro'
 import { PomodoroPanel } from './components/PomodoroPanel'
 import { formatRemaining } from './utils/pomodoro'
@@ -34,7 +37,6 @@ import { TrashPanel } from './TrashPanel'
 import { DeleteBoardDialog } from './components/DeleteBoardDialog'
 import { SIDEBAR_WIDTH, SIDEBAR_COLLAPSED_WIDTH, INBOX_BOARD_ID, JUMP_DELAY_MS, Z_MODAL_BACKDROP } from './constants'
 import { getCardShapes } from './utils/snapshot'
-import { getTodayStr } from './utils/date'
 import 'tldraw/tldraw.css'
 import { T } from './theme/tokens'
 
@@ -58,9 +60,7 @@ export default function App() {
         migrateAllNow,
     } = useBoardManager()
 
-    const [isDark, setIsDark] = useState(() => {
-        try { return localStorage.getItem('theme') === 'dark' } catch { return false }
-    })
+    const { isDark, toggleTheme } = useTheme()
     const { panels, openPanel, closePanel, togglePanel } = usePanelState()
     // ⚠️ 掛在這裡而不是面板裡：面板關掉計時器必須繼續跑。
     const pomodoro = usePomodoro()
@@ -73,22 +73,7 @@ export default function App() {
     const [reviewTab, setReviewTab] = useState<ReviewTab>('calendar')
     const bannerShownRef = useRef(false)
 
-    const { overdueCount, todayCount } = useMemo(() => {
-        const todayStr = getTodayStr()
-        let overdue = 0
-        let today = 0
-        for (const board of boards) {
-            for (const shape of getCardShapes(board.snapshot)) {
-                if (shape.props.type !== 'todo') continue
-                for (const t of shape.props.todos ?? []) {
-                    if (t.checked || !t.dueDate) continue
-                    if (t.dueDate < todayStr) overdue++
-                    else if (t.dueDate === todayStr) today++
-                }
-            }
-        }
-        return { overdueCount: overdue, todayCount: today }
-    }, [boards])
+    const { overdueCount, todayCount } = useOverdueStats(boards)
 
     useEffect(() => {
         if (loading) return
@@ -123,14 +108,6 @@ export default function App() {
         if (ids.length > 0) setDeletingBoardIds(ids)
     }, [])
 
-    const toggleTheme = useCallback(() => {
-        setIsDark(prev => {
-            const next = !prev
-            try { localStorage.setItem('theme', next ? 'dark' : 'light') } catch { /* empty */ }
-            return next
-        })
-    }, [])
-
     const goHome = useCallback(() => {
         const home = boards.find(b => b.isHome)
         if (home) handleSwitch(home.id)
@@ -160,10 +137,6 @@ export default function App() {
         openHotkey: () => openPanel('hotkey'),
     }), [goHome, handleGoToInbox, handleNew, openPanel, toggleTheme])
 
-    useEffect(() => {
-        document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light')
-    }, [isDark])
-
     // N3：托盤選單／全域快捷鍵（Ctrl+Shift+Space）觸發快速捕捉。
     // 非 Electron（PWA）環境沒有 electronAPI，optional chaining 直接跳過。
     useEffect(() => {
@@ -186,52 +159,7 @@ export default function App() {
         return getCardShapes(inboxBoard.snapshot).length
     }, [boards])
 
-    useEffect(() => {
-        const handler = (e: KeyboardEvent) => {
-            if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'o') {
-                e.preventDefault()
-                togglePanel('overview')
-            }
-            if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'c') {
-                e.preventDefault()
-                togglePanel('reviewCenter')
-            }
-            if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'i') {
-                e.preventDefault()
-                handleGoToInbox()
-            }
-            if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'g') {
-                e.preventDefault()
-                togglePanel('knowledgeGraph')
-            }
-            if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'l') {
-                e.preventDefault()
-                togglePanel('cardLibrary')
-            }
-            if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key === ' ') {
-                e.preventDefault()
-                togglePanel('quickCapture')
-            }
-            if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 't') {
-                e.preventDefault()
-                togglePanel('trash')
-            }
-            if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'e') {
-                e.preventDefault()
-                togglePanel('inboxTriage')
-            }
-            if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'p') {
-                e.preventDefault()
-                openPanel('quickSwitcher')
-            }
-            if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'k') {
-                e.preventDefault()
-                togglePanel('commandPalette')
-            }
-        }
-        window.addEventListener('keydown', handler)
-        return () => window.removeEventListener('keydown', handler)
-    }, [handleGoToInbox, togglePanel, openPanel])
+    useGlobalHotkeys({ openPanel, togglePanel, goToInbox: handleGoToInbox })
 
     if (loading) return <div style={{ height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>Loading...</div>
 
