@@ -143,7 +143,7 @@ export function TrashPanel({
         await onEmptyTrash()
         setDeletedCards([])
         setDeletedBoards([])
-    }, [onEmptyTrash, deletedCards])
+    }, [onEmptyTrash, deletedCards, cancelConfirm])
 
     const totalCount = deletedCards.length + deletedBoards.length
 

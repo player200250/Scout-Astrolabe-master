@@ -873,15 +873,21 @@ export default function TldrawToolPanel({
     }
 
     /* ── 拖曳放下 ── */
+    // `handleCardDrop` 宣告在本 effect 之後，且每次 render 都是新的 reference，
+    // 直接放進依賴會踩到 TDZ、拿掉依賴又會永遠停在第一次 render 的版本
+    // （它閉包了 openImageInput / createBoardCard，那兩個換人時拖放就會呼叫到舊的）。
+    // 用一支「永遠指向最新版」的 ref 兩邊都解決：監聽只掛一次，執行時取當下的實作。
+    const handleCardDropRef = useRef<(cardType: string, clientX: number, clientY: number) => void>(() => {})
+
     useEffect(() => {
         const handleDragEnd = (e: DragEvent) => {
             if (!draggingCardType.current) return
-            handleCardDrop(draggingCardType.current, e.clientX, e.clientY)
+            handleCardDropRef.current(draggingCardType.current, e.clientX, e.clientY)
             draggingCardType.current = null
         }
         document.addEventListener('dragend', handleDragEnd)
         return () => document.removeEventListener('dragend', handleDragEnd)
-    }, [editor])
+    }, [])
 
     const handleCardDrop = (cardType: string, clientX: number, clientY: number) => {
         const pagePoint = editor.screenToPage({ x: clientX, y: clientY })
@@ -928,6 +934,7 @@ export default function TldrawToolPanel({
         const h = (props?.h as number) ?? 160
         editor.createShape({ type: 'card', x: pagePoint.x - w / 2, y: pagePoint.y - h / 2, props })
     }
+    handleCardDropRef.current = handleCardDrop
 
     /* ── 對齊 ── */
     const alignSelected = (direction: 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom') => {

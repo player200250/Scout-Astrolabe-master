@@ -96,6 +96,9 @@ export function useBoardManager() {
             setLoading(false)
             refreshTrashCount()
         })
+        // 這段是「開機一次」的載入流程（清備份、清過期垃圾桶、sanitize、設起始白板）。
+        // 依賴 ESLint 想補的兩個就會在它們變動時重跑整段開機，故刻意留空陣列。
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
     const handleSwitch = useCallback((id: string) => {
@@ -110,7 +113,7 @@ export function useBoardManager() {
             setActiveBoardId(id)
             setNavigationStack([id])
         }
-    }, [activeBoardId, boards, triggerAutoBackup])
+    }, [activeBoardId, boards, triggerAutoBackup, setNavigationStack])
 
     const handleSwitchToChild = useCallback((childId: string) => {
         const child = boards.find(b => b.id === childId)
@@ -125,7 +128,7 @@ export function useBoardManager() {
             if (idx >= 0) return prev.slice(0, idx + 1)
             return [...prev, childId]
         })
-    }, [boards])
+    }, [boards, setNavigationStack])
 
     const handleSetParent = useCallback((boardId: string, parentId: string | null) => {
         const childBoard = boards.find(b => b.id === boardId)
@@ -142,7 +145,7 @@ export function useBoardManager() {
             }, 400)
         }
         if (activeBoardId === boardId && parentId === null) setNavigationStack([boardId])
-    }, [activeBoardId, boards])
+    }, [activeBoardId, boards, setNavigationStack])
 
     const handleNew = useCallback(() => {
         const name = uniqueName(`白板 ${boards.length + 1}`, boards)
@@ -151,7 +154,7 @@ export function useBoardManager() {
         setBoards(prev => [...prev, newBoard])
         setActiveBoardId(newBoard.id)
         setNavigationStack([newBoard.id])
-    }, [boards])
+    }, [boards, setNavigationStack])
 
     // N19：從白板模板一鍵新建白板。snapshot 深拷貝解耦（避免與模板/其他板共用參照）；
     // 載入時 WhiteboardTools 會 sanitize，故此處不再處理。
@@ -163,7 +166,7 @@ export function useBoardManager() {
         setBoards(prev => [...prev, newBoard])
         setActiveBoardId(newBoard.id)
         setNavigationStack([newBoard.id])
-    }, [boards])
+    }, [boards, setNavigationStack])
 
     const handlePermanentDeleteBoard = useCallback(async (id: string) => {
         try {
@@ -330,7 +333,7 @@ export function useBoardManager() {
         const firstId = restoredBoards[0]?.id ?? null
         setActiveBoardId(firstId)
         if (firstId) setNavigationStack([firstId])
-    }, [])
+    }, [setNavigationStack])
 
     const handleGoToWeeklyCard = useCallback(() => {
         const journalBoard = boards.find(b => b.isJournal)
@@ -355,7 +358,7 @@ export function useBoardManager() {
         } else if (cardId) {
             jumpRef.current?.(cardId, cardX, cardY)
         }
-    }, [boards, activeBoardId, jumpRef])
+    }, [boards, activeBoardId, jumpRef, setNavigationStack])
 
     return {
         boards,

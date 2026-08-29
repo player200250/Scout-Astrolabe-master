@@ -305,6 +305,11 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
         })
     }, [board.id, editor])
 
+    // 包成 useCallback 才能讓 useContextMenu 的 effect 把它放進依賴而不會每次 render 重掛。
+    const handleBeforeDeleteCard = useCallback((shapeId: string) => {
+        recentlyTrashedShapeIds.current.add(shapeId)
+    }, [recentlyTrashedShapeIds])
+
     const { menuElement } = useContextMenu({
         editor,
         createTextCard,
@@ -322,7 +327,7 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
         boardId: board.id,
         boardName: board.name,
         onCardTrashed,
-        onBeforeDeleteCard: (shapeId) => { recentlyTrashedShapeIds.current.add(shapeId) },
+        onBeforeDeleteCard: handleBeforeDeleteCard,
     })
 
     useEffect(() => {
@@ -348,7 +353,7 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
             recentlyTrashedShapeIds.current.delete(shapeId)
             editor.clearHistory()
         })
-    }, [editor, board.id])
+    }, [editor, board.id, recentlyTrashedShapeIds])
 
     // When Ctrl+Z restores a trashed shape, remove it from the trash DB
     useEffect(() => {
@@ -370,7 +375,7 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
             }
         }, { scope: 'document' })
         return cleanup
-    }, [editor])
+    }, [editor, recentlyTrashedShapeIds])
 
     // Restore a card from trash back into this board's editor
     useEffect(() => {
@@ -555,7 +560,7 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
         }
         document.addEventListener('paste', handlePaste, true)
         return () => document.removeEventListener('paste', handlePaste, true)
-    }, [editor, createImageCard, createMarkdownCard])
+    }, [editor, createImageCard, createMarkdownCard, createImageShape])
 
     // C4：拖 .md 檔進白板 → 在放下的位置建文字卡。
     // 走 capture 階段是為了搶在 tldraw 的 drop 處理之前（它會把不認識的檔案當 asset 吞掉）；
@@ -721,6 +726,10 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
                 }
             }
         }, 300)
+        // 這段由 `initialized` ref 守成「每次掛載只跑一次」（載入 snapshot、seed 範例卡、
+        // 補子板連結卡、補今日/本週日記卡），刻意只讀掛載當下的 `boards`。
+        // 放進依賴不會有任何效果——重跑會立刻被 initialized 擋掉——只會讓人誤以為它會跟著更新。
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [editor, board])
 
     useEffect(() => {

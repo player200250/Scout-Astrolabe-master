@@ -613,7 +613,7 @@ export function useContextMenu({
 
         window.addEventListener('contextmenu', handleContextMenu, { capture: true })
         return () => window.removeEventListener('contextmenu', handleContextMenu, { capture: true })
-    }, [editor, createTextCard, createTodoCard, createLinkCard, createHeadingCard, createStickyCard, createTableCard, createColorCard, createFileCard, openImageInput, createTextCardWithContent, isInboxBoard, onMoveCard, refreshTemplates])
+    }, [editor, createTextCard, createTodoCard, createLinkCard, createHeadingCard, createStickyCard, createTableCard, createColorCard, createFileCard, openImageInput, createTextCardWithContent, isInboxBoard, onMoveCard, refreshTemplates, boardId, boardName, onBeforeDeleteCard, onCardTrashed])
 
     const closeMenu = () => setMenu(null)
 

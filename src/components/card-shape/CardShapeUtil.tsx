@@ -96,7 +96,7 @@ function CardShapeComponent({ shape, editor }: { shape: TLCardShape; editor: Edi
                 setShowTextModal(true)
             }
         })
-    }, [shape.id])
+    }, [shape.id, editor])
 
     const handleEscape = useCallback((e: KeyboardEvent) => {
         if (e.key === 'Escape') {
