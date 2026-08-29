@@ -14,7 +14,7 @@
 
 ---
 
-## 目前狀態摘要（截至 2026-07-30）
+## 目前狀態摘要（截至 2026-08-30）
 
 | 類別 | 數量 | 說明 |
 |------|------|------|
@@ -23,8 +23,9 @@
 | Low | 0 | 全部修復（L1–L5） |
 | 設計決策 | 1 | M9：軟刪白板時不逐一歸檔內部卡片 |
 | 已修（部分）| 1 | P1-OOM：備份堆積導致 renderer OOM 白屏（備份已修，圖片治本 TD-IMG 已完成）|
-| 已修 | 5 | TD-IMG：image 卡 base64 改存實體檔（astro-img protocol + 混合式遷移）；WO4：`[[]]` 補全按 Enter 無法選取；B-LINK：指向卡片的 `[[連結]]` 點了沒反應；B-DUP：批次刪除白板只刪掉最後一塊＋「清理重複」對序號副本無效（2026-07-30）；B-JRNL：「開啟今日日記」落在月曆分頁（2026-07-30）|
-| 待觀察 | 1 | WO1：link 卡片的 title / description / thumbnail 欄位從未填充 |
+| 已修 | 7 | TD-IMG：image 卡 base64 改存實體檔（astro-img protocol + 混合式遷移）；WO4：`[[]]` 補全按 Enter 無法選取；B-LINK：指向卡片的 `[[連結]]` 點了沒反應；B-DUP：批次刪除白板只刪掉最後一塊＋「清理重複」對序號副本無效（2026-07-30）；B-JRNL：「開啟今日日記」落在月曆分頁（2026-07-30）；WO1：link 卡三欄位從未填充（實為早已實作，2026-08-29 核實結案）；B-PREV：關 App 時的圖片預覽／編輯狀態會在重開後復活（2026-08-29）|
+| 待修 | 3 | **RC1／RC2／RC3：復盤中心 UI**（2026-08-30 使用者回報，排定隔日處理）|
+| 待觀察 | 0 | 無 |
 
 ---
 
@@ -165,14 +166,95 @@
 
 ---
 
+### B-PREV：關 App 時開著的圖片預覽，重開後原樣復活擋住整個畫面 — 已修（2026-08-29）
+
+**現象**：啟動 App 就卡在全螢幕圖片遮罩（下載／新分頁／關閉那層），沒點過任何東西。
+關掉一層之後可能還有下一層（不同的卡）。**這是啟動時眼驗抓到的，不是使用者回報。**
+
+**根因**：全螢幕預覽由 `p.preview` 驅動，而它是**卡片的持久化 prop**——
+`CardShapeUtil.onDoubleClick` 用 `updateShape({ props: { preview: true } })` 打開它，
+於是這個「使用者此刻正在看圖」的瞬時狀態被寫進 snapshot、跟著自動存檔進 IndexedDB，
+下次載入原樣復活。`state: 'editing'` 同一條線
+（`isEditing = editor.getEditingShapeId() === shape.id || p.state === 'editing'`）。
+
+`sanitizeCardProps` 擋不住：它只補**缺漏／undefined** 的欄位，`preview: true` 是個有效值。
+
+**第二層**（第一次修完仍復發才發現）：清乾淨本機後重開，**遮罩換了一張圖又出現**。
+雲端那份 snapshot 也帶著髒旗標（另一台裝置或先前的自己推上去的），
+拉回來／三方合併後**直接寫 db**（刻意不走 `saveBoard`，避免推回去無窮迴圈），
+繞過啟動時的 `sanitizeBoards` ⇒ 遮罩會「從雲端長回來」。
+
+**修法**（兩處，`EPHEMERAL_CARD_PROPS = { state: 'idle', preview: false }` 為單一事實來源）：
+1. `sanitizeCardProps` 加一輪**無條件覆寫**（不是補缺漏），涵蓋啟動清理與「卡片存進垃圾桶」兩條路
+2. `boardSync.fromRemoteRow` 呼叫新的 `resetEphemeralCardProps(snapshot)`——
+   那是雲端資料進入本機的**唯一**入口（拉取／合併／「立即載入」三條路都經過它）
+
+**驗證**（CDP 實測，非推論）：雙擊圖片卡開預覽 → 等自動存檔 → 查 IndexedDB 確認
+`preview: true` 真的寫進去了 → 關掉 App → 重開 → **遮罩 0 層、DB 無髒旗標**。
+單元測試 +10（`snapshot.test.ts` 9 案、`boardSync.test.ts` 1 案），842 全綠、`tsc -b` 0。
+
+**留下的設計問題（未做）**：`preview` 本來就不該是持久化 prop，正解是移進 component state。
+沒動是因為它同時被右鍵選單等處以 `updateShape` 操作，改動面比這次的歸位大得多；
+現在的作法是「髒了就在邊界歸位」，成本低且兩條入口都堵住了。
+
+---
+
+## 復盤中心 UI（2026-08-30 回報，**待修**）
+
+使用者回報「復盤中心的 UI 介面有問題需要調整」，三項都經他確認。**尚未動手，排定隔日處理。**
+以下診斷是當天用 CDP 對真實 App 量到的，明天接手不必重查。
+
+### RC1：長日記時日期列／工具列消失、內容從中間開始 — 待修（優先）
+
+- **位置**：`src/JournalDayView.tsx:187`（編輯器容器）＋ `src/ReviewCenter.tsx:77`（body）
+- **現象**：打開內容較長的日記時，上方的日期導覽（← 2026年8月30日 →）與編輯工具列（B I U H2）
+  整排不見，內容從句子中間開始，而且**沒有捲軸可以捲回去**。
+- ⚠️ **只截到一次，當天未能穩定重現**——事後用 3198 字的日記重試時日期列仍在
+  （`navVisible: true`、`scrollTop: 0`）。**別因為第一次打開看起來正常就判定沒事。**
+- **嫌疑點（已量到，非推論）**：`JournalDayView` 回傳 Fragment，三段（日期列／工具列／編輯器）
+  直接當 `ReviewCenter` body 的 flex children。body 是 `flex column` + `overflow: hidden`，
+  編輯器那層是 `flex: 1` + `overflowY: auto`，但**computed `min-height` 是 `auto`**——
+  flex column 的經典陷阱：`flex: 1` 不會讓它縮到小於內容高度。
+  實測該容器 `clientHeight 929` vs `scrollHeight 1719`。
+- **推測的觸發路徑**：`overflow: hidden` 的容器**仍可被程式化捲動**（tiptap focus／`scrollIntoView`
+  會捲最近的可捲祖先）。一旦被捲走，因為沒有捲軸，使用者就捲不回來 ⇒ 症狀與截圖吻合。
+  **這條要先實測證實再修，不要直接照著改。**
+- **預計修法**：編輯器容器與 body 各補 `minHeight: 0`，把捲動限制在編輯器內部，
+  讓兩排 `flexShrink: 0` 的 chrome 真正固定住。
+
+### RC2：內容欄太窄、兩側留白過多 — 待修
+
+- **位置**：`ReviewCenter.tsx:93-94`（週回顧 `maxWidth: 440`）、`JournalDayView.tsx:196`（日記 `maxWidth: 680`）
+- **現象**：1920 寬的視窗下，內容鎖在中間窄欄，兩側大片空白。
+- **注意**：日記的 680 是刻意的閱讀行寬，不宜無限拉寬；**週回顧的 440 才是明顯偏窄的那個**。
+  修的時候分開判斷，不要一起放大。
+
+### RC3：月曆格子擠、文字被截斷 — 待修
+
+- **位置**：`src/CalendarView.tsx`
+- **現象**：每格塞入「📔 日記」標記加多行標題，文字截斷成半句
+  （實例：`清理「主頁白板 (2)(`），並出現「+7 更多」。
+- **待決定**：是縮減每格顯示的項目數、改成點狀密度指示，還是把標題截斷改成單行省略號。
+  這項偏設計取捨，**動手前先問使用者要哪一種**。
+
+---
+
 ## 待觀察問題
 
-### WO1：link 卡片的 title / description / thumbnail 欄位從未填充
+### ~~WO1：link 卡片的 title / description / thumbnail 欄位從未填充~~ ✅ 已解決（核實於 2026-08-29）
 
 - 位置：`CardShape.ts` TLCardProps
-- 現象：介面定義了 `title?`、`description?`、`thumbnail?`，但程式碼中無任何自動抓取邏輯
-- 影響：這三個欄位目前恆為 undefined
-- 待確認：是否為廢棄的計劃功能，或有外部填充邏輯尚未找到
+- 原記載：介面定義了 `title?`、`description?`、`thumbnail?`，但找不到自動抓取邏輯，三欄位恆為 undefined
+- **核實結果：本項自 2026-05-09（commit `0b17397`「連結卡片系列修復」）起就已不成立**，
+  這份文件漏更新了三個半月。填充路徑在 `LinkContent.tsx` 的 `updateLinkData`：
+  URL 輸入完成（`isFinal`）時 `await fetchLinkMeta(url, embedData)`，抓到什麼就填什麼
+  （`if (meta.title) …` 三行，抓不到就維持 undefined、不覆蓋既有值）。
+- 資料來源分兩條（`embedUtils.ts` 的 `fetchLinkMeta`）：
+  - **可內嵌的網域**（YouTube／Vimeo）走各家公開 oEmbed API，免 server、無 CORS 問題，回 `title` + `thumbnail`
+  - **其餘網址**退回 `getLinkPreview()` 平台接縫＝Electron 主程序的 scraper，回 `title`／`description`／`image`；
+    **網頁版（PWA）沒有這個接縫，回 null ⇒ 手機端三欄位確實仍為空**，這是平台差異不是 bug
+- 教訓：又一次「功能是藏起來不是沒有」——`CardShape.ts` 只看得到型別宣告，填充邏輯在兩層之外的
+  sub-component 裡。查「欄位沒人填」時要從**寫入端**（`updateShape` 的 payload）反查，不是從型別定義找。
 
 ### ~~WO2：CalendarView / JournalDayView 無掛載點~~ ✅ 已解決（2026-06-20）
 

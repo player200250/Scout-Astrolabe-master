@@ -33,6 +33,14 @@
 > **原藍圖尚未抽的三個**（2026-07-16 以 grep 確認 `src/` 下不存在）：`useTheme`、`useOverdueStats`、
 > `useGlobalHotkeys`。非 TD1 驗收必要，視後續需要再做。
 >
+> **✅ 2026-08-29 補完，TD1 四個步驟全數收尾**：三支都抽出來了，App.tsx **498 → 426 行**。
+> 兩支順手多做一層——`useOverdueStats` 把計算抽成純函式 `countDueTodos(boards, todayStr)`，
+> `useGlobalHotkeys` 把原本 10 個幾乎一樣的 `if` 收成 `HOTKEYS` 對照表＋純函式 `matchHotkey(e)`，
+> 之後加快捷鍵只要加一列。**行為刻意逐字保留**（含「帶 Shift 的組合不檢查 altKey」這個原本的判斷），
+> 沒有順手改。安全網 +28 測試（6 / 8 / 14），`tsc -b` 0、870 測試全綠。
+>
+> App.tsx 組裝層仍然沒有冒煙測試——這個缺口**依舊存在**，三支新 hook 只各自守住自己那塊。
+>
 > 以下保留原始盤點內容作為脈絡紀錄。
 
 **原始盤點**（2026-06-20 核實，App.tsx 404 行，17 個 useState + 1 ref）：
@@ -55,10 +63,10 @@ Effects 共 4 個：onboarding 首開、逾期橫幅計時、`data-theme` 套用
 |------|------|------|------|
 | 步驟 | 產出 | 內容 | 風險 | 狀態 |
 |------|------|------|------|------|
-| 1 | `hooks/useTheme.ts` | `isDark` + `toggleTheme` + localStorage + `data-theme` effect | 🟢 最低，完全獨立 | ⬜ 未做 |
-| 2 | `hooks/useOverdueStats.ts` | `overdueCount/todayCount` memo（純算 boards） | 🟢 純函式 | ⬜ 未做 |
+| 1 | `hooks/useTheme.ts` | `isDark` + `toggleTheme` + localStorage + `data-theme` effect | 🟢 最低，完全獨立 | ✅ **已完成**（2026-08-29，+6 測試）|
+| 2 | `hooks/useOverdueStats.ts` | `overdueCount/todayCount` memo（純算 boards） | 🟢 純函式 | ✅ **已完成**（2026-08-29，抽出純函式 `countDueTodos`，+8 測試）|
 | 3 | `hooks/usePanelState.ts` | A 群 13 boolean + B 群 2 modal，統一 open/close/toggle API | 🟡 核心，動最多處 | ✅ **已完成**（`e6967de`，含逾期橫幅共 14 個） |
-| 4 | `hooks/useGlobalHotkeys.ts` | keydown effect，依賴步驟 3 的 setter | 🟡 依賴 3 | ⬜ 未做 |
+| 4 | `hooks/useGlobalHotkeys.ts` | keydown effect，依賴步驟 3 的 setter | 🟡 依賴 3 | ✅ **已完成**（2026-08-29，10 個 if → 對照表＋純函式 `matchHotkey`，+14 測試）|
 
 逾期橫幅（D 群）可併入 `usePanelState` 或留在 App。**Prop drilling 收斂（BoardTabBar 40 props → 收成 `panels` 物件或 Context）屬第二階段大手術，TD1 一期不做。**
 
