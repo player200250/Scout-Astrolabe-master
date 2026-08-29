@@ -10,6 +10,9 @@ import { Icon } from './ui/icons'
 import { isSyncConfigured } from '../sync/syncConfig'
 import { getSyncStatus } from '../sync/syncEngine'
 import { scanCloudLeftovers, cleanupCloudLeftovers, type CleanupPlan } from '../sync/cloudCleanup'
+import { scanOrphanFiles, cleanupOrphanFiles } from '../utils/localCleanup'
+import { canListStoredFiles } from '../platform/fileStore'
+import type { OrphanFilePlan } from '../utils/orphanFiles'
 
 interface DataSafetyPanelProps {
     boards: BoardRecord[]
@@ -52,6 +55,36 @@ export function DataSafetyPanel({ boards, onClose, onOpenBackup }: DataSafetyPan
         if (!r.ok) { setCleanupError(r.error ?? '清理失敗'); return }
         setPlan(null)
         showToast(`已清掉 ${r.deletedTombstones} 列墓碑、${r.deletedImages} 個孤兒圖片。`, 'success')
+    }
+
+    // ── 本機孤兒實體檔清理（N10）─────────────────────────────────────────
+    // 與雲端那組同一套節奏：掃描 → 看數字 → 按了才刪。這邊刪的是磁碟上的圖，
+    // 沒有雲端那份可以回頭撈，所以掃描條件更保守（見 utils/orphanFiles.ts）。
+    const canCleanFiles = canListStoredFiles()
+    const [fileBusy, setFileBusy] = useState<'scan' | 'delete' | null>(null)
+    const [filePlan, setFilePlan] = useState<OrphanFilePlan | null>(null)
+    const [fileError, setFileError] = useState<string | null>(null)
+
+    const handleScanFiles = async () => {
+        setFileBusy('scan'); setFileError(null); setFilePlan(null)
+        const r = await scanOrphanFiles()
+        setFileBusy(null)
+        if (!r.ok || !r.plan) { setFileError(r.error ?? '掃描失敗'); return }
+        setFilePlan(r.plan)
+    }
+
+    const handleCleanupFiles = async () => {
+        if (!filePlan) return
+        setFileBusy('delete'); setFileError(null)
+        const r = await cleanupOrphanFiles(filePlan)
+        setFileBusy(null)
+        if (!r.ok) { setFileError(r.error ?? '清理失敗'); return }
+        setFilePlan(null)
+        showToast(`已刪掉 ${r.deletedFiles} 個孤兒檔，釋出約 ${formatBytes(r.freedBytes)}。`, 'success')
+        try {
+            const e = await navigator.storage?.estimate?.()
+            if (e) setEstimate({ usage: e.usage ?? 0, quota: e.quota ?? 0 })
+        } catch { /* 忽略 */ }
     }
 
     useEffect(() => {
@@ -270,9 +303,72 @@ export function DataSafetyPanel({ boards, onClose, onOpenBackup }: DataSafetyPan
                     </Section>
                 )}
 
+                {/* 本機孤兒實體檔清理（N10） */}
+                {canCleanFiles && (
+                    <Section title="孤兒實體檔">
+                        <div style={{ background: cardBg, border: `1px solid ${border}`, borderRadius: 12, padding: '16px 18px' }}>
+                            <div style={{ fontSize: 12, color: textMuted, lineHeight: 1.7, marginBottom: 12 }}>
+                                圖片卡與檔案卡的內容存在磁碟上（<code>userData/files/</code>），snapshot 只留檔名。
+                                有些刪除路徑不會連帶刪檔——最典型的是<strong>整塊白板被永久刪除</strong>，
+                                板裡那些圖就再也沒有人提起它。這些檔不佔 IndexedDB，統計也看不到。
+                                <br />
+                                掃描會比對<strong>所有</strong>可能引用它的地方：現存白板（含垃圾桶裡還能還原的）、
+                                垃圾桶單卡、白板模板，以及<strong>自動備份</strong>。
+                                另外<strong>24 小時內修改過的檔一律跳過</strong>，避免誤刪剛貼上、參照還沒寫回資料庫的圖。
+                            </div>
+
+                            {filePlan ? (
+                                <>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 10, marginBottom: 12 }}>
+                                        <Stat label="可清孤兒檔" value={filePlan.orphans.length} hint={`約 ${formatBytes(filePlan.bytes)}`} />
+                                        <Stat label="掃描檔案" value={filePlan.scanned} hint="磁碟上的總數" />
+                                        <Stat label="太新暫不動" value={filePlan.skippedTooNew} hint="24 小時內修改過" />
+                                    </div>
+                                    {filePlan.orphans.length === 0 ? (
+                                        <div style={{ fontSize: 13, color: textMuted }}>沒有孤兒檔，磁碟是乾淨的。</div>
+                                    ) : (
+                                        <button
+                                            onClick={() => { void handleCleanupFiles() }}
+                                            disabled={fileBusy !== null}
+                                            style={{
+                                                display: 'inline-flex', alignItems: 'center', gap: 6,
+                                                padding: '7px 14px', borderRadius: 8, border: 'none',
+                                                background: T.danger, color: 'white', fontSize: 13, fontWeight: 600,
+                                                cursor: fileBusy ? 'default' : 'pointer',
+                                            }}
+                                        >
+                                            <Icon name="trash" />
+                                            {fileBusy === 'delete' ? '清理中…' : `刪除 ${filePlan.orphans.length} 個檔案（無法復原）`}
+                                        </button>
+                                    )}
+                                </>
+                            ) : (
+                                <button
+                                    onClick={() => { void handleScanFiles() }}
+                                    disabled={fileBusy !== null}
+                                    style={{
+                                        display: 'inline-flex', alignItems: 'center', gap: 6,
+                                        padding: '7px 14px', borderRadius: 8,
+                                        border: `1px solid ${border}`, background: 'transparent',
+                                        color: textPrimary, fontSize: 13, fontWeight: 500,
+                                        cursor: fileBusy ? 'default' : 'pointer',
+                                    }}
+                                >
+                                    <Icon name="search" />
+                                    {fileBusy === 'scan' ? '掃描中…' : '掃描孤兒實體檔'}
+                                </button>
+                            )}
+
+                            {fileError && (
+                                <div style={{ marginTop: 10, fontSize: 12, color: T.danger, lineHeight: 1.6 }}>{fileError}</div>
+                            )}
+                        </div>
+                    </Section>
+                )}
+
                 {/* 說明 + 入口 */}
                 <div style={{ background: T.accentBg, border: `1px solid ${T.accentBorder}`, borderRadius: 12, padding: '14px 16px', fontSize: 13, color: T.accent, lineHeight: 1.7 }}>
-                    除了保留份數之外，其餘為<strong>唯讀統計</strong>——清理個別備份請到自動備份面板，移除無用縮圖尚未開放。
+                    白板／卡片數量與體積為<strong>唯讀統計</strong>；可以動的是備份保留份數、雲端殘留與孤兒實體檔。清理個別備份請到自動備份面板。
                     <button
                         onClick={onOpenBackup}
                         style={{ marginLeft: 8, padding: '4px 12px', borderRadius: 7, border: 'none', background: '#2563eb', color: 'white', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}

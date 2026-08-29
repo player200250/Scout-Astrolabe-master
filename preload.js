@@ -15,6 +15,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   hasStoredFile: (storedName) => ipcRenderer.invoke('has-stored-file', storedName),
   readStoredFile: (storedName) => ipcRenderer.invoke('read-stored-file', storedName),
   writeStoredFile: (storedName, bytes) => ipcRenderer.invoke('write-stored-file', storedName, bytes),
+  // N10 孤兒檔清理：列出 userData/files/ 內的檔案 metadata（不含內容）。
+  listStoredFiles: () => ipcRenderer.invoke('list-stored-files'),
   // N3 托盤／全域快捷鍵觸發快速捕捉。回傳 unsubscribe 供 React cleanup 用，
   // 不然每次 effect 重跑都會多疊一個 listener。
   onTriggerQuickCapture: (callback) => {

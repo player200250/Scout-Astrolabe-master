@@ -36,3 +36,28 @@ export async function openStoredFile(storedName: string): Promise<void> {
 export function deleteStoredFile(storedName: string): void {
     window.electronAPI?.deleteFile?.(storedName)
 }
+
+/** userData/files/ 內一個實體檔的 metadata（不含內容）。 */
+export interface StoredFileInfo {
+    name: string
+    size: number
+    /** 最後修改時間（epoch ms）。用來保護「剛存進來、參照還沒寫回 DB」的新檔。 */
+    mtimeMs: number
+}
+
+/** 目前平台是否能列出實體檔（＝有 N10 的 listStoredFiles IPC）。web/舊版 preload 回 false。 */
+export function canListStoredFiles(): boolean {
+    return !!window.electronAPI?.listStoredFiles
+}
+
+/** 列出 userData/files/ 內所有實體檔的 metadata；無 API 時回空陣列。 */
+export async function listStoredFiles(): Promise<StoredFileInfo[]> {
+    const api = window.electronAPI
+    if (!api?.listStoredFiles) return []
+    try {
+        return await api.listStoredFiles()
+    } catch (err) {
+        console.error('fileStore.listStoredFiles 失敗:', err)
+        return []
+    }
+}

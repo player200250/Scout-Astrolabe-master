@@ -349,6 +349,28 @@ ipcMain.handle('read-stored-file', async (_, storedName) => {
   }
 })
 
+/**
+ * 列出 filesDir 裡的所有實體檔（N10 孤兒檔清理用）。
+ * 只回 metadata 不回內容——上千張圖的位元組全塞進 renderer 就是另一次 OOM。
+ * `mtimeMs` 供呼叫端把「剛存進來、snapshot 還沒寫回 DB」的新檔排除在刪除名單外。
+ */
+ipcMain.handle('list-stored-files', async () => {
+  try {
+    const names = await fs.promises.readdir(filesDir)
+    const out = []
+    for (const name of names) {
+      try {
+        const st = await fs.promises.stat(path.join(filesDir, name))
+        if (st.isFile()) out.push({ name, size: st.size, mtimeMs: st.mtimeMs })
+      } catch { /* 掃描途中被刪掉就略過 */ }
+    }
+    return out
+  } catch (err) {
+    console.error('❌ list-stored-files 失敗:', err)
+    return []
+  }
+})
+
 /** 把雲端下載回來的圖片**以指定的 storedName** 寫進 filesDir。 */
 ipcMain.handle('write-stored-file', async (_, storedName, bytes) => {
   const name = path.basename(storedName || '')

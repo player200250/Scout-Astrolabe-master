@@ -23,6 +23,8 @@ export interface IElectronAPI {
     readStoredFile?: (storedName: string) => Promise<ArrayBuffer | null>
     /** ⚠️ 與 saveImage 不同：沿用呼叫端指定的 storedName，不另產 uuid。 */
     writeStoredFile?: (storedName: string, bytes: ArrayBuffer) => Promise<boolean>
+    /** N10：列出 userData/files/ 內的實體檔 metadata（不含內容）。舊版 preload 沒有，故為選填。 */
+    listStoredFiles?: () => Promise<{ name: string; size: number; mtimeMs: number }[]>
     /** N3：托盤選單／全域快捷鍵觸發快速捕捉；回傳 unsubscribe */
     onTriggerQuickCapture?: (callback: () => void) => () => void
 }
