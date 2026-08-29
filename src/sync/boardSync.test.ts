@@ -42,6 +42,27 @@ describe('toRemoteRow / fromRemoteRow', () => {
         expect(toRemoteRow(FULL_BOARD, 'user-uuid').user_id).toBe('user-uuid')
     })
 
+    // 另一台裝置在「圖片預覽開著／卡片編輯中」時推上雲，拉回來不該把那個狀態一起帶回來
+    it('從雲端拉回來時，卡片的瞬時 UI 旗標會歸位', () => {
+        const row = {
+            ...toRemoteRow(FULL_BOARD, 'u'),
+            snapshot: {
+                document: {
+                    store: {
+                        'shape:img': { typeName: 'shape', id: 'shape:img', type: 'card', props: { type: 'image', preview: true } },
+                        'shape:txt': { typeName: 'shape', id: 'shape:txt', type: 'card', props: { type: 'text', state: 'editing', text: '內文' } },
+                    },
+                },
+            },
+        } as unknown as RemoteBoardRow
+        const store = (fromRemoteRow(row).snapshot as unknown as {
+            document: { store: Record<string, { props: Record<string, unknown> }> }
+        }).document.store
+        expect(store['shape:img'].props.preview).toBe(false)
+        expect(store['shape:txt'].props.state).toBe('idle')
+        expect(store['shape:txt'].props.text).toBe('內文')
+    })
+
     it('只有必填欄位的板：選填欄位轉成 null 上雲', () => {
         const minimal: BoardRecord = {
             id: 'b1', name: '極簡板', snapshot: null, thumbnail: null, updatedAt: 100,

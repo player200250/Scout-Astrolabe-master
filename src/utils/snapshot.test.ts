@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest'
 import type { TLEditorSnapshot } from 'tldraw'
 import {
-    sanitizeCardProps, getSnapshotStore, withUpdatedStore, toMutableSnapshot,
+    sanitizeCardProps, resetEphemeralCardProps, getSnapshotStore, withUpdatedStore, toMutableSnapshot,
     getCardShapes, sanitizePageRecords, sanitizeDocumentRecord, sanitizeSnapshot,
     type TLSnapshotStore, type TLSnapshotStoreRecord,
 } from './snapshot'
@@ -56,6 +56,77 @@ describe('sanitizeCardProps', () => {
         const result = sanitizeCardProps(original)
         expect(result).not.toBe(original)        // 不是同一個 reference
         expect(original).toEqual({ text: 'hi' }) // 原物件未被修改
+    })
+
+    // 瞬時 UI 旗標歸位：關 App 時預覽開著 / 卡片在編輯中，重開不該原樣復活
+    it('preview: true 會被強制歸位成 false', () => {
+        const result = sanitizeCardProps({ type: 'image', preview: true } as never)
+        expect(result.preview).toBe(false)
+    })
+
+    it("state: 'editing' 會被強制歸位成 'idle'", () => {
+        const result = sanitizeCardProps({ type: 'text', state: 'editing' } as never)
+        expect(result.state).toBe('idle')
+    })
+
+    it('歸位瞬時旗標時會回傳新物件（視為有改動）', () => {
+        const original = sanitizeCardProps({})            // 已補滿、且旗標已是中性值
+        const dirty = { ...original, preview: true }
+        const result = sanitizeCardProps(dirty)
+        expect(result).not.toBe(dirty)
+        expect(result.preview).toBe(false)
+        expect(dirty.preview).toBe(true)                  // 原物件未被修改
+    })
+
+    it('歸位只動這兩個欄位，其餘資料原封不動', () => {
+        const result = sanitizeCardProps({
+            type: 'image', preview: true, state: 'editing',
+            text: '說明文字', w: 500, tags: ['作品'],
+        } as never)
+        expect(result.text).toBe('說明文字')
+        expect(result.w).toBe(500)
+        expect(result.tags).toEqual(['作品'])
+    })
+})
+
+describe('resetEphemeralCardProps', () => {
+    const card = (id: string, props: Record<string, unknown>) =>
+        ({ typeName: 'shape', id, type: 'card', props })
+
+    it('把卡片的 preview / state 歸位', () => {
+        const result = resetEphemeralCardProps(snap({
+            'shape:a': card('shape:a', { type: 'image', preview: true, text: '圖說' }),
+            'shape:b': card('shape:b', { type: 'text', state: 'editing' }),
+        }))!
+        const store = getSnapshotStore(result)
+        expect(store['shape:a'].props!.preview).toBe(false)
+        expect(store['shape:a'].props!.text).toBe('圖說')   // 其餘資料不動
+        expect(store['shape:b'].props!.state).toBe('idle')
+    })
+
+    it('都乾淨時回傳同一個 reference（呼叫端可跳過寫入）', () => {
+        const input = snap({
+            'shape:a': card('shape:a', { type: 'text', preview: false, state: 'idle' }),
+        })
+        expect(resetEphemeralCardProps(input)).toBe(input)
+    })
+
+    it('不動非卡片的 shape 與 page/document 記錄', () => {
+        const input = snap({
+            'shape:draw': { typeName: 'shape', id: 'shape:draw', type: 'draw', props: { state: 'editing' } },
+            'page:main': { typeName: 'page', id: 'page:main', name: '主頁' },
+        })
+        expect(resetEphemeralCardProps(input)).toBe(input)
+    })
+
+    it('snapshot 為 null 時原樣回傳', () => {
+        expect(resetEphemeralCardProps(null)).toBeNull()
+    })
+
+    it('不修改原本的 snapshot', () => {
+        const input = snap({ 'shape:a': card('shape:a', { type: 'image', preview: true }) })
+        resetEphemeralCardProps(input)
+        expect(getSnapshotStore(input)['shape:a'].props!.preview).toBe(true)
     })
 })
 

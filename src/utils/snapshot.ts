@@ -100,6 +100,45 @@ const CARD_PROP_DEFAULTS: Record<string, unknown> = {
     journalDate: null,
 }
 
+/**
+ * 「瞬時 UI 旗標」：描述使用者**此刻正在做什麼**，不是卡片本身的資料。
+ *
+ * 它們跟著 props 一起被寫進 snapshot（`preview` 來自 `onDoubleClick` 的 `updateShape`，
+ * `state` 來自進編輯模式），所以**不主動歸位就會在下次載入時復活**——
+ * 實際踩過：關 App 時圖片預覽開著，重開直接卡在全螢幕遮罩、看不到白板。
+ * `state: 'editing'` 同理（`CardShapeUtil` 的 `isEditing` 有 `|| p.state === 'editing'`）。
+ *
+ * 與 `CARD_PROP_DEFAULTS` 的差別：那份只補「缺漏」的欄位，這份是**無條件覆寫**。
+ */
+const EPHEMERAL_CARD_PROPS: Record<string, unknown> = {
+    state: 'idle',
+    preview: false,
+}
+
+/**
+ * 把整份 snapshot 裡所有卡片的瞬時旗標歸位。
+ *
+ * 為什麼 `sanitizeCardProps` 之外還要這一支：啟動時的 `sanitizeBoards` 只掃**本機** DB，
+ * 但雲端那份 snapshot 也可能帶著髒旗標（另一台裝置在預覽開著時推上去的），
+ * 拉回來／合併完就直接寫進 db，繞過啟動清理 ⇒ 遮罩會「從雲端長回來」。
+ * 實際踩過：本機清乾淨後重開，仍被另一張卡的全螢幕遮罩擋住。
+ *
+ * 沒有任何一張卡是髒的就回傳**原本的 reference**，呼叫端可據此跳過寫入。
+ */
+export function resetEphemeralCardProps(snapshot: TLEditorSnapshot | null): TLEditorSnapshot | null {
+    if (!snapshot) return snapshot
+    const store = getSnapshotStore(snapshot)
+    let newStore: TLSnapshotStore | null = null
+    for (const [id, rec] of Object.entries(store)) {
+        if (rec?.typeName !== 'shape' || rec.type !== 'card' || !rec.props) continue
+        const props = rec.props
+        if (Object.entries(EPHEMERAL_CARD_PROPS).every(([k, v]) => props[k] === v)) continue
+        if (!newStore) newStore = { ...store }
+        newStore[id] = { ...rec, props: { ...props, ...EPHEMERAL_CARD_PROPS } }
+    }
+    return newStore ? withUpdatedStore(snapshot, newStore) : snapshot
+}
+
 export function sanitizeCardProps(props: SnapshotShapeProps): SnapshotShapeProps {
     const result = { ...props } as Record<string, unknown>
     let changed = false
@@ -112,6 +151,12 @@ export function sanitizeCardProps(props: SnapshotShapeProps): SnapshotShapeProps
     for (const [key, def] of Object.entries(CARD_PROP_DEFAULTS)) {
         if (!(key in result)) {
             result[key] = def
+            changed = true
+        }
+    }
+    for (const [key, neutral] of Object.entries(EPHEMERAL_CARD_PROPS)) {
+        if (result[key] !== neutral) {
+            result[key] = neutral
             changed = true
         }
     }

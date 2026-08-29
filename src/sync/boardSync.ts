@@ -9,6 +9,7 @@
 import type { BoardRecord } from '../db'
 import type { TLEditorSnapshot } from 'tldraw'
 import { getSupabase, getCurrentUserId, describeNetworkError } from './supabaseClient'
+import { resetEphemeralCardProps } from '../utils/snapshot'
 
 const TABLE = 'boards'
 
@@ -84,7 +85,9 @@ export function fromRemoteRow(row: RemoteBoardRow): BoardRecord {
     const board: BoardRecord = {
         id: row.id,
         name: row.name,
-        snapshot: row.snapshot,
+        // 瞬時 UI 旗標（預覽／編輯中）在這裡歸位：這是雲端資料進入本機的**唯一**入口，
+        // 拉取、三方合併、「立即載入」三條路都經過 fromRemoteRow。
+        snapshot: resetEphemeralCardProps(row.snapshot),
         thumbnail: row.thumbnail,
         updatedAt: row.updated_at,
     }
