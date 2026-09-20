@@ -38,3 +38,41 @@ export function buildMonthEvents(boards: BoardRecord[], year: number, month: num
     }
     return map
 }
+
+/* ------------------------------------------------------------------ 當日議程 */
+//
+// 右側 agenda 與日檢視都吃它。原本住在 CalendarView.tsx，2026-09-20 月曆拆成
+// 五種檢視時搬過來——元件檔只留元件，純資料邏輯放這裡才測得到。
+
+export interface AgendaData {
+    journalCard: { boardId: string; shapeId: string; text: string } | null
+    todos: { boardId: string; boardName: string; shapeId: string; todoText: string; checked: boolean; x: number; y: number }[]
+    activeBoards: { boardId: string; boardName: string }[]
+}
+
+export function buildAgenda(boards: BoardRecord[], date: Date): AgendaData {
+    const ds = dateStr(date)
+    const dayStart = new Date(date); dayStart.setHours(0, 0, 0, 0)
+    const dayEnd   = new Date(date); dayEnd.setHours(23, 59, 59, 999)
+    let journalCard: AgendaData['journalCard'] = null
+    const todos: AgendaData['todos'] = []
+    const activeBoards: AgendaData['activeBoards'] = []
+    for (const board of boards) {
+        if (!board.isHome && !board.isInbox && board.updatedAt >= dayStart.getTime() && board.updatedAt <= dayEnd.getTime()) {
+            activeBoards.push({ boardId: board.id, boardName: board.name })
+        }
+        for (const shape of getCardShapes(board.snapshot)) {
+            if (board.isJournal && shape.props.type === 'journal' && shape.props.journalDate === ds && !journalCard) {
+                journalCard = { boardId: board.id, shapeId: shape.id, text: shape.props.text ?? '' }
+            }
+            if (shape.props.type === 'todo') {
+                for (const t of shape.props.todos ?? []) {
+                    if (t.dueDate === ds) {
+                        todos.push({ boardId: board.id, boardName: board.name, shapeId: shape.id, todoText: t.text ?? '', checked: !!t.checked, x: shape.x ?? 0, y: shape.y ?? 0 })
+                    }
+                }
+            }
+        }
+    }
+    return { journalCard, todos, activeBoards }
+}
