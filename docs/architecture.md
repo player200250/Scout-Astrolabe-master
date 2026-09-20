@@ -56,6 +56,40 @@
 
 ---
 
+## UI 元件放哪（2026-09-20 訂）
+
+一個面板長到四五百行就會沒人敢改——月曆加上五種檢視時差點變成那樣。規則如下：
+
+| 位置 | 放什麼 | 判準 |
+|---|---|---|
+| `src/<Panel>.tsx` | 面板的**組裝層**：目前是哪個分頁／哪一段時間、把資料餵給誰 | 只留狀態與組裝，**不寫版面細節** |
+| `src/components/<面板名>/` | 這個面板自己的版面元件，**一個檢視一個檔** | 只有這個面板會用到 |
+| `src/components/ui/` | 跨面板共用的 primitive（`FullscreenPanel`、`EmptyState`、`Icon`…） | 兩個以上的面板會用到 |
+| `src/utils/*.ts` | 純資料函式（算出「要顯示什麼」） | 不碰 DOM ⇒ 能單元測試 |
+
+現況範例（復盤中心）：
+
+```
+src/ReviewCenter.tsx                     分頁切換（組裝層）
+src/CalendarView.tsx                     月曆：目前檢視／錨點日期（組裝層）
+src/components/calendar/MonthGrid.tsx    月檢視
+src/components/calendar/TimeGrid.tsx     小時／週檢視（全天列 ＋ 24 小時軸）
+src/components/calendar/DayAgenda.tsx    日檢視
+src/components/calendar/YearGrid.tsx     年檢視（密度圖）
+src/components/calendar/AgendaPanel.tsx  右側當日議程
+src/components/calendar/primitives.tsx   共用 chip／Section／Row
+src/components/review/JournalCardEditor.tsx  日記／週回顧共用編輯器
+src/utils/calendarEvents.ts              月格子與當日議程的資料（可測）
+src/utils/calendarViews.ts               五種檢視的資料（可測）
+```
+
+兩個踩過的限制，新增檔案時會遇到：
+
+- **元件檔不能同時匯出非元件**（常數、純函式），會被 `react-refresh/only-export-components` 擋下。
+  常數放 `utils/`，元件檔只匯出元件。
+- **圖示一律用 `components/ui/icons` 的 lucide 線性圖示**，不要在 UI 裡寫 emoji
+  （emoji→線性圖示那一輪是 commit `0e308f1`，復盤中心是 2026-09-20 才補完的最後一處）。
+
 ## 分層架構
 
 ```
