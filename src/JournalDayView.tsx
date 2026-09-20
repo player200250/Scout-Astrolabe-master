@@ -6,7 +6,7 @@ import Underline from '@tiptap/extension-underline'
 import TextStyle from '@tiptap/extension-text-style'
 import { Color } from '@tiptap/extension-color'
 import type { BoardRecord } from './db'
-import { getSnapshotStore } from './utils/snapshot'
+import { findJournalCard } from './utils/journalCards'
 import { SAVE_STATUS_RESET_MS } from './constants'
 import { EmptyState } from './components/ui/EmptyState'
 import { T } from './theme/tokens'
@@ -22,19 +22,6 @@ function formatDate(d: Date): string {
 
 function addDays(d: Date, n: number): Date {
     const r = new Date(d); r.setDate(d.getDate() + n); return r
-}
-
-function findCard(boards: BoardRecord[], ds: string) {
-    for (const board of boards) {
-        if (!board.isJournal || !board.snapshot) continue
-        const store = getSnapshotStore(board.snapshot)
-        for (const shape of Object.values(store)) {
-            if (shape.typeName === 'shape' && shape.type === 'card' && shape.props?.type === 'journal' && shape.props?.journalDate === ds) {
-                return { boardId: board.id, shapeId: shape.id, text: shape.props.text ?? '' }
-            }
-        }
-    }
-    return null
 }
 
 function defaultTemplate(ds: string): string {
@@ -55,7 +42,7 @@ interface JournalDayContentProps {
 
 export function JournalDayContent({ date, boards, onSaveJournal, onDateChange, onClose }: JournalDayContentProps) {
     const ds = toDateStr(date)
-    const card = findCard(boards, ds)
+    const card = findJournalCard(boards, ds)
     const journalBoardId = boards.find(b => b.isJournal)?.id ?? null
 
     const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'pending'>('saved')
@@ -184,7 +171,9 @@ export function JournalDayContent({ date, boards, onSaveJournal, onDateChange, o
                     />
                 </div>
             ) : (
-                <div style={{ flex: 1, overflowY: 'auto', padding: '32px max(40px, 8%)' }}>
+                <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '32px max(40px, 8%)' }}>
+                    {/* RC1：上面那行的 minHeight:0 不可省——flex column 的子項預設 min-height:auto，
+                        沒有它 flex:1 不會縮到小於內容高度，捲動會外溢到祖先（日期列／工具列被捲走）。 */}
                     <style>{`
                         .jdv .ProseMirror { outline: none; color: ${editorColor}; }
                         .jdv .ProseMirror h2 { font-size: 18px; font-weight: 700; margin: 14px 0 6px; color: ${editorColor}; }

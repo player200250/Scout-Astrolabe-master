@@ -6,6 +6,8 @@ import { JournalDayContent } from './JournalDayView'
 import { WeeklyReviewContent } from './WeeklyReview'
 import { T } from './theme/tokens'
 import { FullscreenPanel } from './components/ui/FullscreenPanel'
+import { Icon } from './components/ui/icons'
+import type { IconName } from './components/ui/icons'
 
 export type ReviewTab = 'calendar' | 'journal' | 'weekly'
 
@@ -22,10 +24,12 @@ interface ReviewCenterProps {
     initialTab?: ReviewTab
 }
 
-const TABS: { key: ReviewTab; label: string }[] = [
-    { key: 'calendar', label: '📅 月曆' },
-    { key: 'journal',  label: '✍️ 今日日記' },
-    { key: 'weekly',   label: '📊 週回顧' },
+// 圖示一律走 lucide 線性圖示（與側邊欄同一套）。
+// 復盤中心是 emoji→線性圖示那一輪（commit 0e308f1）漏掉的最後一處，2026-09-20 補上。
+const TABS: { key: ReviewTab; label: string; icon: IconName }[] = [
+    { key: 'calendar', label: '月曆',     icon: 'calendar' },
+    { key: 'journal',  label: '今日日記', icon: 'cardJournal' },
+    { key: 'weekly',   label: '週回顧',   icon: 'stats' },
 ]
 
 export function ReviewCenter({ boards, onClose, onJumpToBoard, onSaveJournal, onGoToWeeklyCard, initialTab = 'calendar' }: ReviewCenterProps) {
@@ -50,7 +54,8 @@ export function ReviewCenter({ boards, onClose, onJumpToBoard, onSaveJournal, on
 
     return (
         <FullscreenPanel
-            title="📔 復盤中心"
+            title="復盤中心"
+            titleIcon="reviewCenter"
             onClose={onClose}
             padded={false}
             headerContent={(
@@ -60,6 +65,7 @@ export function ReviewCenter({ boards, onClose, onJumpToBoard, onSaveJournal, on
                                 key={t.key}
                                 onClick={() => setTab(t.key)}
                                 style={{
+                                    display: 'flex', alignItems: 'center', gap: 6,
                                     padding: '5px 18px', borderRadius: 8, border: 'none',
                                     background: tab === t.key ? (T.bgActive) : 'transparent',
                                     color: tab === t.key ? 'white' : tabInactiveColor,
@@ -68,13 +74,16 @@ export function ReviewCenter({ boards, onClose, onJumpToBoard, onSaveJournal, on
                                 }}
                                 onMouseEnter={e => { if (tab !== t.key) e.currentTarget.style.background = tabHoverBg }}
                                 onMouseLeave={e => { if (tab !== t.key) e.currentTarget.style.background = 'transparent' }}
-                            >{t.label}</button>
+                            ><Icon name={t.icon} />{t.label}</button>
                         ))}
                     </div>
             )}
         >
             {/* Body */}
-            <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', background: bodyBg }}>
+            {/* RC1：父層（FullscreenPanel 的內容格）是 block，flex:1 在這裡不生效，
+                body 的高度會被內容撐開 ⇒ 真正在捲的變成面板最外層，日期列與工具列跟著捲走。
+                height:100% 把父層那格的固定高度接下來，minHeight:0 讓子項可以縮。 */}
+            <div style={{ flex: 1, height: '100%', minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', background: bodyBg }}>
                 {tab === 'calendar' && (
                     <CalendarContent
                         boards={boards}
@@ -88,17 +97,14 @@ export function ReviewCenter({ boards, onClose, onJumpToBoard, onSaveJournal, on
                         onSaveJournal={onSaveJournal} onDateChange={setJournalDate}
                     />
                 )}
+                {/* RC2：原本包了一層 maxWidth:440 的居中窄欄，1920 寬的視窗下兩側全是空白，
+                    而且看不到週回顧卡的內容。改由 WeeklyReviewContent 自己排左統計／右內文兩欄。 */}
                 {tab === 'weekly' && (
-                    <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-                        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', justifyContent: 'center' }}>
-                            <div style={{ width: '100%', maxWidth: 440, display: 'flex', flexDirection: 'column' }}>
-                                <WeeklyReviewContent
-                                    boards={boards}
-                                    onGoToWeeklyCard={() => { onClose(); onGoToWeeklyCard() }}
-                                />
-                            </div>
-                        </div>
-                    </div>
+                    <WeeklyReviewContent
+                        boards={boards}
+                        onGoToWeeklyCard={() => { onClose(); onGoToWeeklyCard() }}
+                        onSaveJournal={onSaveJournal}
+                    />
                 )}
             </div>
         </FullscreenPanel>
