@@ -1,10 +1,18 @@
 /// <reference types="vitest/config" />
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react-swc'
+import { readFileSync } from 'node:fs'
+
+// App 要顯示自己的版本號，但 renderer 讀不到 package.json（打包後不在那裡），
+// 所以在建置時把它編進 bundle。單一真相仍是 package.json。
+const pkgVersion = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')).version
 
 // https://vite.dev/config/
 export default defineConfig({
   base: './',
+  define: {
+    __APP_VERSION__: JSON.stringify(pkgVersion),
+  },
   test: {
     // 純函式測試：用 node 環境即可，不需要 jsdom
     environment: 'node',

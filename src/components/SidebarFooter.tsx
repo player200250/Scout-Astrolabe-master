@@ -94,6 +94,11 @@ export function SidebarFooter({ onOpenPanel,  onToggleTheme }: SidebarFooterProp
                     )}
                 </div>
             </div>
+            {/* 版本號：以前 App 裡任何地方都看不到自己是哪一版，回報問題時只能去翻 package.json */}
+            <div
+                title={`Scout Astrolabe v${__APP_VERSION__}`}
+                style={{ textAlign: 'center', fontSize: 10, color: 'var(--text-muted)', padding: '0 0 4px', userSelect: 'text' }}
+            >v{__APP_VERSION__}</div>
         </div>
     )
 }
