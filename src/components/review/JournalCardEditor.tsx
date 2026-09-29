@@ -30,9 +30,15 @@ interface JournalCardEditorProps {
     onSaveJournal: (boardId: string, dateStr: string, html: string, shapeId: string | null) => void
     /** 內文欄寬上限；不給就吃滿容器 */
     maxWidth?: number
+    /**
+     * 外部寫入這張卡之後把它 +1，編輯器才會把新內容讀回來。
+     * setContent 只在 dateKey 變動時跑，不加這個的話「一鍵記為沒有產出」寫進 IndexedDB 了，
+     * 畫面上還是舊的空模板。
+     */
+    syncToken?: number
 }
 
-export function JournalCardEditor({ boards, dateKey, template, onSaveJournal, maxWidth }: JournalCardEditorProps) {
+export function JournalCardEditor({ boards, dateKey, template, onSaveJournal, maxWidth, syncToken = 0 }: JournalCardEditorProps) {
     const card = findJournalCard(boards, dateKey)
     const journalBoardId = boards.find(b => b.isJournal)?.id ?? null
 
@@ -77,7 +83,7 @@ export function JournalCardEditor({ boards, dateKey, template, onSaveJournal, ma
         return () => clearTimeout(t)
         // template 刻意不進 deps：它只在卡片不存在時當初值，跟著 dateKey 一起換就夠了
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [dateKey, tiptap])
+    }, [dateKey, tiptap, syncToken])
 
     useEffect(() => () => { if (saveTimer.current) clearTimeout(saveTimer.current) }, [])
 

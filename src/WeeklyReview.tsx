@@ -10,6 +10,8 @@ import { useMemo, useState } from 'react'
 import type { BoardRecord } from './db'
 import { getCardShapes } from './utils/snapshot'
 import { getWeekRange, getISOWeekKey } from './utils/weeklyReviewUtils'
+import { findJournalCard } from './utils/journalCards'
+import { stripHtml } from './utils/stringUtils'
 import { JournalCardEditor } from './components/review/JournalCardEditor'
 import { EmptyState } from './components/ui/EmptyState'
 import { Icon } from './components/ui/icons'
@@ -58,6 +60,24 @@ function weeklyTemplate(weekNum: number, startLabel: string, endLabel: string): 
         + '<p><strong>需要跟進的白板</strong></p><p></p>'
 }
 
+/**
+ * 「這週沒有產出」的一鍵結案內容。
+ *
+ * 為什麼不是把統計卡換掉就好：使用者自己在第 36／37 週示範過答案——那兩週沒有任何產出，
+ * 但卡片沒有留空，內容是「沒有任何產出紀錄。無 commit…」。**空白的一週本身就是值得記下的事實**，
+ * 不是該被藏起來的狀態。所以空白週要給的是「把它正式記下來」的動作，不是三個 0。
+ * 只填第一段，其餘照常留白——使用者想補脈絡時還有地方寫。
+ */
+function noOutputContent(weekNum: number, startLabel: string, endLabel: string): string {
+    return `<h2>第 ${weekNum} 週回顧（${startLabel} - ${endLabel}）</h2>`
+        + '<p><strong>這週完成了什麼</strong></p>'
+        + '<p>沒有產出紀錄 —— 這一週沒有任何白板更新、完成的待辦，也沒有新增連結。</p>'
+        + '<p><strong>這週學到什麼</strong></p><p></p>'
+        + '<p><strong>卡住的地方 &amp; 解法</strong></p><p></p>'
+        + '<p><strong>下週目標（3 件事）</strong></p><p></p>'
+        + '<p><strong>需要跟進的白板</strong></p><p></p>'
+}
+
 function addWeeks(d: Date, n: number): Date {
     const r = new Date(d); r.setDate(d.getDate() + n * 7); return r
 }
@@ -82,6 +102,31 @@ export function WeeklyReviewContent({ boards, onGoToWeeklyCard, onSaveJournal }:
     const endLabel   = `${weekEnd.getMonth() + 1}/${weekEnd.getDate()}`
     const hasJournalBoard = boards.some(b => b.isJournal)
     const isCurrentWeek = weekKey === getISOWeekKey(new Date())
+
+    // 外部寫入卡片後 +1，逼 JournalCardEditor 把新內容讀回來（見該元件的 syncToken）
+    const [syncToken, setSyncToken] = useState(0)
+    const journalBoardId = boards.find(b => b.isJournal)?.id ?? null
+
+    /**
+     * 「記為：這週沒有產出」要不要出現。
+     * 兩個條件都成立才給：(1) 這週三項統計全是 0；(2) 卡片還沒被動過——不存在，
+     * 或內容與空模板一字不差。已經寫過東西的一週不該被一顆按鈕蓋掉。
+     */
+    const weekCard = findJournalCard(boards, weekKey)
+    const isEmptyWeek = stats.totalCards === 0 && stats.completedTodos === 0 && stats.wikiLinks === 0
+    const cardUntouched = !weekCard
+        || stripHtml(weekCard.text ?? '').trim() === stripHtml(weeklyTemplate(weekNum, startLabel, endLabel)).trim()
+    const canMarkNoOutput = hasJournalBoard && isEmptyWeek && cardUntouched
+
+    const markNoOutput = () => {
+        onSaveJournal(
+            weekCard?.boardId ?? journalBoardId ?? '',
+            weekKey,
+            noOutputContent(weekNum, startLabel, endLabel),
+            weekCard?.shapeId ?? null,
+        )
+        setSyncToken(t => t + 1)
+    }
 
     const textPrimary   = T.textPrimary
     const textSecondary = T.textSecondary
@@ -148,6 +193,24 @@ export function WeeklyReviewContent({ boards, onGoToWeeklyCard, onSaveJournal }:
                 {statCard('#f0fdf4', '#0d2818', 'done', '完成待辦', `${stats.completedTodos} 項`, '#16a34a')}
                 {statCard('#faf5ff', '#1d1133', 'knowledgeGraph', '[[]] 知識連結', `${stats.wikiLinks} 個`, '#7c3aed')}
 
+                {canMarkNoOutput && (
+                    <button
+                        onClick={markNoOutput}
+                        style={{
+                            width: '100%', marginTop: 4, padding: '10px 12px', borderRadius: 10,
+                            border: `1px dashed ${T.borderLight}`, background: 'transparent',
+                            color: T.textSecondary, fontSize: 12, cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                            transition: 'background 0.12s',
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.background = T.bgHover }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+                        title="把這一週正式記成「沒有產出」，之後回頭看得出來是記過的，不是漏掉的"
+                    >
+                        <Icon name="done" />記為：這週沒有產出
+                    </button>
+                )}
+
                 <div style={{ fontSize: 11, color: '#bbb', lineHeight: 1.6, padding: '8px 10px', background: noteBg, borderRadius: 8, border: `1px solid ${noteBorder}`, marginTop: 4 }}>
                     統計範圍：{startLabel} – {endLabel}（週一至週日）有更新記錄的白板
                 </div>
@@ -196,6 +259,7 @@ export function WeeklyReviewContent({ boards, onGoToWeeklyCard, onSaveJournal }:
                         template={weeklyTemplate(weekNum, startLabel, endLabel)}
                         onSaveJournal={onSaveJournal}
                         maxWidth={760}
+                        syncToken={syncToken}
                     />
                 ) : (
                     <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
