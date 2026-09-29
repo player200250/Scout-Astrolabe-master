@@ -1,14 +1,15 @@
 // src/CalendarView.tsx — 復盤中心的月曆分頁（組裝層）
 //
-// 2026-09-20：加上「小時／日／週／月／年」五種檢視（參考 Google Calendar）。
+// 2026-09-20：加上多種檢視（參考 Google Calendar）。
+// 2026-09-29：收成「日／週／月／年」四種——原本的「小時」與「日」都是看一天，
+// 而「日」那份議程清單以 Journal 開頭，等於把日記放在日曆正中央。
 // 這一檔只負責「目前在看哪一段時間、哪個檢視」與把資料餵給檢視元件，
 // 版面實作各自住在 components/calendar/：
 //
 //   MonthGrid    月檢視（格子）
-//   TimeGrid     小時／週檢視（全天列 ＋ 24 小時軸）
-//   DayAgenda    日檢視（整天議程）
+//   TimeGrid     日／週檢視（全天列 ＋ 24 小時軸）
 //   YearGrid     年檢視（12 個月密度圖）
-//   AgendaPanel  右側 380px 當日議程
+//   AgendaPanel  右側 380px 當日議程（日記入口在這裡）
 //   primitives   共用 chip／Section／Row
 //
 // 資料層（純函式、可單測）在 utils/calendarEvents.ts 與 utils/calendarViews.ts，
@@ -25,7 +26,6 @@ import {
 import type { CalendarViewMode } from './utils/calendarViews'
 import { MonthGrid } from './components/calendar/MonthGrid'
 import { TimeGrid } from './components/calendar/TimeGrid'
-import { DayAgenda } from './components/calendar/DayAgenda'
 import { YearGrid } from './components/calendar/YearGrid'
 import { AgendaPanel } from './components/calendar/AgendaPanel'
 import { T } from './theme/tokens'
@@ -39,7 +39,7 @@ interface CalendarContentProps {
 export function CalendarContent({ boards, onJumpToBoard, onOpenJournalDay }: CalendarContentProps) {
     const today = new Date()
     const [view, setView] = useState<CalendarViewMode>('month')
-    /** 錨點：月檢視看它的年月、週檢視看它所在的週、日／小時檢視就是那一天 */
+    /** 錨點：月檢視看它的年月、週檢視看它所在的週、日檢視就是那一天 */
     const [cursor, setCursor] = useState<Date>(today)
     const [selectedDate, setSelectedDate] = useState<Date>(today)
 
@@ -54,8 +54,6 @@ export function CalendarContent({ boards, onJumpToBoard, onOpenJournalDay }: Cal
 
     const todayDs = dateStr(today)
     const hasJournalBoard = boards.some(b => b.isJournal)
-    // 日／小時檢視整頁就是那一天，右側再擺一份當日議程只是重複
-    const showAgenda = view === 'month' || view === 'year' || view === 'week'
 
     const navBtnStyle: React.CSSProperties = {
         width: 28, height: 28, borderRadius: 8, border: `1px solid ${T.borderLight}`,
@@ -73,7 +71,7 @@ export function CalendarContent({ boards, onJumpToBoard, onOpenJournalDay }: Cal
         <div style={{ flex: 1, minHeight: 0, display: 'flex', overflow: 'hidden' }}>
             <div style={{
                 flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column',
-                borderRight: showAgenda ? `1px solid ${T.borderLight}` : 'none', background: T.bgPanel,
+                borderRight: `1px solid ${T.borderLight}`, background: T.bgPanel,
             }}>
                 {/* 期間導覽 ＋ 檢視切換 */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', flexShrink: 0, borderBottom: `1px solid ${T.borderLight}` }}>
@@ -112,22 +110,13 @@ export function CalendarContent({ boards, onJumpToBoard, onOpenJournalDay }: Cal
                     />
                 )}
 
-                {(view === 'hour' || view === 'week') && (
+                {(view === 'day' || view === 'week') && (
                     <TimeGrid
-                        days={view === 'hour' ? [dayTimeline] : weekDays}
+                        days={view === 'day' ? [dayTimeline] : weekDays}
                         todayDs={todayDs}
                         onJumpToBoard={onJumpToBoard}
                         onOpenJournalDay={onOpenJournalDay}
                         onPickDay={d => pickDay(d)}
-                    />
-                )}
-
-                {view === 'day' && (
-                    <DayAgenda
-                        day={dayTimeline}
-                        hasJournalBoard={hasJournalBoard}
-                        onJumpToBoard={onJumpToBoard}
-                        onOpenJournalDay={onOpenJournalDay}
                     />
                 )}
 
@@ -141,15 +130,15 @@ export function CalendarContent({ boards, onJumpToBoard, onOpenJournalDay }: Cal
                 )}
             </div>
 
-            {showAgenda && (
-                <AgendaPanel
-                    date={selectedDate}
-                    agenda={agenda}
-                    hasJournalBoard={hasJournalBoard}
-                    onJumpToBoard={onJumpToBoard}
-                    onOpenJournalDay={onOpenJournalDay}
-                />
-            )}
+            {/* 右欄是日記在月曆分頁裡唯一的入口（另一個是復盤中心的「今日日記」分頁）。
+                主區域四種檢視都只畫時間，不再夾帶議程，所以這裡不必再依檢視開關。 */}
+            <AgendaPanel
+                date={selectedDate}
+                agenda={agenda}
+                hasJournalBoard={hasJournalBoard}
+                onJumpToBoard={onJumpToBoard}
+                onOpenJournalDay={onOpenJournalDay}
+            />
         </div>
     )
 }

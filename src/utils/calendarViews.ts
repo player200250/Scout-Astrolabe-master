@@ -17,10 +17,13 @@ import { toDateStr as dateStr } from './date'
 import { getCardShapes } from './snapshot'
 import type { DayTodo } from './calendarEvents'
 
-export type CalendarViewMode = 'hour' | 'day' | 'week' | 'month' | 'year'
+// 2026-09-29：原本是五種檢視，其中 'hour' 是單日 24 小時軸，而 'day' 是議程清單。
+// 兩個都是「看一天」，名字卻分成「小時」與「日」，且議程清單以 Journal 開頭，
+// 等於把日記入口擺在日曆正中央。改為 'day' 直接沿用 24 小時軸（與週檢視同一套），
+// 日記只留右側議程欄與復盤中心的「今日日記」分頁。
+export type CalendarViewMode = 'day' | 'week' | 'month' | 'year'
 
 export const VIEW_MODES: { key: CalendarViewMode; label: string }[] = [
-    { key: 'hour',  label: '小時' },
     { key: 'day',   label: '日' },
     { key: 'week',  label: '週' },
     { key: 'month', label: '月' },
@@ -142,7 +145,6 @@ export function viewRangeLabel(view: CalendarViewMode, date: Date): string {
     const m = date.getMonth() + 1
     const d = date.getDate()
     switch (view) {
-        case 'hour':
         case 'day':
             return `${y} 年 ${m} 月 ${d} 日 星期${WEEKDAYS[date.getDay()]}`
         case 'week': {
@@ -161,7 +163,6 @@ export function viewRangeLabel(view: CalendarViewMode, date: Date): string {
 export function shiftViewDate(view: CalendarViewMode, date: Date, delta: number): Date {
     const r = new Date(date)
     switch (view) {
-        case 'hour':
         case 'day':
             r.setDate(r.getDate() + delta); break
         case 'week':

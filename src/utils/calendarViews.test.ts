@@ -120,7 +120,7 @@ describe('shiftViewDate', () => {
     const d = new Date('2026-09-20T12:00:00')
     it('每種檢視跨的單位不同', () => {
         expect(shiftViewDate('day', d, 1).getDate()).toBe(21)
-        expect(shiftViewDate('hour', d, -1).getDate()).toBe(19)
+        expect(shiftViewDate('day', d, -1).getDate()).toBe(19)
         expect(shiftViewDate('week', d, 1).getDate()).toBe(27)
         expect(shiftViewDate('month', d, 1).getMonth()).toBe(9)   // 10 月
         expect(shiftViewDate('year', d, -1).getFullYear()).toBe(2025)
