@@ -36,7 +36,10 @@ export function JournalCardEditor({ boards, dateKey, template, onSaveJournal, ma
     const card = findJournalCard(boards, dateKey)
     const journalBoardId = boards.find(b => b.isJournal)?.id ?? null
 
-    const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'pending'>('saved')
+    // RC4：'none' ＝「這一天／這一週還沒有卡片」。少了它，初值一律是 'saved'，
+    // 於是還沒寫過的日子一打開就顯示綠色「已儲存」，而月曆右欄同時寫著「尚無日記」。
+    // 'none' 時狀態列整個不顯示——什麼都還沒發生，就不該報告任何狀態。
+    const [saveStatus, setSaveStatus] = useState<'none' | 'saved' | 'saving' | 'pending'>(() => (card ? 'saved' : 'none'))
     const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
     // 掛載當下與切換 dateKey 時 setContent 會觸發 onUpdate，那不是使用者編輯，不能當成待存
     const skipUpdate = useRef(true)
@@ -69,7 +72,7 @@ export function JournalCardEditor({ boards, dateKey, template, onSaveJournal, ma
         skipUpdate.current = true
         const c = cardRef.current
         tiptap?.commands.setContent(c?.text ?? template, false)
-        setSaveStatus('saved')
+        setSaveStatus(c ? 'saved' : 'none')
         const t = setTimeout(() => { skipUpdate.current = false }, 120)
         return () => clearTimeout(t)
         // template 刻意不進 deps：它只在卡片不存在時當初值，跟著 dateKey 一起換就夠了
@@ -108,7 +111,7 @@ export function JournalCardEditor({ boards, dateKey, template, onSaveJournal, ma
                     >{btn.label}</button>
                 ))}
                 <div style={{ flex: 1 }} />
-                <span style={{ fontSize: 11, color: statusColor }}>{statusText}</span>
+                {saveStatus !== 'none' && <span style={{ fontSize: 11, color: statusColor }}>{statusText}</span>}
             </div>
 
             <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '24px 28px' }}>

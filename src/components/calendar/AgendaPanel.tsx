@@ -45,12 +45,23 @@ export function AgendaPanel({ date, agenda, hasJournalBoard, onJumpToBoard, onOp
 
             <Section icon="cardTodo" label="待辦到期">
                 {agenda.todos.length === 0 ? <EmptyNote>這天沒有到期待辦 — 待辦卡片設了到期日就會排到這裡。</EmptyNote> : agenda.todos.map((t, i) => (
+                    // RC6：原本是「勾選框＋待辦全文＋來源白板」擠同一行。右欄只有 380px，
+                    // 長待辦被壓到貼邊；而且文字那格少了 minWidth:0，flex item 不得窄於內容，
+                    // 省略號根本輪不到觸發（與月曆格子同一個成因）。改成來源名獨立一行。
                     <AgendaRow key={i} onClick={() => onJumpToBoard(t.boardId)}>
-                        <span style={{ marginTop: 1, color: t.checked ? '#bbb' : '#d0d0d0', flexShrink: 0, display: 'flex' }}>
+                        <span style={{ marginTop: 2, alignSelf: 'flex-start', color: t.checked ? '#bbb' : '#d0d0d0', flexShrink: 0, display: 'flex' }}>
                             <Icon name={t.checked ? 'checkboxOn' : 'checkboxOff'} />
                         </span>
-                        <span style={{ flex: 1, fontSize: 13, color: t.checked ? '#aaa' : T.textPrimary, textDecoration: t.checked ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.todoText}</span>
-                        <span style={{ fontSize: 11, color: '#bbb', flexShrink: 0 }}>{t.boardName}</span>
+                        <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                            <span
+                                title={t.todoText}
+                                style={{ fontSize: 13, color: t.checked ? '#aaa' : T.textPrimary, textDecoration: t.checked ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                            >{t.todoText}</span>
+                            <span
+                                title={t.boardName}
+                                style={{ fontSize: 11, color: '#bbb', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                            >{t.boardName}</span>
+                        </span>
                     </AgendaRow>
                 ))}
             </Section>

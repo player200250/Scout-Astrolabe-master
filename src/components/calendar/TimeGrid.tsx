@@ -91,7 +91,9 @@ export function TimeGrid({ days, todayDs, onJumpToBoard, onOpenJournalDay, onPic
                                             overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
                                         }}
                                     >
-                                        {String(a.minute).padStart(2, '0')} · {a.boardName}
+                                        {/* RC5：只印分鐘的話，14:00 那列的「15 · 日誌」會被讀成 15 點。
+                                            小時本來靠「排在第幾列」表達，但多筆堆在同一格時那個線索就不夠了。 */}
+                                        {String(a.hour).padStart(2, '0')}:{String(a.minute).padStart(2, '0')} · {a.boardName}
                                     </div>
                                 ))}
                             </div>

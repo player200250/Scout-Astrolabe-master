@@ -45,7 +45,10 @@ export function JournalDayContent({ date, boards, onSaveJournal, onDateChange, o
     const card = findJournalCard(boards, ds)
     const journalBoardId = boards.find(b => b.isJournal)?.id ?? null
 
-    const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'pending'>('saved')
+    // RC4：'none' ＝「這一天／這一週還沒有卡片」。少了它，初值一律是 'saved'，
+    // 於是還沒寫過的日子一打開就顯示綠色「已儲存」，而月曆右欄同時寫著「尚無日記」。
+    // 'none' 時狀態列整個不顯示——什麼都還沒發生，就不該報告任何狀態。
+    const [saveStatus, setSaveStatus] = useState<'none' | 'saved' | 'saving' | 'pending'>(() => (card ? 'saved' : 'none'))
     const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
     const skipUpdate = useRef(true)
 
@@ -79,7 +82,7 @@ export function JournalDayContent({ date, boards, onSaveJournal, onDateChange, o
         // 使用 ref 避免 boards 成為 dep（我們只關心日期切換，不關心 boards 其他卡片變更）
         const c = cardRef.current
         tiptap?.commands.setContent(c?.text ?? defaultTemplate(ds), false)
-        setSaveStatus('saved')
+        setSaveStatus(c ? 'saved' : 'none')
         const t = setTimeout(() => { skipUpdate.current = false }, 120)
         return () => clearTimeout(t)
     }, [ds, tiptap])
@@ -157,7 +160,7 @@ export function JournalDayContent({ date, boards, onSaveJournal, onDateChange, o
                         >{btn.label}</button>
                     ))}
                     <div style={{ flex: 1 }} />
-                    <span style={{ fontSize: 11, color: statusColor }}>{statusText}</span>
+                    {saveStatus !== 'none' && <span style={{ fontSize: 11, color: statusColor }}>{statusText}</span>}
                 </div>
             )}
 
