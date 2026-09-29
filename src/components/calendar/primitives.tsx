@@ -25,15 +25,23 @@ export function JournalChip() {
  * 待辦 chip。
  * ⚠️ 文字不要在這裡截斷——RC3 的成因就是「先 slice(0,12) 再套 CSS 省略號」的雙重截斷，
  * 不管格子多寬都只剩半句。讓 textOverflow 負責到格寬為止。
+ *
+ * 省略號要生效，**容器那側**必須能縮到比文字窄：放 chip 的格子得有 minWidth: 0，
+ * 承載它的 grid 欄得是 minmax(0, 1fr)。少了任一個，長待辦就會把整欄撐開（月檢視踩過）。
+ * 截斷後看不到全文，所以這裡掛 title 讓 hover 補回來。
  */
 export function TodoChip({ text, checked }: { text: string; checked: boolean }) {
+    const label = text || '（無標題）'
     return (
-        <div style={{
-            height: 18, borderRadius: 3, padding: '0 4px', fontSize: 10, lineHeight: '18px',
-            background: checked ? T.bgHover : '#fee2e2', color: checked ? '#aaa' : '#991b1b',
-            overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', flexShrink: 0,
-            textDecoration: checked ? 'line-through' : 'none',
-        }}>{text || '（無標題）'}</div>
+        <div
+            title={(checked ? '✔ ' : '• ') + label}
+            style={{
+                height: 18, borderRadius: 3, padding: '0 4px', fontSize: 10, lineHeight: '18px',
+                background: checked ? T.bgHover : '#fee2e2', color: checked ? '#aaa' : '#991b1b',
+                overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', flexShrink: 0,
+                minWidth: 0, textDecoration: checked ? 'line-through' : 'none',
+            }}
+        >{label}</div>
     )
 }
 

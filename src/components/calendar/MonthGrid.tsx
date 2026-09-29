@@ -28,19 +28,21 @@ export function MonthGrid({ year, month, events, todayDs, selectedDs, onPickDay 
 
     return (
         <>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', borderBottom: `1px solid ${T.borderLight}`, flexShrink: 0 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', borderBottom: `1px solid ${T.borderLight}`, flexShrink: 0 }}>
                 {WEEKDAYS.map((d, i) => (
                     <div key={d} style={{ textAlign: 'center', padding: '4px 0', fontSize: 11, fontWeight: 600, color: i === 0 ? '#e03131' : i === 6 ? '#2563eb' : '#bbb' }}>{d}</div>
                 ))}
             </div>
 
-            {/* 列高 minmax(80px, 1fr)：排數少時撐滿，排數多時保有 80px 最小值並可捲動 */}
+            {/* 列高 minmax(80px, 1fr)：排數少時撐滿，排數多時保有 80px 最小值並可捲動。
+                欄寬用 minmax(0, 1fr) 而非 1fr：1fr 的自動最小值是內容寬，長待辦（nowrap）
+                會把該欄撐開、擠壞其餘六欄並讓表頭對不齊，chip 的省略號也就永遠輪不到。 */}
             <div style={{
                 flex: 1, minHeight: 0, overflowY: 'auto', display: 'grid',
-                gridTemplateColumns: 'repeat(7,1fr)', gridAutoRows: 'minmax(80px, 1fr)',
+                gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gridAutoRows: 'minmax(80px, 1fr)',
             }}>
                 {cells.map((day, idx) => {
-                    if (!day) return <div key={`e${idx}`} style={{ borderBottom: `1px solid ${T.borderLight}`, minHeight: 80 }} />
+                    if (!day) return <div key={`e${idx}`} style={{ borderBottom: `1px solid ${T.borderLight}`, minHeight: 80, minWidth: 0 }} />
                     const cellDate = new Date(year, month, day)
                     const ds = dateStr(cellDate)
                     const isToday = ds === todayDs
@@ -56,7 +58,7 @@ export function MonthGrid({ year, month, events, todayDs, selectedDs, onPickDay 
                             onDoubleClick={() => onPickDay(cellDate, true)}
                             title="點一下選取，雙擊進入日檢視"
                             style={{
-                                minHeight: 80, borderBottom: `1px solid ${T.borderLight}`,
+                                minHeight: 80, minWidth: 0, borderBottom: `1px solid ${T.borderLight}`,
                                 display: 'flex', flexDirection: 'column', padding: 4, gap: 2,
                                 cursor: 'pointer', background: isSel ? T.accentBg : 'transparent',
                                 transition: 'background 0.1s', boxSizing: 'border-box',
