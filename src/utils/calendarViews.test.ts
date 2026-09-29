@@ -5,7 +5,7 @@
 import { describe, it, expect } from 'vitest'
 import {
     buildDayTimeline, buildWeekTimelines, buildYearDensity, densityLevel,
-    startOfWeek, shiftViewDate, viewRangeLabel,
+    startOfWeek, shiftViewDate, viewRangeLabel, weekdayColumn,
 } from './calendarViews'
 import type { BoardRecord } from '../db'
 
@@ -113,6 +113,22 @@ describe('densityLevel', () => {
         expect(densityLevel(3)).toBe(2)
         expect(densityLevel(6)).toBe(3)
         expect(densityLevel(20)).toBe(4)
+    })
+})
+
+describe('weekdayColumn', () => {
+    // 月／年檢視的格線是週一起頭（配合 ISO 週），所以欄位不等於 getDay()
+    it('週一是第 0 欄、週日是第 6 欄', () => {
+        expect(weekdayColumn(new Date('2026-09-28T12:00:00'))).toBe(0)   // 一
+        expect(weekdayColumn(new Date('2026-09-29T12:00:00'))).toBe(1)   // 二
+        expect(weekdayColumn(new Date('2026-10-03T12:00:00'))).toBe(5)   // 六
+        expect(weekdayColumn(new Date('2026-10-04T12:00:00'))).toBe(6)   // 日
+    })
+
+    it('與 startOfWeek 一致：週首那天永遠落在第 0 欄', () => {
+        for (const d of ['2026-09-29', '2026-01-01', '2026-12-31']) {
+            expect(weekdayColumn(startOfWeek(new Date(d + 'T12:00:00')))).toBe(0)
+        }
     })
 })
 

@@ -2,7 +2,7 @@
 import { toDateStr as dateStr } from '../../utils/date'
 import type { DayEvents } from '../../utils/calendarEvents'
 import { JournalChip, TodoChip, MoreDots } from './primitives'
-import { WEEKDAYS } from '../../utils/calendarViews'
+import { WEEKDAY_HEADER, weekdayColumn } from '../../utils/calendarViews'
 import { T } from '../../theme/tokens'
 
 /** 每格直接顯示標題的待辦數；超過的用密度點（RC3，2026-09-20） */
@@ -21,7 +21,8 @@ interface MonthGridProps {
 }
 
 export function MonthGrid({ year, month, events, todayDs, selectedDs, onPickDay }: MonthGridProps) {
-    const firstDay = new Date(year, month, 1).getDay()
+    // 週一起頭：空白格數＝該月 1 號落在第幾欄（見 calendarViews 的 WEEKDAY_HEADER 註解）
+    const firstDay = weekdayColumn(new Date(year, month, 1))
     const daysInMonth = new Date(year, month + 1, 0).getDate()
     const cells: (number | null)[] = [...Array(firstDay).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)]
     while (cells.length % 7 !== 0) cells.push(null)
@@ -29,8 +30,9 @@ export function MonthGrid({ year, month, events, todayDs, selectedDs, onPickDay 
     return (
         <>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', borderBottom: `1px solid ${T.borderLight}`, flexShrink: 0 }}>
-                {WEEKDAYS.map((d, i) => (
-                    <div key={d} style={{ textAlign: 'center', padding: '4px 0', fontSize: 11, fontWeight: 600, color: i === 0 ? '#e03131' : i === 6 ? '#2563eb' : '#bbb' }}>{d}</div>
+                {WEEKDAY_HEADER.map((d, i) => (
+                    // 週一起頭後，週六在第 5 欄、週日在第 6 欄
+                    <div key={d} style={{ textAlign: 'center', padding: '4px 0', fontSize: 11, fontWeight: 600, color: i === 6 ? '#e03131' : i === 5 ? '#2563eb' : '#bbb' }}>{d}</div>
                 ))}
             </div>
 

@@ -61,10 +61,16 @@ export function CalendarContent({ boards, onJumpToBoard, onOpenJournalDay }: Cal
         display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
     }
 
-    /** 點某一天：選起來；drillDown 時順便鑽進日檢視 */
+    /**
+     * 點某一天：選起來，並把顯示範圍的錨點一起移過去；drillDown 時再鑽進日檢視。
+     *
+     * cursor 沒跟著 selectedDate 走的話，在月檢視點 9/3 再切到週檢視，左邊會停在
+     * 今天那一週（9/28–10/4）而右欄寫著 9/3，同一畫面上兩個日期互相矛盾。(2026-09-29)
+     */
     const pickDay = (d: Date, drillDown = false) => {
         setSelectedDate(d)
-        if (drillDown) { setCursor(d); setView('day') }
+        setCursor(d)
+        if (drillDown) setView('day')
     }
 
     return (

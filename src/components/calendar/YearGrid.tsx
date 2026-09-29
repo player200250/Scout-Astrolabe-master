@@ -3,7 +3,7 @@
 // 一年 365 格塞不下文字，所以這裡只給濃淡：密度 ＝ 日記 ＋ 到期待辦 ＋ 白板活動。
 // 點某一天＝選起來（右側 agenda 會跟著換），點月份標題＝跳去那個月的月檢視。
 import { densityLevel } from '../../utils/calendarViews'
-import { WEEKDAYS } from '../../utils/calendarViews'
+import { WEEKDAY_HEADER, weekdayColumn } from '../../utils/calendarViews'
 import { T } from '../../theme/tokens'
 
 /** 0 級用底色，其餘四級由淺到深 */
@@ -23,7 +23,7 @@ export function YearGrid({ year, density, todayDs, selectedDs, onPickDay, onOpen
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '16px 20px' }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: 18 }}>
                 {Array.from({ length: 12 }, (_, m) => {
-                    const first = new Date(year, m, 1).getDay()
+                    const first = weekdayColumn(new Date(year, m, 1))   // 與月檢視同樣週一起頭
                     const total = new Date(year, m + 1, 0).getDate()
                     const cells: (number | null)[] = [...Array(first).fill(null), ...Array.from({ length: total }, (_, i) => i + 1)]
                     return (
@@ -34,7 +34,7 @@ export function YearGrid({ year, density, todayDs, selectedDs, onPickDay, onOpen
                                 title="開啟這個月"
                             >{m + 1} 月</div>
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2 }}>
-                                {WEEKDAYS.map(d => (
+                                {WEEKDAY_HEADER.map(d => (
                                     <div key={d} style={{ fontSize: 9, color: '#bbb', textAlign: 'center' }}>{d}</div>
                                 ))}
                                 {cells.map((day, i) => {

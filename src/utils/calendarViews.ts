@@ -133,8 +133,24 @@ export function densityLevel(count: number): 0 | 1 | 2 | 3 | 4 {
     return 4
 }
 
-/** 星期短名（月曆表頭、日期圓圈旁） */
+/**
+ * 星期短名，**索引即 Date.getDay()**（0=日）。只給「由日期查名稱」用，
+ * 不要直接 map 出表頭——格線是週一起頭的，順序不同，用 WEEKDAY_HEADER。
+ */
 export const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六']
+
+/**
+ * 格線表頭的顯示順序：週一起頭。
+ * 全站的「週」都是 ISO 週——startOfWeek 取週一、getISOWeekKey 產出 week-YYYY-WW，
+ * 而既有的週回顧卡就是用那個鍵存的，所以 ISO 不能動；月／年檢視只能跟著它走，
+ * 否則月格子裡的一橫排和「第 40 週」講的不是同一週。（2026-09-29）
+ */
+export const WEEKDAY_HEADER = ['一', '二', '三', '四', '五', '六', '日']
+
+/** 該日在週一起頭的格線中位於第幾欄（0=週一 … 6=週日） */
+export function weekdayColumn(date: Date): number {
+    return (date.getDay() + 6) % 7
+}
 /** 星期全名（議程標題） */
 export const WEEKDAY_FULL_LABEL = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六']
 

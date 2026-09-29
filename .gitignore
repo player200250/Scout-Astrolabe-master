@@ -28,3 +28,6 @@ coverage/
 *.njsproj
 *.sln
 *.sw?
+
+# Claude Code —— 本機專用設定（權限放行清單等，不該跟著 repo 走）
+.claude/settings.local.json
