@@ -10,8 +10,7 @@ import { useMemo, useState } from 'react'
 import type { BoardRecord } from './db'
 import { getCardShapes } from './utils/snapshot'
 import { getWeekRange, getISOWeekKey, recentWeekStarts } from './utils/weeklyReviewUtils'
-import { findJournalCard } from './utils/journalCards'
-import { stripHtml } from './utils/stringUtils'
+import { findJournalCard, isUntouchedTemplate } from './utils/journalCards'
 import { JournalCardEditor } from './components/review/JournalCardEditor'
 import { EmptyState } from './components/ui/EmptyState'
 import { Icon } from './components/ui/icons'
@@ -131,8 +130,8 @@ export function WeeklyReviewContent({ boards, onGoToWeeklyCard, onSaveJournal }:
      */
     const weekCard = findJournalCard(boards, weekKey)
     const isEmptyWeek = stats.totalCards === 0 && stats.completedTodos === 0 && stats.wikiLinks === 0
-    const cardUntouched = !weekCard
-        || stripHtml(weekCard.text ?? '').trim() === stripHtml(weeklyTemplate(weekNum, startLabel, endLabel)).trim()
+    // 與 RC9 的存檔守門共用同一個述詞，免得兩邊對「未動過」的定義漂移
+    const cardUntouched = !weekCard || isUntouchedTemplate(weekCard.text, weeklyTemplate(weekNum, startLabel, endLabel))
     const canMarkNoOutput = hasJournalBoard && isEmptyWeek && cardUntouched
 
     const markNoOutput = () => {

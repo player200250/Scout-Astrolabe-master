@@ -6,7 +6,7 @@ import Underline from '@tiptap/extension-underline'
 import TextStyle from '@tiptap/extension-text-style'
 import { Color } from '@tiptap/extension-color'
 import type { BoardRecord } from './db'
-import { findJournalCard } from './utils/journalCards'
+import { findJournalCard, isUntouchedTemplate } from './utils/journalCards'
 import { SAVE_STATUS_RESET_MS } from './constants'
 import { EmptyState } from './components/ui/EmptyState'
 import { T } from './theme/tokens'
@@ -68,9 +68,15 @@ export function JournalDayContent({ date, boards, onSaveJournal, onDateChange, o
             setSaveStatus('pending')
             if (saveTimer.current) clearTimeout(saveTimer.current)
             saveTimer.current = setTimeout(() => {
-                setSaveStatus('saving')
                 const c = cardRef.current
-                onSaveJournal(c?.boardId ?? journalBoardIdRef.current ?? '', dsRef.current, editor.getHTML(), c?.shapeId ?? null)
+                const html = editor.getHTML()
+                // RC9：debounce 存的是「900ms 之後」的文件狀態，不是觸發當下。
+                // 打了字又在同一個視窗內刪掉，這裡拿到的就是原封不動的模板——
+                // 存下去只會生出一張「只有標題、一個字沒填」的空殼卡（實測確認，見 bugs.md RC9）。
+                // 卡片已經存在就照常存：使用者可能是刻意清空。
+                if (!c && isUntouchedTemplate(html, defaultTemplate(dsRef.current))) { setSaveStatus('none'); return }
+                setSaveStatus('saving')
+                onSaveJournal(c?.boardId ?? journalBoardIdRef.current ?? '', dsRef.current, html, c?.shapeId ?? null)
                 setTimeout(() => setSaveStatus('saved'), SAVE_STATUS_RESET_MS)
             }, 900)
         },
