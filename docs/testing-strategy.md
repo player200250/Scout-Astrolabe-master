@@ -21,7 +21,7 @@
 
 ## 目前測試現況
 
-**單元測試已導入（Vitest 3.2.6），目前 49 檔 599 案例全綠（快照日期 2026-07-28；持續成長，以 `npm test` 實跑為準）。** 設定寫在 `vite.config.ts` 的 `test` 區塊（`include: src/**/*.{test,spec}.{ts,tsx}`）；指令 `npm test`（`vitest run`）、`npm run test:watch`、`npm run test:coverage`。已裝 `jsdom`、`@testing-library/react`、`@testing-library/dom`（未裝 `@testing-library/jest-dom`，斷言用 `.toBeTruthy()`/`.toBeNull()`）。純函式測試跑 node 環境、需要 DOM 的單檔以 `// @vitest-environment jsdom` 切換。
+**單元測試已導入（Vitest 3.2.6），目前 68 檔 903 案例全綠（快照日期 2026-09-29；持續成長，以 `npm test` 實跑為準）。** 設定寫在 `vite.config.ts` 的 `test` 區塊（`include: src/**/*.{test,spec}.{ts,tsx}`）；指令 `npm test`（`vitest run`）、`npm run test:watch`、`npm run test:coverage`。已裝 `jsdom`、`@testing-library/react`、`@testing-library/dom`（未裝 `@testing-library/jest-dom`，斷言用 `.toBeTruthy()`/`.toBeNull()`）。純函式測試跑 node 環境、需要 DOM 的單檔以 `// @vitest-environment jsdom` 切換。
 
 > **下表是 2026-06-21 的快照（約 24 檔）**；此後隨功能陸續新增，現已 49 檔 599 案例。表未逐一列出的新增檔包括：`cardLinks`／`slashCommands`／`knowledgeGraph`／`tagManager`／`tagColors`／`commands`／`inboxTriage`／`dataSafetyStats`／`homeBoardMigration`／`imageMigration`／`exampleBoard`（utils）、`platform/imageStore`、`card-shape/extensions/Toggle`，以及 2026-07-26 新增的 `components/ui/{InlineEdit,ToastHost,PromptHost}`（TD9 primitive）。**雲端同步與手機端的 8 個測試檔另見下方獨立章節。** 逐檔案例數會漂移，以 `npm test` 實跑為準。
 

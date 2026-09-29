@@ -58,7 +58,7 @@
 
 ## UI 元件放哪（2026-09-20 訂）
 
-一個面板長到四五百行就會沒人敢改——月曆加上五種檢視時差點變成那樣。規則如下：
+一個面板長到四五百行就會沒人敢改——月曆加上多種檢視時差點變成那樣（當時是五種，2026-09-29 收成四種）。規則如下：
 
 | 位置 | 放什麼 | 判準 |
 |---|---|---|
@@ -72,15 +72,15 @@
 ```
 src/ReviewCenter.tsx                     分頁切換（組裝層）
 src/CalendarView.tsx                     月曆：目前檢視／錨點日期（組裝層）
-src/components/calendar/MonthGrid.tsx    月檢視
-src/components/calendar/TimeGrid.tsx     小時／週檢視（全天列 ＋ 24 小時軸）
-src/components/calendar/DayAgenda.tsx    日檢視
-src/components/calendar/YearGrid.tsx     年檢視（密度圖）
-src/components/calendar/AgendaPanel.tsx  右側當日議程
+src/components/calendar/MonthGrid.tsx    月檢視（格子，週一起頭）
+src/components/calendar/TimeGrid.tsx     日／週檢視（全天列 ＋ 24 小時軸）
+src/components/calendar/YearGrid.tsx     年檢視（密度圖，週一起頭）
+src/components/calendar/AgendaPanel.tsx  右側當日議程（常駐；日記入口在這裡）
 src/components/calendar/primitives.tsx   共用 chip／Section／Row
 src/components/review/JournalCardEditor.tsx  日記／週回顧共用編輯器
 src/utils/calendarEvents.ts              月格子與當日議程的資料（可測）
-src/utils/calendarViews.ts               五種檢視的資料（可測）
+src/utils/calendarViews.ts               四種檢視的資料（可測）
+src/utils/journalCards.ts                日記／週回顧卡查找 ＋ 空殼守門（可測）
 ```
 
 兩個踩過的限制，新增檔案時會遇到：

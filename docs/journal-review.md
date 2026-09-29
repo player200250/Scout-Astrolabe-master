@@ -19,7 +19,10 @@
 | `src/hooks/useJournal.ts` | `handleSetJournal`、`handleSaveJournal`（TD2 後居此子 hook，經 useBoardManager 回傳） |
 | `src/hooks/useBoardManager.ts` | `handleGoToWeeklyCard`（跨領域，仍留合成層） |
 | `src/utils/date.ts` | `toDateStr`、`getTodayStr`、`getWeekLaterStr`、`formatDueDate`、`formatRelativeDate` |
-| `src/utils/weeklyReviewUtils.ts` | `getISOWeekKey`、`getWeekRange`（**getISOWeekKey 在此，非 date.ts／WeeklyReview.tsx**） |
+| `src/utils/weeklyReviewUtils.ts` | `getISOWeekKey`、`getWeekRange`、`recentWeekStarts`（**getISOWeekKey 在此，非 date.ts／WeeklyReview.tsx**） |
+| `src/utils/journalCards.ts` | `findJournalCard`、`isUntouchedTemplate`（空殼守門，見下方「為什麼不能無條件存檔」） |
+| `src/components/review/JournalCardEditor.tsx` | 日記／週回顧共用的內嵌編輯器（週回顧分頁用它；`JournalDayView` 是同一套邏輯的另一份拷貝） |
+| `src/components/calendar/` | `MonthGrid`／`TimeGrid`／`YearGrid`／`AgendaPanel`／`primitives` |
 
 ---
 
@@ -157,20 +160,43 @@ export function getISOWeekKey(date: Date): string {
 ### 自動儲存（debounce 900ms）
 
 ```typescript
-// JournalDayView.tsx
+// JournalDayView.tsx / components/review/JournalCardEditor.tsx（兩份同構）
 onUpdate: ({ editor }) => {
-    if (skipUpdate.current) return    // 防止 setContent 觸發 onUpdate
+    if (skipUpdate.current) return
     setSaveStatus('pending')
     if (saveTimer.current) clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(() => {
+        const c = cardRef.current
+        const html = editor.getHTML()
+        // 卡片還不存在、且內容與模板一字不差 ⇒ 不寫檔（見下方 RC9）
+        if (!c && isUntouchedTemplate(html, template)) { setSaveStatus('none'); return }
         setSaveStatus('saving')
-        onSaveJournal(boardId, ds, editor.getHTML(), card?.shapeId ?? null)
-        setTimeout(() => setSaveStatus('saved'), 400)
+        onSaveJournal(c?.boardId ?? journalBoardId ?? '', ds, html, c?.shapeId ?? null)
+        setTimeout(() => setSaveStatus('saved'), SAVE_STATUS_RESET_MS)
     }, 900)
 }
 ```
 
-`skipUpdate.current` flag 防止 `tiptap.commands.setContent()` 切換日期時觸發不必要的儲存。
+#### 為什麼不能無條件存檔（RC9，2026-09-29）
+
+**debounce 存的是「900ms 之後」的文件狀態，不是觸發當下的狀態。** 使用者打了字又在同一個
+視窗內刪掉，時間到時文件已經變回模板，於是憑空生出一張「只有標題、一個字沒填」的**空殼卡**。
+實測前曾在 📔 日誌白板累積 3 張（第 34／35／40 週）。守門的述詞 `isUntouchedTemplate()`
+與週回顧「記為：這週沒有產出」按鈕的出現條件共用同一支，避免兩邊對「未動過」的定義漂移。
+
+已存在的卡片仍照常存——使用者可能是刻意清空。
+
+#### `skipUpdate` 這個旗標其實守不到 setContent
+
+`setContent(content, emitUpdate)` 的第二個參數預設就是 `false`，程式碼也明確傳 `false`
+（`@tiptap/core` 2.27.2），所以**切換日期時的 `setContent` 根本不會發 `onUpdate`**。
+旗標留著只擋得到其他掛載期噪音，不是空殼卡的成因——2026-09-29 實測證偽過一次，別再往那個方向查。
+
+#### 儲存狀態有四種，`'none'` 是「這天還沒有卡片」
+
+`saveStatus: 'none' | 'saved' | 'saving' | 'pending'`，初值 `card ? 'saved' : 'none'`。
+`'none'` 時狀態列整個不顯示——什麼都還沒發生就不該報告任何狀態。
+（初值一律給 `'saved'` 是 RC4 的成因：還沒寫過的日子一打開就顯示綠色「已儲存」。）
 
 ### 預設模板
 
@@ -202,6 +228,46 @@ function defaultTemplate(ds: string): string {
 | 嵌入 | `CalendarContent`（嵌入 ReviewCenter）|
 
 > 註：原 standalone 全螢幕版 `CalendarView`（含標題列）2026-06-20 確認無引用後刪除（TD7），現只保留嵌入版 `CalendarContent`。
+
+### 四種檢視：日／週／月／年
+
+`VIEW_MODES`（`utils/calendarViews.ts`）。版面實作住在 `components/calendar/`：
+
+| 檢視 | 元件 | 畫什麼 |
+|------|------|--------|
+| 日 | `TimeGrid`（傳入單日）| 全天列 ＋ 24 小時軸 |
+| 週 | `TimeGrid`（傳入七天）| 同上，橫向七欄 |
+| 月 | `MonthGrid` | 格子；每格最多 2 條待辦標題，其餘用密度點 |
+| 年 | `YearGrid` | 12 個月的密度圖 |
+
+右側 `AgendaPanel`（380px）**四種檢視都常駐**，日記入口在那裡。
+
+> **2026-09-29 的兩個改動，動之前先讀這段：**
+>
+> 1. **原本有第五種檢視 `'hour'`**（單日 24 小時軸），而 `'day'` 是議程清單 `DayAgenda`。
+>    兩個都在看一天，而那份清單的第一段就是 Journal——等於把日記入口擺在日曆正中央，
+>    且與右側 `AgendaPanel` 的三段內容完全重複。收成四種、`DayAgenda.tsx` 刪除。
+> 2. **月／年檢視改成週一起頭。** 這是被 ISO 週鎖死的選擇，不是偏好：
+>    `startOfWeek` 取週一、`getISOWeekKey` 產出 `week-YYYY-WW`，而既有的週回顧卡就是用那個鍵存的。
+>    ISO 動不得，月／年只能跟上——否則月格子裡的一橫排和「第 40 週」講的不是同一週。
+
+#### `WEEKDAYS` 身兼兩職，別搞混
+
+| 常數 | 用途 | 順序 |
+|------|------|------|
+| `WEEKDAYS` | **由日期查名稱**：`WEEKDAYS[date.getDay()]`（`TimeGrid`、`viewRangeLabel`）| 日一二三四五六（`getDay()` 索引） |
+| `WEEKDAY_HEADER` | **格線表頭的顯示順序**（`MonthGrid`、`YearGrid`）| 一二三四五六日 |
+| `weekdayColumn(date)` | 該日在週一起頭的格線中位於第幾欄 | `(getDay() + 6) % 7` |
+
+直接把 `WEEKDAYS` map 出表頭會得到週日起頭的格線，與週檢視錯開一格。
+
+### `cursor` 與 `selectedDate` 是兩個狀態
+
+- `cursor`：**顯示哪一段時間**（月檢視看它的年月、週檢視看它所在的週、日檢視就是那一天）
+- `selectedDate`：**右欄議程顯示哪一天**
+
+`pickDay(d)` 兩個都設。只設 `selectedDate` 的話，在月檢視點 9/3 再切到週檢視，
+左邊會停在今天那一週而右欄寫著 9/3，同一畫面上兩個日期互相矛盾（2026-09-29 修）。
 
 ### 月曆格資料建立（`buildMonthEvents`）
 
@@ -255,12 +321,48 @@ for (const board of boards) {
 
 按白板分組顯示卡片數（降序）。
 
-### 兩個型態
+### 型態
 
-| 型態 | 元件 | 開啟方式 |
-|------|------|---------|
-| 側邊板 | `WeeklyReview`（固定右側，320px 寬）| Ctrl+Shift+C → ReviewCenter → 週回顧 tab |
-| 嵌入 | `WeeklyReviewContent` | ReviewCenter 的「週回顧」tab |
+只有嵌入版 `WeeklyReviewContent`（ReviewCenter 的「週回顧」tab）。
+原本另有一個固定右側 320px 的 standalone `WeeklyReview`，全專案無人 import（孤兒，同 WO2 的情況），
+已移除——**文件先前列的「兩個型態」是過時資訊**。
+
+### 版面：左欄 420px ＋ 右欄編輯器
+
+左欄由上到下：週導覽（← 第 N 週 → 本週）→ **活動走勢** → 統計標題 → 三張統計卡 →
+**〔記為：這週沒有產出〕** → 統計範圍註記 → 「在白板上開啟本週卡片 →」。
+
+#### 活動走勢 · 近 8 週（RC8，2026-09-29）
+
+八根柱子，點一下跳到那一週。資料由 `recentWeekStarts(anchor, 8)` 取週一清單，
+再對每一週跑一次 `computeWeekStats`。柱高 `3 + (totalCards / 視窗最大值) * 27`，
+0 活動的週留 3px 基線（仍可點）。
+
+**視窗跟著 `anchor` 移動**（最右邊永遠是正在看的那一週），不是固定在「今天」——
+否則翻到過去的週就看不到它前後的脈絡。這也讓它同時是導覽：原本要翻到第 33 週得按 ← 六次。
+
+擺在統計卡**上方**是刻意的：它是導覽不是統計，而且要常駐，
+與只在空白週出現的「記為：這週沒有產出」分層才不會打架。
+
+#### 記為：這週沒有產出（RC7，2026-09-29）
+
+出現條件**兩個都要成立**：
+
+1. 這週三項統計全是 0
+2. 卡片還沒被動過——不存在，或 `isUntouchedTemplate()` 為真
+
+第二個條件是保險：已經寫過東西的一週不該被一顆按鈕蓋掉。按下寫入 `noOutputContent()`，
+只填第一段，其餘照常留白供補脈絡。
+
+> **為什麼是給一個動作，而不是把三個 0 換成別的統計**：使用者自己在第 36／37 週示範過答案——
+> 那兩週同樣沒有產出，但卡片沒有留空，內容是「沒有任何產出紀錄。無 commit」。
+> **空白的一週本身就是值得記下的事實**，不是該被藏起來的狀態。
+> 被否決的兩個方向：顯示「上次有紀錄那週」的數字（多餘）、提醒去寫（「太忙還是會忘記」）。
+
+#### `syncToken`：外部寫入後編輯器要重讀
+
+`JournalCardEditor` 的 `setContent` 只在 `dateKey` 變動時跑。RC7 的按鈕從元件外寫入卡片後，
+若不 bump `syncToken`，內容已經進 IndexedDB 了、畫面上還是舊的空模板。
 
 ---
 
