@@ -1,6 +1,6 @@
 // src/utils/weeklyReviewUtils.test.ts
 import { describe, it, expect } from 'vitest'
-import { getISOWeekKey, getWeekRange, recentWeekStarts } from './weeklyReviewUtils'
+import { getISOWeekKey, getWeekRange, recentWeekStarts, weekOwnerMonth, weeksOfMonth } from './weeklyReviewUtils'
 
 describe('getISOWeekKey', () => {
     it('回傳格式為 week-YYYY-WW，週次補零', () => {
@@ -90,5 +90,38 @@ describe('recentWeekStarts', () => {
         for (let i = 1; i < out.length; i++) {
             expect(out[i].getTime() - out[i - 1].getTime()).toBe(7 * 86400000)
         }
+    })
+})
+
+describe('weeksOfMonth / weekOwnerMonth', () => {
+    const md = (ds: string) => new Date(ds + 'T12:00:00')
+    const starts = (year: number, month: number) =>
+        weeksOfMonth(year, month).map(d => `${d.getMonth() + 1}/${d.getDate()}`)
+
+    it('一週歸屬看週四：第 40 週（9/28–10/4）的週四是 10/1 ⇒ 歸十月', () => {
+        expect(weekOwnerMonth(md('2026-09-28'))).toEqual({ year: 2026, month: 9 })  // 10 月
+        expect(weekOwnerMonth(md('2026-09-21'))).toEqual({ year: 2026, month: 8 })  // 9 月
+    })
+
+    it('2026 年 9 月剛好四週：8/31、9/7、9/14、9/21', () => {
+        expect(starts(2026, 8)).toEqual(['8/31', '9/7', '9/14', '9/21'])
+    })
+
+    it('2026 年 8 月是 8/3、8/10、8/17、8/24（8/31 那週歸九月）', () => {
+        expect(starts(2026, 7)).toEqual(['8/3', '8/10', '8/17', '8/24'])
+    })
+
+    // 最重要的一條：每一週只能有一個家，不能重複也不能漏掉
+    it('整年掃過去，每一週剛好被算進一個月一次', () => {
+        const seen = new Map<string, number>()
+        for (let m = 0; m < 12; m++) {
+            for (const w of weeksOfMonth(2026, m)) {
+                const k = w.toDateString()
+                seen.set(k, (seen.get(k) ?? 0) + 1)
+            }
+        }
+        for (const [, n] of seen) expect(n).toBe(1)
+        // 2026 有 53 個 ISO 週，扣掉跨年歸給 2025／2027 的，落在 2026 各月的應為 52
+        expect(seen.size).toBeGreaterThanOrEqual(52)
     })
 })

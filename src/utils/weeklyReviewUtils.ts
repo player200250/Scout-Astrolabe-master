@@ -1,6 +1,9 @@
 // src/utils/weeklyReviewUtils.ts
 // 週次計算 utilities（從 WeeklyReview.tsx 拆出）
 
+import type { BoardRecord } from '../db'
+import { getCardShapes } from './snapshot'
+
 /** 回傳 ISO 週次鍵值，如 "week-2026-22" */
 export function getISOWeekKey(date: Date): string {
     const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
@@ -44,4 +47,71 @@ export function recentWeekStarts(anchor: Date, count: number): Date[] {
         out.push(d)
     }
     return out
+}
+
+/**
+ * 這一週屬於哪個月——看它的**週四**。
+ *
+ * ISO 週是週一到週日，不跟月份對齊：第 40 週是 9/28–10/4，三天在九月、四天在十月。
+ * 規則沿用 getISOWeekKey 判斷「屬於哪一年」的同一條（那裡也是取週四），
+ * 年與月才不會互相打架。第 40 週的週四是 10/1 ⇒ 歸十月，於是九月剛好四週。
+ */
+export function weekOwnerMonth(weekStart: Date): { year: number; month: number } {
+    const thu = new Date(weekStart)
+    thu.setDate(weekStart.getDate() + 3)
+    return { year: thu.getFullYear(), month: thu.getMonth() }
+}
+
+/** 某年某月涵蓋哪幾週（回傳每週的週一，由舊到新） */
+export function weeksOfMonth(year: number, month: number): Date[] {
+    // 從「該月 1 號所在週」的前一週開始掃，掃 7 週足以覆蓋任何月份的邊界
+    const first = getWeekRange(new Date(year, month, 1)).start
+    const out: Date[] = []
+    for (let i = -1; i <= 5; i++) {
+        const w = new Date(first)
+        w.setDate(first.getDate() + i * 7)
+        const o = weekOwnerMonth(w)
+        if (o.year === year && o.month === month) out.push(w)
+    }
+    return out
+}
+
+/** 月鍵值，如 "month-2026-09"（給未來若要存月回顧卡用；目前月回顧是自動整理、不存卡） */
+export function getMonthKey(year: number, month: number): string {
+    return `month-${year}-${String(month + 1).padStart(2, '0')}`
+}
+
+/**
+ * 某段期間的統計。名字裡的 Week 是歷史包袱——它吃的是任意起訖，
+ * 月／年整理直接把整段範圍餵進來就好，不必逐週加總（逐週加總會把
+ * 「同一塊板在兩週都更新過」重複計入）。
+ */
+export interface RangeStats {
+    cardsByBoard: { boardName: string; count: number }[]
+    totalCards: number
+    completedTodos: number
+    wikiLinks: number
+}
+
+export function computeRangeStats(boards: BoardRecord[], rangeStart: Date, rangeEnd: Date): RangeStats {
+    const cardsByBoard: { boardName: string; count: number }[] = []
+    let completedTodos = 0
+    let wikiLinks = 0
+    for (const board of boards) {
+        if (board.updatedAt < rangeStart.getTime() || board.updatedAt > rangeEnd.getTime()) continue
+        const shapes = getCardShapes(board.snapshot)
+        if (shapes.length === 0) continue
+        for (const shape of shapes) {
+            if (shape.props.type === 'todo') {
+                completedTodos += (shape.props.todos ?? []).filter(t => t.checked).length
+            }
+            if (shape.props.text) {
+                const matches = shape.props.text.match(/\[\[[^\]]+\]\]/g)
+                if (matches) wikiLinks += matches.length
+            }
+        }
+        cardsByBoard.push({ boardName: board.name, count: shapes.length })
+    }
+    cardsByBoard.sort((a, b) => b.count - a.count)
+    return { cardsByBoard, totalCards: cardsByBoard.reduce((s, b) => s + b.count, 0), completedTodos, wikiLinks }
 }
