@@ -27,3 +27,21 @@ export function getWeekRange(date: Date): { start: Date; end: Date; weekNum: num
     const weekNum = Math.ceil(((thu.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
     return { start: monday, end: sunday, weekNum }
 }
+
+/**
+ * 以 anchor 所在的那一週為**最後一格**，往回數 count 週，回傳每週的週一（由舊到新）。
+ *
+ * 給週回顧左欄的走勢圖用：最右邊永遠是目前正在看的那一週，往左是更早的。
+ * 走勢圖同時兼任導覽（點某一格就跳到那週），所以視窗跟著 anchor 移動，
+ * 而不是固定在「今天」——否則翻到過去的週就看不到它前後的脈絡了。
+ */
+export function recentWeekStarts(anchor: Date, count: number): Date[] {
+    const { start } = getWeekRange(anchor)
+    const out: Date[] = []
+    for (let i = count - 1; i >= 0; i--) {
+        const d = new Date(start)
+        d.setDate(start.getDate() - i * 7)
+        out.push(d)
+    }
+    return out
+}

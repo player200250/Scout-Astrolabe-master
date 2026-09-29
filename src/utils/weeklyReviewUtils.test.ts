@@ -1,6 +1,6 @@
 // src/utils/weeklyReviewUtils.test.ts
 import { describe, it, expect } from 'vitest'
-import { getISOWeekKey, getWeekRange } from './weeklyReviewUtils'
+import { getISOWeekKey, getWeekRange, recentWeekStarts } from './weeklyReviewUtils'
 
 describe('getISOWeekKey', () => {
     it('回傳格式為 week-YYYY-WW，週次補零', () => {
@@ -66,5 +66,29 @@ describe('getWeekRange', () => {
         const { weekNum } = getWeekRange(date)
         const keyWeek = Number(getISOWeekKey(date).split('-')[2])
         expect(weekNum).toBe(keyWeek)
+    })
+})
+
+describe('recentWeekStarts', () => {
+    // 走勢圖的視窗：最後一格＝anchor 那一週，往左是更早的週
+    it('最後一格是 anchor 所在週的週一，且每格相差 7 天', () => {
+        const anchor = new Date('2026-09-29T12:00:00')   // 週二，第 40 週
+        const out = recentWeekStarts(anchor, 8)
+        expect(out).toHaveLength(8)
+        // 最後一格 = 9/28（週一）
+        expect(getWeekRange(out[7]).weekNum).toBe(getWeekRange(anchor).weekNum)
+        for (const d of out) expect(d.getDay()).toBe(1)          // 全部都是週一
+        for (let i = 1; i < out.length; i++) {
+            expect(out[i].getTime() - out[i - 1].getTime()).toBe(7 * 86400000)
+        }
+    })
+
+    it('跨年也連續（往回數會跨進前一年）', () => {
+        const out = recentWeekStarts(new Date('2026-01-12T12:00:00'), 8)
+        expect(out).toHaveLength(8)
+        expect(out[0].getFullYear()).toBe(2025)
+        for (let i = 1; i < out.length; i++) {
+            expect(out[i].getTime() - out[i - 1].getTime()).toBe(7 * 86400000)
+        }
     })
 })

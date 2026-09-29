@@ -9,7 +9,7 @@
 import { useMemo, useState } from 'react'
 import type { BoardRecord } from './db'
 import { getCardShapes } from './utils/snapshot'
-import { getWeekRange, getISOWeekKey } from './utils/weeklyReviewUtils'
+import { getWeekRange, getISOWeekKey, recentWeekStarts } from './utils/weeklyReviewUtils'
 import { findJournalCard } from './utils/journalCards'
 import { stripHtml } from './utils/stringUtils'
 import { JournalCardEditor } from './components/review/JournalCardEditor'
@@ -60,6 +60,9 @@ function weeklyTemplate(weekNum: number, startLabel: string, endLabel: string): 
         + '<p><strong>需要跟進的白板</strong></p><p></p>'
 }
 
+/** 走勢圖看幾週。420px 的左欄放 8 根柱子還很寬鬆 */
+const TREND_WEEKS = 8
+
 /**
  * 「這週沒有產出」的一鍵結案內容。
  *
@@ -102,6 +105,20 @@ export function WeeklyReviewContent({ boards, onGoToWeeklyCard, onSaveJournal }:
     const endLabel   = `${weekEnd.getMonth() + 1}/${weekEnd.getDate()}`
     const hasJournalBoard = boards.some(b => b.isJournal)
     const isCurrentWeek = weekKey === getISOWeekKey(new Date())
+
+    /**
+     * 走勢圖資料：最近 8 週各跑一次 computeWeekStats。
+     * 視窗跟著 anchor 移動（最右邊＝正在看的那一週），所以它同時是導覽——
+     * 現在要翻到第 33 週得按 ← 六次，點柱子一下就到。
+     */
+    const trend = useMemo(
+        () => recentWeekStarts(anchor, TREND_WEEKS).map(ws => {
+            const { start, end, weekNum } = getWeekRange(ws)
+            return { date: ws, weekNum, ...computeWeekStats(boards, start, end) }
+        }),
+        [boards, anchor],
+    )
+    const trendMax = Math.max(1, ...trend.map(t => t.totalCards))
 
     // 外部寫入卡片後 +1，逼 JournalCardEditor 把新內容讀回來（見該元件的 syncToken）
     const [syncToken, setSyncToken] = useState(0)
@@ -164,6 +181,40 @@ export function WeeklyReviewContent({ boards, onGoToWeeklyCard, onSaveJournal }:
                     {!isCurrentWeek && (
                         <button onClick={() => setAnchor(new Date())} title="回到本週" style={{ ...navBtnStyle, color: T.accent }}>本週</button>
                     )}
+                </div>
+
+                {/* RC8 走勢圖。擺在統計卡「上方」是刻意的：它是導覽不是統計，
+                    而且要常駐——RC7 的「記為沒有產出」只在空白週出現，兩者放同一層會打架。 */}
+                <div style={{ marginBottom: 16 }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: '#888', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>
+                        活動走勢 · 近 {TREND_WEEKS} 週
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 38 }}>
+                        {trend.map(t => {
+                            const isHere = t.weekNum === weekNum
+                            const h = 3 + Math.round((t.totalCards / trendMax) * 27)
+                            return (
+                                <button
+                                    key={t.weekNum}
+                                    onClick={() => setAnchor(t.date)}
+                                    title={`第 ${t.weekNum} 週 — 卡片 ${t.totalCards} · 完成待辦 ${t.completedTodos} · 連結 ${t.wikiLinks}`}
+                                    style={{
+                                        flex: 1, minWidth: 0, height: '100%', padding: 0, border: 'none',
+                                        background: 'transparent', cursor: 'pointer',
+                                        display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', gap: 3,
+                                    }}
+                                >
+                                    <span style={{
+                                        display: 'block', height: h, borderRadius: 2,
+                                        background: isHere ? T.accent : t.totalCards > 0 ? T.bgActive : T.borderMid,
+                                        opacity: isHere || t.totalCards > 0 ? 1 : 0.55,
+                                        transition: 'height 0.15s',
+                                    }} />
+                                    <span style={{ fontSize: 9, color: isHere ? T.accent : '#999', fontWeight: isHere ? 700 : 400 }}>{t.weekNum}</span>
+                                </button>
+                            )
+                        })}
+                    </div>
                 </div>
 
                 <div style={{ fontSize: 11, fontWeight: 600, color: '#888', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 12 }}>
