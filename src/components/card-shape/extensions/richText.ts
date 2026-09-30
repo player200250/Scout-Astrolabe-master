@@ -25,6 +25,13 @@ import 'katex/dist/katex.min.css' // 全域 katex 樣式：編輯預覽與唯讀
 // 建立 lowlight 實例（包含常用語言）
 const lowlight = createLowlight(common)
 
+/**
+ * 編輯區 contenteditable 的共用屬性（傳給 useTiptap 的 editorProps.attributes）。
+ * spellcheck 關掉（RC20）：中英混寫的筆記裡 useBacklinks、TD4、445M 這類詞幾乎每行都被畫紅波浪線，
+ * 只有雜訊、沒有幫助。2026-09-30 使用者確認要關。
+ */
+export const RICH_TEXT_ATTRIBUTES = { spellcheck: 'false' } as const
+
 export function richTextExtensions(placeholder: string) {
     return [
         StarterKit.configure({ codeBlock: false }), // 停用預設 CodeBlock

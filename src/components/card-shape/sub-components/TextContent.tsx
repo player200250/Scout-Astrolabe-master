@@ -4,7 +4,7 @@ import type { TLCardShape } from '../type/CardShape'
 import { CARD_COLORS } from '../type/CardShape'
 import { openLink } from '../../../platform/linkOpener'
 import { useEditor as useTiptap, EditorContent } from '@tiptap/react'
-import { richTextExtensions } from '../extensions/richText'
+import { richTextExtensions, RICH_TEXT_ATTRIBUTES } from '../extensions/richText'
 import { RichTextToolbar } from './RichTextToolbar'
 import { useEditorMenus } from './EditorMenus'
 import { BacklinksContext } from '../../../hooks/useBacklinks'
@@ -178,6 +178,7 @@ export function TextContent({ editor: tldrawEditor, shape, isEditing, exitEdit, 
         content: p.text || '<p></p>',
         editable: isEditing,
         editorProps: {
+            attributes: { ...RICH_TEXT_ATTRIBUTES },
             // 回傳 true ＝ 攔下，PM 不再跑預設行為
             handleKeyDown: (_view, event) => menuKeyRef.current(event),
             handleDOMEvents: {

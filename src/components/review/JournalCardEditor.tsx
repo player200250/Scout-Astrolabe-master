@@ -13,7 +13,7 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useEditor as useTiptap, EditorContent } from '@tiptap/react'
-import { richTextExtensions } from '../card-shape/extensions/richText'
+import { richTextExtensions, RICH_TEXT_ATTRIBUTES } from '../card-shape/extensions/richText'
 import { RichTextToolbar } from '../card-shape/sub-components/RichTextToolbar'
 import { useEditorMenus } from '../card-shape/sub-components/EditorMenus'
 import { extractCardName } from '../../hooks/useBacklinks'
@@ -83,7 +83,7 @@ export function JournalCardEditor({ boards, dateKey, template, onSaveJournal, ma
         extensions: richTextExtensions('開始寫…，或按 / 選擇格式'),
         content: card?.text ?? template,
         editorProps: {
-            attributes: { style: 'outline:none' },
+            attributes: { ...RICH_TEXT_ATTRIBUTES, style: 'outline:none' },
             // 回傳 true ＝ 攔下，PM 不再跑預設行為（原因見 EditorMenus.tsx 開頭）
             handleKeyDown: (_view, event) => menuKeyRef.current(event),
         },
