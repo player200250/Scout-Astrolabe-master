@@ -10,7 +10,7 @@
 import { describe, it, expect } from 'vitest'
 import type { TLEditorSnapshot } from 'tldraw'
 import type { BoardRecord } from '../db'
-import { buildGraph, shouldShowNodeLabel, type GraphLink } from './knowledgeGraph'
+import { buildGraph, shouldShowNodeLabel, pickNextStep, questTitle, shortenKeepDue, type GraphLink } from './knowledgeGraph'
 
 /* --------------------------------------------------------------- 捏假資料 */
 type Rec = Record<string, unknown>
@@ -105,23 +105,72 @@ describe('buildGraph — wikilink 連結（來自 forwardLinks）', () => {
     })
 })
 
-describe('shouldShowNodeLabel — LOD', () => {
-    it('白板標籤：globalScale > 0.6 才顯示', () => {
-        expect(shouldShowNodeLabel('board', 5, 0.7)).toBe(true)
-        expect(shouldShowNodeLabel('board', 5, 0.6)).toBe(false)
-        expect(shouldShowNodeLabel('board', 5, 0.3)).toBe(false)
+describe('shouldShowNodeLabel — LOD（2026-09-30 下修門檻）', () => {
+    it('白板標籤不論縮放都嘗試顯示（重疊改由 drawLabels 的讓位處理）', () => {
+        expect(shouldShowNodeLabel('board', 5, 0.1)).toBe(true)
     })
 
-    it('卡片標籤：需 val ≥ 3 且放大（globalScale > 1.2）', () => {
-        expect(shouldShowNodeLabel('card', 3, 1.5)).toBe(true)
-        expect(shouldShowNodeLabel('card', 5, 1.2)).toBe(false) // 剛好 1.2 不顯示
-        expect(shouldShowNodeLabel('card', 2, 2)).toBe(false)   // val 太低
-        expect(shouldShowNodeLabel('card', 3, 1.0)).toBe(false) // 未放大
+    it('卡片標籤：需 val ≥ 2 且 globalScale > 0.5', () => {
+        expect(shouldShowNodeLabel('card', 2, 0.6)).toBe(true)
+        expect(shouldShowNodeLabel('card', 1, 2)).toBe(false)   // 沒被引用過的孤卡不標
+        expect(shouldShowNodeLabel('card', 3, 0.5)).toBe(false) // 剛好 0.5 不顯示
     })
 
-    it('縮到全局（globalScale 很小）時卡片與白板標籤都隱藏', () => {
-        expect(shouldShowNodeLabel('card', 10, 0.2)).toBe(false)
-        expect(shouldShowNodeLabel('board', 10, 0.2)).toBe(false)
+    it('主線／支線不論縮放一律顯示', () => {
+        expect(shouldShowNodeLabel('quest', 20, 0.05)).toBe(true)
+    })
+})
+
+describe('pickNextStep', () => {
+    it('取未完成項裡到期日最早的，附（M/D）', () => {
+        expect(pickNextStep([
+            { text: '投遞', checked: false, dueDate: '2026-10-19' },
+            { text: '定色盤', checked: false, dueDate: '2026-10-02' },
+            { text: '已做完', checked: true, dueDate: '2026-09-01' },
+        ])).toBe('定色盤（10/2）')
+    })
+
+    it('都沒有日期就取清單順序第一個未完成項', () => {
+        expect(pickNextStep([{ text: 'a', checked: true }, { text: 'b', checked: false }, { text: 'c', checked: false }])).toBe('b')
+    })
+
+    it('有日期的排在沒日期的前面', () => {
+        expect(pickNextStep([{ text: '沒日期', checked: false }, { text: '有日期', checked: false, dueDate: '2026-12-01' }])).toBe('有日期（12/1）')
+    })
+
+    it('全部完成或空清單回 null', () => {
+        expect(pickNextStep([{ text: 'x', checked: true }])).toBeNull()
+        expect(pickNextStep(undefined)).toBeNull()
+    })
+})
+
+describe('buildGraph — 主線／支線與不畫的白板（2026-09-30）', () => {
+    const quest = (id: string, text: string, tags: string[]): Rec => ({
+        typeName: 'shape', type: 'card', id, x: 0, y: 0,
+        props: { type: 'todo', text, tags, todos: [{ text: '第一步', checked: false, dueDate: '2026-10-02' }] },
+    })
+
+    it('標了 #主線／#支線 的待辦卡成為 quest 節點，帶下一步，並連到所屬白板', () => {
+        const { nodes, links } = buildGraph([board('b1', '作品集', [quest('q1', '求職', ['主線']), quest('q2', '遊戲', ['支線']), quest('q3', '一般', [])])], new Map())
+        const q1 = nodes.find(n => n.id === 'q1')!
+        expect(q1.type).toBe('quest')
+        expect(q1.quest).toBe('main')
+        expect(q1.nextStep).toBe('第一步（10/2）')
+        expect(nodes.find(n => n.id === 'q2')!.quest).toBe('side')
+        expect(nodes.some(n => n.id === 'q3')).toBe(false) // 沒標籤的待辦卡仍不上圖
+        expect(hasLink(links, 'b1', 'q1', 'parent')).toBe(true)
+    })
+
+    it('主頁／收件匣／資料夾／日誌板及其上的卡片都不上圖', () => {
+        const flag = (b: BoardRecord, k: string) => ({ ...b, [k]: true }) as BoardRecord
+        const { nodes } = buildGraph([
+            flag(board('h', '主頁', [card('ch', '主頁卡')]), 'isHome'),
+            flag(board('i', '收件匣', [card('ci', '收件卡')]), 'isInbox'),
+            flag(board('f', '資料夾', []), 'isFolder'),
+            flag(board('j', '日誌', [card('cj', '日記', 'journal')]), 'isJournal'),
+            board('b', '一般', [card('cb', '一般卡')]),
+        ], new Map())
+        expect(nodes.map(n => n.id).sort()).toEqual(['b', 'cb'])
     })
 })
 
@@ -149,5 +198,21 @@ describe('buildGraph — 父子白板與 val', () => {
         const forwardLinks = new Map<string, string[]>([['c1', ['目標板']]])
         const { nodes } = buildGraph(boards, forwardLinks)
         expect(nodes.find(n => n.id === 'b2')?.val).toBe(6)
+    })
+})
+
+describe('questTitle／shortenKeepDue（圖上主線標籤）', () => {
+    it('去掉開頭 emoji 與「主線：」前綴，在 ·／〔 處截斷', () => {
+        expect(questTitle('🎯 主線：求職（Spine 動畫師）· 主角＝星塵拾荒者主角')).toBe('求職（Spine 動畫師）')
+        expect(questTitle('🎯 MVP 里程碑 〔8/06 起凍結：求職優先〕')).toBe('MVP 里程碑')
+        expect(questTitle('🧹 待清的小尾巴')).toBe('待清的小尾巴')
+    })
+
+    it('過長時截斷描述、保留結尾的（M/D）', () => {
+        const s = '從星塵拾荒者現有配色挑 3–5 色，定成限定色盤（10/2）'
+        const out = shortenKeepDue(s, 20)
+        expect(out.endsWith('…（10/2）')).toBe(true)
+        expect(out.length).toBeLessThanOrEqual(20)
+        expect(shortenKeepDue('短（1/1）', 20)).toBe('短（1/1）')
     })
 })

@@ -8,7 +8,7 @@ import type { NodeObject, LinkObject } from 'react-force-graph-2d'
 const ForceGraph2D = _ForceGraph2D as any
 import type { BoardRecord } from './db'
 import { useBacklinks } from './hooks/useBacklinks'
-import { buildGraph, shouldShowNodeLabel, type GraphNode, type GraphLink } from './utils/knowledgeGraph'
+import { buildGraph, shouldShowNodeLabel, questTitle, shortenKeepDue, type GraphNode, type GraphLink } from './utils/knowledgeGraph'
 import { FullscreenPanel } from './components/ui/FullscreenPanel'
 import { T } from './theme/tokens'
 
@@ -31,12 +31,23 @@ const INK = {
     hairline: 'rgba(255,255,255,0.12)',
 }
 const LINK_COLOR = { parent: 'rgba(148,163,184,0.28)', wikilink: 'rgba(96,165,250,0.52)' }
-const LEGEND_COLOR = { card: '#60a5fa', board: '#818cf8', wikilink: 'rgba(96,165,250,0.85)', parent: 'rgba(148,163,184,0.6)' }
+const LEGEND_COLOR = { card: '#60a5fa', board: '#818cf8', wikilink: 'rgba(96,165,250,0.85)', parent: 'rgba(148,163,184,0.6)', main: '#f97316', side: '#a78bfa' }
+/** 螢幕上的最小半徑（px）。縮到全局時節點不再小到 1–2px 看不見（2026-09-30） */
+const MIN_SCREEN_R = { card: 3, board: 4.5 }
+/** 主線／支線固定的螢幕半徑：不隨縮放變，永遠最醒目 */
+const QUEST_SCREEN_R = { main: 11, side: 7 }
 
 /* ------------------------------------------------------------------ types */
 // react-force-graph-2d augments nodes/links with simulation data at runtime
 type GraphNodeObject = NodeObject<GraphNode>
 type GraphLinkObject = LinkObject<GraphNode, GraphLink>
+
+/** 節點在圖座標裡的半徑。除以 globalScale＝換成螢幕 px（canvas 畫的是圖座標，會跟著縮放） */
+function nodeRadius(node: GraphNodeObject, globalScale: number): number {
+    return node.type === 'quest'
+        ? QUEST_SCREEN_R[node.quest ?? 'side'] / globalScale
+        : Math.max(Math.sqrt(Math.max(node.val, 1)) * 3.2, MIN_SCREEN_R[node.type] / globalScale)
+}
 
 /* ------------------------------------------------------------------ component */
 interface KnowledgeGraphProps {
@@ -47,7 +58,9 @@ interface KnowledgeGraphProps {
 }
 
 export function KnowledgeGraph({ boards, onClose, onJumpToCard, onSwitchBoard }: KnowledgeGraphProps) {
-    const [connectedOnly, setConnectedOnly] = useState(false)
+    // 預設只看有連結的節點：124 個節點裡大多是孤點，全部畫出來只會互推成一圈、縮到看不見（2026-09-30）。
+    // 主線／支線一律保留（它們連到所屬白板，本來就有連結）。
+    const [connectedOnly, setConnectedOnly] = useState(true)
     // 畫布尺寸量的是**容器**、不是視窗：進 FullscreenPanel 後畫布上方多了一條 54px header，
     // 沿用 window.innerHeight 會讓底部被裁掉。用 ResizeObserver 也免得把 header 高度寫死在這裡。
     const [dims, setDims] = useState({ w: 0, h: 0 })
@@ -104,7 +117,13 @@ export function KnowledgeGraph({ boards, onClose, onJumpToCard, onSwitchBoard }:
     }, [allNodes, allLinks, connectedOnly])
 
     // 固定 graphData 參照：只有 nodes/links 真正改變才更新，防止 simulation 被 re-render 重啟
-    const graphData = useMemo(() => ({ nodes, links }), [nodes, links])
+    // 主線釘在原點：打開圖譜第一眼就在正中央，其他節點圍著它排（2026-09-30：原本會被推到畫面邊緣）
+    const graphData = useMemo(() => {
+        for (const n of nodes as GraphNodeObject[]) {
+            if (n.type === 'quest' && n.quest === 'main') { n.fx = 0; n.fy = 0 }
+        }
+        return { nodes, links }
+    }, [nodes, links])
 
     // 力導向圖的預設縮放是固定的，跟實際佈局範圍無關——56 個節點會縮成畫面中央
     // 一小坨、標籤全疊在一起，周圍整片空白。simulation 收斂後把視野套到節點範圍。
@@ -115,12 +134,24 @@ export function KnowledgeGraph({ boards, onClose, onJumpToCard, onSwitchBoard }:
     // 換資料（例如切「只顯示有連結的節點」）就允許再自動框一次
     useEffect(() => { hasFitRef.current = false }, [graphData])
 
+    // 主線／支線與所屬白板拉開距離：預設連線長度 30，兩個節點的標籤會疊成一團（2026-09-30 截圖）。
+    // 另外把主線／支線的斥力加大，讓附近的卡片標籤讓出位置。
+    useEffect(() => {
+        const fg = fgRef.current
+        if (!fg) return
+        const isQuest = (n: unknown) => typeof n === 'object' && n !== null && (n as GraphNodeObject).type === 'quest'
+        // 一般連線也從 30 拉到 55、斥力加大：卡片標籤原本擠成一團互相壓字
+        fg.d3Force('link')?.distance((l: GraphLinkObject) => (isQuest(l.target) || isQuest(l.source) ? 120 : 55))
+        fg.d3Force('charge')?.strength((n: GraphNodeObject) => (n.type === 'quest' ? -400 : -90))
+        fg.d3ReheatSimulation?.()
+    }, [graphData, dims.w])
+
     // onEngineStop 每次 simulation 停下來都會觸發（拖節點也會重啟再停），
     // 只做第一次——否則使用者自己縮放/平移之後會被硬拉回去。
     const handleEngineStop = useCallback(() => {
         if (hasFitRef.current) return
         hasFitRef.current = true
-        fgRef.current?.zoomToFit(400, 60)
+        fgRef.current?.zoomToFit(400, 110) // 110：留出左下角圖例的位置，邊緣節點不會被它蓋住
     }, [])
 
     const handleNodeClick = useCallback((node: GraphNodeObject) => {
@@ -130,8 +161,8 @@ export function KnowledgeGraph({ boards, onClose, onJumpToCard, onSwitchBoard }:
     }, [onClose, onJumpToCard, onSwitchBoard])
 
     const handleNodeHover = useCallback((node: GraphNodeObject | null, prevNode: GraphNodeObject | null) => {
-        // 取消前一個節點的固定
-        if (prevNode) { prevNode.fx = undefined; prevNode.fy = undefined }
+        // 取消前一個節點的固定（主線例外：它固定在中心）
+        if (prevNode && !(prevNode.type === 'quest' && prevNode.quest === 'main')) { prevNode.fx = undefined; prevNode.fy = undefined }
         if (!node) {
             if (tooltipRef.current) tooltipRef.current.style.display = 'none'
             return
@@ -145,34 +176,90 @@ export function KnowledgeGraph({ boards, onClose, onJumpToCard, onSwitchBoard }:
             const nameEl = el.querySelector('.tt-name')
             const subEl = el.querySelector('.tt-sub')
             if (nameEl) nameEl.textContent = node.name
-            if (subEl) subEl.textContent = node.type === 'board' ? '📋 白板' : `📄 ${node.boardName}`
+            if (subEl) subEl.textContent = node.type === 'board' ? '📋 白板'
+                : node.type === 'quest' ? `${node.quest === 'main' ? '🎯 主線' : '支線'} · ${node.boardName}`
+                : `📄 ${node.boardName}`
             el.style.display = 'block'
         }
     }, [])
 
+    // 節點只畫圖形；文字統一交給 drawLabels（見下）。
     const paintNode = useCallback((node: GraphNodeObject, ctx: CanvasRenderingContext2D, globalScale: number) => {
-        const r = Math.sqrt(Math.max(node.val, 1)) * 3.2
+        const x = node.x ?? 0, y = node.y ?? 0
+        const r = nodeRadius(node, globalScale)
+        if (node.type === 'quest') {
+            // 外圈光暈：在一片小點裡一眼找到
+            ctx.beginPath(); ctx.arc(x, y, r * 1.7, 0, 2 * Math.PI)
+            ctx.fillStyle = node.quest === 'main' ? 'rgba(249,115,22,0.22)' : 'rgba(167,139,250,0.18)'; ctx.fill()
+            ctx.beginPath(); ctx.arc(x, y, r, 0, 2 * Math.PI)
+            ctx.fillStyle = node.color; ctx.fill()
+            ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 1.5 / globalScale; ctx.stroke()
+            return
+        }
         ctx.beginPath()
         if (node.type === 'board') {
-            ctx.save(); ctx.translate(node.x ?? 0, node.y ?? 0); ctx.rotate(Math.PI / 4)
+            ctx.save(); ctx.translate(x, y); ctx.rotate(Math.PI / 4)
             const s = r * 0.88; ctx.rect(-s, -s, s * 2, s * 2); ctx.restore()
         } else {
-            ctx.arc(node.x ?? 0, node.y ?? 0, r, 0, 2 * Math.PI)
+            ctx.arc(x, y, r, 0, 2 * Math.PI)
         }
         ctx.fillStyle = node.color; ctx.fill()
         if (node.type === 'board') { ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 1.5; ctx.stroke() }
-        // 註：這些色值是常數、不隨主題變（見檔頭「畫布配色」），所以 paintNode 的 deps 維持空陣列是安全的。
-        if (shouldShowNodeLabel(node.type, node.val, globalScale)) {
-            const lbl = node.name.slice(0, 20)
-            // 字級除以 globalScale：canvas 畫的是「圖座標」，不除的話放大檢視時
-            // 標籤會跟著被放大成巨大文字並互相蓋住（自動 fit 之後尤其明顯）。
-            // 除完等於「螢幕上恆為 9–10px」，縮放只改變節點疏密、不改變字的大小。
-            ctx.font = `${(node.type === 'board' ? 10 : 9) / globalScale}px system-ui`
-            ctx.fillStyle = node.type === 'board' ? INK.strong : INK.normal
-            ctx.textAlign = 'center'; ctx.textBaseline = 'top'
-            ctx.fillText(lbl, node.x ?? 0, (node.y ?? 0) + r + 3 / globalScale)
-        }
+        // 註：這些色值是常數、不隨主題變（見檔頭「畫布配色」），所以 deps 維持空陣列是安全的。
     }, [])
+
+    /**
+     * 標籤統一在每一幀最後畫（onRenderFramePost），依重要性由高到低：主線 → 支線 → 白板 → 卡片（被引用多的先）。
+     * 每畫一個就記下它佔的矩形；之後的標籤若會和已佔的重疊就不畫。
+     *
+     * 為什麼不再靠調連線距離／斥力：那是碰運氣——資料一變就又疊在一起（2026-09-30 試了 5 輪才發現）。
+     * 這樣做「主線／支線永遠可讀」「標籤互不重疊」兩件事是由程式保證的，不隨佈局而變。
+     * 字級一律換算成螢幕 px：主線 14／12.5、支線 12／11、白板 12、卡片 11。
+     */
+    const drawLabels = useCallback((ctx: CanvasRenderingContext2D, globalScale: number) => {
+        const px = (n: number) => n / globalScale
+        const placed: { x1: number; y1: number; x2: number; y2: number }[] = []
+        const gap = px(2)
+        const free = (x1: number, y1: number, x2: number, y2: number) =>
+            !placed.some(p => x1 < p.x2 + gap && x2 > p.x1 - gap && y1 < p.y2 + gap && y2 > p.y1 - gap)
+        const rank = (n: GraphNodeObject) =>
+            n.type === 'quest' ? (n.quest === 'main' ? 0 : 1) : n.type === 'board' ? 2 : 3
+        const list = (graphData.nodes as GraphNodeObject[])
+            .filter(n => shouldShowNodeLabel(n.type, n.val, globalScale))
+            .sort((p, q) => rank(p) - rank(q) || q.val - p.val)
+
+        ctx.textAlign = 'center'; ctx.textBaseline = 'top'
+        for (const node of list) {
+            const x = node.x ?? 0, y = node.y ?? 0
+            const top = y + nodeRadius(node, globalScale) + px(node.type === 'quest' ? 6 : 3)
+            if (node.type === 'quest') {
+                const title = `${node.quest === 'main' ? '主線' : '支線'}｜${questTitle(node.name).slice(0, 20)}`
+                const next = node.nextStep ? `下一步：${shortenKeepDue(node.nextStep, 30)}` : '（全部完成）'
+                const f1 = node.quest === 'main' ? 14 : 12, f2 = node.quest === 'main' ? 12.5 : 11
+                ctx.font = `600 ${px(f1)}px system-ui`; const w1 = ctx.measureText(title).width
+                ctx.font = `${px(f2)}px system-ui`; const w2 = ctx.measureText(next).width
+                const padX = px(6), padY = px(4)
+                const w = Math.max(w1, w2) + padX * 2, h = px(f1 + f2 + 6) + padY * 2
+                // 主線／支線排在最前面，一定放得下；底板幾乎不透明，壓在連線或節點上也讀得到
+                placed.push({ x1: x - w / 2, y1: top, x2: x + w / 2, y2: top + h })
+                ctx.fillStyle = 'rgba(15,23,42,0.96)'; ctx.fillRect(x - w / 2, top, w, h)
+                ctx.font = `600 ${px(f1)}px system-ui`; ctx.fillStyle = node.quest === 'main' ? '#fdba74' : '#ddd6fe'
+                ctx.fillText(title, x, top + padY)
+                ctx.font = `${px(f2)}px system-ui`; ctx.fillStyle = INK.strong
+                ctx.fillText(next, x, top + padY + px(f1 + 6))
+                continue
+            }
+            const size = node.type === 'board' ? 12 : 11
+            const lbl = node.name.slice(0, 20)
+            ctx.font = `${px(size)}px system-ui`
+            const w = ctx.measureText(lbl).width
+            const box = { x1: x - w / 2, y1: top, x2: x + w / 2, y2: top + px(size + 2) }
+            if (!free(box.x1, box.y1, box.x2, box.y2)) continue // 放不下就讓位給更重要的標籤
+            placed.push(box)
+            ctx.fillStyle = node.type === 'board' ? INK.strong : INK.normal
+            ctx.fillText(lbl, x, top)
+        }
+    }, [graphData])
 
     return (
         <FullscreenPanel
@@ -208,6 +295,7 @@ export function KnowledgeGraph({ boards, onClose, onJumpToCard, onSwitchBoard }:
                         width={dims.w} height={dims.h}
                         backgroundColor={SURFACE}
                         nodeCanvasObject={paintNode}
+                        onRenderFramePost={drawLabels}
                         nodeCanvasObjectMode={() => 'replace'}
                         nodeLabel={() => ''}
                         onNodeHover={handleNodeHover}
@@ -226,6 +314,8 @@ export function KnowledgeGraph({ boards, onClose, onJumpToCard, onSwitchBoard }:
 
                 {/* Legend */}
                 <div style={{ position: 'absolute', bottom: 20, left: 20, zIndex: 1, display: 'flex', gap: 16, alignItems: 'center', background: SURFACE_OVERLAY, borderRadius: 8, padding: '7px 14px', border: `1px solid ${INK.hairline}` }}>
+                    <LegendItem shape="circle" color={LEGEND_COLOR.main} label="主線" />
+                    <LegendItem shape="circle" color={LEGEND_COLOR.side} label="支線" />
                     <LegendItem shape="circle" color={LEGEND_COLOR.card} label="卡片" />
                     <LegendItem shape="diamond" color={LEGEND_COLOR.board} label="白板" />
                     <LegendItem shape="line" color={LEGEND_COLOR.wikilink} label="[[]] 引用" />
