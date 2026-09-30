@@ -643,15 +643,21 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                             <div style={{ padding: '4px 12px 6px', fontSize: 11, color: menuMuted, borderBottom: `1px solid ${menuDivider}`, marginBottom: 4 }}>
                                 {targetBoard.name}
                             </div>
+                            {/* 只在「還沒有日誌板」時給：日誌板 2026-09-30 起不在任何清單顯示，
+                                已經有一塊時再設另一塊，那塊白板會從側欄消失、也找不到入口取消，
+                                而新日記仍只寫進第一塊。同理「取消 Journal 白板」已無從觸發（日誌板不會出現在這裡）。 */}
+                            {!boards.some(b => b.isJournal && !b.deletedAt) && (<>
                             <div
-                                onClick={() => { onSetJournal(contextMenu.boardId, !targetBoard.isJournal); setContextMenu(null) }}
+                                onClick={() => { onSetJournal(contextMenu.boardId, true); setContextMenu(null) }}
+                                title="設定後這塊白板只當日記的倉庫，不再出現在側欄；日記一律從復盤中心寫"
                                 style={{ padding: '7px 14px', cursor: 'pointer', fontSize: 13, color: menuText, display: 'flex', alignItems: 'center', gap: 8 }}
                                 onMouseEnter={e => (e.currentTarget.style.background = menuItemHover)}
                                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                             >
-                                <Icon name="reviewCenter" />{targetBoard.isJournal ? '取消 Journal 白板' : '設為 Journal 白板'}
+                                <Icon name="reviewCenter" />設為 Journal 白板
                             </div>
                             <div style={{ height: 1, background: menuDivider, margin: '4px 0' }} />
+                            </>)}
                             <div
                                 onClick={() => {
                                     onSetStatus(contextMenu.boardId, targetBoard.status === 'pinned' ? 'active' : 'pinned')
