@@ -367,7 +367,8 @@ export function TextContent({ editor: tldrawEditor, shape, isEditing, exitEdit, 
                     if (isEditing) e.stopPropagation()
                 }}
             >
-                <RichTextToolbar tiptap={tiptap} />
+                {/* Modal 模式上方還有一條屬性列，工具列不是頂端，不該帶卡片的上圓角 */}
+                <RichTextToolbar tiptap={tiptap} style={preventResize ? { borderRadius: 0 } : undefined} />
 
                 <div style={{ flex: 1, overflow: 'auto', padding: '14px 16px' }}>
                     <EditorContent

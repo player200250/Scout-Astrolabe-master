@@ -1,5 +1,5 @@
 // src/components/card-shape/sub-components/TodoContent.tsx
-import React, { useState, useRef, useCallback, useMemo } from 'react'
+import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import { useEditor } from 'tldraw'
 import type { TLCardShape, TodoItem } from '../type/CardShape'
 
@@ -90,22 +90,31 @@ export const TodoContent = ({ shape, isEditing, exitEdit }: TodoContentProps) =>
         editor.updateShape({ id, type: 'card', props: { text } })
     }, [editor, id])
 
-    const handleBlur = (e: React.FocusEvent) => {
-        const nextFocus = e.relatedTarget as Node | null
-        if (!containerRef.current?.contains(nextFocus)) {
-            exitEdit()
-            if (editor.getEditingShapeId() === id) {
-                editor.setEditingShape(null)
-            }
+    // 焦點離開**整張卡**才結束編輯。監聽掛在卡片根節點（tldraw 的 [data-shape-type]）的原生 focusout，
+    // 不掛在清單容器的 React onBlur：狀態／優先級／標籤那條 CardPropsBar 是清單的兄弟節點（CardShapeUtil
+    // 疊在上方）。原本只看清單範圍 → 點優先級＝焦點「離開」→ 立刻退出編輯、屬性列消失，永遠選不到；
+    // 而焦點停在屬性列時再點畫布，也沒有任何 onBlur 會觸發退出（2026-09-30 使用者回報、CDP 重現）。
+    // focusout 會冒泡，清單裡的 input、date、checkbox 與屬性列的 select 一律由這裡接。
+    const exitRef = useRef(exitEdit)
+    exitRef.current = exitEdit
+    useEffect(() => {
+        if (!isEditing) return
+        const cardRoot = containerRef.current?.closest('[data-shape-type]') ?? containerRef.current
+        if (!cardRoot) return
+        const onFocusOut = (e: FocusEvent) => {
+            if (cardRoot.contains(e.relatedTarget as Node | null)) return
+            exitRef.current()
+            if (editor.getEditingShapeId() === id) editor.setEditingShape(null)
         }
-    }
+        cardRoot.addEventListener('focusout', onFocusOut as EventListener)
+        return () => cardRoot.removeEventListener('focusout', onFocusOut as EventListener)
+    }, [isEditing, editor, id])
 
     return (
         <div
             ref={containerRef}
             className="todo-container"
             tabIndex={-1}
-            onBlur={handleBlur}
             style={{
                 display: 'flex',
                 flexDirection: 'column',
@@ -124,7 +133,6 @@ export const TodoContent = ({ shape, isEditing, exitEdit }: TodoContentProps) =>
                     onPointerDown={(e) => e.stopPropagation()}
                     onBlur={(e) => {
                         updateTitle(e.target.value)
-                        handleBlur(e)
                     }}
                     onKeyDown={(e) => {
                         if (e.key === 'Enter') e.currentTarget.blur()
@@ -155,7 +163,6 @@ export const TodoContent = ({ shape, isEditing, exitEdit }: TodoContentProps) =>
                                 type="checkbox"
                                 checked={t.checked}
                                 onChange={() => toggle(t.id)}
-                                onBlur={handleBlur}
                                 onPointerDown={(e) => e.stopPropagation()}
                                 style={{ cursor: isEditing ? 'pointer' : 'default', transform: 'scale(1.1)', flexShrink: 0 }}
                             />
@@ -167,7 +174,6 @@ export const TodoContent = ({ shape, isEditing, exitEdit }: TodoContentProps) =>
                                         defaultValue={t.text}
                                         onBlur={(e) => {
                                             updateTodoText(t.id, e.target.value)
-                                            handleBlur(e)
                                         }}
                                         onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
                                         onPointerDown={(e) => e.stopPropagation()}
@@ -184,7 +190,6 @@ export const TodoContent = ({ shape, isEditing, exitEdit }: TodoContentProps) =>
                                         value={t.dueDate ?? ''}
                                         onChange={(e) => updateTodoDueDate(t.id, e.target.value || undefined)}
                                         onPointerDown={(e) => e.stopPropagation()}
-                                        onBlur={handleBlur}
                                         title="設定截止日"
                                         style={{
                                             border: dueDateStatus ? `1px solid ${dueDateStatus.color}44` : '1px solid #e8e8e8',

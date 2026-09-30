@@ -340,6 +340,9 @@ function CardShapeComponent({ shape, editor }: { shape: TLCardShape; editor: Edi
                         style={{
                             width: '680px', maxWidth: '90vw', maxHeight: '80vh',
                             background: T.bgPanel, borderRadius: 16,
+                            // 字色一定要跟著背景一起給：portal 掛在 body 底下，不給就繼承 body 的 #1a1a1a，
+                            // 深色主題下變成深底黑字（2026-09-30 實測）。也是 RC11「預設色＝跟著主題」在這裡成立的前提。
+                            color: T.textPrimary,
                             boxShadow: T.shadowXl,
                             display: 'flex', flexDirection: 'column',
                             overflow: 'hidden',
