@@ -7,7 +7,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 import type { BoardRecord } from '../db'
 import { onAppEvent, type AppEventName, type AppEventPayloads } from '../utils/appEvents'
-import { getISOWeekKey } from '../utils/weeklyReviewUtils'
 
 // ── 1. 建立所有替身 ───────────────────────────────────────────────────────
 // vi.hoisted：因為 vi.mock 會被提升到檔案最上方執行，裡面用到的變數
@@ -720,44 +719,6 @@ describe('useBoardManager — 跳轉', () => {
         expect(jumpSpy).toHaveBeenCalledWith('shape:x', 1, 2)
 
         vi.useRealTimers()
-    })
-})
-
-describe('useBoardManager — 本週日誌卡', () => {
-    it('handleGoToWeeklyCard 切到日誌板並於 400ms 後跳到本週卡片', async () => {
-        const weekKey = getISOWeekKey(new Date())
-        mocks.loadAllBoards.mockResolvedValue([
-            board({ id: 'b1', name: '一般板' }), // active 落在這裡
-            board({
-                id: 'j1', name: '日誌', isJournal: true,
-                snapshot: snapWith({
-                    'shape:wk': cardRec('shape:wk', { type: 'journal', journalDate: weekKey }, 30, 40),
-                }),
-            }),
-        ])
-        const { result } = await setup()
-        const jumpSpy = vi.fn()
-        result.current.jumpRef.current = jumpSpy
-
-        vi.useFakeTimers()
-        act(() => { result.current.handleGoToWeeklyCard() })
-
-        expect(result.current.activeBoardId).toBe('j1')
-        expect(result.current.navigationStack).toEqual(['j1'])
-        expect(jumpSpy).not.toHaveBeenCalled()
-
-        act(() => { vi.advanceTimersByTime(400) })
-        expect(jumpSpy).toHaveBeenCalledWith('shape:wk', 30, 40)
-
-        vi.useRealTimers()
-    })
-
-    it('沒有日誌板時 handleGoToWeeklyCard 為無操作', async () => {
-        mocks.loadAllBoards.mockResolvedValue([board({ id: 'b1', name: '板' })])
-        const { result } = await setup()
-
-        act(() => { result.current.handleGoToWeeklyCard() })
-        expect(result.current.activeBoardId).toBe('b1') // 不變
     })
 })
 

@@ -1,9 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { db, trimBackups, type BoardRecord } from '../db'
 import type { DeletedCardRecord, BoardTemplateRecord } from '../db'
-import { getISOWeekKey } from '../utils/weeklyReviewUtils'
 import { loadAllBoards, saveBoard, deleteBoard, generateId, uniqueName } from '../utils/boardDb'
-import { JUMP_DELAY_MS } from '../constants'
 import { emitAppEvent } from '../utils/appEvents'
 import { deleteStoredFile } from '../platform/fileStore'
 import { clearSyncState } from '../sync/syncState'
@@ -335,31 +333,6 @@ export function useBoardManager() {
         if (firstId) setNavigationStack([firstId])
     }, [setNavigationStack])
 
-    const handleGoToWeeklyCard = useCallback(() => {
-        const journalBoard = boards.find(b => b.isJournal)
-        if (!journalBoard) return
-        const weekKey = getISOWeekKey(new Date())
-        let cardId: string | null = null
-        let cardX = 0
-        let cardY = 0
-        if (journalBoard.snapshot) {
-            const store = getSnapshotStore(journalBoard.snapshot)
-            for (const shape of Object.values(store)) {
-                if (shape.typeName === 'shape' && shape.type === 'card' && shape.props?.journalDate === weekKey) {
-                    cardId = shape.id; cardX = shape.x ?? 0; cardY = shape.y ?? 0
-                    break
-                }
-            }
-        }
-        if (journalBoard.id !== activeBoardId) {
-            setActiveBoardId(journalBoard.id)
-            setNavigationStack([journalBoard.id])
-            if (cardId) setTimeout(() => jumpRef.current?.(cardId!, cardX, cardY), JUMP_DELAY_MS)
-        } else if (cardId) {
-            jumpRef.current?.(cardId, cardX, cardY)
-        }
-    }, [boards, activeBoardId, jumpRef, setNavigationStack])
-
     return {
         boards,
         activeBoardId,
@@ -389,7 +362,6 @@ export function useBoardManager() {
         handleSetJournal,
         handleSetStatus,
         handleRestore,
-        handleGoToWeeklyCard,
         handleSaveJournal,
         handleMoveCardToBoard,
         handleMoveCardsToBoard,

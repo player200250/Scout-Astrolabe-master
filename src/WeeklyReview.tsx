@@ -54,11 +54,10 @@ function noOutputContent(weekNum: number, startLabel: string, endLabel: string):
 /* ------------------------------------------------------------------ WeeklyReviewContent (embeddable) */
 interface WeeklyReviewContentProps {
     boards: BoardRecord[]
-    onGoToWeeklyCard: () => void
     onSaveJournal: (boardId: string, dateStr: string, html: string, shapeId: string | null) => void
 }
 
-export function WeeklyReviewContent({ boards, onGoToWeeklyCard, onSaveJournal }: WeeklyReviewContentProps) {
+export function WeeklyReviewContent({ boards, onSaveJournal }: WeeklyReviewContentProps) {
     const isDark = useIsDark()
     // 看哪一段：預設本週，← → 翻到過去／未來
     const [anchor, setAnchor] = useState<Date>(() => new Date())
@@ -297,27 +296,8 @@ export function WeeklyReviewContent({ boards, onGoToWeeklyCard, onSaveJournal }:
                     </div>
                 )}
 
-                {mode === 'week' && (
-                <div style={{ padding: '12px 0 4px' }}>
-                    <button
-                        onClick={onGoToWeeklyCard}
-                        disabled={!hasJournalBoard}
-                        style={{
-                            width: '100%', padding: '10px', borderRadius: 10, border: 'none',
-                            background: hasJournalBoard ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : (T.bgMuted),
-                            color: hasJournalBoard ? 'white' : (T.textMuted),
-                            fontSize: 13, fontWeight: 600,
-                            cursor: hasJournalBoard ? 'pointer' : 'not-allowed',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                            transition: 'opacity 0.15s',
-                        }}
-                        onMouseEnter={e => { if (hasJournalBoard) e.currentTarget.style.opacity = '0.88' }}
-                        onMouseLeave={e => { e.currentTarget.style.opacity = '1' }}
-                    >
-                        在白板上開啟本週卡片 →
-                    </button>
-                </div>
-                )}
+                {/* RC10：原本這裡有「在白板上開啟本週卡片 →」。右欄已能直接讀寫，
+                    而且它不管翻到哪週都只跳本週；日誌板改為不在清單上顯示後一併拿掉。 */}
             </div>
 
             {/* 右欄：週＝可寫的回顧卡；月／年＝自動整理（唯讀） */}

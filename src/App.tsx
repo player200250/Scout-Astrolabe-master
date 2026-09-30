@@ -50,7 +50,7 @@ export default function App() {
         handleSoftDeleteBoardsWithInboxMove, handlePermanentDeleteBoard, handleRestoreBoard,
         handleEmptyTrash, handleCardTrashed,
         handleJump, handleSetJournal, handleSetStatus,
-        handleRestore, handleGoToWeeklyCard, handleSaveJournal,
+        handleRestore, handleSaveJournal,
         handleMoveCardsToBoard, handleCreateBoard,
         handleToggleCollapse, handleGoToInbox, handleReorderBoards,
         handleAddCardToInbox, handleUpdateInboxCardProps, handleTrashInboxCard,
@@ -294,7 +294,6 @@ export default function App() {
                     onClose={() => closePanel('reviewCenter')}
                     onJumpToBoard={handleSwitch}
                     onSaveJournal={handleSaveJournal}
-                    onGoToWeeklyCard={() => { closePanel('reviewCenter'); handleGoToWeeklyCard() }}
                 />
             )}
             {panels.knowledgeGraph && (

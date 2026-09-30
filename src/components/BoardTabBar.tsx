@@ -335,7 +335,8 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                     const now = Date.now()
                     const STALE_MS = 14 * 86400000
 
-                    const topLevel = boards.filter(b => !b.parentId)
+                    // 日誌板只當日記的倉庫，一律從復盤中心進，側欄不列（2026-09-30 使用者決定）
+                    const topLevel = boards.filter(b => !b.parentId && !b.isJournal)
                     const folders = topLevel.filter(b => b.isFolder)
                     const realBoards = topLevel.filter(b => !b.isFolder)
                     const pinnedBoards   = realBoards.filter(b => !b.folderId && b.status === 'pinned' && !b.isHome && !b.isInbox)
@@ -415,7 +416,7 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                                         }}
                                     >
                                         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                            {board.status === 'pinned' && <Icon name="pin" style={{ width: 11, height: 11, marginRight: 4, display: 'inline-block', verticalAlign: '-1px' }} />}{board.name}{board.isJournal && <Icon name="reviewCenter" style={{ width: 11, height: 11, marginLeft: 4, display: 'inline-block', verticalAlign: '-1px' }} />}
+                                            {board.status === 'pinned' && <Icon name="pin" style={{ width: 11, height: 11, marginRight: 4, display: 'inline-block', verticalAlign: '-1px' }} />}{board.name}
                                             {isStale && <span title="超過 14 天未開啟" style={{ marginLeft: 3, fontSize: 9, opacity: 0.4 }}>🕐</span>}
                                         </span>
                                         {board.isInbox && inboxCardCount > 0 && (

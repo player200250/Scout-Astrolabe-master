@@ -83,7 +83,7 @@ export function BoardOverview({ boards, activeBoardId, onSelect, onNew, onCreate
 
     const filtered = boards
         .filter(b => {
-            if (b.isHome || b.isInbox) return false
+            if (b.isHome || b.isInbox || b.isJournal) return false
             if (!b.name.toLowerCase().includes(searchQuery.toLowerCase())) return false
             if (archiveFilter === 'archived') return b.status === 'archived'
             return b.status !== 'archived'
@@ -317,9 +317,6 @@ export function BoardOverview({ boards, activeBoardId, onSelect, onNew, onCreate
                                 )}
                                 {childCount(board.id) > 0 && (
                                     <div style={{ position: 'absolute', bottom: 7, left: 7, background: 'rgba(0,0,0,0.55)', color: 'white', fontSize: 10, padding: '2px 6px', borderRadius: 4, display: 'flex', alignItems: 'center', gap: 4 }}><Icon name="cardBoard" />{childCount(board.id)} 個子板</div>
-                                )}
-                                {board.isJournal && (
-                                    <div style={{ position: 'absolute', bottom: 7, right: 7, background: 'rgba(99,56,6,0.8)', color: 'white', fontSize: 10, padding: '2px 6px', borderRadius: 4, display: 'flex', alignItems: 'center', gap: 4 }}><Icon name="cardJournal" />Journal</div>
                                 )}
                             </div>
 

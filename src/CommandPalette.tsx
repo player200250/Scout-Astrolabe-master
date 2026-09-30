@@ -36,7 +36,7 @@ const RECENT_BOARDS_WHEN_EMPTY = 5
 // boardItems 併在最後 → filterCommands 保序，渲染時遇新 group 即插 header。
 
 function boardIcon(b: BoardRecord): IconName {
-    return b.isHome ? 'home' : b.isInbox ? 'inbox' : b.isJournal ? 'cardJournal' : 'cardBoard'
+    return b.isHome ? 'home' : b.isInbox ? 'inbox' : 'cardBoard'
 }
 
 export function CommandPalette({ commands, boards, activeBoardId, onSwitchBoard, onClose }: CommandPaletteProps) {
@@ -51,7 +51,7 @@ export function CommandPalette({ commands, boards, activeBoardId, onSwitchBoard,
 
     const boardItems = useMemo<PaletteItem[]>(() => {
         const active = boards
-            .filter(b => !b.deletedAt && b.status !== 'archived')
+            .filter(b => !b.deletedAt && b.status !== 'archived' && !b.isJournal)
             .sort((a, b) => (b.lastVisitedAt ?? b.updatedAt ?? 0) - (a.lastVisitedAt ?? a.updatedAt ?? 0))
         return active.map(b => ({
             id: `board:${b.id}`,

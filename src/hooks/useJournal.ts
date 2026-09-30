@@ -14,7 +14,6 @@ export interface JournalSharedState {
 /**
  * Journal 領域：標記白板為 Journal、從 JournalDayView 寫入日記內容。
  * - handleSaveJournal：既有 shape 則就地更新 text；否則在白板 snapshot 末尾新建一張 journal 卡。
- * - 跨領域的 handleGoToWeeklyCard（導航＋jumpRef＋journal 查找）仍留在 useBoardManager。
  */
 export function useJournal(state: JournalSharedState) {
     const { boards, setBoards } = state

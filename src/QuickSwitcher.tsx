@@ -33,7 +33,7 @@ export function QuickSwitcher({ boards, activeBoardId, onSwitch, onClose }: Quic
     const itemRefs = useRef<(HTMLDivElement | null)[]>([])
 
     const results = useMemo(() => {
-        const active = boards.filter(b => !b.deletedAt && b.status !== 'archived')
+        const active = boards.filter(b => !b.deletedAt && b.status !== 'archived' && !b.isJournal)
         if (query.trim() === '') {
             return [...active]
                 .sort((a, b) => (b.lastVisitedAt ?? b.updatedAt ?? 0) - (a.lastVisitedAt ?? a.updatedAt ?? 0))
@@ -158,7 +158,7 @@ export function QuickSwitcher({ boards, activeBoardId, onSwitch, onClose }: Quic
                                         <img src={board.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                     ) : (
                                         <span style={{ opacity: 0.4, display: 'flex' }}>
-                                            <Icon name={board.isHome ? 'home' : board.isInbox ? 'inbox' : board.isJournal ? 'cardJournal' : 'cardBoard'} size="md" />
+                                            <Icon name={board.isHome ? 'home' : board.isInbox ? 'inbox' : 'cardBoard'} size="md" />
                                         </span>
                                     )}
                                 </div>
@@ -181,9 +181,6 @@ export function QuickSwitcher({ boards, activeBoardId, onSwitch, onClose }: Quic
                                     )}
                                     {board.isInbox && (
                                         <span style={{ flexShrink: 0, opacity: 0.65, display: 'flex' }} title="收件匣"><Icon name="inbox" /></span>
-                                    )}
-                                    {board.isJournal && (
-                                        <span style={{ flexShrink: 0, opacity: 0.65, display: 'flex' }} title="日誌板"><Icon name="cardJournal" /></span>
                                     )}
                                 </div>
 

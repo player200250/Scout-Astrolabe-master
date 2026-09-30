@@ -11,7 +11,7 @@ export interface NavigationSharedState {
 /**
  * 導航領域：白板返回堆疊、跳轉到卡片、前往 Inbox。
  * - navigationStack / setNavigationStack / jumpRef 也供合成層的跨領域 handler
- *   （switch / switchToChild / setParent / new / goToWeeklyCard）使用，故一併回傳。
+ *   （switch / switchToChild / setParent / new）使用，故一併回傳。
  * - jumpRef 由 Whiteboard 在掛載時注入實際跳轉函式。
  */
 export function useNavigation(state: NavigationSharedState) {

@@ -115,7 +115,7 @@ export function Dashboard({
 
     const recentBoards = useMemo(() =>
         boards
-            .filter(b => !b.isHome && !b.isInbox && b.lastVisitedAt)
+            .filter(b => !b.isHome && !b.isInbox && !b.isJournal && b.lastVisitedAt)
             .sort((a, b) => (b.lastVisitedAt ?? 0) - (a.lastVisitedAt ?? 0))
             .slice(0, 3),
         [boards]
