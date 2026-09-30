@@ -36,7 +36,9 @@ export function ReviewCenter({ boards, onClose, onJumpToBoard, onSaveJournal, in
     const [journalDate, setJournalDate] = useState<Date>(new Date())
 
     useEffect(() => {
-        const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+        // defaultPrevented＝編輯器裡的 `/` 選單或 `[[` 補全已經用這個 Esc 關掉自己了（ProseMirror 的
+        // handleKeyDown 回傳 true 會 preventDefault）。少了這個判斷，關選單會連整個復盤中心一起關掉。
+        const h = (e: KeyboardEvent) => { if (e.key === 'Escape' && !e.defaultPrevented) onClose() }
         window.addEventListener('keydown', h)
         return () => window.removeEventListener('keydown', h)
     }, [onClose])

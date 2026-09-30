@@ -9,11 +9,16 @@
 //
 // 編輯器本體（擴充組合＋工具列）與文字卡片共用，見 extensions/richText.ts 的說明。
 // 今日日記（JournalDayView）也用這支，只在外面多一排日期導覽。
+// `/` 選單與 `[[` 補全也與文字卡片共用（EditorMenus.tsx）。
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useEditor as useTiptap, EditorContent } from '@tiptap/react'
 import { richTextExtensions } from '../card-shape/extensions/richText'
 import { RichTextToolbar } from '../card-shape/sub-components/RichTextToolbar'
+import { useEditorMenus } from '../card-shape/sub-components/EditorMenus'
+import { extractCardName } from '../../hooks/useBacklinks'
+import { buildLinkTargets } from '../../utils/cardLinks'
+import { getSnapshotStore } from '../../utils/snapshot'
 import type { BoardRecord } from '../../db'
 import { findJournalCard, isUntouchedTemplate } from '../../utils/journalCards'
 import { SAVE_STATUS_RESET_MS } from '../../constants'
@@ -57,10 +62,31 @@ export function JournalCardEditor({ boards, dateKey, template, onSaveJournal, ma
     boardIdRef.current = journalBoardId
     templateRef.current = template
 
+    // `[[` 補全的候選：白板名＋卡片名。白板裡用的是 BacklinksContext 的增量索引，
+    // 但復盤中心不在那個 Provider 底下，所以這裡由 boards 直接算（只在 boards 變動時重算）。
+    const linkTargets = useMemo(() => {
+        const cardNames: string[] = []
+        for (const b of boards) {
+            if (!b.snapshot) continue
+            for (const shape of Object.values(getSnapshotStore(b.snapshot))) {
+                if (shape.typeName !== 'shape' || shape.type !== 'card') continue
+                if (shape.props?.type !== 'text' && shape.props?.type !== 'journal') continue
+                const name = extractCardName(shape.props?.text ?? '')
+                if (name) cardNames.push(name)
+            }
+        }
+        return buildLinkTargets(boards.filter(b => !b.isHome).map(b => b.name), cardNames)
+    }, [boards])
+    const menuKeyRef = useRef<(e: KeyboardEvent) => boolean>(() => false)
+
     const tiptap = useTiptap({
-        extensions: richTextExtensions('開始寫…'),
+        extensions: richTextExtensions('開始寫…，或按 / 選擇格式'),
         content: card?.text ?? template,
-        editorProps: { attributes: { style: 'outline:none' } },
+        editorProps: {
+            attributes: { style: 'outline:none' },
+            // 回傳 true ＝ 攔下，PM 不再跑預設行為（原因見 EditorMenus.tsx 開頭）
+            handleKeyDown: (_view, event) => menuKeyRef.current(event),
+        },
         onUpdate: ({ editor }) => {
             if (skipUpdate.current) return
             setSaveStatus('pending')
@@ -93,6 +119,8 @@ export function JournalCardEditor({ boards, dateKey, template, onSaveJournal, ma
 
     useEffect(() => () => { if (saveTimer.current) clearTimeout(saveTimer.current) }, [])
 
+    const menuPopups = useEditorMenus(tiptap, true, linkTargets, menuKeyRef)
+
     const statusColor = saveStatus === 'pending' ? '#f59e0b' : saveStatus === 'saving' ? '#aaa' : '#22c55e'
     const statusText  = saveStatus === 'pending' ? '未儲存' : saveStatus === 'saving' ? '儲存中…' : '已儲存'
 
@@ -122,6 +150,7 @@ export function JournalCardEditor({ boards, dateKey, template, onSaveJournal, ma
                     <EditorContent editor={tiptap} />
                 </div>
             </div>
+            {menuPopups}
         </div>
     )
 }

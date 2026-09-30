@@ -41,7 +41,8 @@ export function JournalDayContent({ date, boards, onSaveJournal, onDateChange, o
 
     useEffect(() => {
         const h = (e: KeyboardEvent) => {
-            if (e.key === 'Escape' && onClose) { onClose(); return }
+            // defaultPrevented：Esc 已被編輯器的選單用掉（同 ReviewCenter 的說明）
+            if (e.key === 'Escape' && onClose && !e.defaultPrevented) { onClose(); return }
             if ((e.metaKey || e.ctrlKey) && e.key === 'ArrowLeft') { e.preventDefault(); onDateChange(addDays(date, -1)) }
             if ((e.metaKey || e.ctrlKey) && e.key === 'ArrowRight') { e.preventDefault(); onDateChange(addDays(date, 1)) }
         }

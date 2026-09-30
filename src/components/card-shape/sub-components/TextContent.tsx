@@ -1,22 +1,16 @@
 import { useEffect, useCallback, useContext, useState, useMemo, useRef } from 'react'
-import { type Editor as TldrawEditor, useIsDarkMode } from '@tldraw/editor'
+import { type Editor as TldrawEditor } from '@tldraw/editor'
 import type { TLCardShape } from '../type/CardShape'
 import { CARD_COLORS } from '../type/CardShape'
 import { openLink } from '../../../platform/linkOpener'
 import { useEditor as useTiptap, EditorContent } from '@tiptap/react'
 import { richTextExtensions } from '../extensions/richText'
 import { RichTextToolbar } from './RichTextToolbar'
+import { useEditorMenus } from './EditorMenus'
 import { BacklinksContext } from '../../../hooks/useBacklinks'
-import { Z_MODAL } from '../../../constants'
 import { emitAppEvent } from '../../../utils/appEvents'
-import { buildSlashCommands, matchSlashQuery, groupSlashCommands, type SlashCommand } from '../../../utils/slashCommands'
-import { filterCommands } from '../../../utils/commands'
-import { buildLinkTargets, filterLinkTargets, groupLinkTargets, type LinkTarget } from '../../../utils/cardLinks'
-import { T } from '../../../theme/tokens'
-import { Icon } from '../../ui/icons'
+import { buildLinkTargets } from '../../../utils/cardLinks'
 
-// registry 是純資料、與元件無關 → 模組層建一次即可，不隨每次 render 重算
-const SLASH_COMMANDS = buildSlashCommands()
 
 // 方案 A（Toggle 自動貼合高度）用的常數
 const TOGGLE_FIT_MAX_H = 800  // 上限；超過就裁切＋回到 fade/footer（雙擊編輯看全文）
@@ -32,78 +26,11 @@ interface TextContentProps {
 }
 
 /* ================================================
-   Wiki-link autocomplete helpers
-================================================ */
-interface SuggestState {
-    query: string
-    from: number
-    coords: { x: number; y: number }
-    index: number
-    matches: LinkTarget[]
-}
-
-/* ================================================
-   `/` 選單（階段 1）
-   ——只露出 StarterKit 早就支援、但工具列沒給入口的東西（引用/分隔線/H3…）。
-   命令 registry 與過濾在 utils/slashCommands.ts（純函式、有測試）。
-================================================ */
-interface SlashState {
-    query: string
-    from: number
-    coords: { x: number; y: number }
-    index: number
-    matches: SlashCommand[]
-}
-
-/** 補全下拉的共用外殼（`[[]]` 與 `/` 兩處共用，避免複製一份定位/配色） */
-function SuggestPopup({
-    coords, footer, children,
-}: {
-    coords: { x: number; y: number }
-    isDark: boolean
-    footer: string
-    children: React.ReactNode
-}) {
-    return (
-        <div
-            onPointerDown={(e) => e.preventDefault()}
-            style={{
-                position: 'fixed',
-                left: coords.x,
-                top: coords.y,
-                zIndex: Z_MODAL,
-                background: T.bgPanel,
-                border: `1px solid ${T.borderLight}`,
-                borderRadius: 8,
-                boxShadow: T.shadowMd,
-                minWidth: 180,
-                maxWidth: 280,
-                maxHeight: 320,
-                overflowY: 'auto',
-                fontSize: 13,
-            }}
-        >
-            {children}
-            <div style={{
-                padding: '3px 12px', fontSize: 10,
-                color: T.textMuted,
-                borderTop: `1px solid ${T.borderLight}`,
-                background: T.bgApp,
-                position: 'sticky', bottom: 0,
-            }}>
-                {footer}
-            </div>
-        </div>
-    )
-}
-
-/* ================================================
    TextContent 主組件
 ================================================ */
 export function TextContent({ editor: tldrawEditor, shape, isEditing, exitEdit, preventResize = false }: TextContentProps) {
     const p = shape.props
     const cardBg = CARD_COLORS[p.color ?? 'none']?.bg ?? '#ffffff'
-    const isDark = useIsDarkMode()
     // 方案 A：含 Toggle 的卡片，唯讀時依「當前展開/收合狀態」自動調整卡片高度（見下方 auto-fit effect）。
     const hasToggle = useMemo(() => !!p.text?.includes('toggle-block'), [p.text])
     const [toggleFitClipped, setToggleFitClipped] = useState(false)
@@ -118,18 +45,8 @@ export function TextContent({ editor: tldrawEditor, shape, isEditing, exitEdit, 
         }
         return buildLinkTargets(boardNames, cardNames)
     }, [boardNames, cardIndex])
-    const [suggest, setSuggest] = useState<SuggestState | null>(null)
-    const suggestRef = useRef<SuggestState | null>(null)
-    suggestRef.current = suggest
-    const [slash, setSlash] = useState<SlashState | null>(null)
-    const slashRef = useRef<SlashState | null>(null)
-    slashRef.current = slash
-    // 兩個選單的鍵盤處理都必須走 ProseMirror 的 handleKeyDown，不能用 React 的 onKeyDown：
-    // PM 的 listener 掛在 contenteditable 上（target 階段），React 是委派在 root（bubble 階段），
-    // 所以 PM 會先把 Enter 變成 splitBlock transaction，等 React 收到時段落已經被切開了。
-    // 用 ref 讓 useTiptap 的一次性 config 能讀到最新的 state 與 callback。
-    const slashKeyRef = useRef<(e: KeyboardEvent) => boolean>(() => false)
-    const suggestKeyRef = useRef<(e: KeyboardEvent) => boolean>(() => false)
+    // `/` 選單與 `[[` 補全的鍵盤處理：由 useEditorMenus 每次 render 更新（原因見 EditorMenus.tsx 開頭）
+    const menuKeyRef = useRef<(e: KeyboardEvent) => boolean>(() => false)
 
     // Ref for the view-mode container — native capture-phase listener bypasses tldraw interception
     const viewContainerRef = useRef<HTMLDivElement>(null)
@@ -261,9 +178,8 @@ export function TextContent({ editor: tldrawEditor, shape, isEditing, exitEdit, 
         content: p.text || '<p></p>',
         editable: isEditing,
         editorProps: {
-            // 回傳 true ＝ 攔下，PM 不再跑預設行為（見上方 slashKeyRef 的說明）
-            // 兩者不會同時開（matchSlashQuery 讓 `[[` 優先），順序只是保險
-            handleKeyDown: (_view, event) => slashKeyRef.current(event) || suggestKeyRef.current(event),
+            // 回傳 true ＝ 攔下，PM 不再跑預設行為
+            handleKeyDown: (_view, event) => menuKeyRef.current(event),
             handleDOMEvents: {
                 // 編輯模式下點摺疊區塊的三角形，原生 <details> 會收合並藏住正在編輯的內文。
                 // preventDefault 取消原生 toggle（游標放置走 mousedown，不受影響），讓它編輯時恆展開。
@@ -311,129 +227,9 @@ export function TextContent({ editor: tldrawEditor, shape, isEditing, exitEdit, 
         if (isEditing) {
             setTimeout(() => tiptap.commands.focus('end'), 0)
         }
-        if (!isEditing) { setSuggest(null); setSlash(null) }
     }, [isEditing, tiptap])
 
-    // [[xxx]] autocomplete trigger
-    useEffect(() => {
-        if (!tiptap || !isEditing) return
-        const handler = () => {
-            const { state } = tiptap
-            const { from } = state.selection
-            const textBefore = state.doc.textBetween(Math.max(0, from - 120), from, '\n')
-            const match = textBefore.match(/\[\[([^\]]*)$/)
-            if (!match) { setSuggest(null); return }
-            const query = match[1]
-            const matches = filterLinkTargets(linkTargets, query)
-            if (matches.length === 0) { setSuggest(null); return }
-            const coords = tiptap.view.coordsAtPos(from)
-            setSuggest(prev => ({
-                query,
-                from: from - match[0].length,
-                coords: { x: coords.left, y: coords.bottom + 4 },
-                index: prev?.query === query ? prev.index : 0,
-                matches,
-            }))
-        }
-        tiptap.on('update', handler)
-        tiptap.on('selectionUpdate', handler)
-        return () => {
-            tiptap.off('update', handler)
-            tiptap.off('selectionUpdate', handler)
-        }
-    }, [tiptap, isEditing, linkTargets])
-
-    // `/` 選單觸發（matchSlashQuery 內已讓 `[[` 補全優先，兩者不會同時開）
-    useEffect(() => {
-        if (!tiptap || !isEditing) return
-        const handler = () => {
-            const { state } = tiptap
-            const { from } = state.selection
-            const textBefore = state.doc.textBetween(Math.max(0, from - 120), from, '\n')
-            const hit = matchSlashQuery(textBefore)
-            if (!hit) { setSlash(null); return }
-            const matches = filterCommands(SLASH_COMMANDS, hit.query)
-            if (matches.length === 0) { setSlash(null); return }
-            const coords = tiptap.view.coordsAtPos(from)
-            setSlash(prev => ({
-                query: hit.query,
-                from: from - hit.length,
-                coords: { x: coords.left, y: coords.bottom + 4 },
-                index: prev?.query === hit.query ? prev.index : 0,
-                matches,
-            }))
-        }
-        tiptap.on('update', handler)
-        tiptap.on('selectionUpdate', handler)
-        return () => {
-            tiptap.off('update', handler)
-            tiptap.off('selectionUpdate', handler)
-        }
-    }, [tiptap, isEditing])
-
-    const runSlash = useCallback((cmd: SlashCommand) => {
-        if (!tiptap || !slashRef.current) return
-        const { from: curFrom } = tiptap.state.selection
-        // apply 內部會先 deleteRange 掉使用者打的 `/query` 再套用命令
-        cmd.apply(tiptap, { from: slashRef.current.from, to: curFrom })
-        setSlash(null)
-    }, [tiptap])
-
-    // 每次 render 更新，讓 useTiptap 的一次性 handleKeyDown 讀到最新 state/callback
-    slashKeyRef.current = (event: KeyboardEvent): boolean => {
-        const s = slashRef.current
-        if (!s || s.matches.length === 0) return false
-        if (event.key === 'ArrowDown') {
-            setSlash(prev => prev ? { ...prev, index: (prev.index + 1) % prev.matches.length } : prev)
-            return true
-        }
-        if (event.key === 'ArrowUp') {
-            setSlash(prev => prev ? { ...prev, index: (prev.index - 1 + prev.matches.length) % prev.matches.length } : prev)
-            return true
-        }
-        if (event.key === 'Enter' || event.key === 'Tab') {
-            runSlash(s.matches[s.index])
-            return true
-        }
-        if (event.key === 'Escape') {
-            setSlash(null)
-            return true
-        }
-        return false
-    }
-
-    const insertCompletion = useCallback((name: string) => {
-        if (!tiptap || !suggestRef.current) return
-        const { from: curFrom } = tiptap.state.selection
-        tiptap.chain().focus()
-            .deleteRange({ from: suggestRef.current.from, to: curFrom })
-            .insertContent(`[[${name}]]`)
-            .run()
-        setSuggest(null)
-    }, [tiptap])
-
-    // 每次 render 更新，理由同 slashKeyRef
-    suggestKeyRef.current = (event: KeyboardEvent): boolean => {
-        const s = suggestRef.current
-        if (!s || s.matches.length === 0) return false
-        if (event.key === 'ArrowDown') {
-            setSuggest(prev => prev ? { ...prev, index: (prev.index + 1) % prev.matches.length } : prev)
-            return true
-        }
-        if (event.key === 'ArrowUp') {
-            setSuggest(prev => prev ? { ...prev, index: (prev.index - 1 + prev.matches.length) % prev.matches.length } : prev)
-            return true
-        }
-        if (event.key === 'Enter' || event.key === 'Tab') {
-            insertCompletion(s.matches[s.index].name)
-            return true
-        }
-        if (event.key === 'Escape') {
-            setSuggest(null)
-            return true
-        }
-        return false
-    }
+    const menuPopups = useEditorMenus(tiptap, isEditing, linkTargets, menuKeyRef)
 
     const handleSave = useCallback(() => {
         if (!tiptap) return
@@ -581,95 +377,7 @@ export function TextContent({ editor: tldrawEditor, shape, isEditing, exitEdit, 
                 </div>
             </div>
 
-            {/* [[xxx]] autocomplete dropdown — position:fixed to escape card clipping */}
-            {suggest && (
-                <SuggestPopup coords={suggest.coords} isDark={isDark} footer="↑↓ 選擇  Tab/Enter 確認  Esc 關閉">
-                    {groupLinkTargets(suggest.matches).map(({ group, items }) => (
-                        <div key={group}>
-                            <div style={{
-                                padding: '5px 12px 2px', fontSize: 10, fontWeight: 700,
-                                letterSpacing: '0.5px', color: T.textMuted,
-                            }}>{group}</div>
-                            {items.map(t => {
-                                // index 是對 suggest.matches 的全域序號，分組顯示時要換算回去
-                                const i = suggest.matches.indexOf(t)
-                                const active = i === suggest.index
-                                return (
-                                    <div
-                                        key={t.kind + ':' + t.name}
-                                        onPointerDown={() => insertCompletion(t.name)}
-                                        style={{
-                                            padding: '6px 12px',
-                                            cursor: 'pointer',
-                                            display: 'flex', alignItems: 'center', gap: 8,
-                                            background: active ? (T.accentBg) : 'transparent',
-                                            color: active ? '#60a5fa' : (T.textPrimary),
-                                            borderLeft: active ? '2px solid #3b82f6' : '2px solid transparent',
-                                            whiteSpace: 'nowrap',
-                                            overflow: 'hidden',
-                                            textOverflow: 'ellipsis',
-                                        }}
-                                    >
-                                        <span style={{ flexShrink: 0, opacity: 0.7 }}>{t.kind === 'board' ? '🗂️' : '📝'}</span>
-                                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.name}</span>
-                                    </div>
-                                )
-                            })}
-                        </div>
-                    ))}
-                </SuggestPopup>
-            )}
-
-            {/* `/` 選單 */}
-            {slash && (
-                <SuggestPopup coords={slash.coords} isDark={isDark} footer="↑↓ 選擇  Tab/Enter 確認  Esc 關閉">
-                    {groupSlashCommands(slash.matches).map(({ group, items }) => (
-                        <div key={group}>
-                            <div style={{
-                                padding: '5px 12px 2px', fontSize: 10, fontWeight: 700,
-                                letterSpacing: '0.5px', color: T.textMuted,
-                            }}>{group}</div>
-                            {items.map(cmd => {
-                                // index 是對 slash.matches 的全域序號，分組顯示時要換算回去
-                                const i = slash.matches.indexOf(cmd)
-                                const active = i === slash.index
-                                return (
-                                    <div
-                                        key={cmd.id}
-                                        onPointerDown={() => runSlash(cmd)}
-                                        style={{
-                                            padding: '6px 12px',
-                                            cursor: 'pointer',
-                                            display: 'flex', alignItems: 'center', gap: 9,
-                                            background: active ? (T.accentBg) : 'transparent',
-                                            color: active ? '#60a5fa' : (T.textPrimary),
-                                            borderLeft: active ? '2px solid #3b82f6' : '2px solid transparent',
-                                        }}
-                                    >
-                                        {/* 顏色項用該色本身當圖示色（Icon 吃 currentColor）；其餘一律次級灰。 */}
-                                        <span style={{
-                                            width: 20, flexShrink: 0,
-                                            display: 'flex', justifyContent: 'center',
-                                            color: cmd.id.startsWith('color-')
-                                                ? cmd.id.slice(6)
-                                                : (T.textSecondary),
-                                        }}><Icon name={cmd.icon} /></span>
-                                        <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                            {cmd.title}
-                                        </span>
-                                        {cmd.hint && (
-                                            <span style={{
-                                                flexShrink: 0, fontSize: 10, fontFamily: 'monospace',
-                                                color: T.textMuted,
-                                            }}>{cmd.hint}</span>
-                                        )}
-                                    </div>
-                                )
-                            })}
-                        </div>
-                    ))}
-                </SuggestPopup>
-            )}
+            {menuPopups}
         </>
     )
 }
