@@ -129,5 +129,5 @@ const page = targets.find(t => t.type === 'page' && !t.url.startsWith('devtools:
 
 ```powershell
 npm run build     # 期望 exit 0
-npm test          # vitest run，期望全綠（2026-07-15 為 349 案例）
+npm test          # vitest run，期望全綠（2026-09-30 為 907 案例）
 ```
