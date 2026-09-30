@@ -4,19 +4,8 @@ import type { TLCardShape } from '../type/CardShape'
 import { CARD_COLORS } from '../type/CardShape'
 import { openLink } from '../../../platform/linkOpener'
 import { useEditor as useTiptap, EditorContent } from '@tiptap/react'
-import StarterKit from '@tiptap/starter-kit'
-import Underline from '@tiptap/extension-underline'
-import TextStyle from '@tiptap/extension-text-style'
-import { Color } from '@tiptap/extension-color'
-import { CodeBlockLowlight } from '@tiptap/extension-code-block-lowlight'
-import Link from '@tiptap/extension-link'
-import Highlight from '@tiptap/extension-highlight'
-import Placeholder from '@tiptap/extension-placeholder'
-import { Callout } from '../extensions/Callout'
-import { ToggleBlock, ToggleSummary, ToggleContent } from '../extensions/Toggle'
-import { MathBlock } from '../extensions/MathBlock'
-import 'katex/dist/katex.min.css' // 全域 katex 樣式：編輯預覽與唯讀注入都靠它畫對
-import { createLowlight, common } from 'lowlight'
+import { richTextExtensions } from '../extensions/richText'
+import { RichTextToolbar } from './RichTextToolbar'
 import { BacklinksContext } from '../../../hooks/useBacklinks'
 import { Z_MODAL } from '../../../constants'
 import { emitAppEvent } from '../../../utils/appEvents'
@@ -34,188 +23,12 @@ const TOGGLE_FIT_MAX_H = 800  // 上限；超過就裁切＋回到 fade/footer�
 const TOGGLE_FIT_MIN_H = 80   // 下限；收合到只剩標題時不要比這更矮
 const TOGGLE_FIT_CHROME = 28  // 內容外的固定高度（padding-top + border + 底部留白）
 
-// 建立 lowlight 實例（包含常用語言）
-const lowlight = createLowlight(common)
-
 interface TextContentProps {
     editor: TldrawEditor
     shape: TLCardShape
     isEditing: boolean
     exitEdit: () => void
     preventResize?: boolean  // Modal 模式下不改高度
-}
-
-/* ================================================
-   工具列按鈕
-================================================ */
-const COLORS = ['#1a1a1a', '#e03131', '#2f9e44', '#1971c2', '#f08c00', '#7048e8']
-
-function ToolbarButton({
-    onClick,
-    active,
-    title,
-    children,
-    
-}: {
-    onClick: () => void
-    active?: boolean
-    title?: string
-    children: React.ReactNode
-    isDark?: boolean
-}) {
-    return (
-        <button
-            onMouseDown={(e) => {
-                e.preventDefault()
-                onClick()
-            }}
-            title={title}
-            style={{
-                padding: '3px 7px',
-                fontSize: 13,
-                fontWeight: active ? 700 : 400,
-                background: active ? (T.accentBg) : 'transparent',
-                color: active ? '#60a5fa' : (T.textPrimary),
-                border: 'none',
-                borderRadius: 4,
-                cursor: 'pointer',
-                lineHeight: 1.4,
-            }}
-        >
-            {children}
-        </button>
-    )
-}
-
-function Toolbar({ tiptap, isDark }: { tiptap: ReturnType<typeof useTiptap>; isDark: boolean }) {
-    if (!tiptap) return null
-
-    return (
-        <div
-            onPointerDown={(e) => e.stopPropagation()}
-            style={{
-                display: 'flex',
-                flexWrap: 'wrap',
-                alignItems: 'center',
-                gap: 2,
-                padding: '4px 8px',
-                borderBottom: `1px solid ${T.borderLight}`,
-                background: T.bgApp,
-                borderRadius: '12px 12px 0 0',
-                flexShrink: 0,
-            }}
-        >
-            <ToolbarButton
-                onClick={() => tiptap.chain().focus().toggleBold().run()}
-                active={tiptap.isActive('bold')}
-                title="粗體"
-                isDark={isDark}
-            >
-                <b>B</b>
-            </ToolbarButton>
-
-            <ToolbarButton
-                onClick={() => tiptap.chain().focus().toggleItalic().run()}
-                active={tiptap.isActive('italic')}
-                title="斜體"
-                isDark={isDark}
-            >
-                <i>I</i>
-            </ToolbarButton>
-
-            <ToolbarButton
-                onClick={() => tiptap.chain().focus().toggleUnderline().run()}
-                active={tiptap.isActive('underline')}
-                title="底線"
-                isDark={isDark}
-            >
-                <u>U</u>
-            </ToolbarButton>
-
-            <span style={{ width: 1, height: 16, background: T.borderMid, margin: '0 4px' }} />
-
-            <ToolbarButton
-                onClick={() => tiptap.chain().focus().toggleHeading({ level: 1 }).run()}
-                active={tiptap.isActive('heading', { level: 1 })}
-                title="標題 1"
-                isDark={isDark}
-            >
-                H1
-            </ToolbarButton>
-
-            <ToolbarButton
-                onClick={() => tiptap.chain().focus().toggleHeading({ level: 2 }).run()}
-                active={tiptap.isActive('heading', { level: 2 })}
-                title="標題 2"
-                isDark={isDark}
-            >
-                H2
-            </ToolbarButton>
-
-            <span style={{ width: 1, height: 16, background: T.borderMid, margin: '0 4px' }} />
-
-            <ToolbarButton
-                onClick={() => tiptap.chain().focus().toggleBulletList().run()}
-                active={tiptap.isActive('bulletList')}
-                title="條列清單"
-                isDark={isDark}
-            >
-                ≡
-            </ToolbarButton>
-
-            <ToolbarButton
-                onClick={() => tiptap.chain().focus().toggleOrderedList().run()}
-                active={tiptap.isActive('orderedList')}
-                title="數字清單"
-                isDark={isDark}
-            >
-                1≡
-            </ToolbarButton>
-
-            <span style={{ width: 1, height: 16, background: T.borderMid, margin: '0 4px' }} />
-
-            <ToolbarButton
-                onClick={() => tiptap.chain().focus().toggleCodeBlock().run()}
-                active={tiptap.isActive('codeBlock')}
-                title="程式碼區塊（語法高亮）"
-                isDark={isDark}
-            >
-                {'</>'}
-            </ToolbarButton>
-
-            <ToolbarButton
-                onClick={() => tiptap.chain().focus().toggleHighlight().run()}
-                active={tiptap.isActive('highlight')}
-                title="螢光筆"
-                isDark={isDark}
-            >
-                <mark style={{ background: '#fef08a', padding: '0 2px', borderRadius: 2 }}>H</mark>
-            </ToolbarButton>
-
-            <span style={{ width: 1, height: 16, background: T.borderMid, margin: '0 4px' }} />
-
-            {COLORS.map((color) => (
-                <button
-                    key={color}
-                    onMouseDown={(e) => {
-                        e.preventDefault()
-                        tiptap.chain().focus().setColor(color).run()
-                    }}
-                    title={color}
-                    style={{
-                        width: 16,
-                        height: 16,
-                        borderRadius: '50%',
-                        background: color,
-                        border: tiptap.isActive('textStyle', { color }) ? '2px solid #333' : '2px solid transparent',
-                        cursor: 'pointer',
-                        padding: 0,
-                        flexShrink: 0,
-                    }}
-                />
-            ))}
-        </div>
-    )
 }
 
 /* ================================================
@@ -443,23 +256,8 @@ export function TextContent({ editor: tldrawEditor, shape, isEditing, exitEdit, 
     }, [isEditing, hasToggle, p.text, shape.id, shape.props.text, tldrawEditor])
 
     const tiptap = useTiptap({
-        extensions: [
-            StarterKit.configure({ codeBlock: false }), // 停用預設 CodeBlock
-            Underline,
-            TextStyle,
-            Color,
-            CodeBlockLowlight.configure({ lowlight }), // 取代為有語法高亮的版本
-            // 超連結：autolink 讓打字時自動偵測網址，linkOnPaste 讓貼上網址即成連結。
-            // openOnClick:false — 編輯模式點連結只移游標不跳轉；唯讀模式的跳轉走
-            // viewContainerRef 的 capture-phase listener（tldraw 會攔 pointer 事件，見下方）。
-            Link.configure({ openOnClick: false, autolink: true, linkOnPaste: true }),
-            Highlight, // 螢光筆（單色，<mark>）
-            Callout, // 提示框（進階批：靜態 block，唯讀走純 CSS）
-            ToggleBlock, ToggleSummary, ToggleContent, // 摺疊區塊（原生 <details>，唯讀免 JS 摺疊）
-            MathBlock, // 數學式區塊（LaTeX；渲染結果存進 HTML 供唯讀注入）
-            // 空白卡片提示：接上階段 1 `/` 選單的可發現性——沒有這行，使用者不會知道有 `/`
-            Placeholder.configure({ placeholder: '輸入文字，或按 / 選擇格式…' }),
-        ],
+        // 空白卡片提示：接上階段 1 `/` 選單的可發現性——沒有這行，使用者不會知道有 `/`
+        extensions: richTextExtensions('輸入文字，或按 / 選擇格式…'),
         content: p.text || '<p></p>',
         editable: isEditing,
         editorProps: {
@@ -773,7 +571,7 @@ export function TextContent({ editor: tldrawEditor, shape, isEditing, exitEdit, 
                     if (isEditing) e.stopPropagation()
                 }}
             >
-                <Toolbar tiptap={tiptap} isDark={isDark} />
+                <RichTextToolbar tiptap={tiptap} />
 
                 <div style={{ flex: 1, overflow: 'auto', padding: '14px 16px' }}>
                     <EditorContent

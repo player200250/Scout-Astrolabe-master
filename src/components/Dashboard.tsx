@@ -248,7 +248,9 @@ export function Dashboard({
                 </div>
 
                 {/* ── Journal + Today Todos ── */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
+                {/* minmax(0, 1fr) 不可改回 1fr：1fr 的下限是內容寬，右欄一條不換行的長待辦就會把它撐寬，
+                    左欄「今日日記」被擠成一條細縫、字變直排（2026-09-30 實測；與 58cd34a 月曆格線同一個坑） */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 16, marginBottom: 24 }}>
                     <div style={panelCard}>
                         <div style={sectionLabel}>今日日記</div>
                         <div style={{ fontSize: 14, color: textSecondary, lineHeight: 1.7, minHeight: 64 }}>

@@ -7,15 +7,13 @@
 // ⚠️ 版面：外層 minHeight:0 不可省。flex column 的子項預設 min-height:auto，
 //    少了它 flex:1 不會縮到小於內容高度，捲動就會外溢到祖先——這正是 RC1 的成因。
 //
-// TODO(下一輪)：JournalDayView 的編輯器與這支是同一套邏輯（它多一排日期導覽），
-//    RC1 才剛修完、這輪不動它；等週回顧這邊穩定後再把 JournalDayView 併過來。
+// 編輯器本體（擴充組合＋工具列）與文字卡片共用，見 extensions/richText.ts 的說明。
+// 今日日記（JournalDayView）也用這支，只在外面多一排日期導覽。
 
 import { useState, useEffect, useRef } from 'react'
 import { useEditor as useTiptap, EditorContent } from '@tiptap/react'
-import StarterKit from '@tiptap/starter-kit'
-import Underline from '@tiptap/extension-underline'
-import TextStyle from '@tiptap/extension-text-style'
-import { Color } from '@tiptap/extension-color'
+import { richTextExtensions } from '../card-shape/extensions/richText'
+import { RichTextToolbar } from '../card-shape/sub-components/RichTextToolbar'
 import type { BoardRecord } from '../../db'
 import { findJournalCard, isUntouchedTemplate } from '../../utils/journalCards'
 import { SAVE_STATUS_RESET_MS } from '../../constants'
@@ -60,7 +58,7 @@ export function JournalCardEditor({ boards, dateKey, template, onSaveJournal, ma
     templateRef.current = template
 
     const tiptap = useTiptap({
-        extensions: [StarterKit, Underline, TextStyle, Color],
+        extensions: richTextExtensions('開始寫…'),
         content: card?.text ?? template,
         editorProps: { attributes: { style: 'outline:none' } },
         onUpdate: ({ editor }) => {
@@ -98,46 +96,29 @@ export function JournalCardEditor({ boards, dateKey, template, onSaveJournal, ma
     const statusColor = saveStatus === 'pending' ? '#f59e0b' : saveStatus === 'saving' ? '#aaa' : '#22c55e'
     const statusText  = saveStatus === 'pending' ? '未儲存' : saveStatus === 'saving' ? '儲存中…' : '已儲存'
 
-    const buttons = tiptap ? [
-        { cmd: () => tiptap.chain().focus().toggleBold().run(),                            active: tiptap.isActive('bold'),                  label: 'B',  style: { fontWeight: 700 } },
-        { cmd: () => tiptap.chain().focus().toggleItalic().run(),                          active: tiptap.isActive('italic'),                label: 'I',  style: { fontStyle: 'italic' as const } },
-        { cmd: () => tiptap.chain().focus().toggleUnderline().run(),                       active: tiptap.isActive('underline'),             label: 'U',  style: { textDecoration: 'underline' } },
-        { cmd: () => tiptap.chain().focus().toggleHeading({ level: 2 }).run(),             active: tiptap.isActive('heading', { level: 2 }), label: 'H2', style: { fontSize: 11 } },
-        { cmd: () => tiptap.chain().focus().toggleBulletList().run(),                      active: tiptap.isActive('bulletList'),            label: '•≡', style: {} },
-    ] : []
+    // 工具列與內文同寬置中：原本工具列貼齊最左、內文在正中間，寬螢幕上兩者對不起來
+    const column: React.CSSProperties = { maxWidth, margin: maxWidth ? '0 auto' : undefined, width: '100%' }
 
     return (
         <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-            <div style={{
-                display: 'flex', alignItems: 'center', gap: 2, padding: '4px 16px',
-                borderBottom: `1px solid ${T.borderLight}`, flexShrink: 0, background: T.bgApp,
-            }}>
-                {buttons.map(btn => (
-                    <button
-                        key={btn.label}
-                        onMouseDown={e => { e.preventDefault(); btn.cmd() }}
-                        style={{
-                            padding: '2px 7px', fontSize: 12, border: 'none', borderRadius: 5, cursor: 'pointer',
-                            background: btn.active ? T.accentBg : 'transparent',
-                            color: btn.active ? T.accent : T.textSecondary,
-                            ...btn.style,
-                        }}
-                    >{btn.label}</button>
-                ))}
-                <div style={{ flex: 1 }} />
-                {saveStatus !== 'none' && <span style={{ fontSize: 11, color: statusColor }}>{statusText}</span>}
+            <div style={{ borderBottom: `1px solid ${T.borderLight}`, background: T.bgApp, padding: '0 28px', flexShrink: 0 }}>
+                <RichTextToolbar
+                    tiptap={tiptap}
+                    style={{ ...column, borderBottom: 'none', borderRadius: 0, padding: '4px 0', background: 'transparent' }}
+                    trailing={saveStatus !== 'none' && <span style={{ fontSize: 11, color: statusColor }}>{statusText}</span>}
+                />
             </div>
 
             <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '24px 28px' }}>
                 <style>{`
                     .jce .ProseMirror { outline: none; color: ${T.textPrimary}; }
-                    .jce .ProseMirror h2 { font-size: 17px; font-weight: 700; margin: 14px 0 6px; color: ${T.textPrimary}; }
+                    .jce .ProseMirror h2 { font-size: 18px; font-weight: 700; margin: 14px 0 6px; color: ${T.textPrimary}; }
                     .jce .ProseMirror p { margin: 4px 0; line-height: 1.8; }
-                    .jce .ProseMirror ul { padding-left: 20px; margin: 4px 0; }
+                    .jce .ProseMirror ul, .jce .ProseMirror ol { padding-left: 20px; margin: 4px 0; }
                     .jce .ProseMirror li { margin: 2px 0; line-height: 1.7; }
                     .jce .ProseMirror strong { font-weight: 700; }
                 `}</style>
-                <div className="jce" style={{ maxWidth, margin: maxWidth ? '0 auto' : undefined, fontSize: 14.5, color: T.textPrimary }}>
+                <div className="jce" style={{ ...column, fontSize: 15, color: T.textPrimary }}>
                     <EditorContent editor={tiptap} />
                 </div>
             </div>

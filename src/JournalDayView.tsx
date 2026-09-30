@@ -1,13 +1,8 @@
 // src/JournalDayView.tsx
-import { useState, useEffect, useRef } from 'react'
-import { useEditor as useTiptap, EditorContent } from '@tiptap/react'
-import StarterKit from '@tiptap/starter-kit'
-import Underline from '@tiptap/extension-underline'
-import TextStyle from '@tiptap/extension-text-style'
-import { Color } from '@tiptap/extension-color'
+// 編輯器本體與週回顧共用 JournalCardEditor（2026-09-30 併掉原本這裡的整份複本）。
+import { useEffect } from 'react'
 import type { BoardRecord } from './db'
-import { findJournalCard, isUntouchedTemplate } from './utils/journalCards'
-import { SAVE_STATUS_RESET_MS } from './constants'
+import { JournalCardEditor } from './components/review/JournalCardEditor'
 import { EmptyState } from './components/ui/EmptyState'
 import { T } from './theme/tokens'
 
@@ -42,61 +37,7 @@ interface JournalDayContentProps {
 
 export function JournalDayContent({ date, boards, onSaveJournal, onDateChange, onClose }: JournalDayContentProps) {
     const ds = toDateStr(date)
-    const card = findJournalCard(boards, ds)
     const journalBoardId = boards.find(b => b.isJournal)?.id ?? null
-
-    // RC4：'none' ＝「這一天／這一週還沒有卡片」。少了它，初值一律是 'saved'，
-    // 於是還沒寫過的日子一打開就顯示綠色「已儲存」，而月曆右欄同時寫著「尚無日記」。
-    // 'none' 時狀態列整個不顯示——什麼都還沒發生，就不該報告任何狀態。
-    const [saveStatus, setSaveStatus] = useState<'none' | 'saved' | 'saving' | 'pending'>(() => (card ? 'saved' : 'none'))
-    const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-    const skipUpdate = useRef(true)
-
-    const cardRef = useRef(card)
-    const dsRef = useRef(ds)
-    const journalBoardIdRef = useRef(journalBoardId)
-    cardRef.current = card
-    dsRef.current = ds
-    journalBoardIdRef.current = journalBoardId
-
-    const tiptap = useTiptap({
-        extensions: [StarterKit, Underline, TextStyle, Color],
-        content: card?.text ?? defaultTemplate(ds),
-        editorProps: { attributes: { style: 'outline:none' } },
-        onUpdate: ({ editor }) => {
-            if (skipUpdate.current) return
-            setSaveStatus('pending')
-            if (saveTimer.current) clearTimeout(saveTimer.current)
-            saveTimer.current = setTimeout(() => {
-                const c = cardRef.current
-                const html = editor.getHTML()
-                // RC9：debounce 存的是「900ms 之後」的文件狀態，不是觸發當下。
-                // 打了字又在同一個視窗內刪掉，這裡拿到的就是原封不動的模板——
-                // 存下去只會生出一張「只有標題、一個字沒填」的空殼卡（實測確認，見 bugs.md RC9）。
-                // 卡片已經存在就照常存：使用者可能是刻意清空。
-                if (!c && isUntouchedTemplate(html, defaultTemplate(dsRef.current))) { setSaveStatus('none'); return }
-                setSaveStatus('saving')
-                onSaveJournal(c?.boardId ?? journalBoardIdRef.current ?? '', dsRef.current, html, c?.shapeId ?? null)
-                setTimeout(() => setSaveStatus('saved'), SAVE_STATUS_RESET_MS)
-            }, 900)
-        },
-    })
-
-    useEffect(() => {
-        skipUpdate.current = true
-        // cardRef.current 是 findCard(boards, ds) 的 ref mirror，已在每次 render 更新
-        // 使用 ref 避免 boards 成為 dep（我們只關心日期切換，不關心 boards 其他卡片變更）
-        const c = cardRef.current
-        tiptap?.commands.setContent(c?.text ?? defaultTemplate(ds), false)
-        setSaveStatus(c ? 'saved' : 'none')
-        const t = setTimeout(() => { skipUpdate.current = false }, 120)
-        return () => clearTimeout(t)
-    }, [ds, tiptap])
-
-    useEffect(() => {
-        skipUpdate.current = false
-        return () => { if (saveTimer.current) clearTimeout(saveTimer.current) }
-    }, [])
 
     useEffect(() => {
         const h = (e: KeyboardEvent) => {
@@ -109,17 +50,12 @@ export function JournalDayContent({ date, boards, onSaveJournal, onDateChange, o
     }, [onClose, onDateChange, date])
 
     const isToday = ds === toDateStr(new Date())
-    const statusColor = saveStatus === 'pending' ? '#f59e0b' : saveStatus === 'saving' ? '#aaa' : '#22c55e'
-    const statusText  = saveStatus === 'pending' ? '未儲存' : saveStatus === 'saving' ? '儲存中…' : '已儲存'
 
     const navBorder  = T.borderLight
     const titleColor = T.textPrimary
     const btnBorder  = T.borderLight
     const btnColor   = T.textSecondary
     const separatorColor = T.borderLight
-    const toolbarBg  = T.bgApp
-    const toolbarBorder = T.borderLight
-    const editorColor = T.textPrimary
 
     const navBtnStyle: React.CSSProperties = {
         padding: '4px 10px', borderRadius: 8, border: `1px solid ${btnBorder}`,
@@ -144,32 +80,6 @@ export function JournalDayContent({ date, boards, onSaveJournal, onDateChange, o
                 )}
             </div>
 
-            {/* Toolbar strip */}
-            {tiptap && journalBoardId && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 2, padding: '4px 20px', borderBottom: `1px solid ${toolbarBorder}`, flexShrink: 0, background: toolbarBg }}>
-                    {[
-                        { cmd: () => tiptap.chain().focus().toggleBold().run(),                              active: tiptap.isActive('bold'),                label: 'B',  style: { fontWeight: 700 } },
-                        { cmd: () => tiptap.chain().focus().toggleItalic().run(),                            active: tiptap.isActive('italic'),              label: 'I',  style: { fontStyle: 'italic' } },
-                        { cmd: () => tiptap.chain().focus().toggleUnderline().run(),                         active: tiptap.isActive('underline'),           label: 'U',  style: { textDecoration: 'underline' } },
-                        { cmd: () => tiptap.chain().focus().toggleHeading({ level: 2 }).run(),               active: tiptap.isActive('heading', { level: 2 }), label: 'H2', style: { fontSize: 11 } },
-                        { cmd: () => tiptap.chain().focus().toggleBulletList().run(),                        active: tiptap.isActive('bulletList'),          label: '•≡', style: {} },
-                    ].map(btn => (
-                        <button
-                            key={btn.label}
-                            onMouseDown={e => { e.preventDefault(); btn.cmd() }}
-                            style={{
-                                padding: '2px 7px', fontSize: 12, border: 'none', borderRadius: 5, cursor: 'pointer',
-                                background: btn.active ? (T.accentBg) : 'transparent',
-                                color: btn.active ? (T.accent) : (T.textSecondary),
-                                ...btn.style,
-                            }}
-                        >{btn.label}</button>
-                    ))}
-                    <div style={{ flex: 1 }} />
-                    {saveStatus !== 'none' && <span style={{ fontSize: 11, color: statusColor }}>{statusText}</span>}
-                </div>
-            )}
-
             {/* Editor / empty state */}
             {!journalBoardId ? (
                 <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -180,21 +90,13 @@ export function JournalDayContent({ date, boards, onSaveJournal, onDateChange, o
                     />
                 </div>
             ) : (
-                <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '32px max(40px, 8%)' }}>
-                    {/* RC1：上面那行的 minHeight:0 不可省——flex column 的子項預設 min-height:auto，
-                        沒有它 flex:1 不會縮到小於內容高度，捲動會外溢到祖先（日期列／工具列被捲走）。 */}
-                    <style>{`
-                        .jdv .ProseMirror { outline: none; color: ${editorColor}; }
-                        .jdv .ProseMirror h2 { font-size: 18px; font-weight: 700; margin: 14px 0 6px; color: ${editorColor}; }
-                        .jdv .ProseMirror p { margin: 4px 0; line-height: 1.8; }
-                        .jdv .ProseMirror ul { padding-left: 20px; margin: 4px 0; }
-                        .jdv .ProseMirror li { margin: 2px 0; line-height: 1.7; }
-                        .jdv .ProseMirror strong { font-weight: 700; }
-                    `}</style>
-                    <div className="jdv" style={{ maxWidth: 680, margin: '0 auto', fontSize: 15, color: editorColor }}>
-                        <EditorContent editor={tiptap} />
-                    </div>
-                </div>
+                <JournalCardEditor
+                    boards={boards}
+                    dateKey={ds}
+                    template={defaultTemplate(ds)}
+                    onSaveJournal={onSaveJournal}
+                    maxWidth={680}
+                />
             )}
         </>
     )
