@@ -22,7 +22,8 @@ export function buildMonthEvents(boards: BoardRecord[], year: number, month: num
         // 注意 BoardRecord 只有一個 updatedAt，所以這反映的是「最後一次更新」落在哪天，
         // 不是「這天動過幾次」——與 buildAgenda 的 activeBoards 同一套語意。
         const boardDs = dateStr(new Date(board.updatedAt))
-        if (boardDs.startsWith(prefix)) get(boardDs).boardActivity++
+        // 日誌板不算白板活動（RC12）：它只當日記的倉庫、各清單都不列；那天的日記另有 hasJournal
+        if (!board.isJournal && boardDs.startsWith(prefix)) get(boardDs).boardActivity++
         for (const shape of getCardShapes(board.snapshot)) {
             if (board.isJournal && shape.props.type === 'journal' && shape.props.journalDate?.startsWith(prefix)) {
                 get(shape.props.journalDate).hasJournal = true
@@ -58,7 +59,8 @@ export function buildAgenda(boards: BoardRecord[], date: Date): AgendaData {
     const todos: AgendaData['todos'] = []
     const activeBoards: AgendaData['activeBoards'] = []
     for (const board of boards) {
-        if (!board.isHome && !board.isInbox && board.updatedAt >= dayStart.getTime() && board.updatedAt <= dayEnd.getTime()) {
+        // !isJournal（RC12）：這裡的「前往 →」會把人帶進日誌板那塊隱藏的畫布
+        if (!board.isHome && !board.isInbox && !board.isJournal && board.updatedAt >= dayStart.getTime() && board.updatedAt <= dayEnd.getTime()) {
             activeBoards.push({ boardId: board.id, boardName: board.name })
         }
         for (const shape of getCardShapes(board.snapshot)) {

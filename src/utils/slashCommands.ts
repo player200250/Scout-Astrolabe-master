@@ -38,9 +38,13 @@ export interface SlashCommand {
     apply: (editor: Editor, range: SlashRange) => void
 }
 
-/** 文字顏色（與工具列的 6 色圓點同一組，見 TextContent.tsx 的 COLORS） */
-export const SLASH_COLORS: { name: string; hex: string }[] = [
-    { name: '預設', hex: '#1a1a1a' },
+/**
+ * 文字顏色：`/` 選單與格式工具列（RichTextToolbar）共用這一份。
+ * 「預設」是 hex: null ＝ **清除顏色**、讓文字跟著主題走（RC11）。原本寫死 #1a1a1a，
+ * 在深色主題下色票看不見、套上去的字也讀不到。
+ */
+export const SLASH_COLORS: { name: string; hex: string | null }[] = [
+    { name: '預設', hex: null },
     { name: '紅', hex: '#e03131' },
     { name: '綠', hex: '#2f9e44' },
     { name: '藍', hex: '#1971c2' },
@@ -87,12 +91,12 @@ export function buildSlashCommands(): SlashCommand[] {
         // （見 TextContent 的 `/` 選單：從 id 的 `color-` 後綴取 hex）。
         // 這是 icons.tsx 規則 1 的正當例外：顏色就是選項本身。
         ...SLASH_COLORS.map(c => ({
-            id: `color-${c.hex}`,
+            id: `color-${c.hex ?? 'default'}`,
             title: `文字顏色：${c.name}`,
             icon: 'cardColor' as IconName,
             group: '顏色' as const,
             keywords: `color 顏色 ${c.name}`,
-            apply: (e: Editor, r: SlashRange) => at(e, r).setColor(c.hex).run(),
+            apply: (e: Editor, r: SlashRange) => (c.hex ? at(e, r).setColor(c.hex) : at(e, r).unsetColor()).run(),
         })),
 
         // 連結

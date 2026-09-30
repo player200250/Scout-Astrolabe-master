@@ -127,7 +127,7 @@ describe('apply', () => {
         for (const m of ['focus', 'deleteRange', 'setParagraph', 'toggleHeading', 'toggleBulletList',
             'toggleOrderedList', 'toggleBlockquote', 'toggleCodeBlock', 'setHorizontalRule',
             'toggleBold', 'toggleItalic', 'toggleUnderline', 'toggleStrike', 'toggleCode',
-            'toggleHighlight', 'toggleCallout', 'setToggle', 'setMathBlock', 'setColor', 'insertContent']) {
+            'toggleHighlight', 'toggleCallout', 'setToggle', 'setMathBlock', 'setColor', 'unsetColor', 'insertContent']) {
             chain[m] = vi.fn((...args: unknown[]) => { calls.push(args.length ? `${m}:${JSON.stringify(args[0])}` : m); return chain })
         }
         chain.run = vi.fn(() => true)
@@ -159,6 +159,13 @@ describe('apply', () => {
         const { editor, calls } = makeEditor()
         buildSlashCommands().find(c => c.id === 'color-#e03131')!.apply(editor, { from: 0, to: 1 })
         expect(calls).toContain('setColor:"#e03131"')
+    })
+
+    it('預設色是清除顏色，不是寫死黑色（RC11：深色主題下黑字讀不到）', () => {
+        const { editor, calls } = makeEditor()
+        buildSlashCommands().find(c => c.id === 'color-default')!.apply(editor, { from: 0, to: 1 })
+        expect(calls).toContain('unsetColor')
+        expect(calls.some(c => c.startsWith('setColor'))).toBe(false)
     })
 
     it('卡片連結插入 [[ 以觸發既有補全', () => {

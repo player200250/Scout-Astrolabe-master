@@ -71,7 +71,9 @@ export function buildDayTimeline(boards: BoardRecord[], date: Date): DayTimeline
     for (const board of boards) {
         if (board.isHome || board.isInbox) continue
         const at = new Date(board.updatedAt)
-        if (dateStr(at) === ds) {
+        // 日誌板不算白板活動（RC12）：它只當日記的倉庫、各清單都不列，這裡再列就能點「前往」進隱藏的畫布；
+        // 那天寫了日記本來就另有一筆。只擋活動，不能 continue——日記卡還要從這塊板收。
+        if (!board.isJournal && dateStr(at) === ds) {
             out.timed.push({
                 boardId: board.id, boardName: board.name, at: board.updatedAt,
                 hour: at.getHours(), minute: at.getMinutes(),
@@ -109,7 +111,7 @@ export function buildYearDensity(boards: BoardRecord[], year: number): Map<strin
     for (const board of boards) {
         if (board.isHome || board.isInbox) continue
         const boardDs = dateStr(new Date(board.updatedAt))
-        if (boardDs.startsWith(prefix)) bump(boardDs)
+        if (!board.isJournal && boardDs.startsWith(prefix)) bump(boardDs) // 日誌板不算白板活動（RC12，見 buildDayTimeline）
         for (const shape of getCardShapes(board.snapshot)) {
             if (board.isJournal && shape.props.type === 'journal' && shape.props.journalDate?.startsWith(prefix)) {
                 bump(shape.props.journalDate)

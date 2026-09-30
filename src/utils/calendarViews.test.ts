@@ -55,6 +55,16 @@ describe('buildDayTimeline', () => {
         expect(buildDayTimeline([notJ], new Date('2026-09-20T00:00:00')).hasJournal).toBe(false)
     })
 
+    it('日誌板的更新不算白板活動，但板上的日記照樣算（RC12）', () => {
+        const j = board({
+            id: 'j', isJournal: true, updatedAt: at('2026-09-20T10:00:00'),
+            snapshot: withCards([{ type: 'journal', journalDate: '2026-09-20' }]),
+        })
+        const day = buildDayTimeline([j], new Date('2026-09-20T00:00:00'))
+        expect(day.timed).toEqual([])
+        expect(day.hasJournal).toBe(true)
+    })
+
     it('主頁與收件匣不算白板活動', () => {
         const home = board({ id: 'home_board', isHome: true, updatedAt: at('2026-09-20T09:00:00') })
         const inbox = board({ id: 'inbox', isInbox: true, updatedAt: at('2026-09-20T09:00:00') })
@@ -86,6 +96,7 @@ describe('startOfWeek / buildWeekTimelines', () => {
 
 describe('buildYearDensity', () => {
     it('日記、待辦、白板活動各記一筆', () => {
+        const other = board({ id: 'b2', updatedAt: at('2026-09-20T11:00:00') })
         const b = board({
             id: 'b1', isJournal: true, updatedAt: at('2026-09-20T10:00:00'),
             snapshot: withCards([
@@ -96,8 +107,9 @@ describe('buildYearDensity', () => {
                 ] },
             ]),
         })
-        const map = buildYearDensity([b], 2026)
-        expect(map.get('2026-09-20')).toBe(4) // 白板活動 1 ＋ 日記 1 ＋ 待辦 2
+        const map = buildYearDensity([b, other], 2026)
+        // 白板活動 1（只算 other；日誌板本身的更新不算，RC12）＋ 日記 1 ＋ 待辦 2
+        expect(map.get('2026-09-20')).toBe(4)
     })
 
     it('不同年份不會被算進來', () => {

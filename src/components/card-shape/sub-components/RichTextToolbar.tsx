@@ -6,11 +6,11 @@
 
 import type { Editor } from '@tiptap/react'
 import { T } from '../../../theme/tokens'
+import { SLASH_COLORS } from '../../../utils/slashCommands'
 
 /* ================================================
    工具列按鈕
 ================================================ */
-const COLORS = ['#1a1a1a', '#e03131', '#2f9e44', '#1971c2', '#f08c00', '#7048e8']
 
 function ToolbarButton({
     onClick,
@@ -147,26 +147,33 @@ export function RichTextToolbar({ tiptap, style, trailing }: { tiptap: Editor | 
 
             <span style={{ width: 1, height: 16, background: T.borderMid, margin: '0 4px' }} />
 
-            {COLORS.map((color) => (
+            {/* 色票與 `/` 選單同一份（SLASH_COLORS）。「預設」＝清除顏色，圓點畫成當前主題的字色（RC11） */}
+            {SLASH_COLORS.map(({ name, hex }) => {
+                const active = hex ? tiptap.isActive('textStyle', { color: hex }) : !tiptap.getAttributes('textStyle').color
+                return (
                 <button
-                    key={color}
+                    key={name}
                     onMouseDown={(e) => {
                         e.preventDefault()
-                        tiptap.chain().focus().setColor(color).run()
+                        const chain = tiptap.chain().focus()
+                        ;(hex ? chain.setColor(hex) : chain.unsetColor()).run()
                     }}
-                    title={color}
+                    title={hex ? `文字顏色：${name}` : '預設色（跟著主題）'}
                     style={{
                         width: 16,
                         height: 16,
                         borderRadius: '50%',
-                        background: color,
-                        border: tiptap.isActive('textStyle', { color }) ? '2px solid #333' : '2px solid transparent',
+                        background: hex ?? T.textPrimary,
+                        // 選中框用主題字色：原本的 #333 在深色工具列上一樣看不見
+                        border: active ? `2px solid ${T.textPrimary}` : '2px solid transparent',
+                        boxShadow: hex ? undefined : `inset 0 0 0 1px ${T.borderMid}`,
                         cursor: 'pointer',
                         padding: 0,
                         flexShrink: 0,
                     }}
                 />
-            ))}
+                )
+            })}
             {trailing && <><div style={{ flex: 1 }} />{trailing}</>}
         </div>
     )

@@ -240,7 +240,9 @@ export function useEditorMenus(
                                         <span style={{
                                             width: 20, flexShrink: 0,
                                             display: 'flex', justifyContent: 'center',
-                                            color: cmd.id.startsWith('color-')
+                                            color: cmd.id === 'color-default'
+                                                ? T.textPrimary // 預設＝跟著主題的字色（RC11）
+                                                : cmd.id.startsWith('color-')
                                                 ? cmd.id.slice(6)
                                                 : (T.textSecondary),
                                         }}><Icon name={cmd.icon} /></span>
