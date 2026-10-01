@@ -100,6 +100,9 @@ function CardShapeComponent({ shape, editor }: { shape: TLCardShape; editor: Edi
 
     const handleEscape = useCallback((e: KeyboardEvent) => {
         if (e.key === 'Escape') {
+            // `/` 或 `[[` 選單開著 ⇒ 這次 Esc 是給選單的，modal 不關（RC18）。
+            // capture 階段拿不到 PM 的 defaultPrevented，只能看選單在不在畫面上（見 SuggestPopup）。
+            if (document.querySelector('[data-editor-menu]')) return
             closePreview()
             setShowTextModal(false)
         }

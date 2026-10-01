@@ -17,6 +17,8 @@ export function SuggestPopup({
 }) {
     return (
         <div
+            // 標記給外層 modal 的 capture Esc 看：選單開著時 Esc 要讓給選單（RC18）
+            data-editor-menu=""
             onPointerDown={(e) => e.preventDefault()}
             style={{
                 position: 'fixed',

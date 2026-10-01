@@ -481,15 +481,16 @@
 
 ---
 
-### RC18：文字卡編輯視窗開著 `/` 選單時按 Esc，會關掉整個視窗
+### ~~RC18：文字卡編輯視窗開著 `/` 選單時按 Esc，會關掉整個視窗~~ ✅ 已修（2026-10-01）
 
-- **優先**：中（小改）　**排程**：2026-10-01
-- **位置**：`src/components/card-shape/CardShapeUtil.tsx:108` 的 `handleEscape`（document capture）
-- **現象（程式碼判讀，未實測）**：capture 階段比 ProseMirror 早拿到 Esc，選單還沒來得及關自己，modal 就被關了。
-  與 2026-09-30 修掉的「復盤中心被 Esc 連帶關閉」同一類。
-- **方向**：modal 的 Esc 要先讓給編輯器的選單（例如選單開著時不處理；capture 下拿不到 defaultPrevented，要另外判斷）。
-- **狀態**：待修
-- **最後更新**：2026-09-30
+- **位置**：`src/components/card-shape/CardShapeUtil.tsx` 的 `handleEscape`（document capture）
+- **現象（2026-10-01 實測重現）**：capture 階段比 ProseMirror 早拿到 Esc，選單還沒來得及關自己，modal 就被關了。
+  `[[` 補全選單同樣中招。與 2026-09-30 修掉的「復盤中心被 Esc 連帶關閉」同一類。
+- **修法**：`SuggestPopup` 根節點加 `data-editor-menu`；`handleEscape` 看到它就不處理，讓 Esc 交給
+  `EditorMenus` 的 `menuKey` 關選單。capture 下拿不到 PM 的 defaultPrevented，所以改看 DOM。
+- **驗證**：CDP 實機——打 ` /` → 選單出現；Esc #1 → 選單關、modal 留著；Esc #2 → modal 關；
+  測試卡內容 reload 前後與原文逐字相同。
+- **最後更新**：2026-10-01
 
 ---
 
