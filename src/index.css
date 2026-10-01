@@ -59,6 +59,13 @@ a {
    （原本還有個 src/App.css，長年沒被任何地方 import＝死檔，已於 TD8 刪除。）
    ================================================ */
 
+/* 夜間文字卡（唯讀）用主題字色。原本沒設、繼承 tldraw 夜間的 #d9d9d9，
+   在上色卡的夜間底（CARD_COLORS.darkBg）上黃色只有 6.4:1；改用 --text-primary 後全數 ≥ 7:1（2026-10-01）。
+   日間不設＝維持原樣。 */
+:root[data-theme="dark"] .tiptap-readonly {
+    color: var(--text-primary);
+}
+
 /* 超連結（唯讀 .tiptap-readonly 與編輯 .tiptap 共用）。
    色用 #3b82f6 與既有 wiki-link 一致，淺色/深色卡皆可讀；
    選擇器特異性高於上方全域 a 重置，故覆蓋得掉 color:inherit/decoration:none。*/

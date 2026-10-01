@@ -1,7 +1,7 @@
 import { useEffect, useCallback, useContext, useState, useMemo, useRef } from 'react'
-import { type Editor as TldrawEditor } from '@tldraw/editor'
+import { type Editor as TldrawEditor, useIsDarkMode } from '@tldraw/editor'
 import type { TLCardShape } from '../type/CardShape'
-import { CARD_COLORS } from '../type/CardShape'
+import { cardBackground } from '../type/CardShape'
 import { openLink } from '../../../platform/linkOpener'
 import { useEditor as useTiptap, EditorContent } from '@tiptap/react'
 import { richTextExtensions, RICH_TEXT_ATTRIBUTES } from '../extensions/richText'
@@ -30,7 +30,8 @@ interface TextContentProps {
 ================================================ */
 export function TextContent({ editor: tldrawEditor, shape, isEditing, exitEdit, preventResize = false }: TextContentProps) {
     const p = shape.props
-    const cardBg = CARD_COLORS[p.color ?? 'none']?.bg ?? '#ffffff'
+    // 底部淡出漸層要接卡片本體的底色（含夜間），否則會拖出一條白邊
+    const cardBg = cardBackground(p.color, useIsDarkMode())
     // 方案 A：含 Toggle 的卡片，唯讀時依「當前展開/收合狀態」自動調整卡片高度（見下方 auto-fit effect）。
     const hasToggle = useMemo(() => !!p.text?.includes('toggle-block'), [p.text])
     const [toggleFitClipped, setToggleFitClipped] = useState(false)

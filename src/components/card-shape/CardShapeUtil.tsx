@@ -14,7 +14,7 @@ import { resizeBox, type TLResizeInfo, type Editor } from 'tldraw'
 
 import type { TLCardShape } from './type/CardShape'
 export type { TLCardShape } from './type/CardShape'
-import { CARD_COLORS, STICKY_COLORS, STICKY_COLOR_LIST } from './type/CardShape'
+import { CARD_COLORS, STICKY_COLORS, STICKY_COLOR_LIST, cardBackground } from './type/CardShape'
 import type { StickyColor } from './type/CardShape'
 import { Z_MODAL } from '../../constants'
 import { emitAppEvent, onAppEvent } from '../../utils/appEvents'
@@ -165,7 +165,7 @@ function CardShapeComponent({ shape, editor }: { shape: TLCardShape; editor: Edi
                                 ? '0 0 0 3px rgba(37,99,235,0.18), 0 4px 20px rgba(37,99,235,0.10)'
                                 : 'none',
                         transition: 'box-shadow 0.15s ease-in-out, border-color 0.15s ease-in-out',
-                        backgroundColor: p.type === 'heading' ? 'transparent' : isSticky ? (isDark ? stickyStyle!.darkBg : stickyStyle!.bg) : p.color === 'dark' ? '#1a1a2e' : (!p.color || p.color === 'none') ? (T.bgCard) : colorStyle.bg,
+                        backgroundColor: p.type === 'heading' ? 'transparent' : isSticky ? (isDark ? stickyStyle!.darkBg : stickyStyle!.bg) : cardBackground(p.color, isDark),
                     }}
                 >
                     {p.color && p.color !== 'none' && p.type !== 'image' && !isSticky && (

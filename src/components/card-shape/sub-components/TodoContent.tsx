@@ -1,6 +1,7 @@
 // src/components/card-shape/sub-components/TodoContent.tsx
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import { useEditor } from 'tldraw'
+import { useIsDarkMode } from '@tldraw/editor'
 import type { TLCardShape, TodoItem } from '../type/CardShape'
 
 // 常數定義
@@ -38,10 +39,13 @@ export const TodoContent = ({ shape, isEditing, exitEdit }: TodoContentProps) =>
     const editor = useEditor()
     const { id, props } = shape
     const todos = useMemo(() => props.todos ?? [], [props.todos])
-    const isDarkCard = props.color === 'dark'
-    const textColor = isDarkCard ? '#e2e8f0' : '#333'
-    const mutedColor = isDarkCard ? '#94a3b8' : '#aaa'
-    const borderColor = isDarkCard ? '#334155' : '#eee'
+    // 深底＝深色卡，或夜間模式（2026-10-01 起卡片底色跟著主題變深，見 CARD_COLORS.darkBg）。
+    // 原本只看深色卡，夜間的一般待辦卡是深底配寫死的 #333。
+    const isDarkMode = useIsDarkMode() // hook 不能放進 || 後面（會被短路＝條件式呼叫）
+    const isDarkSurface = props.color === 'dark' || isDarkMode
+    const textColor = isDarkSurface ? '#e2e8f0' : '#333'
+    const mutedColor = isDarkSurface ? '#94a3b8' : '#aaa'
+    const borderColor = isDarkSurface ? '#334155' : '#eee'
 
     const containerRef = useRef<HTMLDivElement>(null)
     const [newText, setNewText] = useState('')

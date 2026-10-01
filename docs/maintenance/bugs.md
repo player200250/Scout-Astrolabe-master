@@ -548,6 +548,21 @@
 
 ---
 
+### ~~RC22：夜間模式下，上色的卡片仍是日間淺底、字幾乎看不見~~ ✅ 已修（2026-10-01）
+
+- **位置**：`type/CardShape.ts` 的 `CARD_COLORS`；`CardShapeUtil.tsx` 卡片底色；`TextContent.tsx` 底部淡出漸層；`TodoContent.tsx` 字色；`index.css`
+- **現象（使用者回報、實測）**：`CARD_COLORS` 只有日間淺底，夜間套色後＝淺底（如 `#fff7f0`）＋繼承 tldraw 夜間的淺灰字 `#d9d9d9`，對比 **1.33:1**。
+  影響文字卡 13／日記 26／待辦 7 張（便利貼本來就有 `darkBg`，不受影響）。
+- **修法**：每色加 `darkBg`＝夜間卡片底 `#1e293b` 疊 20% accent；新增 `cardBackground(color, isDark)` 給卡片本體與淡出漸層共用
+  （漸層原本寫死日間 bg，無色卡夜間也會拖白邊）；待辦卡字色改看「深色卡**或夜間**」；夜間 `.tiptap-readonly` 改用 `--text-primary`
+  （只用 darkBg 時黃色仍只有 6.4:1）。
+- **驗證**：CDP 實機量 computed style——夜間全部 ≥ 7.3:1（黃最低）、無色 11.9；日間底色與字色數值完全不變；長卡漸層無白邊。
+  `CardShape.test.ts` 把「夜間對比 ≥ 7:1」「日間數值不變」寫成測試。
+- **未處理（範圍外）**：待辦卡的到期日小標籤（「1天後」等）與狀態徽章在夜間仍是淺底，字仍讀得到。
+- **最後更新**：2026-10-01
+
+---
+
 ## 待觀察問題
 
 ### ~~WO1：link 卡片的 title / description / thumbnail 欄位從未填充~~ ✅ 已解決（核實於 2026-08-29）
