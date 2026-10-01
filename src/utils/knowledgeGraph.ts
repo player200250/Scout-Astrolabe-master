@@ -24,9 +24,58 @@ export interface GraphNode {
     quest?: 'main' | 'side'
     /** quest 的下一步（最早到期的未完成項；都沒日期就取第一個未完成項），全部完成則為 null */
     nextStep?: string | null
+    /** quest 的待辦原始資料：點節點時的進度面板用（2026-10-01） */
+    todos?: TodoLike[]
 }
 
-type TodoLike = { text?: string; checked?: boolean; dueDate?: string | null }
+export type TodoLike = { id?: string; text?: string; checked?: boolean; dueDate?: string | null }
+
+/** 2026-09-20 依使用者指示把逾期項「標記並勾掉」時加的前綴：勾起來了，但不算完成 */
+export const FAILED_PREFIX = '❌ 失敗｜'
+
+export interface QuestItem {
+    key: string
+    text: string
+    dueDate: string | null
+    status: 'open' | 'done' | 'failed'
+    overdue: boolean
+    isNext: boolean
+}
+
+/**
+ * 主線／支線進度面板的資料。失敗項（勾起來＋FAILED_PREFIX）另外計數，不灌進完成率。
+ * 「下一步」與 pickNextStep 同一規則（最早到期的未完成項；都沒日期取第一個），圖上標籤與面板才不會打架。
+ * 排序：未完成照清單順序在前，完成／失敗沉到底。
+ */
+export function questProgress(todos: TodoLike[] | undefined, today: string): {
+    done: number; failed: number; total: number; items: QuestItem[]
+} {
+    const items: QuestItem[] = (todos ?? [])
+        .filter(t => (t.text ?? '').trim())
+        .map((t, i) => {
+            const raw = (t.text ?? '').trim()
+            const failed = !!t.checked && raw.startsWith(FAILED_PREFIX)
+            const status: QuestItem['status'] = failed ? 'failed' : t.checked ? 'done' : 'open'
+            return {
+                key: t.id ?? String(i),
+                text: failed ? raw.slice(FAILED_PREFIX.length).trim() : raw,
+                dueDate: t.dueDate || null,
+                status,
+                overdue: status === 'open' && !!t.dueDate && t.dueDate < today,
+                isNext: false,
+            }
+        })
+    const open = items.filter(x => x.status === 'open')
+    const next = [...open].sort((a, b) => (a.dueDate || '9999-99-99') < (b.dueDate || '9999-99-99') ? -1
+        : (a.dueDate || '9999-99-99') > (b.dueDate || '9999-99-99') ? 1 : 0)[0]
+    if (next) next.isNext = true
+    return {
+        done: items.filter(x => x.status === 'done').length,
+        failed: items.filter(x => x.status === 'failed').length,
+        total: items.length,
+        items: [...open, ...items.filter(x => x.status !== 'open')],
+    }
+}
 
 /**
  * 待辦卡的「下一步」：未完成項裡**到期日最早**的那一個；沒有任何日期就取清單順序的第一個。
@@ -167,7 +216,7 @@ export function buildGraph(
                 boardId: board.id, boardName: board.name,
                 color: quest === 'main' ? '#f97316' : '#a78bfa',
                 val: quest === 'main' ? 20 : 10,
-                quest, nextStep: pickNextStep(shape.props.todos),
+                quest, nextStep: pickNextStep(shape.props.todos), todos: shape.props.todos,
             })
             links.push({ source: board.id, target: shape.id, type: 'parent' })
         }

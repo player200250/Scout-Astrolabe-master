@@ -10,7 +10,7 @@
 import { describe, it, expect } from 'vitest'
 import type { TLEditorSnapshot } from 'tldraw'
 import type { BoardRecord } from '../db'
-import { buildGraph, shouldShowNodeLabel, pickNextStep, questTitle, shortenKeepDue, type GraphLink } from './knowledgeGraph'
+import { buildGraph, shouldShowNodeLabel, pickNextStep, questTitle, shortenKeepDue, questProgress, type GraphLink } from './knowledgeGraph'
 
 /* --------------------------------------------------------------- 捏假資料 */
 type Rec = Record<string, unknown>
@@ -214,5 +214,48 @@ describe('questTitle／shortenKeepDue（圖上主線標籤）', () => {
         expect(out.endsWith('…（10/2）')).toBe(true)
         expect(out.length).toBeLessThanOrEqual(20)
         expect(shortenKeepDue('短（1/1）', 20)).toBe('短（1/1）')
+    })
+})
+
+describe('questProgress（點主線／支線節點的進度面板）', () => {
+    const todos = [
+        { id: 'a', text: '已完成的', checked: true, dueDate: '2026-09-01' },
+        { id: 'b', text: '❌ 失敗｜沒做到的', checked: true, dueDate: '2026-09-02' },
+        { id: 'c', text: '晚一點', checked: false, dueDate: '2026-10-04' },
+        { id: 'd', text: '逾期的', checked: false, dueDate: '2026-09-30' },
+        { id: 'e', text: '沒日期', checked: false, dueDate: null },
+        { id: 'f', text: '   ', checked: false, dueDate: null },
+    ]
+
+    it('失敗項另外計數、不算完成；空白項不計', () => {
+        const p = questProgress(todos, '2026-10-01')
+        expect(p).toMatchObject({ done: 1, failed: 1, total: 5 })
+    })
+
+    it('失敗項去掉前綴顯示', () => {
+        const p = questProgress(todos, '2026-10-01')
+        expect(p.items.find(i => i.key === 'b')).toMatchObject({ status: 'failed', text: '沒做到的' })
+    })
+
+    it('下一步＝最早到期的未完成項（與 pickNextStep 同規則），且只有一個', () => {
+        const p = questProgress(todos, '2026-10-01')
+        expect(p.items.filter(i => i.isNext).map(i => i.key)).toEqual(['d'])
+        expect(pickNextStep(todos)).toBe('逾期的（9/30）')
+    })
+
+    it('只有未完成且日期早於今天才算逾期；今天到期不算', () => {
+        const p = questProgress(todos, '2026-10-01')
+        expect(p.items.filter(i => i.overdue).map(i => i.key)).toEqual(['d'])
+        expect(questProgress([{ text: 'x', dueDate: '2026-10-01' }], '2026-10-01').items[0].overdue).toBe(false)
+    })
+
+    it('未完成照清單順序在前，完成／失敗沉底', () => {
+        const p = questProgress(todos, '2026-10-01')
+        expect(p.items.map(i => i.key)).toEqual(['c', 'd', 'e', 'a', 'b'])
+    })
+
+    it('全部完成時沒有下一步；無待辦回全 0', () => {
+        expect(questProgress([{ text: 'x', checked: true }], '2026-10-01').items.some(i => i.isNext)).toBe(false)
+        expect(questProgress(undefined, '2026-10-01')).toEqual({ done: 0, failed: 0, total: 0, items: [] })
     })
 })

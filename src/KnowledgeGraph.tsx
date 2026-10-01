@@ -11,6 +11,8 @@ import { useBacklinks } from './hooks/useBacklinks'
 import { buildGraph, shouldShowNodeLabel, questTitle, shortenKeepDue, type GraphNode, type GraphLink } from './utils/knowledgeGraph'
 import { FullscreenPanel } from './components/ui/FullscreenPanel'
 import { T } from './theme/tokens'
+import { QuestPanel } from './components/knowledge-graph/QuestPanel'
+import { SURFACE, SURFACE_OVERLAY, INK, QUEST_COLOR, QUEST_TEXT } from './components/knowledge-graph/palette'
 
 /* ------------------------------------------------------------------ 畫布配色
  * A3 的決定：**面板外框跟隨主題（交給 FullscreenPanel），畫布本身維持深色**。
@@ -19,19 +21,10 @@ import { T } from './theme/tokens'
  *      那組亮度是為深色背景挑的，換淺色底要整組重挑（成本與收益不成比例）。
  *   2. canvas 讀不到 CSS 變數，token 在繪製這層本來就用不上——硬要跟隨主題
  *      得把色值當參數傳進 paintNode，還要記得補 useCallback 的 deps。
- * 界線就是 header 那條底線：**線以上用 token，線以下（畫布與浮在畫布上的東西）用這裡的常數。**
+ * 界線就是 header 那條底線：**線以上用 token，線以下（畫布與浮在畫布上的東西）用 palette.ts 的常數。**
  */
-const SURFACE = '#0f172a'
-/** legend／tooltip 的底——浮在畫布上，所以不跟主題走 */
-const SURFACE_OVERLAY = 'rgba(15,23,42,0.92)'
-const INK = {
-    strong: 'rgba(255,255,255,0.9)',
-    normal: 'rgba(255,255,255,0.6)',
-    faint: 'rgba(255,255,255,0.45)',
-    hairline: 'rgba(255,255,255,0.12)',
-}
 const LINK_COLOR = { parent: 'rgba(148,163,184,0.28)', wikilink: 'rgba(96,165,250,0.52)' }
-const LEGEND_COLOR = { card: '#60a5fa', board: '#818cf8', wikilink: 'rgba(96,165,250,0.85)', parent: 'rgba(148,163,184,0.6)', main: '#f97316', side: '#a78bfa' }
+const LEGEND_COLOR = { card: '#60a5fa', board: '#818cf8', wikilink: 'rgba(96,165,250,0.85)', parent: 'rgba(148,163,184,0.6)', main: QUEST_COLOR.main, side: QUEST_COLOR.side }
 /** 螢幕上的最小半徑（px）。縮到全局時節點不再小到 1–2px 看不見（2026-09-30） */
 const MIN_SCREEN_R = { card: 3, board: 4.5 }
 /** 主線／支線固定的螢幕半徑：不隨縮放變，永遠最醒目 */
@@ -67,11 +60,19 @@ export function KnowledgeGraph({ boards, onClose, onJumpToCard, onSwitchBoard }:
     const surfaceRef = useRef<HTMLDivElement>(null)
     const tooltipRef = useRef<HTMLDivElement>(null)
 
+    // 點主線／支線節點時打開的進度面板（存 id，節點資料每次從最新的 allNodes 取）
+    const [questId, setQuestId] = useState<string | null>(null)
+
+    // Esc 先關進度面板，再按一次才關圖譜
     useEffect(() => {
-        const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+        const h = (e: KeyboardEvent) => {
+            if (e.key !== 'Escape') return
+            if (questId) setQuestId(null)
+            else onClose()
+        }
         window.addEventListener('keydown', h)
         return () => window.removeEventListener('keydown', h)
-    }, [onClose])
+    }, [onClose, questId])
 
     useEffect(() => {
         const el = surfaceRef.current
@@ -103,6 +104,7 @@ export function KnowledgeGraph({ boards, onClose, onJumpToCard, onSwitchBoard }:
     // 且圖譜開啟期間存檔只增量重掃有異動的白板，不再整包重算。
     const { forwardLinks } = useBacklinks(boards)
     const { nodes: allNodes, links: allLinks } = useMemo(() => buildGraph(boards, forwardLinks), [boards, forwardLinks])
+    const questNode = questId ? allNodes.find(n => n.id === questId && n.type === 'quest') ?? null : null
 
     const { nodes, links } = useMemo(() => {
         if (!connectedOnly) return { nodes: allNodes, links: allLinks }
@@ -155,6 +157,8 @@ export function KnowledgeGraph({ boards, onClose, onJumpToCard, onSwitchBoard }:
     }, [])
 
     const handleNodeClick = useCallback((node: GraphNodeObject) => {
+        // 主線／支線：圖譜留著、左側開進度面板；跳轉改由面板裡的按鈕
+        if (node.type === 'quest') { setQuestId(node.id); return }
         onClose()
         if (node.type === 'board') onSwitchBoard(node.id)
         else onJumpToCard(node.boardId, node.id)
@@ -243,7 +247,7 @@ export function KnowledgeGraph({ boards, onClose, onJumpToCard, onSwitchBoard }:
                 // 主線／支線排在最前面，一定放得下；底板幾乎不透明，壓在連線或節點上也讀得到
                 placed.push({ x1: x - w / 2, y1: top, x2: x + w / 2, y2: top + h })
                 ctx.fillStyle = 'rgba(15,23,42,0.96)'; ctx.fillRect(x - w / 2, top, w, h)
-                ctx.font = `600 ${px(f1)}px system-ui`; ctx.fillStyle = node.quest === 'main' ? '#fdba74' : '#ddd6fe'
+                ctx.font = `600 ${px(f1)}px system-ui`; ctx.fillStyle = QUEST_TEXT[node.quest ?? 'side']
                 ctx.fillText(title, x, top + padY)
                 ctx.font = `${px(f2)}px system-ui`; ctx.fillStyle = INK.strong
                 ctx.fillText(next, x, top + padY + px(f1 + 6))
@@ -300,6 +304,7 @@ export function KnowledgeGraph({ boards, onClose, onJumpToCard, onSwitchBoard }:
                         nodeLabel={() => ''}
                         onNodeHover={handleNodeHover}
                         onNodeClick={handleNodeClick}
+                        onBackgroundClick={() => setQuestId(null)}
                         linkColor={(l: GraphLinkObject) => l.type === 'parent' ? LINK_COLOR.parent : LINK_COLOR.wikilink}
                         linkWidth={(l: GraphLinkObject) => l.type === 'parent' ? 1 : 1.5}
                         linkDirectionalArrowLength={(l: GraphLinkObject) => l.type === 'wikilink' ? 5 : 0}
@@ -309,6 +314,14 @@ export function KnowledgeGraph({ boards, onClose, onJumpToCard, onSwitchBoard }:
                         d3AlphaDecay={0.02}
                         d3VelocityDecay={0.28}
                         onEngineStop={handleEngineStop}
+                    />
+                )}
+
+                {questNode && (
+                    <QuestPanel
+                        node={questNode}
+                        onClose={() => setQuestId(null)}
+                        onJump={() => { onClose(); onJumpToCard(questNode.boardId, questNode.id) }}
                     />
                 )}
 
