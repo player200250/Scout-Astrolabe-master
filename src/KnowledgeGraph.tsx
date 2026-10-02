@@ -48,6 +48,52 @@ function nodeRadius(node: GraphNodeObject, globalScale: number): number {
  */
 const MIN_HIT_SCREEN_R = 8
 
+/**
+ * 碰撞：兩個節點中心至少相隔各自半徑之和，否則互相推開（圖座標）。
+ * 節點只有幾十個，O(n²) 足夠；不為此多引一個 d3 套件。
+ */
+const COLLIDE_R = { quest: 46, board: 30, card: 26 } as const
+function collideForce() {
+    let nodes: GraphNodeObject[] = []
+    const force = () => {
+        for (let i = 0; i < nodes.length; i++) {
+            const a = nodes[i]
+            for (let j = i + 1; j < nodes.length; j++) {
+                const b = nodes[j]
+                const dx = (b.x ?? 0) - (a.x ?? 0), dy = (b.y ?? 0) - (a.y ?? 0)
+                const min = COLLIDE_R[a.type] + COLLIDE_R[b.type]
+                const d2 = dx * dx + dy * dy
+                if (d2 >= min * min) continue
+                const d = Math.sqrt(d2) || 0.01
+                const push = (min - d) / d * 0.5
+                const px = (dx || 0.01) * push, py = dy * push
+                // 被釘住的節點（主線、滑鼠停著的那個）不動，全部由另一個讓位
+                const aFixed = a.fx != null, bFixed = b.fx != null
+                if (!aFixed) { a.x = (a.x ?? 0) - (bFixed ? 2 : 1) * px; a.y = (a.y ?? 0) - (bFixed ? 2 : 1) * py }
+                if (!bFixed) { b.x = (b.x ?? 0) + (aFixed ? 2 : 1) * px; b.y = (b.y ?? 0) + (aFixed ? 2 : 1) * py }
+            }
+        }
+    }
+    force.initialize = (ns: GraphNodeObject[]) => { nodes = ns }
+    return force
+}
+
+/**
+ * 往中心收：沒有連結的幾群原本被斥力推到很遠，zoomToFit 要把它們全框進來，
+ * 每一群在螢幕上就縮成一小團。給一點點拉回原點的力，空白少了、縮放自然變大。
+ */
+function gatherForce(strength: number) {
+    let nodes: GraphNodeObject[] = []
+    const force = (alpha: number) => {
+        for (const n of nodes) {
+            n.vx = (n.vx ?? 0) - (n.x ?? 0) * strength * alpha
+            n.vy = (n.vy ?? 0) - (n.y ?? 0) * strength * alpha
+        }
+    }
+    force.initialize = (ns: GraphNodeObject[]) => { nodes = ns }
+    return force
+}
+
 /* ------------------------------------------------------------------ component */
 interface KnowledgeGraphProps {
     boards: BoardRecord[]
@@ -148,9 +194,11 @@ export function KnowledgeGraph({ boards, onClose, onJumpToCard, onSwitchBoard }:
         const fg = fgRef.current
         if (!fg) return
         const isQuest = (n: unknown) => typeof n === 'object' && n !== null && (n as GraphNodeObject).type === 'quest'
-        // 一般連線也從 30 拉到 55、斥力加大：卡片標籤原本擠成一團互相壓字
-        fg.d3Force('link')?.distance((l: GraphLinkObject) => (isQuest(l.target) || isQuest(l.source) ? 120 : 55))
+        // 2026-10-02：一般連線 55 → 120。55 在縮放 0.53 下只剩螢幕 29px，比標籤短得多，一群節點字疊字。
+        fg.d3Force('link')?.distance((l: GraphLinkObject) => (isQuest(l.target) || isQuest(l.source) ? 140 : 120))
         fg.d3Force('charge')?.strength((n: GraphNodeObject) => (n.type === 'quest' ? -400 : -90))
+        fg.d3Force('collide', collideForce())
+        fg.d3Force('gather', gatherForce(0.04))
         fg.d3ReheatSimulation?.()
     }, [graphData, dims.w])
 
