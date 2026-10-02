@@ -12,8 +12,13 @@
 // base 會跟著變，合併就永遠算不出「本機動過什麼」。
 import { getSnapshotStore, withUpdatedStore } from './snapshot'
 import type { TLEditorSnapshot } from 'tldraw'
+import { stampUpdated, withCheckedAt } from './cardActivity'
+import type { TodoItem } from '../components/card-shape/type/CardShape'
 
-/** 只改一張 shape 的 props，其餘原封不動；找不到那張卡就回原 snapshot */
+/**
+ * 只改一張 shape 的 props，其餘原封不動；找不到那張卡就回原 snapshot。
+ * 有改到就順手蓋 meta.updatedAt（RC16：週回顧靠它判斷這張卡哪一週動過）。
+ */
 function patchCardProps(
     snapshot: TLEditorSnapshot,
     shapeId: string,
@@ -28,7 +33,7 @@ function patchCardProps(
 
     return withUpdatedStore(snapshot, {
         ...store,
-        [shapeId]: { ...rec, props: nextProps },
+        [shapeId]: { ...rec, props: nextProps, meta: stampUpdated(rec.meta, Date.now()) },
     })
 }
 
@@ -53,7 +58,8 @@ export function toggleTodo(
             hit = true
             return { ...t, checked }
         })
-        return hit ? { ...props, todos: next } : null
+        if (!hit) return null
+        return { ...props, todos: withCheckedAt(todos as TodoItem[], next as TodoItem[], Date.now()) }
     })
 }
 

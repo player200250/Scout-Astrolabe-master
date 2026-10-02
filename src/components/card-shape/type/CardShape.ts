@@ -82,6 +82,8 @@ export interface TodoItem {
     text: string
     checked: boolean
     dueDate?: string | null  // YYYY-MM-DD
+    /** 打勾的時間（毫秒，RC16）。取消勾就拿掉；2026-10-02 之前勾的沒有 */
+    checkedAt?: number | null
 }
 
 export interface TLCardProps {

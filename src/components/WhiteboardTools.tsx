@@ -21,6 +21,7 @@ import { JUMP_DELAY_MS, Z_TOOL_SUBMENU, THUMBNAIL_SHAPE_LIMIT, THUMBNAIL_MIN_INT
 import { emitAppEvent, onAppEvent } from '../utils/appEvents'
 import { resolveLinkTarget } from '../utils/cardLinks'
 import { reviewTargetFor } from '../utils/journalCards'
+import { useCardActivityStamps } from '../hooks/useCardActivityStamps'
 import { BacklinksContext } from '../hooks/useBacklinks'
 import { exportBtnStyle } from '../utils/whiteboardUtils'
 import { EXAMPLE_CARDS, EXAMPLE_SEED_FLAG } from '../utils/exampleBoard'
@@ -81,6 +82,7 @@ interface WhiteboardToolsProps {
 
 export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSearch, onOpenHotkey, onOpenQuickSwitcher, onCreateBoard, onSwitchBoard, isInboxBoard, onMoveCard,  onCardTrashed, recentlyTrashedShapeIds }: WhiteboardToolsProps) {
     const editor = useEditor()
+    useCardActivityStamps(editor)
     const { cardIndex } = useContext(BacklinksContext)
     const initialized = useRef(false)
     const imageInputRef = useRef<HTMLInputElement>(null)

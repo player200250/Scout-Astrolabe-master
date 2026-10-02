@@ -34,8 +34,17 @@ describe('toggleTodo', () => {
         const next = toggleTodo(base, 'shape:t', 'b', true)
         expect(props(next, 'shape:t').todos).toEqual([
             { id: 'a', text: '第一項', checked: false },
-            { id: 'b', text: '第二項', checked: true },
+            { id: 'b', text: '第二項', checked: true, checkedAt: expect.any(Number) },
         ])
+    })
+
+    // RC16：手機勾的也要記時間，週回顧才算得到「這週完成」；卡片本身也蓋 updatedAt
+    it('打勾記 checkedAt、取消勾拿掉，並蓋卡片 meta.updatedAt', () => {
+        const on = toggleTodo(base, 'shape:t', 'a', true)
+        const store = (on as unknown as { document: { store: Record<string, { meta?: { updatedAt?: number } }> } }).document.store
+        expect(typeof store['shape:t'].meta?.updatedAt).toBe('number')
+        const off = toggleTodo(on, 'shape:t', 'a', false)
+        expect((props(off, 'shape:t').todos as { checkedAt?: number }[])[0]).not.toHaveProperty('checkedAt')
     })
 
     it('可以取消勾選', () => {

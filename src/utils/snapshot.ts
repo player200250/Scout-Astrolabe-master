@@ -52,6 +52,8 @@ export interface SnapshotCardShape {
     x: number
     y: number
     props: SnapshotShapeProps
+    /** 卡片活動時間在這裡（meta.createdAt / updatedAt，RC16） */
+    meta?: Record<string, unknown>
 }
 
 export function getSnapshotStore(snapshot: TLEditorSnapshot): TLSnapshotStore {
@@ -230,5 +232,5 @@ export function getCardShapes(snapshot: TLEditorSnapshot | null): SnapshotCardSh
     const store = getSnapshotStore(snapshot)
     return Object.values(store)
         .filter(s => s.typeName === 'shape' && s.type === 'card')
-        .map(s => ({ id: s.id, x: s.x ?? 0, y: s.y ?? 0, props: s.props ?? {} }))
+        .map(s => ({ id: s.id, x: s.x ?? 0, y: s.y ?? 0, props: s.props ?? {}, meta: s.meta }))
 }

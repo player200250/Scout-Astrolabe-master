@@ -11,6 +11,7 @@
 import type { TLEditorSnapshot } from 'tldraw'
 import { toMutableSnapshot, toTLEditorSnapshot } from './snapshot'
 import { ensurePageScaffold, lastShapeIndex, nextGridSlot } from './snapshotCards'
+import { stampCreated } from './cardActivity'
 
 export interface QuickCaptureResult {
     snapshot: TLEditorSnapshot
@@ -42,7 +43,7 @@ export function appendQuickCaptureCard(
     store[shapeId] = {
         typeName: 'shape', id: shapeId, type: 'card',
         x, y, rotation: 0, index: newIndex,
-        parentId: pageId, isLocked: false, opacity: 1, meta: {},
+        parentId: pageId, isLocked: false, opacity: 1, meta: stampCreated({}, Date.now()),
         props: {
             type: 'text', text,
             image: null, todos: [], url: '',

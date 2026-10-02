@@ -4,6 +4,7 @@ import type { BoardRecord } from '../db'
 import { saveBoard } from '../utils/boardDb'
 import { toMutableSnapshot, toTLEditorSnapshot } from '../utils/snapshot'
 import { ensurePageScaffold, nextAppendX, lastShapeIndex } from '../utils/snapshotCards'
+import { stampCreated, stampUpdated } from '../utils/cardActivity'
 
 /** useJournal 需共用的核心 board state（由 useBoardManager 傳入） */
 export interface JournalSharedState {
@@ -37,6 +38,7 @@ export function useJournal(state: JournalSharedState) {
         if (shapeId && store[shapeId]) {
             const rec = store[shapeId]
             if (rec.props) { rec.props['text'] = html } else { rec.props = { text: html } }
+            rec.meta = stampUpdated(rec.meta, Date.now())
         } else {
             const pageId = ensurePageScaffold(store)
             const newIndex = lastShapeIndex(store) + 'V'
@@ -45,7 +47,7 @@ export function useJournal(state: JournalSharedState) {
             store[newShapeId] = {
                 typeName: 'shape', id: newShapeId, type: 'card',
                 x: maxX, y: 100, rotation: 0, index: newIndex,
-                parentId: pageId, isLocked: false, opacity: 1, meta: {},
+                parentId: pageId, isLocked: false, opacity: 1, meta: stampCreated({}, Date.now()),
                 props: {
                     type: 'journal', text: html,
                     image: null, todos: [], url: '',

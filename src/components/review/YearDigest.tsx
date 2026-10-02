@@ -25,7 +25,7 @@ export function YearDigest({ boards, year, onOpenMonth }: YearDigestProps) {
         const first = weeks[0], last = weeks[weeks.length - 1]
         const stats = first && last
             ? computeRangeStats(boards, getWeekRange(first).start, getWeekRange(last).end)
-            : { totalCards: 0, completedTodos: 0, wikiLinks: 0, cardsByBoard: [] }
+            : { totalCards: 0, completedTodos: 0, wikiLinks: 0, journalDays: 0, cardsByBoard: [], coverage: 'none' as const }
         return {
             m, weeks: weeks.length, written, stats,
             firstWeek: first ? getWeekRange(first).weekNum : null,
@@ -33,7 +33,9 @@ export function YearDigest({ boards, year, onOpenMonth }: YearDigestProps) {
         }
     }), [boards, year])
 
-    const maxCards = Math.max(1, ...months.map(x => x.stats.totalCards))
+    // 長條＝卡片＋完成待辦＋日記天數（同週回顧的走勢圖）：10/02 之前沒有卡片紀錄，只看卡片會整排貼底（RC16）
+    const scoreOf = (st: { totalCards: number; completedTodos: number; journalDays: number }) => st.totalCards + st.completedTodos + st.journalDays
+    const maxScore = Math.max(1, ...months.map(x => scoreOf(x.stats)))
     const totalWritten = months.reduce((s, x) => s + x.written, 0)
     const totalWeeks = months.reduce((s, x) => s + x.weeks, 0)
 
@@ -69,12 +71,12 @@ export function YearDigest({ boards, year, onOpenMonth }: YearDigestProps) {
                             <span style={{ flex: 1, minWidth: 0, height: 6, borderRadius: 3, background: T.bgMuted, overflow: 'hidden' }}>
                                 <span style={{
                                     display: 'block', height: '100%', borderRadius: 3,
-                                    width: `${Math.max(2, Math.round((x.stats.totalCards / maxCards) * 100))}%`,
-                                    background: x.stats.totalCards > 0 ? T.bgActive : T.borderMid,
+                                    width: `${Math.max(2, Math.round((scoreOf(x.stats) / maxScore) * 100))}%`,
+                                    background: scoreOf(x.stats) > 0 ? T.bgActive : T.borderMid,
                                 }} />
                             </span>
                             <span style={{ width: 118, flexShrink: 0, fontSize: 11, color: T.textMuted, textAlign: 'right' }}>
-                                卡片 {x.stats.totalCards} · 待辦 {x.stats.completedTodos}
+                                卡片 {x.stats.coverage === 'none' ? '—' : x.stats.totalCards} · 待辦 {x.stats.completedTodos}
                             </span>
                         </span>
 

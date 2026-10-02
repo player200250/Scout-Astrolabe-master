@@ -125,7 +125,9 @@ export function WeeklyReviewContent({ boards, onSaveJournal, initialAnchor }: We
         }),
         [boards, anchor],
     )
-    const trendMax = Math.max(1, ...trend.map(t => t.totalCards))
+    // 柱高＝三項加總：10/02 之前的週沒有卡片紀錄，只看卡片的話整排都貼底（RC16）
+    const activityOf = (t: { totalCards: number; completedTodos: number; journalDays: number }) => t.totalCards + t.completedTodos + t.journalDays
+    const trendMax = Math.max(1, ...trend.map(activityOf))
 
     // 外部寫入卡片後 +1，逼 JournalCardEditor 把新內容讀回來（見該元件的 syncToken）
     const [syncToken, setSyncToken] = useState(0)
@@ -137,7 +139,9 @@ export function WeeklyReviewContent({ boards, onSaveJournal, initialAnchor }: We
      * 或內容與空模板一字不差。已經寫過東西的一週不該被一顆按鈕蓋掉。
      */
     const weekCard = findJournalCard(boards, weekKey)
-    const isEmptyWeek = stats.totalCards === 0 && stats.completedTodos === 0 && stats.wikiLinks === 0
+    const isEmptyWeek = stats.totalCards === 0 && stats.completedTodos === 0 && stats.wikiLinks === 0 && stats.journalDays === 0
+    const noRecord = stats.coverage === 'none'
+    const sinceLabel = '10/2 起才有紀錄'
     // 與 RC9 的存檔守門共用同一個述詞，免得兩邊對「未動過」的定義漂移
     const cardUntouched = !weekCard || isUntouchedTemplate(weekCard.text, weeklyTemplate(weekNum, startLabel, endLabel))
     const canMarkNoOutput = hasJournalBoard && isEmptyWeek && cardUntouched
@@ -217,12 +221,13 @@ export function WeeklyReviewContent({ boards, onSaveJournal, initialAnchor }: We
                     <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 38 }}>
                         {trend.map(t => {
                             const isHere = t.weekNum === weekNum
-                            const h = 3 + Math.round((t.totalCards / trendMax) * 27)
+                            const score = activityOf(t)
+                            const h = 3 + Math.round((score / trendMax) * 27)
                             return (
                                 <button
                                     key={t.weekNum}
                                     onClick={() => setAnchor(t.date)}
-                                    title={`第 ${t.weekNum} 週 — 卡片 ${t.totalCards} · 完成待辦 ${t.completedTodos} · 連結 ${t.wikiLinks}`}
+                                    title={`第 ${t.weekNum} 週 — 卡片 ${t.coverage === 'none' ? '無紀錄' : t.totalCards} · 完成待辦 ${t.completedTodos} · 日記 ${t.journalDays} 天 · 連結 ${t.coverage === 'none' ? '無紀錄' : t.wikiLinks}`}
                                     style={{
                                         flex: 1, minWidth: 0, height: '100%', padding: 0, border: 'none',
                                         background: 'transparent', cursor: 'pointer',
@@ -231,8 +236,8 @@ export function WeeklyReviewContent({ boards, onSaveJournal, initialAnchor }: We
                                 >
                                     <span style={{
                                         display: 'block', height: h, borderRadius: 2,
-                                        background: isHere ? T.accent : t.totalCards > 0 ? T.bgActive : T.borderMid,
-                                        opacity: isHere || t.totalCards > 0 ? 1 : 0.55,
+                                        background: isHere ? T.accent : score > 0 ? T.bgActive : T.borderMid,
+                                        opacity: isHere || score > 0 ? 1 : 0.55,
                                         transition: 'height 0.15s',
                                     }} />
                                     <span style={{ fontSize: 9, color: isHere ? T.accent : '#999', fontWeight: isHere ? 700 : 400 }}>{t.weekNum}</span>
@@ -251,9 +256,11 @@ export function WeeklyReviewContent({ boards, onSaveJournal, initialAnchor }: We
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: stats.cardsByBoard.length > 0 ? 8 : 0 }}>
                         <span style={{ display: 'flex', color: '#2563eb' }}><Icon name="overview" size="md" /></span>
                         <span style={{ fontSize: 13, color: textPrimary, fontWeight: 500 }}>有活動的卡片</span>
-                        <span style={{ marginLeft: 'auto', fontSize: 16, fontWeight: 700, color: '#2563eb' }}>{stats.totalCards}</span>
+                        <span style={{ marginLeft: 'auto', fontSize: 16, fontWeight: 700, color: noRecord ? textSecondary : '#2563eb' }}>{noRecord ? '無紀錄' : stats.totalCards}</span>
                     </div>
-                    {stats.cardsByBoard.length > 0 ? (
+                    {noRecord ? (
+                        <div style={{ fontSize: 11, color: textSecondary, paddingLeft: 24 }}>{sinceLabel}，這之前的卡片沒有記時間</div>
+                    ) : stats.cardsByBoard.length > 0 ? (
                         <div style={{ paddingLeft: 24, display: 'flex', flexDirection: 'column', gap: 3 }}>
                             {stats.cardsByBoard.map(({ boardName, count }) => (
                                 <div key={boardName} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: textSecondary }}>
@@ -262,13 +269,17 @@ export function WeeklyReviewContent({ boards, onSaveJournal, initialAnchor }: We
                                 </div>
                             ))}
                         </div>
-                    ) : (
+                    ) : stats.coverage === 'full' ? (
                         <div style={{ fontSize: 11, color: '#bbb', paddingLeft: 24 }}>這週尚無活動</div>
+                    ) : null}
+                    {stats.coverage === 'partial' && (
+                        <div style={{ fontSize: 11, color: textSecondary, paddingLeft: 24, marginTop: 4 }}>{sinceLabel}，之前的幾天沒算到</div>
                     )}
                 </div>
 
                 {statCard('#f0fdf4', '#0d2818', 'done', '完成待辦', `${stats.completedTodos} 項`, '#16a34a')}
-                {statCard('#faf5ff', '#1d1133', 'knowledgeGraph', '[[]] 知識連結', `${stats.wikiLinks} 個`, '#7c3aed')}
+                {statCard('#fffbeb', '#2a1f0a', 'cardJournal', '寫了日記', `${stats.journalDays} 天`, '#d97706')}
+                {statCard('#faf5ff', '#1d1133', 'knowledgeGraph', '[[]] 知識連結', noRecord ? '無紀錄' : `${stats.wikiLinks} 個`, noRecord ? textSecondary : '#7c3aed')}
 
                 {mode === 'week' && canMarkNoOutput && (
                     <button
@@ -289,7 +300,7 @@ export function WeeklyReviewContent({ boards, onSaveJournal, initialAnchor }: We
                 )}
 
                 <div style={{ fontSize: 11, color: '#bbb', lineHeight: 1.6, padding: '8px 10px', background: noteBg, borderRadius: 8, border: `1px solid ${noteBorder}`, marginTop: 4 }}>
-                    統計範圍：{rangeLabel}（整段以週一至週日對齊）有更新記錄的白板
+                    統計範圍：{rangeLabel}（整段以週一至週日對齊）。卡片與連結看每張卡自己的修改時間，2026/10/2 起才有紀錄
                 </div>
 
                 {!hasJournalBoard && (

@@ -3,6 +3,9 @@
 
 import type { BoardRecord } from '../db'
 import { getCardShapes } from './snapshot'
+import { cardActiveIn, todoCompletedIn, trackingCoverage } from './cardActivity'
+import type { TrackingCoverage } from './cardActivity'
+import type { TodoItem } from '../components/card-shape/type/CardShape'
 
 /** 回傳 ISO 週次鍵值，如 "week-2026-22" */
 export function getISOWeekKey(date: Date): string {
@@ -87,31 +90,52 @@ export function getMonthKey(year: number, month: number): string {
  * 「同一塊板在兩週都更新過」重複計入）。
  */
 export interface RangeStats {
+    /** 期間內建立或改過內容的卡片，依白板分組（RC16：看卡片自己的 meta，不再看白板更新時間） */
     cardsByBoard: { boardName: string; count: number }[]
     totalCards: number
+    /** 期間內打勾的待辦；10/02 之前勾的沒有 checkedAt，退回看到期日 */
     completedTodos: number
+    /** 期間內動過的卡片裡的 [[連結]] 數 */
     wikiLinks: number
+    /** 期間內寫了日記的天數（日記卡本來就帶日期，過去的週也算得出來） */
+    journalDays: number
+    /**
+     * 卡片／連結這兩項有沒有紀錄：none＝整段在 2026-10-02 開始記錄之前，只能顯示「無紀錄」；
+     * partial＝跨過那天，前半段沒算到。完成待辦與日記天數不受影響。
+     */
+    coverage: TrackingCoverage
 }
 
 export function computeRangeStats(boards: BoardRecord[], rangeStart: Date, rangeEnd: Date): RangeStats {
     const cardsByBoard: { boardName: string; count: number }[] = []
     let completedTodos = 0
     let wikiLinks = 0
+    const journalDates = new Set<string>()
+    const startDs = toLocalDateStr(rangeStart), endDs = toLocalDateStr(rangeEnd)
     for (const board of boards) {
-        if (board.updatedAt < rangeStart.getTime() || board.updatedAt > rangeEnd.getTime()) continue
-        const shapes = getCardShapes(board.snapshot)
-        if (shapes.length === 0) continue
-        for (const shape of shapes) {
-            if (shape.props.type === 'todo') {
-                completedTodos += (shape.props.todos ?? []).filter(t => t.checked).length
+        let count = 0
+        for (const shape of getCardShapes(board.snapshot)) {
+            const p = shape.props
+            completedTodos += ((p.todos ?? []) as TodoItem[]).filter(t => todoCompletedIn(t, rangeStart, rangeEnd)).length
+            const jd = p.journalDate
+            if (board.isJournal && p.type === 'journal' && typeof jd === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(jd) && jd >= startDs && jd <= endDs) {
+                journalDates.add(jd)
             }
-            if (shape.props.text) {
-                const matches = shape.props.text.match(/\[\[[^\]]+\]\]/g)
-                if (matches) wikiLinks += matches.length
-            }
+            if (!cardActiveIn(shape.meta, rangeStart, rangeEnd)) continue
+            count++
+            const matches = p.text?.match(/\[\[[^\]]+\]\]/g)
+            if (matches) wikiLinks += matches.length
         }
-        cardsByBoard.push({ boardName: board.name, count: shapes.length })
+        if (count > 0) cardsByBoard.push({ boardName: board.name, count })
     }
     cardsByBoard.sort((a, b) => b.count - a.count)
-    return { cardsByBoard, totalCards: cardsByBoard.reduce((s, b) => s + b.count, 0), completedTodos, wikiLinks }
+    return {
+        cardsByBoard, totalCards: cardsByBoard.reduce((s, b) => s + b.count, 0),
+        completedTodos, wikiLinks, journalDays: journalDates.size,
+        coverage: trackingCoverage(rangeStart, rangeEnd),
+    }
+}
+
+function toLocalDateStr(d: Date): string {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
