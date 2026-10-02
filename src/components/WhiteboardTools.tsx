@@ -20,6 +20,7 @@ import type { SnapshotShapeProps } from '../utils/snapshot'
 import { JUMP_DELAY_MS, Z_TOOL_SUBMENU, THUMBNAIL_SHAPE_LIMIT, THUMBNAIL_MIN_INTERVAL_MS } from '../constants'
 import { emitAppEvent, onAppEvent } from '../utils/appEvents'
 import { resolveLinkTarget } from '../utils/cardLinks'
+import { reviewTargetFor } from '../utils/journalCards'
 import { BacklinksContext } from '../hooks/useBacklinks'
 import { exportBtnStyle } from '../utils/whiteboardUtils'
 import { EXAMPLE_CARDS, EXAMPLE_SEED_FLAG } from '../utils/exampleBoard'
@@ -275,7 +276,12 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
                 // 導致 [[卡片名]] 點下去完全沒反應（靜默失敗）。
                 const hit = resolveLinkTarget(targetName, boards, cardIndex)
                 if (!hit) return
-                if (hit.kind === 'board') { onSwitchBoard(hit.boardId); return }
+                if (hit.kind === 'board') {
+                    const review = reviewTargetFor(boards, hit.boardId)
+                    if (review) emitAppEvent('open-review-center', review)
+                    else onSwitchBoard(hit.boardId)
+                    return
+                }
                 toBoardId = hit.target.boardId
                 toShapeId = hit.target.shapeId
                 toX = hit.target.x
@@ -283,6 +289,10 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
             }
 
             if (!toShapeId) return
+
+            // RC17：目的地在日誌板（隱藏的倉庫）⇒ 改開復盤中心那一天，由 App 接手
+            const review = reviewTargetFor(boards, toBoardId, toShapeId)
+            if (review) { emitAppEvent('open-review-center', review); return }
 
             if (!toBoardId || toBoardId === board.id) {
                 jumpRef.current?.(toShapeId, toX ?? 0, toY ?? 0)

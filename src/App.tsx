@@ -37,6 +37,9 @@ import { TrashPanel } from './TrashPanel'
 import { DeleteBoardDialog } from './components/DeleteBoardDialog'
 import { SIDEBAR_WIDTH, SIDEBAR_COLLAPSED_WIDTH, INBOX_BOARD_ID, JUMP_DELAY_MS, Z_MODAL_BACKDROP } from './constants'
 import { getCardShapes } from './utils/snapshot'
+import { reviewTargetFor } from './utils/journalCards'
+import type { ReviewTarget } from './utils/journalCards'
+import { onAppEvent } from './utils/appEvents'
 import 'tldraw/tldraw.css'
 import { T } from './theme/tokens'
 
@@ -71,6 +74,10 @@ export default function App() {
     // 復盤中心開在哪一頁。從側邊欄／快捷鍵／命令面板進去是月曆，
     // 只有儀表板的「開啟今日日記 →」會指定日記頁。
     const [reviewTab, setReviewTab] = useState<ReviewTab>('calendar')
+    // 日記頁／週回顧開在哪一天（RC17）。key 每次指定目的地就換：面板已開著時
+    // （例：日記編輯器裡點了另一天的 [[連結]]）也要重新掛載，初始日期才會生效。
+    const [reviewDate, setReviewDate] = useState<Date | undefined>(undefined)
+    const [reviewKey, setReviewKey] = useState(0)
     const bannerShownRef = useRef(false)
 
     const { overdueCount, todayCount } = useOverdueStats(boards)
@@ -97,8 +104,25 @@ export default function App() {
     // （側邊欄／Ctrl+Shift+C／命令面板／儀表板按鈕），其中側邊欄那個直接呼叫 usePanelState
     // 的 openPanel、碰不到這裡的 state；關閉路徑則一律會讓 panels.reviewCenter 變 false。
     useEffect(() => {
-        if (!panels.reviewCenter) setReviewTab('calendar')
+        if (!panels.reviewCenter) { setReviewTab('calendar'); setReviewDate(undefined) }
     }, [panels.reviewCenter])
+
+    const openReviewAt = useCallback((t: ReviewTarget) => {
+        setReviewTab(t.tab)
+        setReviewDate(t.tab === 'calendar' ? undefined : t.date)
+        setReviewKey(k => k + 1)
+        openPanel('reviewCenter')
+    }, [openPanel])
+
+    // RC17 方案 D：日誌板只當倉庫、不該被切進去。凡是「跳到卡片」的目的地在日誌板，
+    // 一律改開復盤中心並落在那張卡的日期。`[[連結]]`／反向連結走事件（見 WhiteboardTools）。
+    const jumpToCard = useCallback((boardId: string, shapeId: string, x: number, y: number) => {
+        const t = reviewTargetFor(boards, boardId, shapeId)
+        if (t) openReviewAt(t)
+        else handleJump(boardId, shapeId, x, y)
+    }, [boards, openReviewAt, handleJump])
+
+    useEffect(() => onAppEvent('open-review-center', openReviewAt), [openReviewAt])
 
     const handleDeleteWithConfirm = useCallback((id: string) => {
         setDeletingBoardIds([id])
@@ -231,7 +255,7 @@ export default function App() {
             {panels.search && (
                 <SearchPanel
                     boards={boards}
-                    onJump={(boardId, shapeId, x, y) => { closePanel('search'); handleJump(boardId, shapeId, x, y) }}
+                    onJump={(boardId, shapeId, x, y) => { closePanel('search'); jumpToCard(boardId, shapeId, x, y) }}
                     onClose={() => closePanel('search')}
                 />
             )}
@@ -240,14 +264,14 @@ export default function App() {
             {panels.taskCenter && (
                 <TaskCenter
                     boards={boards}
-                    onJump={(boardId, shapeId, x, y) => { closePanel('taskCenter'); handleJump(boardId, shapeId, x, y) }}
+                    onJump={(boardId, shapeId, x, y) => { closePanel('taskCenter'); jumpToCard(boardId, shapeId, x, y) }}
                     onClose={() => closePanel('taskCenter')}
                 />
             )}
             {panels.filter && (
                 <FilterPanel
                     boards={boards}
-                    onJump={(boardId, shapeId, x, y) => { closePanel('filter'); handleJump(boardId, shapeId, x, y) }}
+                    onJump={(boardId, shapeId, x, y) => { closePanel('filter'); jumpToCard(boardId, shapeId, x, y) }}
                     onClose={() => closePanel('filter')}
                 />
             )}
@@ -289,8 +313,10 @@ export default function App() {
             )}
             {panels.reviewCenter && (
                 <ReviewCenter
+                    key={reviewKey}
                     boards={boards}
                     initialTab={reviewTab}
+                    initialDate={reviewDate}
                     onClose={() => closePanel('reviewCenter')}
                     onJumpToBoard={handleSwitch}
                     onSaveJournal={handleSaveJournal}
@@ -314,7 +340,7 @@ export default function App() {
             {panels.cardLibrary && (
                 <CardLibrary
                     boards={boards}
-                    onJump={(boardId, shapeId, x, y) => { closePanel('cardLibrary'); handleJump(boardId, shapeId, x, y) }}
+                    onJump={(boardId, shapeId, x, y) => { closePanel('cardLibrary'); jumpToCard(boardId, shapeId, x, y) }}
                     onClose={() => closePanel('cardLibrary')}
                 />
             )}

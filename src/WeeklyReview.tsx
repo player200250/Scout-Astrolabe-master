@@ -55,12 +55,14 @@ function noOutputContent(weekNum: number, startLabel: string, endLabel: string):
 interface WeeklyReviewContentProps {
     boards: BoardRecord[]
     onSaveJournal: (boardId: string, dateStr: string, html: string, shapeId: string | null) => void
+    /** 一開始看哪一週（RC17：從別處跳到某張週回顧卡）。沒給就是本週 */
+    initialAnchor?: Date
 }
 
-export function WeeklyReviewContent({ boards, onSaveJournal }: WeeklyReviewContentProps) {
+export function WeeklyReviewContent({ boards, onSaveJournal, initialAnchor }: WeeklyReviewContentProps) {
     const isDark = useIsDark()
     // 看哪一段：預設本週，← → 翻到過去／未來
-    const [anchor, setAnchor] = useState<Date>(() => new Date())
+    const [anchor, setAnchor] = useState<Date>(() => initialAnchor ?? new Date())
     /**
      * 週／月／年三個層級。
      * 只有「週」是可寫的卡；月與年是**自動整理、唯讀**——使用者 2026-09-29 選這個方向，

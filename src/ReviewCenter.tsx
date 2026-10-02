@@ -21,6 +21,11 @@ interface ReviewCenterProps {
      * 儀表板的「開啟今日日記 →」要落在日記頁——按鈕名稱承諾了目的地就得兌現。
      */
     initialTab?: ReviewTab
+    /**
+     * 日記頁／週回顧開在哪一天（RC17）：從卡片庫、`[[連結]]` 等跳到日記卡時，
+     * 要落在那張卡的日期，不是今天。沒給就是今天。
+     */
+    initialDate?: Date
 }
 
 // 圖示一律走 lucide 線性圖示（與側邊欄同一套）。
@@ -31,9 +36,9 @@ const TABS: { key: ReviewTab; label: string; icon: IconName }[] = [
     { key: 'weekly',   label: '週回顧',   icon: 'stats' },
 ]
 
-export function ReviewCenter({ boards, onClose, onJumpToBoard, onSaveJournal, initialTab = 'calendar' }: ReviewCenterProps) {
+export function ReviewCenter({ boards, onClose, onJumpToBoard, onSaveJournal, initialTab = 'calendar', initialDate }: ReviewCenterProps) {
     const [tab, setTab] = useState<ReviewTab>(initialTab)
-    const [journalDate, setJournalDate] = useState<Date>(new Date())
+    const [journalDate, setJournalDate] = useState<Date>(() => initialDate ?? new Date())
 
     useEffect(() => {
         // defaultPrevented＝編輯器裡的 `/` 選單或 `[[` 補全已經用這個 Esc 關掉自己了（ProseMirror 的
@@ -104,6 +109,7 @@ export function ReviewCenter({ boards, onClose, onJumpToBoard, onSaveJournal, in
                     <WeeklyReviewContent
                         boards={boards}
                         onSaveJournal={onSaveJournal}
+                        initialAnchor={initialDate}
                     />
                 )}
             </div>

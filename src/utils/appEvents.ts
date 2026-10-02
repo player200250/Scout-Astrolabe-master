@@ -12,6 +12,7 @@
 
 import type { BoardRecord, DeletedCardRecord } from '../db'
 import type { SyncStatus } from '../sync/syncStatus'
+import type { ReviewTarget } from './journalCards'
 
 // ── 每個事件的 payload 型別定義 ──────────────────────────────────────────
 
@@ -29,6 +30,12 @@ export interface AppEventPayloads {
         y?: number
         targetName?: string
     }
+
+    /**
+     * 打開復盤中心並落在指定頁／日期（RC17）。
+     * `[[連結]]` 的目的地是日記卡時由 WhiteboardTools 發出、App 接手——它碰不到 App 的面板 state。
+     */
+    'open-review-center': ReviewTarget
 
     /** 垃圾桶計數變更，通知 UI 更新 badge（無 payload）*/
     'trash-count-changed': undefined
