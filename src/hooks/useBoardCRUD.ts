@@ -31,9 +31,9 @@ export function useBoardCRUD(state: BoardCRUDSharedState) {
         setBoards(prev => prev.map(b => b.id === activeBoardId ? updated : b))
     }, [activeBoardId, boards, setBoards])
 
-    const handleCreateBoard = useCallback((name: string, parentId?: string): BoardRecord => {
+    const handleCreateBoard = useCallback((name: string): BoardRecord => {
         const safeName = uniqueName(name, boards)
-        const newBoard: BoardRecord = { id: generateId(), name: safeName, snapshot: null, thumbnail: null, updatedAt: Date.now(), parentId: parentId ?? null }
+        const newBoard: BoardRecord = { id: generateId(), name: safeName, snapshot: null, thumbnail: null, updatedAt: Date.now() }
         saveBoard(newBoard)
         setBoards(prev => [...prev, newBoard])
         return newBoard
@@ -56,7 +56,7 @@ export function useBoardCRUD(state: BoardCRUDSharedState) {
     }, [boards, setBoards])
 
     const handleReorderBoards = useCallback((activeId: string, overId: string) => {
-        const sortable = boards.filter(b => !b.isHome && !b.isInbox && !b.parentId && b.status !== 'archived' && b.status !== 'pinned')
+        const sortable = boards.filter(b => !b.isHome && !b.isInbox && b.status !== 'archived' && b.status !== 'pinned')
         const oldIndex = sortable.findIndex(b => b.id === activeId)
         const newIndex = sortable.findIndex(b => b.id === overId)
         if (oldIndex === -1 || newIndex === -1) return

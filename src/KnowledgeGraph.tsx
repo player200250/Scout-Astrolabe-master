@@ -396,7 +396,7 @@ export function KnowledgeGraph({ boards, onClose, onJumpToCard, onSwitchBoard }:
                     <LegendItem shape="circle" color={LEGEND_COLOR.card} label="卡片" />
                     <LegendItem shape="diamond" color={LEGEND_COLOR.board} label="白板" />
                     <LegendItem shape="line" color={LEGEND_COLOR.wikilink} label="[[]] 引用" />
-                    <LegendItem shape="dashed" color={LEGEND_COLOR.parent} label="父子白板" />
+                    <LegendItem shape="dashed" color={LEGEND_COLOR.parent} label="所屬白板" />
                 </div>
 
                 {/* Tooltip — 用 ref 直接操作 DOM，避免 setState 觸發 re-render 重啟 simulation */}

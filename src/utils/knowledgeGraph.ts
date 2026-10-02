@@ -222,12 +222,7 @@ export function buildGraph(
         }
     }
 
-    // 父子白板連結
-    for (const board of boards) {
-        if (board.parentId && boards.find(b => b.id === board.parentId)) {
-            links.push({ source: board.parentId, target: board.id, type: 'parent' })
-        }
-    }
+    // 父子白板連結已拿掉（2026-10-02 收掉父子白板）。'parent' 連線現在只剩主線／支線 → 所屬白板
 
     // wikilink 連結：直接取 forwardLinks（不重新解析 HTML）
     for (const node of nodes) {

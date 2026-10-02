@@ -128,23 +128,6 @@ export function useBoardManager() {
         })
     }, [boards, setNavigationStack])
 
-    const handleSetParent = useCallback((boardId: string, parentId: string | null) => {
-        const childBoard = boards.find(b => b.id === boardId)
-        if (childBoard) {
-            const updated = { ...childBoard, parentId }
-            saveBoard(updated)
-            setBoards(prev => prev.map(b => b.id === boardId ? updated : b))
-        }
-        if (parentId && childBoard) {
-            setActiveBoardId(parentId)
-            setNavigationStack([parentId])
-            setTimeout(() => {
-                emitAppEvent('create-board-card-on', { targetBoardId: parentId, linkedBoardId: boardId, boardName: childBoard.name })
-            }, 400)
-        }
-        if (activeBoardId === boardId && parentId === null) setNavigationStack([boardId])
-    }, [activeBoardId, boards, setNavigationStack])
-
     const handleNew = useCallback(() => {
         const name = uniqueName(`白板 ${boards.length + 1}`, boards)
         const newBoard: BoardRecord = { id: generateId(), name, snapshot: null, thumbnail: null, updatedAt: Date.now() }
@@ -346,7 +329,6 @@ export function useBoardManager() {
         handleCreateBoard,
         handleSwitch,
         handleSwitchToChild,
-        handleSetParent,
         handleBack,
         handleNew,
         handleCreateBoardFromTemplate,

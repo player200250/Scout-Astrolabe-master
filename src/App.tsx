@@ -49,7 +49,7 @@ export default function App() {
         sidebarCollapsed, jumpRef,
         trashCount, refreshTrashCount,
         handleSaveBoard, handleNew, handleCreateBoardFromTemplate, handleSwitch, handleSwitchToChild,
-        handleSetParent, handleBack, handleRename,
+        handleBack, handleRename,
         handleSoftDeleteBoardsWithInboxMove, handlePermanentDeleteBoard, handleRestoreBoard,
         handleEmptyTrash, handleCardTrashed,
         handleJump, handleSetJournal, handleSetStatus,
@@ -199,7 +199,7 @@ export default function App() {
                     onOpenSearch={() => openPanel('search')}
                     onOpenHotkey={() => openPanel('hotkey')}
                     onOpenQuickSwitcher={() => openPanel('quickSwitcher')}
-                    onCreateBoard={(name) => handleCreateBoard(name, activeBoardId ?? undefined)}
+                    onCreateBoard={(name) => handleCreateBoard(name)}
                     onSwitchBoard={handleSwitchToChild}
                     sidebarWidth={sidebarWidth}
                     isInboxBoard={activeBoardId === INBOX_BOARD_ID}
@@ -224,8 +224,6 @@ export default function App() {
                 onSetJournal={handleSetJournal}
                 navigationStack={navigationStack}
                 onBack={handleBack}
-                onSetParent={handleSetParent}
-                onSwitchToChild={handleSwitchToChild}
                 collapsed={sidebarCollapsed}
                 onToggleCollapse={handleToggleCollapse}
                 onSetStatus={handleSetStatus}

@@ -13,7 +13,6 @@ export interface VaultStats {
         total: number      // 全部（含 home/inbox/folder）
         normal: number     // 一般白板（排除 home/inbox/folder）
         archived: number   // 已封存
-        sub: number        // 子板（有 parentId）
         folders: number    // 資料夾
     }
     cards: {
@@ -69,7 +68,6 @@ export function computeVaultStats(boards: BoardRecord[], backups: BackupRecord[]
             total: boards.length,
             normal: boards.filter(b => !b.isHome && !b.isInbox && !isFolder(b)).length,
             archived: boards.filter(b => b.status === 'archived').length,
-            sub: boards.filter(b => b.parentId != null).length,
             folders: boards.filter(isFolder).length,
         },
         cards: { total: cardTotal, byType },

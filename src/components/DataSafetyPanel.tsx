@@ -21,7 +21,7 @@ interface DataSafetyPanelProps {
 }
 
 const TYPE_LABEL: Record<string, string> = {
-    text: '文字', image: '圖片', todo: '待辦', link: '連結', board: '子板',
+    text: '文字', image: '圖片', todo: '待辦', link: '連結', board: '白板卡',
     journal: '日誌', heading: '標題', sticky: '便利貼', table: '表格',
     color: '顏色', file: '檔案',
 }
@@ -183,7 +183,6 @@ export function DataSafetyPanel({ boards, onClose, onOpenBackup }: DataSafetyPan
                 <Section title="白板">
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 10 }}>
                         <Stat label="一般白板" value={stats.boards.normal} />
-                        <Stat label="子板" value={stats.boards.sub} />
                         <Stat label="已封存" value={stats.boards.archived} />
                         <Stat label="資料夾" value={stats.boards.folders} />
                     </div>

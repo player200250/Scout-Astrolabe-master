@@ -17,7 +17,7 @@ type Msg = { text: string; kind: 'ok' | 'err' } | null
 const TYPE_LABEL: Record<MobileCardType, string> = {
     text: '文字', todo: '待辦', link: '連結', journal: '日誌', heading: '標題',
     sticky: '便利貼', table: '表格', color: '顏色', file: '檔案', image: '圖片',
-    board: '子板', unknown: '其他',
+    board: '白板卡', unknown: '其他',
 }
 
 const formatAgo = (at: number): string => {

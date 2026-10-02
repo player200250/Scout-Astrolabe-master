@@ -216,7 +216,8 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
     }, [editor])
 
     const createBoardCard = useCallback((x?: number, y?: number) => {
-        const newBoard = onCreateBoard(`子白板 ${boards.length + 1}`)
+        // 父子白板已收掉（2026-10-02）：建的是一般白板，這張白板卡就是通往它的路
+        const newBoard = onCreateBoard(`新白板 ${boards.length + 1}`)
         editor.createShape({
             type: 'card', x, y,
             props: { type: 'board', text: newBoard.name, image: null, todos: [], url: '', linkEmbedUrl: null, linkedBoardId: newBoard.id, state: 'idle', color: 'none', w: 280, h: 320 }
@@ -304,18 +305,6 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
             }
         })
     }, [boards, cardIndex, board.id, onSwitchBoard, jumpRef])
-
-    useEffect(() => {
-        return onAppEvent('create-board-card-on', ({ targetBoardId, linkedBoardId, boardName }) => {
-            if (targetBoardId !== board.id) return
-            const center = editor.getViewportScreenCenter()
-            const pageCenter = editor.screenToPage(center)
-            editor.createShape({
-                type: 'card', x: pageCenter.x - 140, y: pageCenter.y - 100,
-                props: { type: 'board', text: boardName, image: null, todos: [], url: '', linkEmbedUrl: null, linkedBoardId, state: 'idle', color: 'none', w: 280, h: 320 }
-            })
-        })
-    }, [board.id, editor])
 
     // 包成 useCallback 才能讓 useContextMenu 的 effect 把它放進依賴而不會每次 render 重掛。
     const handleBeforeDeleteCard = useCallback((shapeId: string) => {
@@ -670,32 +659,6 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
                 }
             } catch { /* localStorage 不可用或 seed 失敗時略過，不影響白板開啟 */ }
 
-            // D1 後主頁不再渲染 tldraw，本元件只會掛在真實白板上，故僅需子板分支
-            const targetBoards = boards.filter(b => b.parentId === board.id)
-
-            if (targetBoards.length > 0) {
-                const existingLinkedIds = new Set(
-                    editor.getCurrentPageShapes()
-                        .filter(isCardShape)
-                        .filter(s => s.props.type === 'board')
-                        .map(s => s.props.linkedBoardId)
-                        .filter(Boolean)
-                )
-                const missing = targetBoards.filter(b => !existingLinkedIds.has(b.id))
-                if (missing.length > 0) {
-                    const center = editor.getViewportScreenCenter()
-                    const pageCenter = editor.screenToPage(center)
-                    missing.forEach((child, idx) => {
-                        editor.createShape({
-                            type: 'card',
-                            x: pageCenter.x - 140 + (idx % 4) * 300,
-                            y: pageCenter.y - 100 + Math.floor(idx / 4) * 240,
-                            props: { type: 'board', text: child.name, image: null, todos: [], url: '', linkEmbedUrl: null, linkedBoardId: child.id, state: 'idle', color: 'none', w: 280, h: 320 }
-                        })
-                    })
-                }
-            }
-
             if (board.isJournal) {
                 const today = new Date()
                 const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
@@ -739,7 +702,7 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
             }
         }, 300)
         // 這段由 `initialized` ref 守成「每次掛載只跑一次」（載入 snapshot、seed 範例卡、
-        // 補子板連結卡、補今日/本週日記卡），刻意只讀掛載當下的 `boards`。
+        // 補今日/本週日記卡），刻意只讀掛載當下的 `boards`。
         // 放進依賴不會有任何效果——重跑會立刻被 initialized 擋掉——只會讓人誤以為它會跟著更新。
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [editor, board])

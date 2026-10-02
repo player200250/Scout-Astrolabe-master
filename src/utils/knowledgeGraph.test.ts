@@ -175,13 +175,14 @@ describe('buildGraph — 主線／支線與不畫的白板（2026-09-30）', () 
 })
 
 describe('buildGraph — 父子白板與 val', () => {
-    it('parentId 指向存在的白板時產生 parent 連結', () => {
+    // 2026-10-02 收掉父子白板：舊資料殘留的 parentId 不再畫成連線
+    it('parentId 指向存在的白板也不產生連結', () => {
         const boards = [
             board('b1', '父板', []),
             board('b2', '子板', [], 'b1'),
         ]
         const { links } = buildGraph(boards, new Map())
-        expect(hasLink(links, 'b1', 'b2', 'parent')).toBe(true)
+        expect(hasLink(links, 'b1', 'b2', 'parent')).toBe(false)
     })
 
     it('parentId 指向不存在的白板時不產生 parent 連結', () => {

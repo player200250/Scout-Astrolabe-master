@@ -404,43 +404,6 @@ describe('useBoardManager — 導航', () => {
         act(() => { result.current.handleBack() })
         expect(result.current.navigationStack).toEqual(['b1'])
     })
-
-    it('handleSetParent 設定 parentId，切到父板並於 400ms 後發出 create-board-card-on 事件', async () => {
-        mocks.loadAllBoards.mockResolvedValue([
-            board({ id: 'p1', name: '父板' }),
-            board({ id: 'c1', name: '子板' }),
-        ])
-        const { result } = await setup() // setup 用真 timers 等載入完成
-
-        const cap = captureEvent('create-board-card-on')
-        vi.useFakeTimers() // 載入完才切假時鐘
-        act(() => { result.current.handleSetParent('c1', 'p1') })
-
-        // 立即效果：寫 parentId、切到父板、navStack 重置
-        expect(mocks.saveBoard).toHaveBeenCalledWith(expect.objectContaining({ id: 'c1', parentId: 'p1' }))
-        expect(result.current.activeBoardId).toBe('p1')
-        expect(result.current.navigationStack).toEqual(['p1'])
-        // 事件還沒發（藏在 400ms setTimeout 裡）
-        expect(cap.calls).toHaveLength(0)
-
-        act(() => { vi.advanceTimersByTime(400) })
-        expect(cap.calls).toEqual([
-            { targetBoardId: 'p1', linkedBoardId: 'c1', boardName: '子板' },
-        ])
-
-        vi.useRealTimers()
-        cap.off()
-    })
-
-    it('handleSetParent 傳 null 解除歸屬：active 是該板時重置 navigationStack', async () => {
-        mocks.loadAllBoards.mockResolvedValue([board({ id: 'b1', name: '板', parentId: 'old' })])
-        const { result } = await setup() // active = b1
-
-        act(() => { result.current.handleSetParent('b1', null) })
-
-        expect(mocks.saveBoard).toHaveBeenCalledWith(expect.objectContaining({ id: 'b1', parentId: null }))
-        expect(result.current.navigationStack).toEqual(['b1'])
-    })
 })
 
 describe('useBoardManager — 快照變更', () => {

@@ -52,7 +52,7 @@ interface BoardRecord {
     snapshot: TLEditorSnapshot | null   // tldraw 快照，見 tldraw-snapshot.md
     thumbnail: string | null            // data:image/png;base64,... 或 null
     updatedAt: number                   // Unix ms
-    parentId?: string | null            // 子白板父 ID，null 表示頂層
+    parentId?: string | null            // ⚠️ 已停用（2026-10-02 收掉父子白板）：欄位與雲端同步保留不刪，App 不再讀寫；分類用 folderId、連結用白板卡
     isHome?: boolean                    // 主頁白板（id: 'home_board'）
     isJournal?: boolean                 // Journal 白板
     isInbox?: boolean                   // 收件匣白板（id: 'inbox_board'）

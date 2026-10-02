@@ -54,7 +54,6 @@ describe('computeVaultStats', () => {
         expect(s.boards.total).toBe(6)
         expect(s.boards.normal).toBe(3) // b1, b2, sub1（排除 home/inbox/folder）
         expect(s.boards.archived).toBe(1)
-        expect(s.boards.sub).toBe(1)
         expect(s.boards.folders).toBe(1)
     })
 

@@ -46,7 +46,7 @@ export interface AppEventPayloads {
     /** 從垃圾桶還原一張卡片，通知白板重新建立 shape */
     'restore-deleted-card': DeletedCardRecord
 
-    /** 雙擊子板卡片，切換到對應白板 */
+    /** 雙擊白板卡片，切換到對應白板 */
     'board-card-enter': { linkedBoardId: string }
 
     /** 雙擊文字卡片，開啟全螢幕編輯 modal */
@@ -60,13 +60,6 @@ export interface AppEventPayloads {
      * 若該板此刻沒掛載 editor 則無人接收——snapshot 已先寫入 DB，下次開板即為新值。
      */
     'update-shape-props-in-editor': { shapeId: string; props: Record<string, unknown> }
-
-    /** 新建子板後，在父板自動建立一張連結卡片 */
-    'create-board-card-on': {
-        targetBoardId: string
-        linkedBoardId: string
-        boardName: string
-    }
 
     /** 刪除白板後，清除所有指向該白板的孤兒 board 卡片 */
     'cleanup-orphan-board-cards': { deletedBoardId: string }

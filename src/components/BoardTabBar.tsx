@@ -62,8 +62,6 @@ interface BoardTabBarProps {
     onSetJournal: (boardId: string, isJournal: boolean) => void
     navigationStack: string[]
     onBack: () => void
-    onSetParent: (boardId: string, parentId: string | null) => void
-    onSwitchToChild: (id: string) => void
     collapsed: boolean
     onToggleCollapse: () => void
     onSetStatus: (boardId: string, status: 'active' | 'archived' | 'pinned') => void
@@ -103,11 +101,10 @@ function SortableBoardItem({ id, children }: { id: string; children: React.React
     )
 }
 
-export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelete, onOpenPanel, onSetJournal, navigationStack, onBack, onSetParent, onSwitchToChild, collapsed, onToggleCollapse, onSetStatus, onGoToInbox,  onToggleTheme, onReorderBoards, inboxCardCount, overdueCount, todayCount, pomodoroNote, activePanel, trashCount, onCreateFolder, onSetFolder, onDeleteFolder }: BoardTabBarProps) {
+export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelete, onOpenPanel, onSetJournal, navigationStack, onBack, collapsed, onToggleCollapse, onSetStatus, onGoToInbox,  onToggleTheme, onReorderBoards, inboxCardCount, overdueCount, todayCount, pomodoroNote, activePanel, trashCount, onCreateFolder, onSetFolder, onDeleteFolder }: BoardTabBarProps) {
     const [hoveredId, setHoveredId] = useState<string | null>(null)
     const [renamingId, setRenamingId] = useState<string | null>(null)
     const [contextMenu, setContextMenu] = useState<{ boardId: string; y: number } | null>(null)
-    const [selectingParentFor, setSelectingParentFor] = useState<string | null>(null)
     const [archivedOpen, setArchivedOpen] = useState(false)
     const [recentOpen, setRecentOpen] = useState(true)
     const [pinnedOpen, setPinnedOpen] = useState(true)
@@ -336,7 +333,8 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                     const STALE_MS = 14 * 86400000
 
                     // 日誌板只當日記的倉庫，一律從復盤中心進，側欄不列（2026-09-30 使用者決定）
-                    const topLevel = boards.filter(b => !b.parentId && !b.isJournal)
+                    // 父子白板已收掉（2026-10-02）：舊資料殘留的 parentId 不再影響側欄，板一律照資料夾列
+                    const topLevel = boards.filter(b => !b.isJournal)
                     const folders = topLevel.filter(b => b.isFolder)
                     const realBoards = topLevel.filter(b => !b.isFolder)
                     const pinnedBoards   = realBoards.filter(b => !b.folderId && b.status === 'pinned' && !b.isHome && !b.isInbox)
@@ -682,14 +680,6 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                             </div>
                             <div style={{ height: 1, background: menuDivider, margin: '4px 0' }} />
                             <div
-                                onClick={() => { setSelectingParentFor(contextMenu.boardId); setContextMenu(null) }}
-                                style={{ padding: '7px 14px', cursor: 'pointer', fontSize: 13, color: menuText, display: 'flex', alignItems: 'center', gap: 8 }}
-                                onMouseEnter={e => (e.currentTarget.style.background = menuItemHover)}
-                                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                            >
-                                <Icon name="folderMove" />設為子板...
-                            </div>
-                            <div
                                 onClick={() => { setSelectingFolderFor(contextMenu.boardId); setContextMenu(null) }}
                                 style={{ padding: '7px 14px', cursor: 'pointer', fontSize: 13, color: menuText, display: 'flex', alignItems: 'center', gap: 8 }}
                                 onMouseEnter={e => (e.currentTarget.style.background = menuItemHover)}
@@ -742,47 +732,6 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                             >
                                 <Icon name="trash" />移至垃圾桶
                             </div>
-                            {boards.filter(b => b.parentId === contextMenu.boardId).length > 0 && (() => {
-                                const renderChildren = (parentId: string, depth: number): React.ReactNode => {
-                                    return boards.filter(b => b.parentId === parentId).map(child => (
-                                        <React.Fragment key={child.id}>
-                                            <div
-                                                style={{ display: 'flex', alignItems: 'center', paddingLeft: 14 + depth * 12, paddingRight: 8 }}
-                                                onMouseEnter={e => (e.currentTarget.style.background = menuItemHover)}
-                                                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                                            >
-                                                {renamingId === child.id ? (
-                                                    <InlineEdit
-                                                        value={child.name}
-                                                        onCommit={v => commitRename(child.id, v)}
-                                                        onCancel={() => setRenamingId(null)}
-                                                        style={{ flex: 1, border: 'none', borderBottom: `1px solid ${menuMuted}`, fontSize: 13, padding: '4px 0', color: menuText }}
-                                                    />
-                                                ) : (
-                                                    <div
-                                                        onClick={() => { onSwitchToChild(child.id); setContextMenu(null) }}
-                                                        style={{ flex: 1, padding: '7px 6px 7px 0', cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6, color: menuText }}
-                                                    >
-                                                        <span style={{ color: menuMuted, fontSize: 11 }}>{depth > 0 ? '└' : '📋'}</span>
-                                                        {child.name}
-                                                    </div>
-                                                )}
-                                                <button onClick={e => { e.stopPropagation(); startRename(child) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: menuMuted, fontSize: 11, padding: '2px 4px', borderRadius: 4, flexShrink: 0 }}><Icon name="rename" /></button>
-                                                <button onClick={e => { e.stopPropagation(); onSetParent(child.id, null); setContextMenu(null) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: menuMuted, fontSize: 11, padding: '2px 4px', borderRadius: 4, flexShrink: 0, whiteSpace: 'nowrap' }}>↑主板</button>
-                                                <button onClick={e => { e.stopPropagation(); onDelete(child.id); setContextMenu(null) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ccc', fontSize: 14, padding: '2px 4px', borderRadius: 4, flexShrink: 0 }}>×</button>
-                                            </div>
-                                            {renderChildren(child.id, depth + 1)}
-                                        </React.Fragment>
-                                    ))
-                                }
-                                return (
-                                    <>
-                                        <div style={{ height: 1, background: menuDivider, margin: '4px 4px' }} />
-                                        <div style={{ padding: '4px 14px 2px', fontSize: 11, color: menuMuted }}>子板</div>
-                                        {renderChildren(contextMenu.boardId, 0)}
-                                    </>
-                                )
-                            })()}
                         </div>
                     </>
                 )
@@ -867,41 +816,6 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                                 <button onClick={commit} disabled={!newFolderName.trim()} style={{ flex: 1, padding: '8px', borderRadius: 8, border: 'none', cursor: newFolderName.trim() ? 'pointer' : 'not-allowed', fontSize: 13, background: newFolderName.trim() ? '#2563eb' : 'var(--border-light)', color: newFolderName.trim() ? 'white' : 'var(--text-muted)', fontWeight: 600 }}>建立</button>
                                 <button onClick={() => setCreatingFolder(false)} style={{ flex: 1, padding: '8px', borderRadius: 8, border: `1px solid var(--border-light)`, cursor: 'pointer', fontSize: 13, background: 'transparent', color: 'var(--text-primary)' }}>取消</button>
                             </div>
-                        </div>
-                    </>
-                )
-            })()}
-
-            {/* 選擇父板 dialog */}
-            {selectingParentFor && (() => {
-                const target = boards.find(b => b.id === selectingParentFor)
-                const getDescendants = (id: string): string[] => {
-                    const children = boards.filter(b => b.parentId === id).map(b => b.id)
-                    return [...children, ...children.flatMap(getDescendants)]
-                }
-                const excluded = new Set([selectingParentFor, ...getDescendants(selectingParentFor)])
-                const buildTree = (parentId: string | null | undefined, depth: number): { board: BoardRecord; depth: number }[] => {
-                    return boards
-                        .filter(b => (b.parentId ?? null) === (parentId ?? null) && !excluded.has(b.id))
-                        .flatMap(b => [{ board: b, depth }, ...buildTree(b.id, depth + 1)])
-                }
-                const tree = buildTree(null, 0)
-                const dialogBg = T.bgPanel
-                return (
-                    <>
-                        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: Z_MODAL_BACKDROP }} onClick={() => setSelectingParentFor(null)} />
-                        <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', background: dialogBg, borderRadius: 14, padding: 20, boxShadow: '0 8px 40px rgba(0,0,0,0.3)', zIndex: Z_MODAL, minWidth: 280, border: `1px solid var(--border-light)` }}>
-                            <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 4, color: 'var(--text-primary)' }}>設為子板</div>
-                            <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16 }}>將「{target?.name}」設為哪個白板的子板？</div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                                {tree.map(({ board: b, depth }) => (
-                                    <div key={b.id} onClick={() => { onSetParent(selectingParentFor, b.id); setSelectingParentFor(null) }} style={{ padding: '8px 12px', borderRadius: 8, cursor: 'pointer', border: `1px solid var(--border-light)`, fontSize: 13, marginLeft: depth * 16, display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-primary)' }} onMouseEnter={e => (e.currentTarget.style.background = hoverBg)} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                                        {depth > 0 && <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>└</span>}
-                                        {b.name}
-                                    </div>
-                                ))}
-                            </div>
-                            <button onClick={() => setSelectingParentFor(null)} style={{ marginTop: 12, width: '100%', padding: '8px', borderRadius: 8, border: `1px solid var(--border-light)`, cursor: 'pointer', fontSize: 13, background: 'transparent', color: 'var(--text-primary)' }}>取消</button>
                         </div>
                     </>
                 )
