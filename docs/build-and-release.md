@@ -223,3 +223,30 @@ CI（`.github/workflows/ci.yml`）在 push/PR 時跑 `npm run lint`、`npx tsc -
 - [electron-builder NSIS 文件](https://www.electron.build/configuration/nsis)
 - [electron-builder winCodeSign](https://github.com/electron-userland/electron-builder-binaries)
 - [Vite 靜態資源基礎路徑](https://vitejs.dev/config/shared-options.html#base)
+
+---
+
+## 版本號與發版規則（2026-10-02 訂）
+
+v1.2.0（9/20）之後累積了 31 個 commit 都沒升版號，最新版跟舊安裝檔都顯示 v1.2.0、分不出來。
+編號規則本來就有（CHANGELOG 開頭：語意化版本），缺的是「什麼時候該發版」，所以補上這段。
+
+**1. 編號**（語意化版本）
+- 只修 bug ⇒ 修正號：1.3.0 → 1.3.1
+- 有新功能 ⇒ 次版號：1.3.0 → 1.4.0
+- 舊資料讀不了、或大改版 ⇒ 主版號
+
+**2. 什麼時候發版**
+- **打包安裝檔（`npm run build:win`）之前一定先升版號**——同一個版本號不能對應兩種程式
+- 每週寫週回顧時看一次 CHANGELOG「未發布」：超過 10 條、或裡面有新功能 ⇒ 發版
+
+**3. 平常怎麼記**
+- 每個 `fix:`／`feat:` commit 同時在 CHANGELOG「未發布」補一行（`docs:`、`refactor:`、`chore:` 不必）
+
+**4. 發版步驟**
+1. 升 `package.json` 的 `version`（`npm version <x.y.z> --no-git-tag-version`，連 `package-lock.json` 一起改）
+2. CHANGELOG：「未發布」改名成 `## [x.y.z] — YYYY-MM-DD`，上面開一個新的空「未發布」
+3. commit：`chore(release): vx.y.z`
+4. 打標籤：`git tag vx.y.z`，`git push origin main --tags`
+5. 打包：`npm run build:win` ⇒ `release/Scout Astrolabe Setup x.y.z.exe`
+
