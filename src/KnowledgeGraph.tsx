@@ -42,6 +42,12 @@ function nodeRadius(node: GraphNodeObject, globalScale: number): number {
         : Math.max(Math.sqrt(Math.max(node.val, 1)) * 3.2, MIN_SCREEN_R[node.type] / globalScale)
 }
 
+/**
+ * 可點範圍的最小螢幕半徑（px）。卡片點只畫 3px，直徑 6px 的目標手很難對準。
+ * 8px＝直徑 16px，接近一般圖示按鈕的大小。
+ */
+const MIN_HIT_SCREEN_R = 8
+
 /* ------------------------------------------------------------------ component */
 interface KnowledgeGraphProps {
     boards: BoardRecord[]
@@ -187,6 +193,15 @@ export function KnowledgeGraph({ boards, onClose, onJumpToCard, onSwitchBoard }:
         }
     }, [])
 
+    // 可點範圍（畫在 force-graph 的影子畫布上，看不見）。
+    // 沒給這個的話，'replace' 模式下影子畫布會退回預設圓：√val × nodeRelSize(=1) + 1px ——
+    // 縮放 0.53 時主線只剩 3.4px、卡片 1.75px，比畫出來的圓小得多，點在圓上常被當成點背景、毫無反應（2026-10-02 實測）。
+    const paintPointerArea = useCallback((node: GraphNodeObject, color: string, ctx: CanvasRenderingContext2D, globalScale: number) => {
+        const r = Math.max(nodeRadius(node, globalScale) * (node.type === 'quest' ? 1.7 : 1), MIN_HIT_SCREEN_R / globalScale)
+        ctx.beginPath(); ctx.arc(node.x ?? 0, node.y ?? 0, r, 0, 2 * Math.PI)
+        ctx.fillStyle = color; ctx.fill()
+    }, [])
+
     // 節點只畫圖形；文字統一交給 drawLabels（見下）。
     const paintNode = useCallback((node: GraphNodeObject, ctx: CanvasRenderingContext2D, globalScale: number) => {
         const x = node.x ?? 0, y = node.y ?? 0
@@ -299,6 +314,7 @@ export function KnowledgeGraph({ boards, onClose, onJumpToCard, onSwitchBoard }:
                         width={dims.w} height={dims.h}
                         backgroundColor={SURFACE}
                         nodeCanvasObject={paintNode}
+                        nodePointerAreaPaint={paintPointerArea}
                         onRenderFramePost={drawLabels}
                         nodeCanvasObjectMode={() => 'replace'}
                         nodeLabel={() => ''}
