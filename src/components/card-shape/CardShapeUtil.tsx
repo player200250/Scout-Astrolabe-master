@@ -116,6 +116,11 @@ function CardShapeComponent({ shape, editor }: { shape: TLCardShape; editor: Edi
         return () => document.removeEventListener('keydown', handleEscape, true)
     }, [p.preview, showTextModal, handleEscape])
 
+    const statusBadge = p.type !== 'heading' && !isSticky && !isEditing && p.cardStatus && p.cardStatus !== 'none'
+        ? STATUS_BADGE[p.cardStatus]
+        : undefined
+    const showStatusBadge = !!statusBadge
+
     return (
         <>
             <HTMLContainer
@@ -175,20 +180,19 @@ function CardShapeComponent({ shape, editor }: { shape: TLCardShape; editor: Edi
                             borderRadius: '12px 12px 0 0',
                         }} />
                     )}
-                    {/* 非編輯：status badge 左上角 */}
-                    {p.type !== 'heading' && !isSticky && !isEditing && p.cardStatus && p.cardStatus !== 'none' && STATUS_BADGE[p.cardStatus] && (
+                    {/* 非編輯：status badge 左上角，自佔一行（浮在上面會蓋住標題開頭，RC23） */}
+                    {statusBadge && (
                         <div style={{
-                            position: 'absolute',
-                            top: p.color && p.color !== 'none' ? 8 : 5,
-                            left: 8, zIndex: 5, pointerEvents: 'none',
+                            alignSelf: 'flex-start', flexShrink: 0,
+                            margin: '6px 8px 0', pointerEvents: 'none',
                             fontSize: 10, fontWeight: 600,
-                            color: STATUS_BADGE[p.cardStatus].color,
-                            background: STATUS_BADGE[p.cardStatus].bg,
+                            color: statusBadge.color,
+                            background: statusBadge.bg,
                             borderRadius: 5, padding: '1px 6px',
                             display: 'flex', alignItems: 'center', gap: 3,
                         }}>
-                            <Icon name={STATUS_BADGE[p.cardStatus].icon} />
-                            {STATUS_BADGE[p.cardStatus].label}
+                            <Icon name={statusBadge.icon} />
+                            {statusBadge.label}
                         </div>
                     )}
                     {/* 非編輯：priority 圓點右上角 */}
@@ -206,12 +210,18 @@ function CardShapeComponent({ shape, editor }: { shape: TLCardShape; editor: Edi
                     {isEditing && !isSticky && (p.type === 'text' || p.type === 'todo' || p.type === 'journal') && (
                         <CardPropsBar editor={editor} shape={shape} isDark={isDark} />
                     )}
-                    <CardContent
-                        editor={editor}
-                        shape={shape}
-                        isEditing={isEditing}
-                        exitEdit={exitEdit}
-                    />
+                    {/* 有徽章時把內容框進剩下的高度（內容根節點是 height:100%）；
+                        沒徽章時 display:contents＝等於沒這層，元素身分不變、切狀態不會重掛內容 */}
+                    <div style={showStatusBadge
+                        ? { flex: '1 1 0', minHeight: 0, position: 'relative' }
+                        : { display: 'contents' }}>
+                        <CardContent
+                            editor={editor}
+                            shape={shape}
+                            isEditing={isEditing}
+                            exitEdit={exitEdit}
+                        />
+                    </div>
                 </div>
             </HTMLContainer>
 
