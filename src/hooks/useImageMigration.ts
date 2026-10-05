@@ -73,7 +73,7 @@ export function useImageMigration({ boards, setBoards, activeBoardId, enabled }:
         if (didMigrateRef.current) {
             didMigrateRef.current = false
             // 全部遷完做一次乾淨備份（此時 vault 已無 base64），saveAutoBackup 內含 trimBackups
-            try { await saveAutoBackup(boardsRef.current.filter(b => !b.deletedAt)) } catch (e) { console.error('[img-migration] 乾淨備份失敗', e) }
+            try { await saveAutoBackup() } catch (e) { console.error('[img-migration] 乾淨備份失敗', e) }
         }
     }, [])
 

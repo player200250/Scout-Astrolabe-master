@@ -2,6 +2,7 @@
 import Dexie from 'dexie'
 import type { TLEditorSnapshot } from 'tldraw'
 import { getBackupLimit } from './utils/backupSettings'
+import { getCardShapes } from './utils/snapshot'
 
 export interface BoardRecord {
     id: string
@@ -86,7 +87,19 @@ export async function trimBackups(): Promise<number> {
     return toDelete.length
 }
 
-export async function saveAutoBackup(boards: BoardRecord[]): Promise<void> {
+/**
+ * 存一份 App 內自動備份。
+ *
+ * 內容**直接從資料庫讀**（含垃圾桶），不收呼叫端的 React state——state 不含垃圾桶，
+ * 而還原會先清空資料庫，只備份 state 的話還原一次垃圾桶就沒了（RC26）。
+ *
+ * 一張卡都沒有就不存：只保留 5 份、每 5 分鐘一份，資料被清空後半小時內，
+ * 好的備份就會全被空備份擠掉（2026-10-05 事故的教訓）。
+ */
+export async function saveAutoBackup(): Promise<void> {
+    const boards: BoardRecord[] = await db.table('boards').toArray()
+    const cardCount = boards.filter(b => !b.deletedAt).reduce((s, b) => s + getCardShapes(b.snapshot).length, 0)
+    if (cardCount === 0) return
     const now = Date.now()
     const record: BackupRecord = { id: `backup_${now}`, timestamp: now, boardCount: boards.length, boards }
     await db.table('backups').put(record)

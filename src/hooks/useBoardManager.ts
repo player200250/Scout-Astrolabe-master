@@ -101,7 +101,7 @@ export function useBoardManager() {
 
     const handleSwitch = useCallback((id: string) => {
         if (id !== activeBoardId) {
-            triggerAutoBackup(boards)
+            triggerAutoBackup()
             const board = boards.find(b => b.id === id)
             if (board) {
                 const updated = { ...board, lastVisitedAt: Date.now() }
@@ -307,14 +307,21 @@ export function useBoardManager() {
      * 真的想刪掉它們要走正常的刪除流程（那才會推正確的墓碑）。
      */
     const handleRestore = useCallback(async (restoredBoards: BoardRecord[]) => {
+        // RC27：updatedAt 一律推進到現在。沿用備份裡的時間的話，雲端那份比較新 ⇒
+        // 同步引擎把剛還原的內容拉回去蓋掉；雲端資料壞掉時（2026-10-05 事故）就等於白還原。
+        const now = Date.now()
+        const boards = restoredBoards.map(b => ({ ...b, updatedAt: now }))
         await db.table('boards').clear()
-        await Promise.all(restoredBoards.map(b => db.table('boards').put(b)))
+        await Promise.all(boards.map(b => db.table('boards').put(b)))
         clearSyncState()
-        setBoards(restoredBoards)
-        const firstId = restoredBoards[0]?.id ?? null
+        // 備份含垃圾桶（RC26）：垃圾桶的板寫回資料庫，但不能出現在側欄
+        const live = boards.filter(b => !b.deletedAt)
+        setBoards(live)
+        const firstId = live[0]?.id ?? null
         setActiveBoardId(firstId)
         if (firstId) setNavigationStack([firstId])
-    }, [setNavigationStack])
+        refreshTrashCount()
+    }, [setNavigationStack, refreshTrashCount])
 
     return {
         boards,

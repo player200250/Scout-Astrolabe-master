@@ -712,6 +712,37 @@ describe('useBoardManager — 全量還原（備份重灌）', () => {
 
         expect(mocks.clearSyncState).toHaveBeenCalledTimes(1)
     })
+
+    // RC27：沿用備份裡的舊 updatedAt ⇒ 雲端那份比較新 ⇒ 同步把剛還原的內容蓋回去
+    it('還原的白板 updatedAt 一律推進到現在', async () => {
+        const { result } = await setup()
+        const tbl = mocks.db.table('boards')
+        tbl.put.mockClear()
+        const before = Date.now()
+
+        await act(async () => { await result.current.handleRestore([board({ id: 'r1', name: '備份一', updatedAt: 100 })]) })
+
+        const written = (tbl.put.mock.calls as unknown as [BoardRecord][])[0][0]
+        expect(written.updatedAt).toBeGreaterThanOrEqual(before)
+    })
+
+    // RC26 之後備份含垃圾桶：寫回資料庫，但不能出現在側欄、也不能被選成目前白板
+    it('垃圾桶的板寫回資料庫、但不進側欄清單', async () => {
+        const { result } = await setup()
+        const tbl = mocks.db.table('boards')
+        tbl.put.mockClear()
+
+        await act(async () => {
+            await result.current.handleRestore([
+                board({ id: 'gone', name: '垃圾桶裡的', deletedAt: 5 }),
+                board({ id: 'r1', name: '備份一' }),
+            ])
+        })
+
+        expect((tbl.put.mock.calls as unknown as [BoardRecord][]).map(c => c[0].id).sort()).toEqual(['gone', 'r1'])
+        expect(result.current.boards.map(b => b.id)).toEqual(['r1'])
+        expect(result.current.activeBoardId).toBe('r1')
+    })
 })
 
 describe('useBoardManager — 軟刪並搬卡進 Inbox', () => {
