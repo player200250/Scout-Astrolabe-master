@@ -3,6 +3,7 @@ import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import { useEditor } from 'tldraw'
 import { useIsDarkMode } from '@tldraw/editor'
 import type { TLCardShape, TodoItem } from '../type/CardShape'
+import { blockCanvasPointerDown } from '../nativeInputGuards'
 
 // 常數定義
 const ITEM_HEIGHT = 28
@@ -190,6 +191,7 @@ export const TodoContent = ({ shape, isEditing, exitEdit }: TodoContentProps) =>
                                     />
                                     {/* 日期選擇器 */}
                                     <input
+                                        ref={blockCanvasPointerDown}
                                         type="date"
                                         value={t.dueDate ?? ''}
                                         onChange={(e) => updateTodoDueDate(t.id, e.target.value || undefined)}

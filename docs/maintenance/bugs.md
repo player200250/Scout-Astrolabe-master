@@ -670,6 +670,25 @@
 
 ---
 
+### ~~RC28：待辦卡的日期欄位點了日曆不會跳出來~~ ✅ 已修（2026-10-05）
+
+- **優先**：高（使用者回報，功能完全不能用）
+- **位置**：`components/card-shape/sub-components/TodoContent.tsx` 的 `<input type="date">`；修法在 `components/card-shape/nativeInputGuards.ts`
+- **現象**：編輯待辦卡時點日期欄位的日曆圖示，沒有任何反應（焦點有進去、卡片也沒退出編輯，就是日曆不出來）。1.3.0 起就有，不是升級造成。
+- **原因（隔離的 Electron 殼＋Vite 開發伺服器實測）**：同一個 date input，放在 tldraw 畫布**外**打得開、放在畫布**內**（含卡片內）就打不開。
+  在 input 上用原生監聽逐一擋事件：**只擋 pointerdown 就打得開**，擋 mousedown／mouseup／click 都沒用。
+  ⇒ tldraw 掛在畫布上的**原生** pointerdown 監聽（呼叫堆疊裡有雙指縮放的 `PinchEngine.pointerStart`）處理過後，Chromium 就不開日曆。
+  卡片原本的 `onPointerDown={e => e.stopPropagation()}` 是 React 的，在根節點才處理，原生監聽早已跑完，所以擋不住。
+  解除 pointer capture 沒用（試過），所以不是 capture 的問題。
+- **修法**：`blockCanvasPointerDown` ref——在 input 本身掛原生 pointerdown 監聽 `stopPropagation`。
+  同一張卡的 `<select>`、色票卡的 `<input type="color">` 實測都打得開，沒有一起改。
+- **驗證**：實機連點 3 次都開出日曆（PrintWindow 截到日曆小視窗）；在日曆上點日期 ⇒ 卡片存成該日期、卡片維持編輯；
+  `nativeInputGuards.test.ts` 3 條；983 測試綠。（實測時點到 10/14 而不是想點的 10/10，是我換算座標差一列，不是 bug。）
+- ⚠️ 測試手法：用 CDP 數 Electron 的可見視窗（日曆是獨立小視窗）判斷有沒有開；**Edge 不適用**（數不到它的日曆視窗，會誤判）。
+- **最後更新**：2026-10-05
+
+---
+
 ## 待觀察問題
 
 ### ~~WO1：link 卡片的 title / description / thumbnail 欄位從未填充~~ ✅ 已解決（核實於 2026-08-29）
