@@ -7,7 +7,8 @@ import { resolveTidyTargets, TIDY_GAP } from "./utils/snapPref"
 import { showToast } from "./utils/toast"
 import { GeoShapeGeoStyle } from "@tldraw/tlschema"
 import type { TLGeoShapeGeoStyle } from "@tldraw/tlschema"
-import type { TLCardShape, CardType } from "./components/card-shape/type/CardShape"
+import type { CardType } from "./components/card-shape/type/CardShape"
+import { alignShapes } from "./utils/align"
 import { canAttachFile } from "./platform/fileStore"
 import { T } from './theme/tokens'
 import { Icon } from './components/ui/icons'
@@ -938,25 +939,9 @@ export default function TldrawToolPanel({
 
     /* ── 對齊 ── */
     const alignSelected = (direction: 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom') => {
-        const shapes = editor.getSelectedShapes()
-        if (shapes.length < 2) return
-        const xs = shapes.map(s => s.x)
-        const ys = shapes.map(s => s.y)
-        const minX = Math.min(...xs), maxX = Math.max(...xs), avgX = xs.reduce((a, b) => a + b, 0) / xs.length
-        const minY = Math.min(...ys), maxY = Math.max(...ys), avgY = ys.reduce((a, b) => a + b, 0) / ys.length
-        const updates = shapes.map(s => {
-            const cardProps = s.type === 'card' ? (s as unknown as TLCardShape).props : null
-            const w = cardProps?.w ?? 0, h = cardProps?.h ?? 0
-            let x = s.x, y = s.y
-            if (direction === 'left')   x = minX
-            else if (direction === 'right')  x = maxX - w
-            else if (direction === 'center') x = avgX - w / 2
-            else if (direction === 'top')    y = minY
-            else if (direction === 'bottom') y = maxY - h
-            else if (direction === 'middle') y = avgY - h / 2
-            return { id: s.id, type: s.type, x, y }
-        })
-        editor.updateShapes(updates)
+        // 與右鍵選單共用同一份實作（RC24）
+        const dir = direction === 'center' ? 'centerX' : direction === 'middle' ? 'centerY' : direction
+        alignShapes(editor, editor.getSelectedShapeIds(), dir)
     }
 
     /* ── 重新整理（把選取的卡片打包成格狀）──

@@ -14,61 +14,12 @@ import { canAttachFile } from '../platform/fileStore'
 import { ContextMenuUI, SaveTemplateModal, BatchAddTagModal } from '../ContextMenu'
 import type { MenuItem } from '../ContextMenu'
 import type { IconName } from '../components/ui/icons'
+import { alignShapes } from './align'
 
 // ── Alignment helpers ───────────────────────────────────────────────────────
 
-type AlignDirection = 'left' | 'right' | 'top' | 'bottom' | 'centerX' | 'centerY'
+// 對齊本身在 utils/align.ts（與左側工具列共用）
 type DistributeAxis = 'x' | 'y'
-
-function alignShapes(editor: Editor, ids: TLShapeId[], direction: AlignDirection) {
-    const shapes: TLCardShape[] = []
-    for (const id of ids) {
-        const s = editor.getShape(id)
-        if (s?.type === 'card') shapes.push(s as unknown as TLCardShape)
-    }
-    if (shapes.length < 2) return
-
-    editor.batch(() => {
-        const updates: { id: TLShapeId; type: 'card'; x?: number; y?: number }[] = []
-        switch (direction) {
-            case 'left': {
-                const ref = Math.min(...shapes.map(s => s.x))
-                shapes.forEach(s => updates.push({ id: s.id, type: 'card', x: ref }))
-                break
-            }
-            case 'right': {
-                const ref = Math.max(...shapes.map(s => s.x + s.props.w))
-                shapes.forEach(s => updates.push({ id: s.id, type: 'card', x: ref - s.props.w }))
-                break
-            }
-            case 'top': {
-                const ref = Math.min(...shapes.map(s => s.y))
-                shapes.forEach(s => updates.push({ id: s.id, type: 'card', y: ref }))
-                break
-            }
-            case 'bottom': {
-                const ref = Math.max(...shapes.map(s => s.y + s.props.h))
-                shapes.forEach(s => updates.push({ id: s.id, type: 'card', y: ref - s.props.h }))
-                break
-            }
-            case 'centerX': {
-                const minX = Math.min(...shapes.map(s => s.x))
-                const maxX = Math.max(...shapes.map(s => s.x + s.props.w))
-                const cx = (minX + maxX) / 2
-                shapes.forEach(s => updates.push({ id: s.id, type: 'card', x: cx - s.props.w / 2 }))
-                break
-            }
-            case 'centerY': {
-                const minY = Math.min(...shapes.map(s => s.y))
-                const maxY = Math.max(...shapes.map(s => s.y + s.props.h))
-                const cy = (minY + maxY) / 2
-                shapes.forEach(s => updates.push({ id: s.id, type: 'card', y: cy - s.props.h / 2 }))
-                break
-            }
-        }
-        editor.updateShapes(updates)
-    })
-}
 
 function distributeShapes(editor: Editor, ids: TLShapeId[], axis: DistributeAxis) {
     const shapes: TLCardShape[] = []
