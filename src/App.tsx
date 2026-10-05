@@ -293,6 +293,7 @@ export default function App() {
                     boards={boards}
                     onClose={() => closePanel('dataSafety')}
                     onOpenBackup={() => { closePanel('dataSafety'); openPanel('backup') }}
+                    onRestore={async (restoredBoards) => { await handleRestore(restoredBoards); closePanel('dataSafety') }}
                 />
             )}
             {panels.overview && (

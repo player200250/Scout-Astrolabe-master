@@ -7,6 +7,7 @@ import path from 'path';
 import fs from 'fs';
 import { randomUUID } from 'crypto';
 import { GUARD_FILE, checkChromeDowngrade } from './chromeGuard.js';
+import { backupFileName, parseBackupFileName, selectBackupsToDelete, MIN_INTERVAL_MS } from './backupRetention.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -24,6 +25,38 @@ const guardPath = path.join(app.getPath('userData'), GUARD_FILE);
 let storedChrome = null;
 try { storedChrome = JSON.parse(fs.readFileSync(guardPath, 'utf8')).chrome ?? null; } catch { /* 第一次跑或檔案壞掉：視為沒有紀錄 */ }
 const chromeGuard = checkChromeDowngrade(storedChrome, process.versions.chrome);
+
+// 硬碟備份放在「文件」底下、App 資料夾之外：userData 被清掉或解除安裝都不會連帶消失
+// （2026-10-05 事故時，App 內建的自動備份跟白板在同一個 IndexedDB，一起沒了）。
+const backupDir = path.join(app.getPath('documents'), 'Scout Astrolabe 備份');
+/** 剩餘空間低於這個值就不寫備份——寧可少一份備份，也不能把使用者的硬碟塞滿 */
+const MIN_FREE_BYTES = 2 * 1024 ** 3;
+const UPGRADE_SNAPSHOT_PREFIX = '升級前-Chromium';
+const KEEP_UPGRADE_SNAPSHOTS = 3;
+
+// 升級（Chromium 主版號變大）＝資料庫即將被新版改寫格式、而且再也退不回去。
+// 在任何視窗打開資料庫之前，把資料原封不動複製一份。只複製正式版的資料
+// （file__0 開頭＝file:// origin），開發用的 localhost 資料庫不在內，避免一次複製上百 MB。
+if (chromeGuard.ok && chromeGuard.storedMajor !== null && chromeGuard.currentMajor > chromeGuard.storedMajor) {
+  try {
+    const ud = app.getPath('userData');
+    const stamp = backupFileName(new Date()).replace(/^vault-|\.json$/g, '');
+    const dest = path.join(backupDir, `${UPGRADE_SNAPSHOT_PREFIX}${chromeGuard.storedMajor}-${stamp}`);
+    fs.mkdirSync(path.join(dest, 'IndexedDB'), { recursive: true });
+    for (const name of fs.readdirSync(path.join(ud, 'IndexedDB'))) {
+      if (name.startsWith('file__0.')) fs.cpSync(path.join(ud, 'IndexedDB', name), path.join(dest, 'IndexedDB', name), { recursive: true });
+    }
+    for (const name of ['Local Storage', 'config.json']) {
+      if (fs.existsSync(path.join(ud, name))) fs.cpSync(path.join(ud, name), path.join(dest, name), { recursive: true });
+    }
+    // 只留最近幾份升級快照
+    const snaps = fs.readdirSync(backupDir).filter(n => n.startsWith(UPGRADE_SNAPSHOT_PREFIX)).sort();
+    for (const old of snaps.slice(0, Math.max(0, snaps.length - KEEP_UPGRADE_SNAPSHOTS))) {
+      fs.rmSync(path.join(backupDir, old), { recursive: true, force: true });
+    }
+  } catch (err) { console.error('❌ 升級前快照失敗:', err); }
+}
+
 if (chromeGuard.ok) {
   try {
     fs.mkdirSync(app.getPath('userData'), { recursive: true });
@@ -396,6 +429,96 @@ ipcMain.handle('list-stored-files', async () => {
     return []
   }
 })
+
+// ── 硬碟備份（文件\Scout Astrolabe 備份）──────────────────────────────────
+// renderer 每次做 App 內備份時順便呼叫；節流、空間檢查、保留規則都在這裡做，
+// 這樣 renderer 重新載入也不會繞過節流。
+ipcMain.handle('write-backup-file', async (_, json, imageNames) => {
+  try {
+    await fs.promises.mkdir(backupDir, { recursive: true });
+    const existing = await fs.promises.readdir(backupDir);
+    const newest = existing.map(parseBackupFileName).filter(Boolean).sort((a, b) => b - a)[0];
+    if (newest && Date.now() - newest.getTime() < MIN_INTERVAL_MS) return { written: false, reason: 'throttled' };
+
+    const { bavail, bsize } = await fs.promises.statfs(backupDir);
+    if (bavail * bsize < MIN_FREE_BYTES) return { written: false, reason: 'low-disk' };
+
+    // 先寫暫存檔再改名：寫到一半當掉也不會留下一份壞掉的 JSON
+    const name = backupFileName(new Date());
+    const tmp = path.join(backupDir, `${name}.tmp`);
+    await fs.promises.writeFile(tmp, json, 'utf8');
+    await fs.promises.rename(tmp, path.join(backupDir, name));
+
+    // 圖片：檔名是 uuid、內容不會變 ⇒ 已經複製過的就跳過（增量）
+    const imgDir = path.join(backupDir, 'files');
+    await fs.promises.mkdir(imgDir, { recursive: true });
+    let copied = 0;
+    for (const raw of Array.isArray(imageNames) ? imageNames : []) {
+      const base = path.basename(String(raw || ''));
+      if (!base || fs.existsSync(path.join(imgDir, base)) || !fs.existsSync(path.join(filesDir, base))) continue;
+      await fs.promises.copyFile(path.join(filesDir, base), path.join(imgDir, base));
+      copied++;
+    }
+
+    const toDelete = selectBackupsToDelete(await fs.promises.readdir(backupDir), new Date());
+    for (const old of toDelete) await fs.promises.unlink(path.join(backupDir, old)).catch(() => {});
+    return { written: true, name, imagesCopied: copied, deleted: toDelete.length };
+  } catch (err) {
+    console.error('❌ 寫入硬碟備份失敗:', err);
+    return { written: false, reason: String(err) };
+  }
+});
+
+ipcMain.handle('get-backup-dir', () => backupDir);
+
+/** 資料安全中心顯示用：份數、總大小（含圖片）、最新一份的時間 */
+ipcMain.handle('get-backup-status', async () => {
+  try {
+    const names = await fs.promises.readdir(backupDir).catch(() => []);
+    const dated = names.map(n => ({ n, d: parseBackupFileName(n) })).filter(x => x.d);
+    let totalBytes = 0;
+    for (const { n } of dated) totalBytes += (await fs.promises.stat(path.join(backupDir, n))).size;
+    const imgDir = path.join(backupDir, 'files');
+    for (const n of await fs.promises.readdir(imgDir).catch(() => [])) {
+      totalBytes += (await fs.promises.stat(path.join(imgDir, n))).size;
+    }
+    const latest = dated.map(x => x.d.getTime()).sort((a, b) => b - a)[0] ?? null;
+    return { dir: backupDir, count: dated.length, totalBytes, latest };
+  } catch (err) {
+    console.error('❌ 讀取備份狀態失敗:', err);
+    return { dir: backupDir, count: 0, totalBytes: 0, latest: null };
+  }
+});
+
+/**
+ * 「從備份檔還原…」：選檔 → 回傳 JSON 文字；同時把備份資料夾裡、本機缺的圖片補回 filesDir。
+ * 補圖只會「新增缺少的檔」，不覆蓋、不刪除——就算使用者最後按了取消也沒有副作用。
+ */
+ipcMain.handle('pick-backup-file', async () => {
+  await fs.promises.mkdir(backupDir, { recursive: true });
+  const result = await dialog.showOpenDialog({
+    title: '選擇要還原的備份檔',
+    defaultPath: backupDir,
+    properties: ['openFile'],
+    filters: [{ name: 'Scout Astrolabe 備份', extensions: ['json'] }],
+  });
+  if (result.canceled || !result.filePaths[0]) return null;
+  const file = result.filePaths[0];
+  const json = await fs.promises.readFile(file, 'utf8');
+  let imagesRestored = 0;
+  const imgDir = path.join(path.dirname(file), 'files');
+  for (const n of await fs.promises.readdir(imgDir).catch(() => [])) {
+    const base = path.basename(n);
+    if (fs.existsSync(path.join(filesDir, base))) continue;
+    await fs.promises.copyFile(path.join(imgDir, base), path.join(filesDir, base));
+    imagesRestored++;
+  }
+  return { name: path.basename(file), json, imagesRestored };
+});
+ipcMain.handle('open-backup-dir', async () => {
+  await fs.promises.mkdir(backupDir, { recursive: true });
+  return shell.openPath(backupDir);
+});
 
 /** 把雲端下載回來的圖片**以指定的 storedName** 寫進 filesDir。 */
 ipcMain.handle('write-stored-file', async (_, storedName, bytes) => {

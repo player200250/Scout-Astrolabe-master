@@ -13,11 +13,24 @@ import { scanCloudLeftovers, cleanupCloudLeftovers, type CleanupPlan } from '../
 import { scanOrphanFiles, cleanupOrphanFiles } from '../utils/localCleanup'
 import { canListStoredFiles } from '../platform/fileStore'
 import type { OrphanFilePlan } from '../utils/orphanFiles'
+import { canUseDiskBackup, getDiskBackupStatus, openDiskBackupDir, pickDiskBackup } from '../platform/backupFile'
+import { formatRelativeDate } from '../utils/date'
+import { Z_MODAL, Z_MODAL_BACKDROP } from '../constants'
 
 interface DataSafetyPanelProps {
     boards: BoardRecord[]
     onClose: () => void
     onOpenBackup: () => void
+    /** 從硬碟備份檔還原（走與 App 內備份相同的還原流程）。沒給就不顯示還原鈕 */
+    onRestore?: (boards: BoardRecord[]) => Promise<void>
+}
+
+type DiskStatus = { dir: string; count: number; totalBytes: number; latest: number | null }
+type PendingRestore = { fileName: string; boards: BoardRecord[]; timestamp: number | null; cardCount: number; imagesRestored: number }
+
+const formatClock = (ts: number) => {
+    const d = new Date(ts)
+    return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
 const TYPE_LABEL: Record<string, string> = {
@@ -26,8 +39,51 @@ const TYPE_LABEL: Record<string, string> = {
     color: '顏色', file: '檔案',
 }
 
-export function DataSafetyPanel({ boards, onClose, onOpenBackup }: DataSafetyPanelProps) {
+export function DataSafetyPanel({ boards, onClose, onOpenBackup, onRestore }: DataSafetyPanelProps) {
     const [backups, setBackups] = useState<BackupRecord[]>([])
+
+    // ── 硬碟備份（文件\Scout Astrolabe 備份）──────────────────────────────
+    // 2026-10-05 事故後加的：App 內備份跟白板在同一個資料庫，資料庫沒了就一起沒了。
+    const diskOn = canUseDiskBackup()
+    const [diskStatus, setDiskStatus] = useState<DiskStatus | null>(null)
+    const [diskBusy, setDiskBusy] = useState<'pick' | 'restore' | null>(null)
+    const [diskError, setDiskError] = useState<string | null>(null)
+    const [pendingRestore, setPendingRestore] = useState<PendingRestore | null>(null)
+
+    useEffect(() => {
+        if (!diskOn) return
+        let alive = true
+        getDiskBackupStatus().then(s => { if (alive) setDiskStatus(s) }).catch(() => { /* 忽略 */ })
+        return () => { alive = false }
+    }, [diskOn])
+
+    const handlePickBackup = async () => {
+        setDiskBusy('pick'); setDiskError(null)
+        try {
+            const r = await pickDiskBackup()
+            if (!r) return
+            if (!r.ok) { setDiskError(`「${r.fileName}」無法還原：${r.error}`); return }
+            setPendingRestore({ fileName: r.fileName, boards: r.boards, timestamp: r.timestamp, cardCount: r.cardCount, imagesRestored: r.imagesRestored })
+        } catch (e) {
+            setDiskError(`讀取備份檔失敗：${e instanceof Error ? e.message : String(e)}`)
+        } finally {
+            setDiskBusy(null)
+        }
+    }
+
+    const handleConfirmRestore = async () => {
+        if (!pendingRestore || !onRestore) return
+        setDiskBusy('restore')
+        try {
+            await onRestore(pendingRestore.boards)
+            showToast(`已從「${pendingRestore.fileName}」還原 ${pendingRestore.boards.length} 塊白板`, 'success')
+            setPendingRestore(null)
+        } catch (e) {
+            setDiskError(`還原失敗：${e instanceof Error ? e.message : String(e)}`)
+        } finally {
+            setDiskBusy(null)
+        }
+    }
     const [estimate, setEstimate] = useState<{ usage: number; quota: number } | null>(null)
     const [backupLimit, setBackupLimitState] = useState(() => getBackupLimit())
 
@@ -243,6 +299,64 @@ export function DataSafetyPanel({ boards, onClose, onOpenBackup }: DataSafetyPan
                     </div>
                 </Section>
 
+                {/* 硬碟備份（2026-10-05 事故後） */}
+                {diskOn && (
+                    <Section title="硬碟備份">
+                        <div style={{ background: cardBg, border: `1px solid ${border}`, borderRadius: 12, padding: '16px 18px' }}>
+                            <div style={{ fontSize: 12, color: textMuted, marginBottom: 6, wordBreak: 'break-all' }}>
+                                <code>{diskStatus?.dir ?? '文件\\Scout Astrolabe 備份'}</code>
+                            </div>
+                            {diskStatus && diskStatus.count > 0 && diskStatus.latest ? (
+                                <div style={{ fontSize: 14, color: textPrimary, lineHeight: 1.7, marginBottom: 12 }}>
+                                    最後一份：<strong>{formatRelativeDate(diskStatus.latest)}</strong>（{formatClock(diskStatus.latest)}）
+                                    <br />
+                                    共 {diskStatus.count} 份・{formatBytes(diskStatus.totalBytes)}（含圖片）
+                                </div>
+                            ) : (
+                                <div style={{ fontSize: 13, color: textMuted, marginBottom: 12 }}>
+                                    還沒有硬碟備份。切換白板或把 App 縮小時會自動建立。
+                                </div>
+                            )}
+                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+                                <button
+                                    onClick={() => { void openDiskBackupDir() }}
+                                    style={{
+                                        display: 'inline-flex', alignItems: 'center', gap: 6,
+                                        padding: '7px 14px', borderRadius: 8,
+                                        border: `1px solid ${border}`, background: 'transparent',
+                                        color: textPrimary, fontSize: 13, fontWeight: 500, cursor: 'pointer',
+                                    }}
+                                >
+                                    <Icon name="folder" />開啟資料夾
+                                </button>
+                                {onRestore && (
+                                    <button
+                                        onClick={() => { void handlePickBackup() }}
+                                        disabled={diskBusy !== null}
+                                        style={{
+                                            display: 'inline-flex', alignItems: 'center', gap: 6,
+                                            padding: '7px 14px', borderRadius: 8,
+                                            border: `1px solid ${border}`, background: 'transparent',
+                                            color: textPrimary, fontSize: 13, fontWeight: 500,
+                                            cursor: diskBusy ? 'default' : 'pointer',
+                                        }}
+                                    >
+                                        <Icon name="backup" />{diskBusy === 'pick' ? '讀取中…' : '從備份檔還原…'}
+                                    </button>
+                                )}
+                            </div>
+                            <div style={{ fontSize: 12, color: textMuted, lineHeight: 1.7 }}>
+                                放在 App 資料夾<strong>之外</strong>，App 的資料被清掉或解除安裝也還在。
+                                約每小時存一份，保留最近 24 份＋每天一份（30 天）；
+                                硬碟剩不到 2 GB 時會暫停，不會把電腦塞滿。
+                            </div>
+                            {diskError && (
+                                <div style={{ marginTop: 10, fontSize: 12, color: T.danger, lineHeight: 1.6 }}>{diskError}</div>
+                            )}
+                        </div>
+                    </Section>
+                )}
+
                 {/* 雲端殘留清理 */}
                 {syncOn && (
                     <Section title="雲端殘留">
@@ -367,13 +481,56 @@ export function DataSafetyPanel({ boards, onClose, onOpenBackup }: DataSafetyPan
 
                 {/* 說明 + 入口 */}
                 <div style={{ background: T.accentBg, border: `1px solid ${T.accentBorder}`, borderRadius: 12, padding: '14px 16px', fontSize: 13, color: T.accent, lineHeight: 1.7 }}>
-                    白板／卡片數量與體積為<strong>唯讀統計</strong>；可以動的是備份保留份數、雲端殘留與孤兒實體檔。清理個別備份請到自動備份面板。
+                    白板／卡片數量與體積為<strong>唯讀統計</strong>；可以動的是備份保留份數、硬碟備份、雲端殘留與孤兒實體檔。清理個別備份請到自動備份面板。
                     <button
                         onClick={onOpenBackup}
                         style={{ marginLeft: 8, padding: '4px 12px', borderRadius: 7, border: 'none', background: '#2563eb', color: 'white', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}
                     >前往自動備份 →</button>
                 </div>
             </div>
+
+            {/* 從硬碟備份還原：確認對話框（文字與 App 內備份的還原確認一致） */}
+            {pendingRestore && (
+                <>
+                    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: Z_MODAL_BACKDROP }} />
+                    <div style={{
+                        position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
+                        background: cardBg, borderRadius: 14, padding: 24, width: 360,
+                        boxShadow: '0 8px 40px rgba(0,0,0,0.2)', border: `1px solid ${border}`, zIndex: Z_MODAL,
+                    }}>
+                        <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8, color: textPrimary, display: 'flex', alignItems: 'center', gap: 7 }}>
+                            <Icon name="toastError" size="md" />確認從備份檔還原
+                        </div>
+                        <div style={{ fontSize: 13, color: textMuted, lineHeight: 1.7, marginBottom: 16 }}>
+                            <strong style={{ color: textPrimary }}>{pendingRestore.fileName}</strong>
+                            {pendingRestore.timestamp && <>（{formatClock(pendingRestore.timestamp)}）</>}
+                            <br />
+                            {pendingRestore.boards.length} 塊白板、{pendingRestore.cardCount} 張卡
+                            {pendingRestore.imagesRestored > 0 && <>，已補回 {pendingRestore.imagesRestored} 張缺少的圖片</>}
+                            <br /><br />
+                            <span style={{ color: T.danger, fontWeight: 500 }}>還原後目前所有白板資料會被覆蓋。</span>
+                            {syncOn && (
+                                <>
+                                    <br /><br />
+                                    你開了雲端同步：還原的內容會推上雲端；<strong>備份裡沒有、但雲端有的白板會被拉回來</strong>，不會被刪掉。
+                                </>
+                            )}
+                        </div>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                            <button
+                                onClick={() => setPendingRestore(null)}
+                                disabled={diskBusy === 'restore'}
+                                style={{ flex: 1, padding: '9px', borderRadius: 8, border: `1px solid ${border}`, background: 'transparent', cursor: 'pointer', fontSize: 13, fontWeight: 500, color: textPrimary }}
+                            >取消</button>
+                            <button
+                                onClick={() => { void handleConfirmRestore() }}
+                                disabled={diskBusy === 'restore'}
+                                style={{ flex: 1, padding: '9px', borderRadius: 8, border: 'none', background: '#e03131', color: 'white', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}
+                            >{diskBusy === 'restore' ? '還原中…' : '確認還原'}</button>
+                        </div>
+                    </div>
+                </>
+            )}
         </FullscreenPanel>
     )
 }

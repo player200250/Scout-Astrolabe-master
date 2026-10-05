@@ -81,6 +81,7 @@
       "main.js",
       "preload.js",
       "chromeGuard.js",
+      "backupRetention.js",
       "package.json"
     ],
     "directories": {

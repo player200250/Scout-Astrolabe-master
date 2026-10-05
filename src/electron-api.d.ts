@@ -25,6 +25,13 @@ export interface IElectronAPI {
     writeStoredFile?: (storedName: string, bytes: ArrayBuffer) => Promise<boolean>
     /** N10：列出 userData/files/ 內的實體檔 metadata（不含內容）。舊版 preload 沒有，故為選填。 */
     listStoredFiles?: () => Promise<{ name: string; size: number; mtimeMs: number }[]>
+    /** 硬碟備份（文件\Scout Astrolabe 備份）；節流／空間檢查／保留規則都在主程序。舊版 preload 沒有，故為選填。 */
+    writeBackupFile?: (json: string, imageNames: string[]) => Promise<{ written: boolean; reason?: string; name?: string; imagesCopied?: number; deleted?: number }>
+    getBackupDir?: () => Promise<string>
+    openBackupDir?: () => Promise<string>
+    getBackupStatus?: () => Promise<{ dir: string; count: number; totalBytes: number; latest: number | null }>
+    /** 選備份檔並回傳內容；會順便把備份裡、本機缺少的圖片補回來（只新增、不覆蓋）。取消回 null */
+    pickBackupFile?: () => Promise<{ name: string; json: string; imagesRestored: number } | null>
     /** N3：托盤選單／全域快捷鍵觸發快速捕捉；回傳 unsubscribe */
     onTriggerQuickCapture?: (callback: () => void) => () => void
 }
