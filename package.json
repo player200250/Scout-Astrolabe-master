@@ -80,6 +80,7 @@
       "assets/**/*",
       "main.js",
       "preload.js",
+      "chromeGuard.js",
       "package.json"
     ],
     "directories": {

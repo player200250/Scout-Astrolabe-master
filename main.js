@@ -6,6 +6,7 @@ import { dirname } from 'path';
 import path from 'path';
 import fs from 'fs';
 import { randomUUID } from 'crypto';
+import { GUARD_FILE, checkChromeDowngrade } from './chromeGuard.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -16,6 +17,19 @@ app.setPath('userData', path.join(app.getPath('appData'), 'Scout-Astrolabe'));
 // 預設 V8 heap 上限不足會導致 renderer OOM 崩潰（白屏）。先拉高上限止血。
 // 治本仍需延遲載入 snapshot / 將圖片移出 base64。
 app.commandLine.appendSwitch('js-flags', '--max-old-space-size=4096');
+
+// 降版防護：這次的 Chromium 比這份資料用過的還舊 ⇒ 打開資料庫會被整個刪掉重建（見 chromeGuard.js）。
+// 判斷在這裡做、結果留到 whenReady 才處理（對話框要等 ready），但**絕不建立視窗**。
+const guardPath = path.join(app.getPath('userData'), GUARD_FILE);
+let storedChrome = null;
+try { storedChrome = JSON.parse(fs.readFileSync(guardPath, 'utf8')).chrome ?? null; } catch { /* 第一次跑或檔案壞掉：視為沒有紀錄 */ }
+const chromeGuard = checkChromeDowngrade(storedChrome, process.versions.chrome);
+if (chromeGuard.ok) {
+  try {
+    fs.mkdirSync(app.getPath('userData'), { recursive: true });
+    fs.writeFileSync(guardPath, JSON.stringify({ chrome: chromeGuard.record, updatedAt: new Date().toISOString() }));
+  } catch (err) { console.error('❌ 寫入版本紀錄失敗:', err); }
+}
 
 const store = new Store();
 
@@ -181,6 +195,18 @@ const filesDir = path.join(app.getPath('userData'), 'files')
 fs.mkdirSync(filesDir, { recursive: true })
 
 app.whenReady().then(() => {
+  if (!chromeGuard.ok) {
+    dialog.showMessageBoxSync({
+      type: 'error',
+      title: 'Scout Astrolabe 不能用這個版本開啟',
+      message: '這個版本比你上次使用的還舊，直接開啟會讓所有白板資料被清空。',
+      detail: `上次使用的瀏覽器核心：Chromium ${chromeGuard.storedMajor}\n這個版本的瀏覽器核心：Chromium ${chromeGuard.currentMajor}\n\n請改用較新的版本開啟。資料都還在，沒有被動過。`,
+      buttons: ['結束'],
+    });
+    app.exit(0);
+    return;
+  }
+
   // astro-img://<storedName> → 串流 userData/files/<storedName>。
   // storedName 一律 basename 淨化，只允許讀 filesDir 內的檔（防路徑穿越）。
   protocol.handle('astro-img', async (request) => {

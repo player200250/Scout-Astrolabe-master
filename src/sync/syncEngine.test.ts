@@ -376,6 +376,36 @@ describe('syncEngine — 刪除不會復活', () => {
         expect(pushBoard).not.toHaveBeenCalled()   // 沒有墓碑
     })
 
+    // 2026-10-05 事故：舊版 Chromium 打不開新版寫過的 IndexedDB ⇒ 整個重建、本機一塊板都沒有，
+    // 但 localStorage 的同步紀錄還在。舊引擎把 29 塊全判成「本機永久刪除」推了墓碑，雲端被清空。
+    it('本機資料庫被重置（大量推過的板同時不見）⇒ 一塊墓碑都不推，全部從雲端拉回來', async () => {
+        const ids = Array.from({ length: 29 }, (_, i) => `b${i}`)
+        setLocal([])
+        saveSyncState({ userId: 'user-1', pushed: Object.fromEntries(ids.map(id => [id, 100])), thumbHash: {}, uploadedImages: [], shapeHashes: {}, lastPulledAt: null })
+        listRemoteBoards.mockImplementation(async () => ({ ok: true, data: ids.map(id => remote(id, 100)) }))
+        pullBoard.mockImplementation(async (id: string) => ({ ok: true, data: board(id, 100) }))
+        const toasts: string[] = []
+        const off = onAppEvent('ui-toast', e => { toasts.push(e.message) })
+
+        await syncNow()
+        off()
+
+        expect(pushBoard).not.toHaveBeenCalled()   // 沒有任何墓碑
+        expect(boardsTable.rows.map(b => b.id).sort()).toEqual([...ids].sort())
+        expect(toasts.some(m => m.includes('29 塊'))).toBe(true)
+    })
+
+    it('雲端已經是墓碑、本機也沒有的板：不再重推墓碑，也不拉空殼回來', async () => {
+        setLocal([])
+        saveSyncState({ userId: 'user-1', pushed: { gone: 500 }, thumbHash: {}, uploadedImages: [], shapeHashes: {}, lastPulledAt: null })
+        listRemoteBoards.mockImplementation(async () => ({ ok: true, data: [remote('gone', 500, 500)] }))
+
+        await syncNow()
+
+        expect(pushBoard).not.toHaveBeenCalled()
+        expect(pullBoard).not.toHaveBeenCalled()
+    })
+
     it('另一端軟刪除的板會被套用到本機（帶著 deletedAt 進垃圾桶）', async () => {
         setLocal([board('b1', 100)])
         listRemoteBoards.mockImplementation(async () => ({ ok: true, data: [remote('b1', 500, 500)] }))

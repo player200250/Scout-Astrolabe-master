@@ -624,6 +624,28 @@
 
 ---
 
+### ~~S1：降版開啟 vault ⇒ 本機 DB 被重建 ⇒ 同步引擎把全部白板推成墓碑（雲端也清空）~~ ✅ 已修（2026-10-05）
+
+- **嚴重度**：最高（資料遺失）。**事故**：2026-10-05 20:56，在 Electron 44（Chromium 152）開過 vault 後，
+  啟動已安裝的 1.3.0（Electron 37／Chromium 138）比對 bug。
+- **鏈條**：① 舊 Chromium 打不開新版寫過的 IndexedDB，**整個刪掉重建**（`file__0.indexeddb.leveldb` 20:56:17 新檔）
+  ② 本機 0 塊板，但 localStorage 的 `astrolabe-sync-state.pushed` 還在 ③ `pullPhase` 把 29 塊全判成「推過、本機永久刪除」
+  ⇒ `pushTombstone`（snapshot:null）⇒ 雲端 32 列只剩收件匣 ④ 墓碑再拉回本機＝垃圾桶裡 29 塊空板。
+  App 內建自動備份存在**同一個** IndexedDB 的 `backups` 表，跟著消失。Supabase 免費方案沒有備份。
+- **救回**：Chromium 網路快取 `Cache/Cache_Data/f_001277`（gzip 的 `select=*&limit=200` 回應）＝10/01 19:45 全部 31 板；
+  其後的修改用過去的對話紀錄與截圖補回（作品集 14 張、主線卡、10/02 日記、10/02 白板整理）。作品集仍缺 1 張無法辨識的卡。
+- **修法（兩道防線）**：
+  1. `src/sync/tombstoneGuard.ts`：一輪「推過、本機不見、雲端非墓碑」的板 > 2 塊 ⇒ 判定本機重置，一塊墓碑都不推、全部拉回並提示；
+     雲端已是墓碑的不再重推。代價：離線時一次永久刪 3 塊以上，連線後會被拉回（再刪一次即可）。
+  2. `chromeGuard.js`＋`main.js`：記錄用過的最高 Chromium 主版號（userData/`chromium-version.json`），較舊就在**建立視窗前**拒絕啟動。
+     只保護裝了這段程式之後的版本；**1.3.0 以前的安裝版沒有這道防線，不可再拿來開被新版開過的 vault**。
+- **驗證**：`tombstoneGuard.test.ts` 5 條、`syncEngine.test.ts` 新增 2 條（事故重現：29 塊推過、本機空 ⇒ 0 墓碑、全部拉回；
+  改回舊引擎時這 2 條確實失敗）、`chromeGuard.test.ts` 7 條；966 測試綠。
+- **後續（未做）**：自動備份改寫到 DB 以外的 JSON 檔；升級 Electron 前自動完整備份。
+- **最後更新**：2026-10-05
+
+---
+
 ## 待觀察問題
 
 ### ~~WO1：link 卡片的 title / description / thumbnail 欄位從未填充~~ ✅ 已解決（核實於 2026-08-29）

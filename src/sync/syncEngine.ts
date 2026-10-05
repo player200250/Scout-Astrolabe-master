@@ -33,6 +33,7 @@ import { hashSnapshotShapes, mergeSnapshots, describeMerge } from '../utils/snap
 import { collectImageNames, uploadImages, downloadMissingImages } from './imageSync'
 import { INITIAL_SYNC_STATUS, type SyncStatus } from './syncStatus'
 import { emitAppEvent } from '../utils/appEvents'
+import { planOrphanBoards } from './tombstoneGuard'
 
 // ── 節奏參數 ─────────────────────────────────────────────────────────────────
 // 存檔到推送之間的等待。tldraw 存檔很密集（拖一張卡就好幾次），不去抖的話
@@ -431,25 +432,42 @@ async function pullPhase(
     const applied: BoardRecord[] = []
     let next = state
 
+    // 雲端有、本機沒有，而且我們**推過**這塊板 ⇒ 看起來是在本機被永久刪除的。
+    // 拉回來就是「刪了又自己長回來」，所以原則上補一列墓碑讓雲端也知道它沒了。
+    //
+    // 例外一：雲端那列比我們最後推上去的版本還新，代表另一台裝置在我們刪除之後又改過它——
+    // 以「有人還在用」為準，正常拉回來，不當成刪除（所以不列進候選）。
+    // 例外二（2026-10-05 事故）：一輪冒出好幾塊 ⇒ 是本機資料庫被重置，不是使用者刪的。
+    // 這時一塊墓碑都不推、全部拉回來。判斷規則見 tombstoneGuard.ts。
+    const orphans = remoteList.filter(r =>
+        !localById.has(r.id) && next.pushed[r.id] !== undefined && r.updatedAt <= next.pushed[r.id])
+    const orphanIds = new Set(orphans.map(r => r.id))
+    const orphanPlan = planOrphanBoards(orphans.map(r => ({ id: r.id, remoteDeleted: !!r.deletedAt })))
+    const tombstoneIds = new Set(orphanPlan.tombstone)
+    if (orphanPlan.suspectedLocalReset) {
+        console.warn(`[sync] ${orphanPlan.restore.length} 塊推過的板在本機不見了——判定為本機資料被重置，改從雲端拉回，不推墓碑`)
+        emitAppEvent('ui-toast', {
+            message: `本機有 ${orphanPlan.restore.length} 塊白板不見了，已改從雲端拉回（沒有刪除雲端資料）`,
+            kind: 'error',
+        })
+    }
+
     for (const remote of remoteList) {
         const local = localById.get(remote.id)
         const decision = decideSync(local?.updatedAt ?? null, remote.updatedAt)
         if (decision !== 'pull' && decision !== 'remote-only') continue
 
-        // 雲端有、本機沒有，而且我們**推過**這塊板 ⇒ 它是在本機被永久刪除的。
-        // 這時候拉回來就是「刪了又自己長回來」。改成補一列墓碑讓雲端也知道它沒了。
-        //
-        // 例外：雲端那列比我們最後推上去的版本還新，代表另一台裝置在我們刪除之後又改過它——
-        // 這種情況以「有人還在用」為準，正常拉回來，不當成刪除。
-        if (decision === 'remote-only') {
-            const lastPushed = next.pushed[remote.id]
-            if (lastPushed !== undefined && remote.updatedAt <= lastPushed) {
+        if (orphanIds.has(remote.id)) {
+            if (tombstoneIds.has(remote.id)) {
                 await pushTombstone({
                     id: remote.id, name: remote.name, snapshot: null, thumbnail: null,
                     updatedAt: remote.updatedAt,
                 })
                 continue
             }
+            // 雲端本來就是墓碑 ⇒ 兩邊都已經是「沒了」，不必再推、也不拉一塊空殼回垃圾桶
+            if (remote.deletedAt) continue
+            // 其餘＝可疑重置，往下走正常的拉取流程把它救回來
         }
 
         // 正在開著的板：不覆蓋，只提示（第 4 項需求）。
