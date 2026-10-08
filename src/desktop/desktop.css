@@ -1,0 +1,211 @@
+/* Scout Desktop 樣式。數值依據：docs/adr/0009-scout-desktop-scope.md 附錄「外觀規格」
+   顏色一律用 theme/tokens.css 的變數；字級比 Dashboard 大一級（使用者眼睛不好），最小 13px。
+   不 import 主 App 的 index.css：那是編輯器用的全域樣式。 */
+
+* { box-sizing: border-box; }
+
+html, body, #root {
+    margin: 0;
+    height: 100%;
+    overflow: hidden;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--text-primary);
+    background: var(--bg-app);
+    -webkit-font-smoothing: antialiased;
+    user-select: none;
+}
+
+button {
+    font: inherit;
+    color: inherit;
+    border: none;
+    background: none;
+    padding: 0;
+    cursor: pointer;
+}
+
+.dt-shell {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+/* ── 拖曳列 28px ── */
+.dt-titlebar {
+    -webkit-app-region: drag;
+    flex: 0 0 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 4px 0 12px;
+}
+.dt-titlebar-name {
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+.dt-close {
+    -webkit-app-region: no-drag;
+    width: 32px;
+    height: 24px;
+    border-radius: 6px;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+.dt-close:hover { background: var(--danger-bg); color: var(--danger); }
+
+/* ── 2×2 卡片格：間距 12、外圈 12（拖曳列下方 0，拖曳列本身就是上邊距） ── */
+.dt-grid {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 12px;
+    padding: 0 12px 12px;
+}
+
+.dt-card {
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 16px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-card);
+    overflow: hidden;
+}
+
+.dt-card-title {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+.dt-count {
+    font-weight: 600;
+    color: var(--accent);
+    margin-left: 4px;
+}
+
+/* 輔助字用 secondary 不用 muted：muted 對比太低 */
+.dt-hint {
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+.dt-hint-error { color: var(--danger); }
+.dt-waiting {
+    font-size: 14px;
+    color: var(--text-secondary);
+}
+
+/* ── 時鐘卡 ── */
+.dt-clock-time {
+    font-size: 40px;
+    font-weight: 600;
+    line-height: 1.15;
+    font-variant-numeric: tabular-nums;
+    margin-bottom: 4px;
+}
+.dt-clock .dt-card-title { margin-bottom: 0; }
+.dt-journal {
+    margin-top: auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+.dt-journal-done { color: var(--text-primary); }
+.dt-journal-todo { color: var(--danger); }
+
+/* ── 清單（任務、白板）：一行 26px（5 行＋標題＋「還有 N 項」剛好塞進預設尺寸的一格） ── */
+.dt-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+.dt-row {
+    height: 26px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 6px;
+    margin: 0 -6px;
+    width: calc(100% + 12px);
+    border-radius: 6px;
+    text-align: left;
+}
+.dt-row:hover { background: var(--bg-hover); }
+.dt-mark {
+    flex: 0 0 10px;
+    text-align: center;
+    color: var(--text-secondary);
+}
+.dt-mark-overdue { color: var(--danger); font-weight: 700; }
+.dt-row-text {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.dt-due {
+    flex: 0 0 auto;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+.dt-due-overdue { color: var(--danger); }
+.dt-more {
+    margin-top: auto;
+    align-self: flex-end;
+    font-size: 13px;
+    color: var(--accent);
+}
+.dt-more:hover { text-decoration: underline; }
+
+/* ── 按鈕 ── */
+.dt-button {
+    flex: 0 0 auto;
+    height: 28px;
+    padding: 0 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-mid);
+    font-size: 14px;
+}
+.dt-button:hover:not(:disabled) { background: var(--bg-hover); }
+.dt-button-primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--bg-panel);
+}
+.dt-button-primary:hover:not(:disabled) { background: var(--accent); filter: brightness(1.1); }
+.dt-button:disabled { opacity: 0.45; cursor: default; }
+
+/* ── 快速筆記 ── */
+.dt-textarea {
+    flex: 1;
+    min-height: 0;
+    resize: none;
+    padding: 8px 10px;
+    font: inherit;
+    font-size: 14px;
+    color: var(--text-primary);
+    background: var(--bg-app);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-sm);
+    outline: none;
+    user-select: text;
+}
+.dt-textarea:focus { border-color: var(--accent); }
+.dt-textarea::placeholder { color: var(--text-secondary); }
+.dt-note-footer {
+    margin-top: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}

@@ -34,11 +34,28 @@ export interface IElectronAPI {
     pickBackupFile?: () => Promise<{ name: string; json: string; imagesRestored: number } | null>
     /** N3：托盤選單／全域快捷鍵觸發快速捕捉；回傳 unsubscribe */
     onTriggerQuickCapture?: (callback: () => void) => () => void
+    /** Scout Desktop：主視窗把摘要交給 main process 轉送；舊版 preload 沒有，故為選填 */
+    publishDesktopSummary?: (summary: import('./utils/desktopSummary').DesktopSummary) => void
+    /** Scout Desktop 轉來的指令；回傳 unsubscribe */
+    onDesktopCommand?: (callback: (cmd: import('./utils/desktopSummary').DesktopCommand) => void) => () => void
+    /** 開／關 Scout Desktop，回傳之後是否開著 */
+    toggleDesktop?: () => Promise<boolean>
+    isDesktopOpen?: () => Promise<boolean>
+    /** Desktop 開關狀態改變（含從托盤、快捷鍵、Desktop 自己的 ✕）；回傳 unsubscribe */
+    onDesktopOpenChanged?: (callback: (open: boolean) => void) => () => void
+}
+
+/** Scout Desktop 視窗專用（preload-desktop.js）；主視窗沒有這個物件 */
+export interface IDesktopAPI {
+    getSummary: () => Promise<import('./utils/desktopSummary').DesktopSummary | null>
+    onSummaryChanged: (callback: (summary: import('./utils/desktopSummary').DesktopSummary | null) => void) => () => void
+    sendCommand: (cmd: import('./utils/desktopSummary').DesktopCommand) => Promise<import('./utils/desktopSummary').DesktopCommandResult>
 }
 
 declare global {
     interface Window {
         electronAPI?: IElectronAPI
+        desktopAPI?: IDesktopAPI
         tldrawEditor: import('tldraw').Editor
     }
 

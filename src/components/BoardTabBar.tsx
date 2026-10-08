@@ -73,6 +73,9 @@ interface BoardTabBarProps {
     todayCount: number
     /** 番茄鐘進行中的倒數（"24:31"）；沒在跑時為 null，側欄就不顯示。 */
     pomodoroNote?: string | null
+    /** Scout Desktop 開著時按鈕亮起；onToggleDesktop 沒傳（PWA）就不顯示這一項 */
+    desktopOpen?: boolean
+    onToggleDesktop?: () => void
     activePanel?: string | null
     trashCount?: number
     onCreateFolder: (name: string) => void
@@ -101,7 +104,7 @@ function SortableBoardItem({ id, children }: { id: string; children: React.React
     )
 }
 
-export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelete, onOpenPanel, onSetJournal, navigationStack, onBack, collapsed, onToggleCollapse, onSetStatus, onGoToInbox,  onToggleTheme, onReorderBoards, inboxCardCount, overdueCount, todayCount, pomodoroNote, activePanel, trashCount, onCreateFolder, onSetFolder, onDeleteFolder }: BoardTabBarProps) {
+export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, onDelete, onOpenPanel, onSetJournal, navigationStack, onBack, collapsed, onToggleCollapse, onSetStatus, onGoToInbox,  onToggleTheme, onReorderBoards, inboxCardCount, overdueCount, todayCount, pomodoroNote, desktopOpen, onToggleDesktop, activePanel, trashCount, onCreateFolder, onSetFolder, onDeleteFolder }: BoardTabBarProps) {
     const [hoveredId, setHoveredId] = useState<string | null>(null)
     const [renamingId, setRenamingId] = useState<string | null>(null)
     const [contextMenu, setContextMenu] = useState<{ boardId: string; y: number } | null>(null)
@@ -222,6 +225,7 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                         { icon: 'reviewCenter', label: '復盤中心', title: '復盤中心 (Ctrl+Shift+C)', onClick: () => onOpenPanel('reviewCenter'), isActive: activePanel === 'reviewCenter' },
                         { icon: 'knowledgeGraph', label: '知識圖譜', title: '知識圖譜 (Ctrl+Shift+G)', onClick: () => onOpenPanel('knowledgeGraph'), isActive: activePanel === 'knowledgeGraph' },
                         { icon: 'pomodoro', label: '番茄鐘', title: '番茄鐘', onClick: () => onOpenPanel('pomodoro'), isActive: activePanel === 'pomodoro', note: pomodoroNote ?? undefined },
+                        ...(onToggleDesktop ? [{ icon: 'desktopWidget', label: 'Scout Desktop', title: (desktopOpen ? '關閉' : '開啟') + ' Scout Desktop (Ctrl+Alt+D)', onClick: onToggleDesktop, isActive: !!desktopOpen } satisfies NavItemDef] : []),
                         { icon: 'trash', label: '垃圾桶', title: '垃圾桶 (Ctrl+Shift+T)', onClick: () => onOpenPanel('trash'), isActive: false, badge: (trashCount ?? 0) > 0 ? { count: trashCount!, color: '#94a3b8' } : undefined },
                     ]
                     if (collapsed) {

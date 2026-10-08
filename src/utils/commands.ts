@@ -45,6 +45,8 @@ export interface CommandActions {
     toggleTheme: () => void
     openOnboarding: () => void
     openHotkey: () => void
+    /** 開／關 Scout Desktop；PWA 沒有這個視窗 ⇒ 不傳，命令就不出現 */
+    toggleDesktop?: () => void
 }
 
 /** 依注入的動作組出完整命令清單（順序即分組內顯示順序）。 */
@@ -66,6 +68,7 @@ export function buildCommands(a: CommandActions): Command[] {
         { id: 'open-task-center', title: '任務中心', icon: 'taskCenter', group: '工具', keywords: 'task todo 任務', run: a.openTaskCenter },
         { id: 'open-review-center', title: '復盤中心', icon: 'reviewCenter', group: '工具', keywords: 'review journal 復盤 週回顧', shortcut: 'Ctrl+Shift+C', run: a.openReviewCenter },
         { id: 'open-knowledge-graph', title: '知識圖譜', icon: 'knowledgeGraph', group: '工具', keywords: 'graph knowledge 圖譜', shortcut: 'Ctrl+Shift+G', run: a.openKnowledgeGraph },
+        ...(a.toggleDesktop ? [{ id: 'toggle-desktop', title: '開／關 Scout Desktop', icon: 'desktopWidget', group: '工具', keywords: 'desktop widget today 桌面 今日 小視窗', shortcut: 'Ctrl+Alt+D', run: a.toggleDesktop } satisfies Command] : []),
         { id: 'open-pomodoro', title: '番茄鐘', icon: 'pomodoro', group: '工具', keywords: 'pomodoro timer focus 番茄 計時 專注', run: a.openPomodoro },
         { id: 'open-filter', title: '篩選卡片', icon: 'filter', group: '工具', keywords: 'filter 篩選 標籤', run: a.openFilter },
         { id: 'open-tag-manager', title: '標籤管理', icon: 'tag', group: '工具', keywords: 'tag manager 標籤 改名 合併 顏色', run: a.openTagManager },

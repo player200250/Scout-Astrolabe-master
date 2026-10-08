@@ -68,6 +68,27 @@ app.setPath('userData', path.join(app.getPath('appData'), 'Scout-Astrolabe'))
 | `open-file` | renderer → main | `void` | 以系統預設程式開啟 `userData/files/` 中的指定檔案（`shell.openPath`） |
 | `delete-file` | renderer → main | `void` | 刪除 `userData/files/` 中的指定檔案 |
 
+> ⚠️ 上面兩張表沒有跟上後來新增的 channel（圖片同步、硬碟備份等），以 `preload.js` 為準。
+
+### Scout Desktop（第二個視窗，2026-10-08）
+
+主視窗是唯一的資料來源與寫入者；Desktop 只收摘要、送指令。實作在根目錄 `desktopWindow.js`，
+Desktop 用自己的 `preload-desktop.js`（只暴露 `window.desktopAPI` 三個方法），不拿主視窗那份 `electronAPI`。
+每個 handler 都檢查 `event.sender` 是哪一個視窗。
+
+| channel | 方向 | 說明 |
+|---------|------|------|
+| `desktop:publish-summary` | 主視窗 → main（send） | 摘要（`src/utils/desktopSummary.ts`）有變才送；第一份到達＝主視窗就緒 |
+| `desktop:get-summary` | Desktop → main（invoke） | 回最新摘要；`null`＝主視窗未就緒 |
+| `desktop:summary-changed` | main → Desktop | 新摘要，或 `null`（主視窗重載／崩潰／關閉） |
+| `desktop:command` | Desktop → main（invoke） | 白名單指令：`open-board`／`open-task-center`／`open-journal`／`quick-capture`／`refresh`；回 `{ok}` 或 `{ok:false, reason:'not-ready'\|'invalid'}` |
+| `desktop:main-command` | main → 主視窗 | 轉送驗過的指令，由 `useDesktopBridge` 交給既有 handler |
+| `desktop:toggle` | 主視窗 → main（invoke） | 側邊欄／命令面板的開關，回傳之後是否開著 |
+| `desktop:is-open` | 主視窗 → main（invoke） | 目前是否開著 |
+| `desktop:open-changed` | main → 主視窗 | 開關狀態變了（托盤、快捷鍵、Desktop 的 ✕ 都會發） |
+
+electron-store 新增 `desktopBounds`（Desktop 視窗位置）與 `desktopOpen`（上次關 App 時開著 ⇒ 下次自動開；跟著 App 結束而關不算使用者關掉）。全域快捷鍵 `Ctrl+Alt+D`：沒開就開、被蓋住就叫到前面、已在最前面才關。開發時可設 `SCOUT_OPEN_DESKTOP=1` 讓 Desktop 隨 App 開啟（安裝版不理會）。
+
 ---
 
 ## contextBridge API

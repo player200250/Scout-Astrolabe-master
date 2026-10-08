@@ -45,4 +45,19 @@ export default tseslint.config([
       }],
     },
   },
+  // Scout Desktop 的邊界：Desktop 不碰資料，只收摘要、送指令（docs/adr/0009-scout-desktop-scope.md）。
+  // 這條規則是那個邊界的實際執行機制——「反正只是勾一個待辦」就直接寫 DB，正是 10/05 那類多寫入者事故。
+  // 型別可以 import（摘要型別引用 BoardRecord 等），runtime 不行。
+  {
+    files: ['src/desktop/**/*.{ts,tsx}'],
+    rules: {
+      '@typescript-eslint/no-restricted-imports': ['error', {
+        patterns: [{
+          group: ['dexie', 'tldraw', '@tldraw/*', '**/db', '**/hooks/*', '**/utils/boardDb', '**/utils/quickCaptureCard', '**/utils/snapshot*', '**/sync/*'],
+          message: 'Scout Desktop 不能直接碰資料：請透過摘要（desktopSummary）與 desktop:command。',
+          allowTypeImports: true,
+        }],
+      }],
+    },
+  },
 ])

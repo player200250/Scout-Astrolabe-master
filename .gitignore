@@ -11,6 +11,10 @@ node_modules
 dist
 dist-mobile
 release/
+# 打包測試輸出（electron-builder --dir，不覆蓋 release/ 裡的正式安裝檔）
+release-test/
+# Scout Desktop 研究原稿：只留本機（含尚未修補的安全問題細節，repo 是公開的）
+docs/Scout Desktop 研究報告/
 dist-ssr
 *.local
 

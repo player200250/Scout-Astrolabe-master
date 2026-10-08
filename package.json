@@ -82,6 +82,8 @@
       "preload.js",
       "chromeGuard.js",
       "backupRetention.js",
+      "desktopWindow.js",
+      "preload-desktop.js",
       "package.json"
     ],
     "directories": {

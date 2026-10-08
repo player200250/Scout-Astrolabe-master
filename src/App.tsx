@@ -12,6 +12,7 @@ import { CloudSyncPanel } from './components/CloudSyncPanel'
 import { ToastHost } from './components/ui/ToastHost'
 import { PromptHost } from './components/ui/PromptHost'
 import { onTriggerQuickCapture } from './platform/quickCapture'
+import { useDesktopBridge } from './hooks/useDesktopBridge'
 import { Whiteboard } from './components/Whiteboard'
 import { BoardTabBar } from './components/BoardTabBar'
 import { BoardOverview } from './components/BoardOverview'
@@ -137,6 +138,13 @@ export default function App() {
         if (home) handleSwitch(home.id)
     }, [boards, handleSwitch])
 
+    const { desktopOpen, toggleDesktop } = useDesktopBridge(boards, loading, {
+        onOpenBoard: handleSwitch,
+        onOpenTaskCenter: () => openPanel('taskCenter'),
+        onOpenJournal: () => openReviewAt({ tab: 'journal', date: new Date() }),
+        onQuickCapture: handleAddCardToInbox,
+    })
+
     // Command Palette（N1）命令清單：把散落各處的入口統一為可搜尋動作。
     const commands = useMemo(() => buildCommands({
         goHome,
@@ -159,7 +167,8 @@ export default function App() {
         toggleTheme,
         openOnboarding: () => openPanel('onboarding'),
         openHotkey: () => openPanel('hotkey'),
-    }), [goHome, handleGoToInbox, handleNew, openPanel, toggleTheme])
+        toggleDesktop,
+    }), [goHome, handleGoToInbox, handleNew, openPanel, toggleTheme, toggleDesktop])
 
     // N3：托盤選單／全域快捷鍵（Ctrl+Shift+Space）觸發快速捕捉。
     // 非 Electron（PWA）環境沒有 electronAPI，optional chaining 直接跳過。
@@ -234,6 +243,8 @@ export default function App() {
                 overdueCount={overdueCount}
                 todayCount={todayCount}
                 pomodoroNote={pomodoro.running ? formatRemaining(pomodoro.remaining) : null}
+                desktopOpen={desktopOpen}
+                onToggleDesktop={toggleDesktop}
                 activePanel={activePanel}
                 trashCount={trashCount}
                 onCreateFolder={handleCreateFolder}

@@ -32,7 +32,7 @@ import {
     Pilcrow, Heading1, Heading2, Heading3, List, ListOrdered, Quote, SquareCode, Minus,
     Sigma, Bold, Italic, Underline, Strikethrough, Highlighter, Code,
     Timer, Play, Pause, RotateCcw, SkipForward,
-    Magnet, Grid2x2,
+    Magnet, Grid2x2, AppWindow,
 } from 'lucide-react'
 
 /** 線寬：1.75 比 lucide 預設的 2 細一點，跟 13–14px 的中文字重比較搭。 */
@@ -54,6 +54,7 @@ const REGISTRY = {
     reviewCenter: NotebookPen,
     knowledgeGraph: Network,
     pomodoro: Timer,
+    desktopWidget: AppWindow,
     trash: Trash2,
 
     // 番茄鐘控制列

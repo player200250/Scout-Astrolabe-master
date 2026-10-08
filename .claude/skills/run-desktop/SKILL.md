@@ -65,6 +65,16 @@ Get-Process electron -ErrorAction SilentlyContinue | Stop-Process -Force
 
 背景啟動任務會回報 exit 127 / 非 0 —— 那是被 kill 的正常結果，不是 App 崩潰。
 
+## 驗 Scout Desktop（第二個視窗）
+
+托盤選單點不到 ⇒ 啟動時多加 `SCOUT_OPEN_DESKTOP=1`，Desktop 會隨 App 一起開（安裝版不理會這個變數）。
+截圖用 `-Title "Scout Desktop"`（腳本用 FindWindow 依標題找，同行程的第二個視窗也抓得到）。
+CDP 目標的 title 也是 `Scout Desktop`，可以 `Runtime.evaluate` 呼叫 `desktopAPI.sendCommand(...)` 測指令。
+
+- **重載頁面用 CDP `Page.reload`**，不要 evaluate `location.reload()`——後者實測沒有真的重載
+- **要看「等待 Scout…」狀態**：主視窗載入比 Desktop 出現還快，開機時看不到；對主視窗送 `Page.crash` 才會停在那個狀態
+- 快速筆記送出會在真的收件匣建卡（同一份 vault），驗的時候先問使用者
+
 ## 要「操作」App（開面板、按快捷鍵、填表單）而不只是看首屏
 
 **不要用 SendKeys。** SendKeys 送到的是當下的前景視窗；Electron 視窗一掉前景，

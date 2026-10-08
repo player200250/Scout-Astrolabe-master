@@ -78,3 +78,21 @@ describe('filterCommands', () => {
         expect(filterCommands(cmds, 'zzzznotacommand')).toHaveLength(0)
     })
 })
+
+// Scout Desktop 只有 Electron 有：PWA 不傳 toggleDesktop ⇒ 命令面板不能出現一個按了沒反應的項目
+describe('toggle-desktop 命令', () => {
+    it('沒傳 toggleDesktop（PWA）→ 不出現', () => {
+        expect(buildCommands(makeActions()).map(c => c.id)).not.toContain('toggle-desktop')
+    })
+
+    it('有傳 → 出現在工具組，run 接到 toggleDesktop；打「desktop」或「桌面」都找得到', () => {
+        const toggleDesktop = vi.fn()
+        const cmds = buildCommands({ ...makeActions(), toggleDesktop })
+        const cmd = cmds.find(c => c.id === 'toggle-desktop')!
+        expect(cmd.group).toBe('工具')
+        cmd.run()
+        expect(toggleDesktop).toHaveBeenCalledOnce()
+        expect(filterCommands(cmds, 'desktop').map(c => c.id)).toContain('toggle-desktop')
+        expect(filterCommands(cmds, '桌面').map(c => c.id)).toContain('toggle-desktop')
+    })
+})

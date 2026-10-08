@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react'
 import type { BoardRecord } from '../db'
 import { getCardShapes } from '../utils/snapshot'
-import { getTodayStr, formatRelativeDate, toDateStr } from '../utils/date'
+import { getTodayStr, formatRelativeDate, toDateStr, getISOWeekNumber } from '../utils/date'
 import { stripHtml } from '../utils/stringUtils'
 import { EmptyState } from './ui/EmptyState'
 import { T } from '../theme/tokens'
@@ -29,14 +29,6 @@ function getWeekRange(): { start: string; end: string } {
     const sunday = new Date(monday)
     sunday.setDate(monday.getDate() + 6)
     return { start: toDateStr(monday), end: toDateStr(sunday) }
-}
-
-function getISOWeekNumber(date: Date): number {
-    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
-    const dayNum = d.getUTCDay() || 7
-    d.setUTCDate(d.getUTCDate() + 4 - dayNum)
-    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
-    return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
 }
 
 function getDateLabel(): string {

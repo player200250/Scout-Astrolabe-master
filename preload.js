@@ -30,4 +30,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('trigger-quick-capture', listener)
     return () => ipcRenderer.removeListener('trigger-quick-capture', listener)
   },
+  // Scout Desktop：主視窗發布摘要、接收 Desktop 轉來的指令（見 desktopWindow.js）
+  publishDesktopSummary: (summary) => ipcRenderer.send('desktop:publish-summary', summary),
+  onDesktopCommand: (callback) => {
+    const listener = (_e, cmd) => callback(cmd)
+    ipcRenderer.on('desktop:main-command', listener)
+    return () => ipcRenderer.removeListener('desktop:main-command', listener)
+  },
+  toggleDesktop: () => ipcRenderer.invoke('desktop:toggle'),
+  isDesktopOpen: () => ipcRenderer.invoke('desktop:is-open'),
+  onDesktopOpenChanged: (callback) => {
+    const listener = (_e, open) => callback(open)
+    ipcRenderer.on('desktop:open-changed', listener)
+    return () => ipcRenderer.removeListener('desktop:open-changed', listener)
+  },
 })

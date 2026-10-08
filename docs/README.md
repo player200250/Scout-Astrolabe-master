@@ -41,6 +41,7 @@
 | [adr/0006-cloud-sync-and-mobile.md](adr/0006-cloud-sync-and-mobile.md) | ADR：選擇性雲端同步與行動端 PWA（修正 0005）|
 | [adr/0007-cards-bound-to-single-board.md](adr/0007-cards-bound-to-single-board.md) | ADR：接受「卡片綁定單一白板」，以 `[[連結]]` 作為跨板可達的近似解 |
 | [adr/0008-text-card-does-not-absorb-block-types.md](adr/0008-text-card-does-not-absorb-block-types.md) | ADR：文字卡以「純文字增強」補完整，**不**吸收 todo／table／image 成 block（收斂 `/` 選單階段 3）|
+| [adr/0009-scout-desktop-scope.md](adr/0009-scout-desktop-scope.md) | ADR：Scout Desktop 是主視窗的「今日入口」，**不是**第二個資料來源（只收摘要、送白名單指令；ESLint 擋 Desktop 碰 Dexie）|
 | [maintenance/bugs.md](maintenance/bugs.md) | **活的** Bug 索引：只記未關閉問題、設計決策與待觀察項（根目錄 [BUGS.md](../BUGS.md) 是 2026-05 初始掃描 20 項的完整驗證報告，已全數關閉，屬歷史紀錄） |
 | [maintenance/manual-test-2026-07-04.md](maintenance/manual-test-2026-07-04.md) | 手動功能測試記錄 D1–D8（使用者逐項回報，**D1–D8 已全數關閉或決議**）＋ **「量測方法的三個坑」——重跑任何效能量測前必讀**（D8 已於 2026-07-17 關閉，但三個坑不是 D8 專屬） |
 | [maintenance/n6-performance-2026-07-15.md](maintenance/n6-performance-2026-07-15.md) | **歷史記錄**（N6 已於 2026-07-17 結案）：未連結提及的效能前置驗證（結論：效能非問題，風險是準確度）＋「為什麼不能用 vitest 量效能」的方法論 |

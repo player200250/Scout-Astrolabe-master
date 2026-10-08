@@ -17,6 +17,7 @@ public class Win {
   [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hWnd, out RECT r);
   [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
   [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int n);
+  [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern IntPtr FindWindow(string cls, string title);
   [StructLayout(LayoutKind.Sequential)] public struct RECT { public int Left, Top, Right, Bottom; }
 }
 '@
@@ -25,11 +26,10 @@ if (-not ([System.Management.Automation.PSTypeName]'Win').Type) {
 }
 Add-Type -AssemblyName System.Drawing
 
-$p = Get-Process electron -ErrorAction SilentlyContinue |
-     Where-Object { $_.MainWindowTitle -eq $Title } | Select-Object -First 1
-if (-not $p) { Write-Output "NO WINDOW titled '$Title'"; exit 1 }
-
-$h = $p.MainWindowHandle
+# 用 FindWindow 依標題找：同一個 electron 行程有多個視窗（例如 Scout Desktop）時，
+# MainWindowTitle 只會是其中一個，第二個視窗永遠找不到
+$h = [Win]::FindWindow([NullString]::Value, $Title)  # $null 會被轉成 ""，找不到
+if ($h -eq [IntPtr]::Zero) { Write-Output "NO WINDOW titled '$Title'"; exit 1 }
 [Win]::ShowWindow($h, 9) | Out-Null      # SW_RESTORE
 [Win]::SetForegroundWindow($h) | Out-Null
 Start-Sleep -Milliseconds 800

@@ -8,6 +8,7 @@ import fs from 'fs';
 import { randomUUID } from 'crypto';
 import { GUARD_FILE, checkChromeDowngrade } from './chromeGuard.js';
 import { backupFileName, parseBackupFileName, selectBackupsToDelete, MIN_INTERVAL_MS } from './backupRetention.js';
+import { initDesktopIpc, toggleDesktopWindow, closeDesktopWindow, isDesktopOpen, markMainNotReady, summonDesktopWindow, restoreDesktopWindow, markDesktopShuttingDown } from './desktopWindow.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -75,6 +76,8 @@ let isQuitting = false;
 
 /** 全域快速捕捉快捷鍵：App 沒有焦點時也能叫出捕捉框（in-app 版是 Ctrl+Space）*/
 const GLOBAL_CAPTURE_ACCELERATOR = 'CommandOrControl+Shift+Space';
+/** 全域叫出 Scout Desktop。避開 Ctrl+Shift+D（Chrome 加書籤、VS Code 偵錯面板都用它，全域註冊會搶走） */
+const GLOBAL_DESKTOP_ACCELERATOR = 'CommandOrControl+Alt+D';
 
 /** 關閉視窗時最小化到托盤（而非結束程式）；可從托盤選單切換，存 electron-store */
 const minimizeToTray = () => store.get('minimizeToTray', true);
@@ -108,6 +111,7 @@ function buildTrayMenu() {
   return Menu.buildFromTemplate([
     { label: '顯示主視窗', click: () => showMainWindow() },
     { label: '快速捕捉', accelerator: GLOBAL_CAPTURE_ACCELERATOR, click: () => triggerQuickCapture() },
+    { label: isDesktopOpen() ? '關閉 Scout Desktop' : '開啟 Scout Desktop', accelerator: GLOBAL_DESKTOP_ACCELERATOR, click: () => toggleDesktopWindow() },
     { type: 'separator' },
     {
       label: '關閉視窗時最小化到托盤',
@@ -197,7 +201,11 @@ function createWindow() {
   });
   win.webContents.on('render-process-gone', (_e, details) => {
     console.error('❌ renderer 程序結束（白屏元兇）:', details);
+    markMainNotReady();
   });
+  // 重新整理（含開發時的整頁重載）：舊摘要在新頁面發布前都不可信。
+  // 用 did-navigate 而不是 did-start-loading：後者連 iframe（YouTube 內嵌）載入也會觸發
+  win.webContents.on('did-navigate', () => markMainNotReady());
   win.webContents.on('did-fail-load', (_e, code, desc, url) => {
     console.error('❌ 頁面載入失敗:', code, desc, url);
   });
@@ -210,17 +218,27 @@ function createWindow() {
     win.hide();
   });
 
-  win.on('closed', () => { mainWindow = null; });
+  win.on('closed', () => {
+    mainWindow = null;
+    // 資料來源沒了：Desktop 一起關，否則它會讓 window-all-closed 不觸發、還顯示過時資料
+    markMainNotReady();
+    closeDesktopWindow();
+  });
 
-  // ELECTRON_PROD_TEST=1：用 file:// 載入正式建置的 dist（= 安裝版的環境與 IndexedDB origin），
-  // 方便在不打包整個安裝程式的情況下重現「只在安裝版發生」的白屏。
-  const prodTest = process.env.ELECTRON_PROD_TEST === '1';
+  loadPage(win, 'index.html');
+  if (!app.isPackaged) win.webContents.openDevTools(); // 開發與 ELECTRON_PROD_TEST 診斷用：正式安裝版不開
+}
+
+// ELECTRON_PROD_TEST=1：用 file:// 載入正式建置的 dist（= 安裝版的環境與 IndexedDB origin），
+// 方便在不打包整個安裝程式的情況下重現「只在安裝版發生」的白屏。
+const prodTest = process.env.ELECTRON_PROD_TEST === '1';
+
+/** 主視窗與 Scout Desktop 共用：正式版讀 dist/，開發版讀 Vite dev server（同一份判斷，兩個視窗的 origin 才會一致） */
+function loadPage(win, page) {
   if (app.isPackaged || prodTest) {
-    win.loadFile(path.join(__dirname, 'dist/index.html'));
-    if (prodTest) win.webContents.openDevTools(); // 診斷用：正式安裝版不開
+    win.loadFile(path.join(__dirname, 'dist', page));
   } else {
-    win.loadURL('http://localhost:5173');
-    win.webContents.openDevTools(); // 調試中
+    win.loadURL(page === 'index.html' ? 'http://localhost:5173' : `http://localhost:5173/${page}`);
   }
 }
 
@@ -258,13 +276,27 @@ app.whenReady().then(() => {
     }
   })
 
+  initDesktopIpc({
+    store,
+    dirname: __dirname,
+    getMainWindow: () => mainWindow,
+    showMainWindow,
+    loadPage,
+    onChange: () => tray?.setContextMenu(buildTrayMenu()),
+  });
   createWindow();
   createTray();
+  restoreDesktopWindow();
+  // 驗證用（run-desktop skill）：agent 點不到托盤選單，用環境變數直接開 Scout Desktop。安裝版不理會
+  if (!app.isPackaged && process.env.SCOUT_OPEN_DESKTOP === '1' && !isDesktopOpen()) toggleDesktopWindow();
 
   // 全域快捷鍵：App 在背景／沒有焦點時也能捕捉。註冊失敗多半是被其他程式佔用，
   // 不影響 App 本身，記錄即可（in-app 的 Ctrl+Space 仍可用）。
   if (!globalShortcut.register(GLOBAL_CAPTURE_ACCELERATOR, () => triggerQuickCapture())) {
     console.error('❌ 全域快速捕捉快捷鍵註冊失敗（可能已被其他程式佔用）:', GLOBAL_CAPTURE_ACCELERATOR);
+  }
+  if (!globalShortcut.register(GLOBAL_DESKTOP_ACCELERATOR, () => summonDesktopWindow())) {
+    console.error('❌ Scout Desktop 快捷鍵註冊失敗（可能已被其他程式佔用）:', GLOBAL_DESKTOP_ACCELERATOR);
   }
 
   app.on('activate', () => {
@@ -276,7 +308,7 @@ app.whenReady().then(() => {
   });
 });
 
-app.on('before-quit', () => { isQuitting = true; });
+app.on('before-quit', () => { isQuitting = true; markDesktopShuttingDown(); });
 app.on('will-quit', () => { globalShortcut.unregisterAll(); });
 
 app.on('window-all-closed', () => {

@@ -2,6 +2,7 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react-swc'
 import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 
 // App 要顯示自己的版本號，但 renderer 讀不到 package.json（打包後不在那裡），
 // 所以在建置時把它編進 bundle。單一真相仍是 package.json。
@@ -12,6 +13,16 @@ export default defineConfig({
   base: './',
   define: {
     __APP_VERSION__: JSON.stringify(pkgVersion),
+  },
+  build: {
+    rollupOptions: {
+      // Scout Desktop（第二個視窗）是第二個入口，輸出到同一個 dist/：
+      // 同一個 origin ⇒ 主題的 localStorage 共用；共用模組自動拆成共用 chunk
+      input: {
+        main: fileURLToPath(new URL('./index.html', import.meta.url)),
+        desktop: fileURLToPath(new URL('./desktop.html', import.meta.url)),
+      },
+    },
   },
   test: {
     // 純函式測試：用 node 環境即可，不需要 jsdom

@@ -86,6 +86,7 @@ const sections: HotkeySection[] = [
             { keys: [MOD, 'Shift', 'T'], label: '垃圾桶' },
             { keys: [MOD, 'Space'], label: '快速捕捉' },
             { keys: [MOD, 'Shift', 'E'], label: '整理收件匣' },
+            ...(window.electronAPI?.toggleDesktop ? [{ keys: [MOD, 'Alt', 'D'], label: '開／關 Scout Desktop（在其他程式裡也能用）' }] : []),
             { keys: ['?'], label: '快捷鍵說明' },
             { keys: [MOD, '/'], label: '快捷鍵說明' },
         ],
