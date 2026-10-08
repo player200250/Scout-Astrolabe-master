@@ -7,6 +7,10 @@
 
 ## [未發布]
 
+---
+
+## [1.5.0] — 2026-10-08 · Scout Desktop
+
 ### 新增 — Scout Desktop（今日入口小視窗）
 
 - 開啟方式：主 App 側邊欄「Scout Desktop」、命令面板（Ctrl+K 打「desktop」）、全域快捷鍵 **Ctrl+Alt+D**（在其他程式裡也能用）、系統匣選單；上次關 App 時開著，下次會自動開
