@@ -20,6 +20,8 @@ export const DESKTOP_RECENT_LIMIT = 5
 export const DESKTOP_UPCOMING_DAYS = 7
 /** 快速筆記長度上限：main process 也會擋一次 */
 export const DESKTOP_NOTE_MAX = 5000
+/** 搜尋字長度上限：main process 也會擋一次 */
+export const DESKTOP_SEARCH_MAX = 200
 
 export interface DesktopTaskItem {
     boardName: string
@@ -58,6 +60,8 @@ export type DesktopCommand =
     | { type: 'open-inbox' }
     | { type: 'open-data-safety' }
     | { type: 'quick-capture'; text: string }
+    /** 在主視窗打開快速切換並帶入這個字 */
+    | { type: 'search'; query: string }
     | { type: 'refresh' }
 
 export type DesktopCommandResult = { ok: true } | { ok: false; reason: 'not-ready' | 'invalid' }

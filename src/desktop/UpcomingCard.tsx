@@ -3,6 +3,7 @@
 
 import type { DesktopSummary } from '../utils/desktopSummary'
 import { sendDesktopCommand } from './useDesktopSummary'
+import { onListKeyDown, rowTabIndex } from './listKeys'
 
 const VISIBLE = 5
 const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六']
@@ -37,10 +38,10 @@ export function UpcomingCard({ summary }: { summary: DesktopSummary | null }) {
             {count === 0 ? (
                 <div className="dt-hint">接下來 7 天沒有到期的待辦</div>
             ) : (
-                <ul className="dt-list">
+                <ul className="dt-list" onKeyDown={onListKeyDown}>
                     {items.slice(0, VISIBLE).map((t, i) => (
                         <li key={i}>
-                            <button className="dt-row" onClick={openTaskCenter} title={`${t.boardName}：${t.text}（${t.dueDate}）`}>
+                            <button className="dt-row" tabIndex={rowTabIndex(i)} onClick={openTaskCenter} title={`${t.boardName}：${t.text}（${t.dueDate}）`}>
                                 <span className="dt-mark">·</span>
                                 <span className="dt-row-text">{t.text || '（未命名待辦）'}</span>
                                 <span className="dt-due">{dueLabel(t.dueDate, summary.today)}</span>

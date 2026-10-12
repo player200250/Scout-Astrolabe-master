@@ -3,6 +3,7 @@
 
 import type { DesktopSummary } from '../utils/desktopSummary'
 import { sendDesktopCommand } from './useDesktopSummary'
+import { onListKeyDown, rowTabIndex } from './listKeys'
 
 const VISIBLE = 5
 
@@ -34,10 +35,10 @@ export function TasksCard({ summary }: { summary: DesktopSummary | null }) {
             {total === 0 ? (
                 <div className="dt-hint">今天沒有到期的待辦</div>
             ) : (
-                <ul className="dt-list">
+                <ul className="dt-list" onKeyDown={onListKeyDown}>
                     {items.slice(0, VISIBLE).map((t, i) => (
                         <li key={i}>
-                            <button className="dt-row" onClick={openTaskCenter} title={`${t.boardName}：${t.text}`}>
+                            <button className="dt-row" tabIndex={rowTabIndex(i)} onClick={openTaskCenter} title={`${t.boardName}：${t.text}`}>
                                 <span className={t.isOverdue ? 'dt-mark dt-mark-overdue' : 'dt-mark'}>{t.isOverdue ? '!' : '·'}</span>
                                 <span className="dt-row-text">{t.text || '（未命名待辦）'}</span>
                                 <span className={t.isOverdue ? 'dt-due dt-due-overdue' : 'dt-due'}>{dueLabel(t.dueDate, t.isOverdue)}</span>

@@ -9,6 +9,7 @@ import { randomUUID } from 'crypto';
 import { GUARD_FILE, checkChromeDowngrade } from './chromeGuard.js';
 import { backupFileName, parseBackupFileName, selectBackupsToDelete, MIN_INTERVAL_MS } from './backupRetention.js';
 import { isSafeExternalUrl } from './externalUrl.js';
+import { trayTooltip, TRAY_TITLE } from './trayTooltip.js';
 import { initDesktopIpc, notifyBackupChanged, toggleDesktopWindow, closeDesktopWindow, isDesktopOpen, markMainNotReady, summonDesktopWindow, restoreDesktopWindow, markDesktopShuttingDown } from './desktopWindow.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -139,7 +140,7 @@ function createTray() {
     return;
   }
   tray = new Tray(icon);
-  tray.setToolTip('Scout Astrolabe');
+  tray.setToolTip(TRAY_TITLE);
   tray.setContextMenu(buildTrayMenu());
   tray.on('double-click', () => showMainWindow());
 }
@@ -285,6 +286,7 @@ app.whenReady().then(() => {
     loadPage,
     onChange: () => tray?.setContextMenu(buildTrayMenu()),
     getLatestBackupAt: latestBackupAt,
+    onSummary: (summary) => tray?.setToolTip(trayTooltip(summary)),
   });
   createWindow();
   createTray();

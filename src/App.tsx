@@ -79,6 +79,9 @@ export default function App() {
     // （例：日記編輯器裡點了另一天的 [[連結]]）也要重新掛載，初始日期才會生效。
     const [reviewDate, setReviewDate] = useState<Date | undefined>(undefined)
     const [reviewKey, setReviewKey] = useState(0)
+    // Scout Desktop 搜尋框帶過來的字。key 每次搜尋就換：快速切換已開著也要重新掛載才吃得到新字
+    const [switcherQuery, setSwitcherQuery] = useState('')
+    const [switcherKey, setSwitcherKey] = useState(0)
     const bannerShownRef = useRef(false)
 
     const { overdueCount, todayCount } = useOverdueStats(boards)
@@ -144,6 +147,7 @@ export default function App() {
         onOpenJournal: () => openReviewAt({ tab: 'journal', date: new Date() }),
         onOpenInbox: () => openPanel('inboxTriage'),
         onOpenDataSafety: () => openPanel('dataSafety'),
+        onSearch: (query) => { setSwitcherQuery(query); setSwitcherKey(k => k + 1); openPanel('quickSwitcher') },
         onQuickCapture: handleAddCardToInbox,
     })
 
@@ -396,10 +400,12 @@ export default function App() {
             })()}
             {panels.quickSwitcher && (
                 <QuickSwitcher
+                    key={switcherKey}
                     boards={boards}
                     activeBoardId={activeBoardId ?? ''}
                     onSwitch={handleSwitch}
-                    onClose={() => closePanel('quickSwitcher')}
+                    onClose={() => { closePanel('quickSwitcher'); setSwitcherQuery('') }}
+                    initialQuery={switcherQuery}
                 />
             )}
             {panels.commandPalette && (
