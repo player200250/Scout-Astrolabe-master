@@ -65,7 +65,7 @@ export default function App() {
     } = useBoardManager()
 
     const { isDark, toggleTheme } = useTheme()
-    const { panels, openPanel, closePanel, togglePanel } = usePanelState()
+    const { panels, openPanel, closePanel, togglePanel, showOnly } = usePanelState()
     // ⚠️ 掛在這裡而不是面板裡：面板關掉計時器必須繼續跑。
     const pomodoro = usePomodoro()
     const [movingCardShapeIds, setMovingCardShapeIds] = useState<string[] | null>(null)
@@ -141,13 +141,14 @@ export default function App() {
         if (home) handleSwitch(home.id)
     }, [boards, handleSwitch])
 
+    // 從 Desktop 叫的一律 showOnly：使用者看不到主視窗開著什麼，舊面板會把新的蓋住（見 usePanelState）
     const { desktopOpen, toggleDesktop } = useDesktopBridge(boards, loading, {
-        onOpenBoard: handleSwitch,
-        onOpenTaskCenter: () => openPanel('taskCenter'),
-        onOpenJournal: () => openReviewAt({ tab: 'journal', date: new Date() }),
-        onOpenInbox: () => openPanel('inboxTriage'),
-        onOpenDataSafety: () => openPanel('dataSafety'),
-        onSearch: (query) => { setSwitcherQuery(query); setSwitcherKey(k => k + 1); openPanel('quickSwitcher') },
+        onOpenBoard: (id) => { showOnly(null); handleSwitch(id) },
+        onOpenTaskCenter: () => showOnly('taskCenter'),
+        onOpenJournal: () => { showOnly(null); openReviewAt({ tab: 'journal', date: new Date() }) },
+        onOpenInbox: () => showOnly('inboxTriage'),
+        onOpenDataSafety: () => showOnly('dataSafety'),
+        onSearch: (query) => { setSwitcherQuery(query); setSwitcherKey(k => k + 1); showOnly('quickSwitcher') },
         onQuickCapture: handleAddCardToInbox,
     })
 

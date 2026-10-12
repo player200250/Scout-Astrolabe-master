@@ -4,7 +4,6 @@ import type { Editor } from '@tldraw/editor'
 import type { TLCardShape } from '../type/CardShape'
 import { Z_MODAL } from '../../../constants'
 import * as imageStore from '../../../platform/imageStore'
-import { openExternalUrl } from '../../../platform/linkOpener'
 
 interface ImageContentProps {
     editor: Editor
@@ -59,28 +58,9 @@ export function ImageContent({ editor, shape }: ImageContentProps) {
         link.click()
     }
 
-    const handleOpenTab = async (e: React.MouseEvent) => {
+    const handleOpenTab = (e: React.MouseEvent) => {
         e.stopPropagation()
-        if (!src) return
-        let blobUrl: string
-        if (p.storedName) {
-            try {
-                const res = await fetch(src)
-                const blob = await res.blob()
-                blobUrl = URL.createObjectURL(blob)
-            } catch { return }
-        } else {
-            const base64Data = src.split(',')[1]
-            const mimeType = src.split(';')[0].split(':')[1]
-            const byteCharacters = atob(base64Data)
-            const byteArray = new Uint8Array(byteCharacters.length)
-            for (let i = 0; i < byteCharacters.length; i++) {
-                byteArray[i] = byteCharacters.charCodeAt(i)
-            }
-            const blob = new Blob([byteArray], { type: mimeType })
-            blobUrl = URL.createObjectURL(blob)
-        }
-        openExternalUrl(blobUrl)
+        void imageStore.openImageExternally(p)
     }
 
     const handleDelete = (e: React.MouseEvent) => {
@@ -135,7 +115,7 @@ export function ImageContent({ editor, shape }: ImageContentProps) {
                     onClick={handleDownload}
                 >⬇</button>
                 <button
-                    title="在新視窗開啟"
+                    title="用看圖程式開啟"
                     style={btnStyle}
                     onPointerDown={stop}
                     onClick={handleOpenTab}

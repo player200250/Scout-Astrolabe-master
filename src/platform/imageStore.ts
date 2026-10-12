@@ -63,6 +63,29 @@ export function getImageSrc(props: Pick<TLCardProps, 'storedName' | 'image'>): s
     return props.image ?? ''
 }
 
+/**
+ * 在 Scout 外面看這張圖。桌面：交給 Windows 預設看圖程式（舊版 base64 圖先寫暫存檔）；
+ * 沒有 electronAPI（PWA）：開新分頁看 blob。
+ * ⚠️ 桌面不能用 blob: 網址——它只在 Scout 自己裡面有效，系統瀏覽器打不開。
+ */
+export async function openImageExternally(props: Pick<TLCardProps, 'storedName' | 'image'>): Promise<boolean> {
+    const api = typeof window !== 'undefined' ? window.electronAPI : undefined
+    try {
+        if (api?.openImage && props.storedName) return await api.openImage(props.storedName)
+        const parsed = props.image ? dataUrlToBytes(props.image) : null
+        if (api?.openImageBytes && parsed) return await api.openImageBytes(parsed.bytes, parsed.ext.slice(1))
+        if (api) return false
+        const src = getImageSrc(props)
+        if (!src) return false
+        const blob = await (await fetch(src)).blob()
+        window.open(URL.createObjectURL(blob), '_blank')
+        return true
+    } catch (err) {
+        console.error('imageStore.openImageExternally 失敗:', err)
+        return false
+    }
+}
+
 /** 刪除 image 卡對應的實體檔。與 file 卡共用同一實體檔儲存，委派 fileStore（單一真相來源）。 */
 export function deleteImage(storedName: string): void {
     deleteStoredFile(storedName)

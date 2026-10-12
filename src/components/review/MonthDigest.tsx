@@ -9,6 +9,7 @@ import type { BoardRecord } from '../../db'
 import { getWeekRange, getISOWeekKey, weeksOfMonth } from '../../utils/weeklyReviewUtils'
 import { findJournalCard } from '../../utils/journalCards'
 import { T } from '../../theme/tokens'
+import { sanitizeCardHtml } from '../../utils/safeHtml'
 
 interface MonthDigestProps {
     boards: BoardRecord[]
@@ -60,7 +61,7 @@ export function MonthDigest({ boards, year, month, onOpenWeek }: MonthDigestProp
                         </div>
 
                         {w.html ? (
-                            <div className="tiptap-readonly md-week" dangerouslySetInnerHTML={{ __html: w.html }} />
+                            <div className="tiptap-readonly md-week" dangerouslySetInnerHTML={{ __html: sanitizeCardHtml(w.html) }} />
                         ) : (
                             <div style={{ fontSize: 12, color: T.textMuted, padding: '4px 0' }}>
                                 這一週沒有回顧卡。點上方標題可以現在補寫。

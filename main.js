@@ -200,13 +200,20 @@ function createWindow({ show = true } = {}) {
   );
 
   // 💡 加入這段：攔截所有 window.open 或 target="_blank" 的連結
+  // 一律不開 Electron 子視窗：http/https/mailto 交給系統，其他（tel:、ftp:、file:…）直接擋掉。
+  // 以前非白名單網址會 allow，結果在 Scout 裡跳出一個空白小視窗。App 本身沒有任何地方需要子視窗。
   win.webContents.setWindowOpenHandler(({ url }) => {
-    if (isSafeExternalUrl(url)) {
-      console.log("🔗 攔截到外部連結並由系統開啟:", url);
-      shell.openExternal(url).catch(err => console.error("❌ openExternal 失敗:", err));
-      return { action: 'deny' }; // 拒絕在 Electron 內部視窗開啟，防止資源洩漏
-    }
-    return { action: 'allow' };
+    openExternalChecked(url, 'window-open');
+    return { action: 'deny' };
+  });
+
+  // 主視窗不准被導到別的頁面（沒有 target 的 <a> 被點到、或內容裡的程式改 location）：
+  // 一導走整個 App 就不見了。同一頁重新載入（location.reload、Vite 整頁更新）照常放行。
+  win.webContents.on('will-navigate', (e, url) => {
+    const strip = (u) => String(u).split('#')[0];
+    if (strip(url) === strip(win.webContents.getURL())) return;
+    e.preventDefault();
+    openExternalChecked(url, 'will-navigate');
   });
 
   // 診斷：把 renderer 的 console 轉發到主程序終端，並攔截崩潰/載入失敗，
@@ -417,9 +424,48 @@ ipcMain.handle('select-and-copy-file', async () => {
 })
 
 ipcMain.handle('open-file', async (_, storedName) => {
-  const filePath = path.join(filesDir, storedName)
+  const filePath = path.join(filesDir, path.basename(storedName || ''))
   await shell.openPath(filePath)
 })
+
+// 圖片卡「用看圖程式開」：以前把 blob: 網址丟給系統瀏覽器，但 blob: 只在 Scout 自己裡面有效，
+// 外面打不開（加了網址白名單後更是直接被擋）。改成交給 Windows 用預設看圖程式開實體檔。
+// 只放行圖片副檔名：filesDir 也放檔案卡的附件，不能讓這條路徑去執行 .exe。
+const IMAGE_EXTS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp']);
+const previewDir = path.join(app.getPath('temp'), 'Scout Astrolabe 預覽');
+
+/** @returns {Promise<boolean>} 有沒有交給看圖程式 */
+async function openImagePath(filePath) {
+  if (!IMAGE_EXTS.has(path.extname(filePath).toLowerCase())) return false;
+  const err = await shell.openPath(filePath); // 成功回空字串
+  if (err) console.error('❌ 開啟圖片失敗:', err);
+  return !err;
+}
+
+ipcMain.handle('open-image', async (_, storedName) => {
+  const filePath = path.join(filesDir, path.basename(storedName || ''));
+  if (!fs.existsSync(filePath)) return false;
+  return openImagePath(filePath);
+});
+
+// 舊版圖片卡（base64 存在 snapshot 裡、沒有實體檔）：寫一份暫存檔再開。
+// 每次先清掉上次的暫存檔；看圖程式還開著的那張刪不掉就算了，系統會清 temp。
+ipcMain.handle('open-image-bytes', async (_, bytes, ext) => {
+  const finalExt = '.' + String(ext || 'png').toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (!IMAGE_EXTS.has(finalExt)) return false;
+  try {
+    await fs.promises.mkdir(previewDir, { recursive: true });
+    for (const old of await fs.promises.readdir(previewDir)) {
+      await fs.promises.rm(path.join(previewDir, old), { force: true }).catch(() => {});
+    }
+    const filePath = path.join(previewDir, randomUUID() + finalExt);
+    await fs.promises.writeFile(filePath, Buffer.from(bytes));
+    return openImagePath(filePath);
+  } catch (err) {
+    console.error('❌ 開啟暫存圖片失敗:', err);
+    return false;
+  }
+});
 
 ipcMain.handle('delete-file', async (_, storedName) => {
   const filePath = path.join(filesDir, path.basename(storedName || ''))
