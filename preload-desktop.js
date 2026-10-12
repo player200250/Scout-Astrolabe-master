@@ -11,4 +11,6 @@ contextBridge.exposeInMainWorld('desktopAPI', {
     return () => ipcRenderer.removeListener('desktop:summary-changed', listener)
   },
   sendCommand: (cmd) => ipcRenderer.invoke('desktop:command', cmd),
+  getLayout: () => ipcRenderer.invoke('desktop:get-layout'),
+  setLayout: (layout) => ipcRenderer.invoke('desktop:set-layout', layout),
 })

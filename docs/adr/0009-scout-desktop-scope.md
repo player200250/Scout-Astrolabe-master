@@ -25,7 +25,7 @@
 
 五條規則：
 
-1. **Desktop 沒有自己的資料**。electron-store 只存 `desktopBounds`（位置）與 `desktopOpen`（下次啟動要不要自動開）。
+1. **Desktop 沒有自己的資料**。electron-store 只存 `desktopBounds`（位置）、`desktopOpen`（下次啟動要不要自動開）與 `desktopLayout`（卡片排列，2026-10-12 補充，見文末）。
 2. **Desktop 不碰 Dexie、snapshot、tldraw**。它看到的只有 `DesktopSummary`（`src/utils/desktopSummary.ts`）：數字、待辦文字、白板名稱，沒有縮圖、卡片 HTML、日記內容。
 3. **每個動作都是「打開 Scout 某處」或「呼叫主視窗既有的 handler」**。指令白名單：`open-board`／`open-task-center`／`open-journal`／`quick-capture`／`refresh`。快速筆記走 `handleAddCardToInbox`，和 Ctrl+Shift+Space 同一條路。
 4. **計算放 `src/utils/` 的純函式並測試**。`buildDesktopSummary` 零 runtime 依賴，node 環境就能測。
@@ -84,6 +84,18 @@
 - 想在 Desktop 做任何**寫入**（勾待辦、改卡片）。可行方向是「Desktop 送指令、主視窗執行」，絕不是讓 Desktop 碰 Dexie。
 - 卡片要超過 6 張，或想讓使用者自訂 widget。
 - 需要 Windows API（置底、多螢幕各一份）。
+
+---
+
+## 補充：卡片排列（2026-10-12）
+
+使用者可以調整卡片的**順序**與**隱藏**（標題列「✎ 排列」）。這不違反規則 5：卡片仍是固定幾張、寫死在 `DesktopApp`，使用者只能決定怎麼排，不能加新種類的卡，也沒有外掛。
+
+- 排列只是外觀偏好、不是白板資料，存在 electron-store 的 `desktopLayout`（main 用 `desktopLayoutRules.js` 檢查格式）。不放 localStorage：Desktop 和主視窗同一個 origin，localStorage 共用。
+- 規則在 `src/utils/desktopLayout.ts`（純函式＋測試）：不認得的卡丟掉、缺的補到最後、**快速筆記不能隱藏**（使用者決定）、顯示中最多 6 張。
+- 2 欄、1～3 列；單數張時最後一張橫跨兩欄。3 列的最小高度 600；**第一次變成 3 列時視窗加高到 700**（使用者決定），之後使用者自己調的大小照樣記住。
+- 操作：拖曳交換、箭頭按鈕或方向鍵跟鄰格交換、隱藏、從下方「已隱藏」加回、恢復預設、Esc 或「完成」離開。箭頭按鈕是主要操作（拖曳對眼睛不好的人比較吃力）。
+- 仍然不做：自由拖放位置、任意縮放單張卡（會打亂附錄的字級與行數設計）。
 
 ---
 
