@@ -58,6 +58,9 @@ app.setPath('userData', path.join(app.getPath('appData'), 'Scout-Astrolabe'))
 | channel | 方向 | 說明 |
 |---------|------|------|
 | `open-external-link` | renderer → main | 以系統預設瀏覽器開啟外部 URL |
+| `open-external` | renderer → main | 同上（圖片卡「新分頁」用） |
+
+> 兩條都只放行 `http:`／`https:`／`mailto:`（根目錄 `externalUrl.js`，2026-10-12）。其他協定（`file:`、`ms-settings:`、`blob:`…）記一筆 warn 後丟掉，不交給 `shell.openExternal`。
 
 ### 雙向（request / response）
 
@@ -166,14 +169,15 @@ declare global {
 ```javascript
 // main.js
 win.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith('http://') || url.startsWith('https://')) {
+    if (isSafeExternalUrl(url)) {            // http／https／mailto
         shell.openExternal(url)
+        return { action: 'deny' }
     }
-    return { action: 'deny' }
+    return { action: 'allow' }
 })
 ```
 
-確保 tldraw 或任何子元件試圖開啟新視窗（含外部連結）時，均以系統瀏覽器開啟而非建立新的 Electron 視窗。
+外部連結交給系統瀏覽器，不建立新的 Electron 視窗。**其他網址（`blob:`、`about:blank`…）目前仍會開成 Electron 子視窗**——這是既有行為，尚未收斂。
 
 ---
 
