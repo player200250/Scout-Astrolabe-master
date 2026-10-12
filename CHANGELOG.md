@@ -7,6 +7,10 @@
 
 ## [未發布]
 
+### 安全
+
+- 開外部連結只放行 `http`／`https`／`mailto` 網址；`file:`、`ms-settings:` 之類會叫起本機程式的網址一律擋掉（不再直接交給 Windows 執行）
+
 ---
 
 ## [1.5.0] — 2026-10-08 · Scout Desktop

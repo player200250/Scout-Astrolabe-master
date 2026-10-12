@@ -8,6 +8,7 @@ import fs from 'fs';
 import { randomUUID } from 'crypto';
 import { GUARD_FILE, checkChromeDowngrade } from './chromeGuard.js';
 import { backupFileName, parseBackupFileName, selectBackupsToDelete, MIN_INTERVAL_MS } from './backupRetention.js';
+import { isSafeExternalUrl } from './externalUrl.js';
 import { initDesktopIpc, toggleDesktopWindow, closeDesktopWindow, isDesktopOpen, markMainNotReady, summonDesktopWindow, restoreDesktopWindow, markDesktopShuttingDown } from './desktopWindow.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -181,9 +182,9 @@ function createWindow() {
 
   // 💡 加入這段：攔截所有 window.open 或 target="_blank" 的連結
   win.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith('http')) {
+    if (isSafeExternalUrl(url)) {
       console.log("🔗 攔截到外部連結並由系統開啟:", url);
-      shell.openExternal(url);
+      shell.openExternal(url).catch(err => console.error("❌ openExternal 失敗:", err));
       return { action: 'deny' }; // 拒絕在 Electron 內部視窗開啟，防止資源洩漏
     }
     return { action: 'allow' };
@@ -352,15 +353,19 @@ ipcMain.handle('get-link-preview', async (_event, url) => {
   }
 });
 
-// main.js
-ipcMain.on('open-external-link', (_event, url) => {
-  console.log("🚀 Electron 大腦收到指令了！準備開啟網頁:", url); // 加這行
-  shell.openExternal(url).catch(err => console.error("❌ 開啟失敗:", err));
-});
+// 兩條都只放行 http／https／mailto（externalUrl.js）：shell.openExternal 會把 file:、
+// ms-settings: 之類的網址直接交給 Windows 執行。
+function openExternalChecked(url, channel) {
+  if (!isSafeExternalUrl(url)) {
+    console.warn(`⛔ ${channel} 拒絕開啟（協定不在白名單）:`, String(url).slice(0, 200));
+    return;
+  }
+  shell.openExternal(url).catch(err => console.error(`❌ ${channel} 開啟失敗:`, err));
+}
 
-ipcMain.on('open-external', (_event, url) => {
-  shell.openExternal(url).catch(err => console.error("❌ openExternal 失敗:", err));
-});
+ipcMain.on('open-external-link', (_event, url) => openExternalChecked(url, 'open-external-link'));
+
+ipcMain.on('open-external', (_event, url) => openExternalChecked(url, 'open-external'));
 
 ipcMain.handle('select-and-copy-file', async () => {
   const result = await dialog.showOpenDialog({
