@@ -2,6 +2,7 @@
 //
 // 走跟 Ctrl+Shift+Space 同一條路（主視窗的 handleAddCardToInbox）。
 // 主視窗回 ok 才清空：沒就緒時文字留著，使用者不會白打。
+// 標題右邊顯示收件匣有幾張待整理，點了開主視窗的收件匣整理（記下來的東西要回來整理）。
 
 import { useEffect, useState } from 'react'
 import { DESKTOP_NOTE_MAX } from '../utils/desktopSummary'
@@ -9,7 +10,7 @@ import { sendDesktopCommand } from './useDesktopSummary'
 
 type Status = 'idle' | 'sending' | 'sent' | 'failed'
 
-export function QuickNoteCard({ connected }: { connected: boolean }) {
+export function QuickNoteCard({ connected, inboxCount }: { connected: boolean; inboxCount: number }) {
     const [text, setText] = useState('')
     const [status, setStatus] = useState<Status>('idle')
 
@@ -36,7 +37,14 @@ export function QuickNoteCard({ connected }: { connected: boolean }) {
 
     return (
         <section className="dt-card dt-note">
-            <div className="dt-card-title">快速筆記</div>
+            <div className="dt-card-title dt-note-title">
+                快速筆記
+                {connected && inboxCount > 0 && (
+                    <button className="dt-inbox-link" onClick={() => sendDesktopCommand({ type: 'open-inbox' })}>
+                        收件匣 {inboxCount} 張待整理 →
+                    </button>
+                )}
+            </div>
             <textarea
                 className="dt-textarea"
                 value={text}

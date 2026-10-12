@@ -6,16 +6,16 @@
 // 卡片仍是固定幾張、寫死在 DesktopApp（ADR 0009 規則 5：不做 registry、不開放外掛），
 // 這裡只決定「怎麼排」。純函式、零 runtime 依賴。
 
-export type DesktopCardId = 'clock' | 'tasks' | 'recent-boards' | 'quick-note'
+export type DesktopCardId = 'clock' | 'tasks' | 'recent-boards' | 'quick-note' | 'upcoming' | 'backup'
 
-/** 預設順序（2 欄、由左而右、由上而下）＝ v1.5.0 的 2×2 */
-export const DESKTOP_CARD_IDS: readonly DesktopCardId[] = ['clock', 'tasks', 'recent-boards', 'quick-note']
+/** 預設順序（2 欄、由左而右、由上而下）。前四張＝ v1.5.0 的 2×2 */
+export const DESKTOP_CARD_IDS: readonly DesktopCardId[] = ['clock', 'tasks', 'recent-boards', 'quick-note', 'upcoming', 'backup']
 
 /** 不能隱藏：快速筆記是 Desktop 最主要的用途 */
 export const REQUIRED_CARDS: readonly DesktopCardId[] = ['quick-note']
 
 /** 新加的卡預設隱藏，畫面不會因為升級突然變樣（v0.1 的四張都預設顯示） */
-const DEFAULT_HIDDEN: readonly DesktopCardId[] = []
+const DEFAULT_HIDDEN: readonly DesktopCardId[] = ['upcoming', 'backup']
 
 export const DESKTOP_COLUMNS = 2
 /** ADR 0009：卡片上限 6 張 ⇒ 最多 3 列 */

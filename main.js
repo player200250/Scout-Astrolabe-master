@@ -9,7 +9,7 @@ import { randomUUID } from 'crypto';
 import { GUARD_FILE, checkChromeDowngrade } from './chromeGuard.js';
 import { backupFileName, parseBackupFileName, selectBackupsToDelete, MIN_INTERVAL_MS } from './backupRetention.js';
 import { isSafeExternalUrl } from './externalUrl.js';
-import { initDesktopIpc, toggleDesktopWindow, closeDesktopWindow, isDesktopOpen, markMainNotReady, summonDesktopWindow, restoreDesktopWindow, markDesktopShuttingDown } from './desktopWindow.js';
+import { initDesktopIpc, notifyBackupChanged, toggleDesktopWindow, closeDesktopWindow, isDesktopOpen, markMainNotReady, summonDesktopWindow, restoreDesktopWindow, markDesktopShuttingDown } from './desktopWindow.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -284,6 +284,7 @@ app.whenReady().then(() => {
     showMainWindow,
     loadPage,
     onChange: () => tray?.setContextMenu(buildTrayMenu()),
+    getLatestBackupAt: latestBackupAt,
   });
   createWindow();
   createTray();
@@ -499,6 +500,7 @@ ipcMain.handle('write-backup-file', async (_, json, imageNames) => {
 
     const toDelete = selectBackupsToDelete(await fs.promises.readdir(backupDir), new Date());
     for (const old of toDelete) await fs.promises.unlink(path.join(backupDir, old)).catch(() => {});
+    void notifyBackupChanged();
     return { written: true, name, imagesCopied: copied, deleted: toDelete.length };
   } catch (err) {
     console.error('❌ 寫入硬碟備份失敗:', err);
@@ -507,6 +509,12 @@ ipcMain.handle('write-backup-file', async (_, json, imageNames) => {
 });
 
 ipcMain.handle('get-backup-dir', () => backupDir);
+
+/** 最新一份硬碟備份的時間（ms）；沒有備份或資料夾不存在回 null。只看檔名、不 stat */
+async function latestBackupAt() {
+  const names = await fs.promises.readdir(backupDir).catch(() => []);
+  return names.map(parseBackupFileName).filter(Boolean).map(d => d.getTime()).sort((a, b) => b - a)[0] ?? null;
+}
 
 /** 資料安全中心顯示用：份數、總大小（含圖片）、最新一份的時間 */
 ipcMain.handle('get-backup-status', async () => {

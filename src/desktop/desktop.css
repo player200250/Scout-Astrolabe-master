@@ -288,6 +288,38 @@ button {
 }
 .dt-textarea:focus { border-color: var(--accent); }
 .dt-textarea::placeholder { color: var(--text-secondary); }
+/* 標題列右側的收件匣連結：字跟 .dt-more 一樣 13px、accent */
+.dt-note-title {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+}
+.dt-inbox-link {
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--accent);
+    white-space: nowrap;
+}
+.dt-inbox-link:hover { text-decoration: underline; }
+
+/* ── 資料安全卡 ── */
+.dt-backup-age {
+    font-size: 28px;
+    font-weight: 600;
+    line-height: 1.25;
+    margin: 2px 0 4px;
+}
+.dt-backup-ok { color: var(--text-primary); }
+.dt-backup-warn { color: var(--warn); }
+.dt-backup-danger { color: var(--danger); }
+.dt-backup-advice { font-size: 13px; }
+.dt-backup-footer {
+    margin-top: auto;
+    display: flex;
+    justify-content: flex-end;
+}
+
 .dt-note-footer {
     margin-top: 8px;
     display: flex;

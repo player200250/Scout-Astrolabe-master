@@ -67,6 +67,52 @@ describe('buildDesktopSummary — 今日待辦', () => {
     })
 })
 
+describe('buildDesktopSummary — 本週到期', () => {
+    const boards = [
+        board({ id: 'w', name: '工作', snapshot: snap({
+            'shape:a': todo([
+                { text: '今天的', dueDate: TODAY },
+                { text: '逾期的', dueDate: '2026-10-01' },
+                { text: '第七天', dueDate: '2026-10-15' },
+                { text: '明天的', dueDate: '2026-10-09' },
+                { text: '第八天', dueDate: '2026-10-16' },
+                { text: '已完成明天', dueDate: '2026-10-09', checked: true },
+            ]),
+        }) as unknown as BoardRecord['snapshot'] }),
+        board({ id: 'd', deletedAt: 1, snapshot: snap({ 'shape:z': todo([{ text: '垃圾桶', dueDate: '2026-10-09' }]) }) as unknown as BoardRecord['snapshot'] }),
+    ]
+
+    it('明天到 7 天後（含），依到期日；不含今天、逾期、已完成、垃圾桶', () => {
+        const s = buildDesktopSummary(boards, TODAY, 0)
+        expect(s.upcoming.items.map(i => i.text)).toEqual(['明天的', '第七天'])
+        expect(s.upcoming.count).toBe(2)
+        expect(s.upcoming.items.every(i => !i.isOverdue)).toBe(true)
+    })
+
+    it('今日任務不受影響', () => {
+        expect(buildDesktopSummary(boards, TODAY, 0).tasks.items.map(i => i.text)).toEqual(['逾期的', '今天的'])
+    })
+
+    it('跨月份也算對', () => {
+        const s = buildDesktopSummary([
+            board({ id: 'm', snapshot: snap({ 'shape:m': todo([
+                { text: '11/2', dueDate: '2026-11-02' },
+                { text: '11/4', dueDate: '2026-11-04' },
+            ]) }) as unknown as BoardRecord['snapshot'] }),
+        ], '2026-10-28', 0)
+        expect(s.upcoming.items.map(i => i.text)).toEqual(['11/2', '11/4'])
+    })
+
+    it(`清單最多 ${DESKTOP_TASK_LIMIT} 筆，但數量照實計算`, () => {
+        const many = Array.from({ length: 25 }, (_, i) => ({ text: `#${i}`, dueDate: '2026-10-10' }))
+        const s = buildDesktopSummary([
+            board({ id: 'x', snapshot: snap({ 'shape:m': todo(many) }) as unknown as BoardRecord['snapshot'] }),
+        ], TODAY, 0)
+        expect(s.upcoming.count).toBe(25)
+        expect(s.upcoming.items).toHaveLength(DESKTOP_TASK_LIMIT)
+    })
+})
+
 describe('buildDesktopSummary — 最近白板', () => {
     it('排除首頁、收件匣、日誌、資料夾、已刪除、沒造訪過的；依造訪時間新到舊、最多 5 個', () => {
         const boards = [

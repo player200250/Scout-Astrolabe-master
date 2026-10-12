@@ -43,6 +43,7 @@ export const T = {
     dangerBg: 'var(--danger-bg)',
     dangerBgSoft: 'var(--danger-bg-soft)',
     dangerBorder: 'var(--danger-border)',
+    warn: 'var(--warn)',
     warnBg: 'var(--warn-bg)',
     successBg: 'var(--success-bg)',
 

@@ -6,4 +6,6 @@ export const DESKTOP_CARD_NAMES: Record<DesktopCardId, string> = {
     'tasks': '今日任務',
     'recent-boards': '最近白板',
     'quick-note': '快速筆記',
+    'upcoming': '本週到期',
+    'backup': '資料安全',
 }
