@@ -10,6 +10,7 @@ import { GUARD_FILE, checkChromeDowngrade } from './chromeGuard.js';
 import { backupFileName, parseBackupFileName, selectBackupsToDelete, MIN_INTERVAL_MS } from './backupRetention.js';
 import { isSafeExternalUrl } from './externalUrl.js';
 import { trayTooltip, TRAY_TITLE } from './trayTooltip.js';
+import { launchedAtLogin, startHidden, loginItemOptions } from './loginStartup.js';
 import { initDesktopIpc, notifyBackupChanged, toggleDesktopWindow, closeDesktopWindow, isDesktopOpen, markMainNotReady, summonDesktopWindow, restoreDesktopWindow, markDesktopShuttingDown } from './desktopWindow.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -84,6 +85,12 @@ const GLOBAL_DESKTOP_ACCELERATOR = 'CommandOrControl+Alt+D';
 /** 關閉視窗時最小化到托盤（而非結束程式）；可從托盤選單切換，存 electron-store */
 const minimizeToTray = () => store.get('minimizeToTray', true);
 
+/** 開機自動啟動：狀態問 Windows，不存 store（見 loginStartup.js）。只有安裝版有這個選項 */
+const openAtLogin = () => app.getLoginItemSettings(loginItemOptions(process.execPath)).openAtLogin;
+function setOpenAtLogin(on) {
+  app.setLoginItemSettings({ ...loginItemOptions(process.execPath), openAtLogin: on });
+}
+
 // 第二個實例：托盤程式常見情境是使用者再點一次捷徑。
 // 不開新視窗，把既有視窗叫回前景即可。
 const gotTheLock = app.requestSingleInstanceLock();
@@ -124,6 +131,15 @@ function buildTrayMenu() {
         tray?.setContextMenu(buildTrayMenu());
       },
     },
+    ...(app.isPackaged ? [{
+      label: '開機時自動啟動',
+      type: 'checkbox',
+      checked: openAtLogin(),
+      click: (item) => {
+        setOpenAtLogin(item.checked);
+        tray?.setContextMenu(buildTrayMenu()); // 重讀系統狀態：寫入失敗時勾勾會跳回去
+      },
+    }] : []),
     { type: 'separator' },
     { label: '離開 Scout Astrolabe', click: () => { isQuitting = true; app.quit(); } },
   ]);
@@ -152,10 +168,12 @@ protocol.registerSchemesAsPrivileged([
   { scheme: 'astro-img', privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true } },
 ]);
 
-function createWindow() {
+/** @param {{ show?: boolean }} [options] show:false＝開機啟動時先藏在托盤，資料照樣載入 */
+function createWindow({ show = true } = {}) {
   const win = mainWindow = new BrowserWindow({
     width: 1920,
     height: 1080,
+    show,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'), // 確保根目錄有 preload.js
       contextIsolation: true,
@@ -288,8 +306,11 @@ app.whenReady().then(() => {
     getLatestBackupAt: latestBackupAt,
     onSummary: (summary) => tray?.setToolTip(trayTooltip(summary)),
   });
-  createWindow();
+  // 托盤先建：開機啟動要先確定托盤在，才能把主視窗藏起來（沒托盤就叫不回來）
   createTray();
+  createWindow({
+    show: !startHidden({ atLogin: launchedAtLogin(process.argv), hasTray: Boolean(tray), minimizeToTray: minimizeToTray() }),
+  });
   restoreDesktopWindow();
   // 驗證用（run-desktop skill）：agent 點不到托盤選單，用環境變數直接開 Scout Desktop。安裝版不理會
   if (!app.isPackaged && process.env.SCOUT_OPEN_DESKTOP === '1' && !isDesktopOpen()) toggleDesktopWindow();
