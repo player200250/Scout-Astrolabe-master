@@ -9,10 +9,13 @@
 
 import { BrowserWindow, ipcMain, screen } from 'electron';
 import path from 'path';
+import { sanitizeStoredLayout, layoutRows, minHeightForRows, grownBounds } from './desktopLayoutRules.js';
 
 const DEFAULT_SIZE = { width: 560, height: 480 };
-const MIN_SIZE = { minWidth: 480, minHeight: 420 };
+const MIN_WIDTH = 480;
 const BOUNDS_KEY = 'desktopBounds';
+/** 卡片排列（順序＋隱藏）：只是 Desktop 的外觀偏好，不是白板資料。格式見 desktopLayoutRules.js */
+const LAYOUT_KEY = 'desktopLayout';
 /** 上次關 App 時 Desktop 是不是開著：開著的話下次啟動自動開，不用每次去系統匣找 */
 const OPEN_KEY = 'desktopOpen';
 const NOTE_MAX = 5000;             // 同 src/utils/desktopSummary.ts 的 DESKTOP_NOTE_MAX
@@ -78,7 +81,8 @@ function createDesktopWindow() {
   ctx.store.set(OPEN_KEY, true);
   const win = desktopWindow = new BrowserWindow({
     ...restoreBounds(),
-    ...MIN_SIZE,
+    minWidth: MIN_WIDTH,
+    minHeight: minHeightForRows(layoutRows(storedLayout())),
     title: 'Scout Desktop',   // 別和主視窗同名：run-desktop skill 用標題抓視窗
     frame: false,
     show: false,
@@ -123,6 +127,24 @@ function createDesktopWindow() {
 
   ctx.loadPage(win, 'desktop.html');
   notifyOpenChanged();
+}
+
+function storedLayout() {
+  return sanitizeStoredLayout(ctx.store.get(LAYOUT_KEY));
+}
+
+/** 存排列；列數變了就調最小高度，第一次變成 3 列時把視窗加高（desktopLayoutRules.js） */
+function saveLayout(next) {
+  const prevRows = layoutRows(storedLayout());
+  const nextRows = layoutRows(next);
+  ctx.store.set(LAYOUT_KEY, next);
+  const win = desktopWindow;
+  if (!win || win.isDestroyed() || prevRows === nextRows) return;
+  win.setMinimumSize(MIN_WIDTH, minHeightForRows(nextRows));
+  if (win.isMaximized()) return;
+  const bounds = win.getBounds();
+  const grown = grownBounds(bounds, screen.getDisplayMatching(bounds).workArea, prevRows, nextRows);
+  if (grown) win.setBounds(grown);
 }
 
 /** 托盤選單標籤、主 App 側邊欄按鈕的亮暗都跟著開關狀態走 */
@@ -195,6 +217,16 @@ export function initDesktopIpc(options) {
   ipcMain.handle('desktop:is-open', (e) => (fromMain(e) ? isDesktopOpen() : false));
 
   ipcMain.handle('desktop:get-summary', (e) => (fromDesktop(e) ? summary : null));
+
+  // 排列：沒存過回 null（Desktop 用預設）；送來的格式不對一律拒絕
+  ipcMain.handle('desktop:get-layout', (e) => (fromDesktop(e) ? storedLayout() : null));
+  ipcMain.handle('desktop:set-layout', (e, raw) => {
+    if (!fromDesktop(e)) return false;
+    const layout = sanitizeStoredLayout(raw);
+    if (!layout) return false;
+    saveLayout(layout);
+    return true;
+  });
 
   ipcMain.handle('desktop:command', (e, raw) => {
     if (!fromDesktop(e)) return { ok: false, reason: 'invalid' };

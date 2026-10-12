@@ -57,15 +57,101 @@ button {
     color: var(--text-secondary);
 }
 .dt-close:hover { background: var(--danger-bg); color: var(--danger); }
+.dt-titlebar-actions {
+    -webkit-app-region: no-drag;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.dt-titlebar-btn {
+    height: 24px;
+    padding: 0 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+.dt-titlebar-btn:hover:not(:disabled) { background: var(--bg-hover); color: var(--text-primary); }
+.dt-titlebar-btn:disabled { opacity: 0.45; cursor: default; }
+.dt-titlebar-btn-primary { background: var(--accent); color: var(--bg-panel); }
+.dt-titlebar-btn-primary:hover:not(:disabled) { background: var(--accent); color: var(--bg-panel); filter: brightness(1.1); }
 
-/* ── 2×2 卡片格：間距 12、外圈 12（拖曳列下方 0，拖曳列本身就是上邊距） ── */
+/* ── 卡片格：2 欄、1～3 列（列數由 DesktopApp 依顯示中的卡數設 grid-template-rows）。
+   間距 12、外圈 12（拖曳列下方 0，拖曳列本身就是上邊距）；單數張時最後一張橫跨兩欄 ── */
 .dt-grid {
     flex: 1;
     min-height: 0;
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    grid-template-rows: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: 12px;
+    padding: 0 12px 12px;
+}
+
+.dt-slot {
+    position: relative;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+}
+.dt-slot > .dt-card,
+.dt-slot-content > .dt-card { flex: 1; }
+
+/* ── 排列模式：卡片內容藏起來（疊在箭頭底下太亂），換成只有名稱＋控制的面板 ── */
+.dt-slot-editing {
+    cursor: grab;
+    border-radius: var(--radius-card);
+    outline: 2px dashed var(--border-mid);
+    outline-offset: -1px;
+}
+.dt-slot-editing:focus-visible { outline: 2px solid var(--accent); }
+.dt-slot-drop { outline: 2px solid var(--accent); }
+.dt-slot-content {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    visibility: hidden;
+}
+.dt-slot-panel {
+    position: absolute;
+    inset: 0;
+    background: var(--bg-panel);
+    border-radius: var(--radius-card);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+.dt-slot-name {
+    font-size: 15px;
+    font-weight: 600;
+}
+/* 十字排列的箭頭：↑ 在上、← → 在中、↓ 在下 */
+.dt-arrows {
+    display: grid;
+    grid-template-columns: repeat(3, 32px);
+    grid-template-rows: repeat(3, 28px);
+    gap: 2px;
+}
+.dt-arrow {
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-mid);
+    background: var(--bg-panel);
+    font-size: 15px;
+}
+.dt-arrow:hover:not(:disabled) { background: var(--bg-hover); }
+.dt-arrow:disabled { visibility: hidden; }
+.dt-arrow-up { grid-area: 1 / 2; }
+.dt-arrow-left { grid-area: 2 / 1; }
+.dt-arrow-right { grid-area: 2 / 3; }
+.dt-arrow-down { grid-area: 3 / 2; }
+
+.dt-hidden-bar {
+    flex: 0 0 auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
     padding: 0 12px 12px;
 }
 

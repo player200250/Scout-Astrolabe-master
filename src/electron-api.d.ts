@@ -50,6 +50,9 @@ export interface IDesktopAPI {
     getSummary: () => Promise<import('./utils/desktopSummary').DesktopSummary | null>
     onSummaryChanged: (callback: (summary: import('./utils/desktopSummary').DesktopSummary | null) => void) => () => void
     sendCommand: (cmd: import('./utils/desktopSummary').DesktopCommand) => Promise<import('./utils/desktopSummary').DesktopCommandResult>
+    /** 卡片排列；沒存過回 null。存的格式由 main 再檢查一次，不合格回 false */
+    getLayout: () => Promise<unknown>
+    setLayout: (layout: import('./utils/desktopLayout').DesktopLayout) => Promise<boolean>
 }
 
 declare global {

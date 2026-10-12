@@ -89,6 +89,8 @@ Desktop 用自己的 `preload-desktop.js`（只暴露 `window.desktopAPI` 三個
 | `desktop:toggle` | 主視窗 → main（invoke） | 側邊欄／命令面板的開關，回傳之後是否開著 |
 | `desktop:is-open` | 主視窗 → main（invoke） | 目前是否開著 |
 | `desktop:open-changed` | main → 主視窗 | 開關狀態變了（托盤、快捷鍵、Desktop 的 ✕ 都會發） |
+| `desktop:get-layout` | Desktop → main（invoke） | 卡片排列（electron-store `desktopLayout`）；沒存過回 `null`（2026-10-12） |
+| `desktop:set-layout` | Desktop → main（invoke） | 存排列，`desktopLayoutRules.js` 檢查格式，不合格回 `false`；列數變了就調最小高度，第一次變 3 列時把視窗加高到 700 |
 
 electron-store 新增 `desktopBounds`（Desktop 視窗位置）與 `desktopOpen`（上次關 App 時開著 ⇒ 下次自動開；跟著 App 結束而關不算使用者關掉）。全域快捷鍵 `Ctrl+Alt+D`：沒開就開、被蓋住就叫到前面、已在最前面才關。開發時可設 `SCOUT_OPEN_DESKTOP=1` 讓 Desktop 隨 App 開啟（安裝版不理會）。
 

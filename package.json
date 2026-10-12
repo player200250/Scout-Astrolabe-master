@@ -84,6 +84,7 @@
       "backupRetention.js",
       "externalUrl.js",
       "desktopWindow.js",
+      "desktopLayoutRules.js",
       "preload-desktop.js",
       "package.json"
     ],
