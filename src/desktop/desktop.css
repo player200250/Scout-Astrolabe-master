@@ -45,9 +45,30 @@ button {
     padding: 0 4px 0 12px;
 }
 .dt-titlebar-name {
+    flex: 0 0 auto;
     font-size: 13px;
     color: var(--text-secondary);
 }
+/* 搜尋框夾在名稱與按鈕中間；兩旁留白仍是拖曳區 */
+.dt-search {
+    -webkit-app-region: no-drag;
+    flex: 0 1 200px;
+    min-width: 80px;
+    height: 22px;
+    margin: 0 12px;
+    padding: 0 8px;
+    font: inherit;
+    font-size: 13px;
+    color: var(--text-primary);
+    background: var(--bg-panel);
+    border: 1px solid var(--border-light);
+    border-radius: 6px;
+    outline: none;
+    user-select: text;
+}
+.dt-search:focus { border-color: var(--accent); }
+.dt-search::placeholder { color: var(--text-secondary); }
+.dt-search:disabled { opacity: 0.6; }
 .dt-close {
     -webkit-app-region: no-drag;
     width: 32px;
@@ -226,6 +247,19 @@ button {
     text-align: left;
 }
 .dt-row:hover { background: var(--bg-hover); }
+
+/* 鍵盤操作看得到焦點在哪（滑鼠點的不顯示） */
+.dt-row:focus-visible,
+.dt-button:focus-visible,
+.dt-more:focus-visible,
+.dt-inbox-link:focus-visible,
+.dt-titlebar-btn:focus-visible,
+.dt-close:focus-visible,
+.dt-arrow:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+}
+.dt-row:focus-visible { background: var(--bg-hover); }
 .dt-mark {
     flex: 0 0 10px;
     text-align: center;

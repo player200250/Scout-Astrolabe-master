@@ -24,6 +24,7 @@ import { QuickNoteCard } from './QuickNoteCard'
 import { UpcomingCard } from './UpcomingCard'
 import { BackupCard } from './BackupCard'
 import { useBackupStatus } from './useBackupStatus'
+import { SearchBox } from './SearchBox'
 
 function renderCard(id: DesktopCardId, now: Date, summary: DesktopSummary | null, backupAt: number | null | undefined) {
     switch (id) {
@@ -74,6 +75,7 @@ export function DesktopApp() {
         <div className="dt-shell">
             <header className="dt-titlebar">
                 <span className="dt-titlebar-name">{editing ? '排列卡片' : 'Scout Desktop'}</span>
+                {!editing && <SearchBox connected={summary !== null} />}
                 <div className="dt-titlebar-actions">
                     {editing ? (
                         <>

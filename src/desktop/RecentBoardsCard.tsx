@@ -2,6 +2,7 @@
 
 import type { DesktopSummary } from '../utils/desktopSummary'
 import { sendDesktopCommand } from './useDesktopSummary'
+import { onListKeyDown, rowTabIndex } from './listKeys'
 
 export function RecentBoardsCard({ summary }: { summary: DesktopSummary | null }) {
     return (
@@ -12,10 +13,10 @@ export function RecentBoardsCard({ summary }: { summary: DesktopSummary | null }
             ) : summary.recentBoards.length === 0 ? (
                 <div className="dt-hint">還沒有打開過的白板</div>
             ) : (
-                <ul className="dt-list">
-                    {summary.recentBoards.map(b => (
+                <ul className="dt-list" onKeyDown={onListKeyDown}>
+                    {summary.recentBoards.map((b, i) => (
                         <li key={b.id}>
-                            <button className="dt-row" onClick={() => sendDesktopCommand({ type: 'open-board', boardId: b.id })} title={b.name}>
+                            <button className="dt-row" tabIndex={rowTabIndex(i)} onClick={() => sendDesktopCommand({ type: 'open-board', boardId: b.id })} title={b.name}>
                                 <span className="dt-mark">·</span>
                                 <span className="dt-row-text">{b.name || '（未命名白板）'}</span>
                             </button>

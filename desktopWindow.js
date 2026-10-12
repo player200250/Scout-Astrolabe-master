@@ -19,6 +19,7 @@ const LAYOUT_KEY = 'desktopLayout';
 /** 上次關 App 時 Desktop 是不是開著：開著的話下次啟動自動開，不用每次去系統匣找 */
 const OPEN_KEY = 'desktopOpen';
 const NOTE_MAX = 5000;             // 同 src/utils/desktopSummary.ts 的 DESKTOP_NOTE_MAX
+const SEARCH_MAX = 200;            // 同 DESKTOP_SEARCH_MAX
 const ID_MAX = 200;
 /** 崩潰自動重載：一分鐘內超過這個次數就放棄，避免無限迴圈 */
 const MAX_RELOADS_PER_MIN = 3;
@@ -48,12 +49,18 @@ function sanitizeCommand(cmd) {
       const text = cmd.text.trim();
       return text && text.length <= NOTE_MAX ? { type: 'quick-capture', text } : null;
     }
+    case 'search': {
+      if (typeof cmd.query !== 'string') return null;
+      const query = cmd.query.trim();
+      return query && query.length <= SEARCH_MAX ? { type: 'search', query } : null;
+    }
     default:
       return null;
   }
 }
 
 function broadcast() {
+  ctx.onSummary?.(summary);
   if (desktopWindow && !desktopWindow.isDestroyed()) {
     desktopWindow.webContents.send('desktop:summary-changed', summary);
   }
@@ -204,7 +211,9 @@ export function closeDesktopWindow() {
 /**
  * @param {{ store: any, dirname: string, getMainWindow: () => BrowserWindow | null,
  *           showMainWindow: () => void, loadPage: (win: BrowserWindow, page: string) => void,
- *           onChange: () => void, getLatestBackupAt: () => Promise<number | null> }} options
+ *           onChange: () => void, getLatestBackupAt: () => Promise<number | null>,
+ *           onSummary?: (summary: object | null) => void }} options
+ *   onSummary：摘要變了（含變成 null）就呼叫，main.js 用來更新系統匣提示
  */
 export function initDesktopIpc(options) {
   ctx = options;
@@ -248,7 +257,7 @@ export function initDesktopIpc(options) {
     const main = ctx.getMainWindow();
     if (!summary || !main || main.isDestroyed()) return { ok: false, reason: 'not-ready' };
     // 「打開 Scout 某處」要把主視窗叫到前面；快速筆記與重算在背景做就好
-    if (cmd.type.startsWith('open-')) ctx.showMainWindow();
+    if (cmd.type.startsWith('open-') || cmd.type === 'search') ctx.showMainWindow();
     main.webContents.send('desktop:main-command', cmd);
     return { ok: true };
   });

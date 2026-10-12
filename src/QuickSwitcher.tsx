@@ -10,6 +10,8 @@ interface QuickSwitcherProps {
     activeBoardId: string
     onSwitch: (id: string) => void
     onClose: () => void
+    /** 一打開就帶入的搜尋字（Scout Desktop 的搜尋框）；只在掛載時讀一次 */
+    initialQuery?: string
 }
 
 function relativeTime(ts: number): string {
@@ -26,8 +28,8 @@ function relativeTime(ts: number): string {
     return `${Math.floor(months / 12)} 年前`
 }
 
-export function QuickSwitcher({ boards, activeBoardId, onSwitch, onClose }: QuickSwitcherProps) {
-    const [query, setQuery] = useState('')
+export function QuickSwitcher({ boards, activeBoardId, onSwitch, onClose, initialQuery = '' }: QuickSwitcherProps) {
+    const [query, setQuery] = useState(initialQuery)
     const [selectedIdx, setSelectedIdx] = useState(0)
     const inputRef = useRef<HTMLInputElement>(null)
     const itemRefs = useRef<(HTMLDivElement | null)[]>([])

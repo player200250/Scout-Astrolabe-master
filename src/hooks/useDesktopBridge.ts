@@ -8,7 +8,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import type { BoardRecord } from '../db'
-import { buildDesktopSummary, sameDesktopSummary, DESKTOP_NOTE_MAX } from '../utils/desktopSummary'
+import { buildDesktopSummary, sameDesktopSummary, DESKTOP_NOTE_MAX, DESKTOP_SEARCH_MAX } from '../utils/desktopSummary'
 import type { DesktopSummary } from '../utils/desktopSummary'
 import { getTodayStr } from '../utils/date'
 import { publishDesktopSummary, onDesktopCommand, canToggleDesktop, toggleDesktopWindow, watchDesktopOpen } from '../platform/desktopBridge'
@@ -19,6 +19,7 @@ export interface DesktopBridgeHandlers {
     onOpenJournal: () => void
     onOpenInbox: () => void
     onOpenDataSafety: () => void
+    onSearch: (query: string) => void
     onQuickCapture: (text: string) => void
 }
 
@@ -68,6 +69,11 @@ export function useDesktopBridge(boards: BoardRecord[], loading: boolean, handle
             case 'open-journal': h.onOpenJournal(); break
             case 'open-inbox': h.onOpenInbox(); break
             case 'open-data-safety': h.onOpenDataSafety(); break
+            case 'search': {
+                const query = typeof cmd.query === 'string' ? cmd.query.trim() : ''
+                if (query && query.length <= DESKTOP_SEARCH_MAX) h.onSearch(query)
+                break
+            }
             case 'quick-capture': {
                 const text = typeof cmd.text === 'string' ? cmd.text.trim() : ''
                 if (text && text.length <= DESKTOP_NOTE_MAX) h.onQuickCapture(text)

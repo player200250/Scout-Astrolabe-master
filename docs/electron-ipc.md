@@ -84,11 +84,12 @@ Desktop 用自己的 `preload-desktop.js`（只暴露 `window.desktopAPI` 三個
 | `desktop:publish-summary` | 主視窗 → main（send） | 摘要（`src/utils/desktopSummary.ts`）有變才送；第一份到達＝主視窗就緒 |
 | `desktop:get-summary` | Desktop → main（invoke） | 回最新摘要；`null`＝主視窗未就緒 |
 | `desktop:summary-changed` | main → Desktop | 新摘要，或 `null`（主視窗重載／崩潰／關閉） |
-| `desktop:command` | Desktop → main（invoke） | 白名單指令：`open-board`／`open-task-center`／`open-journal`／`open-inbox`／`open-data-safety`／`quick-capture`／`refresh`；回 `{ok}` 或 `{ok:false, reason:'not-ready'\|'invalid'}` |
+| `desktop:command` | Desktop → main（invoke） | 白名單指令：`open-board`／`open-task-center`／`open-journal`／`open-inbox`／`open-data-safety`／`quick-capture`／`search`／`refresh`；回 `{ok}` 或 `{ok:false, reason:'not-ready'\|'invalid'}` |
 | `desktop:main-command` | main → 主視窗 | 轉送驗過的指令，由 `useDesktopBridge` 交給既有 handler |
 | `desktop:toggle` | 主視窗 → main（invoke） | 側邊欄／命令面板的開關，回傳之後是否開著 |
 | `desktop:is-open` | 主視窗 → main（invoke） | 目前是否開著 |
 | `desktop:open-changed` | main → 主視窗 | 開關狀態變了（托盤、快捷鍵、Desktop 的 ✕ 都會發） |
+| （系統匣提示） | main 內部 | 每次收到摘要（或主視窗未就緒變 `null`）就用 `trayTooltip.js` 更新托盤提示：「今天待辦 N・逾期 N・收件匣 N」 |
 | `desktop:get-backup-status` | Desktop → main（invoke） | `{ latest }`：最新一份硬碟備份的時間（從檔名讀），沒有備份＝`null`（2026-10-12） |
 | `desktop:backup-changed` | main → Desktop | `write-backup-file` 寫完一份就送新的 `latest` |
 | `desktop:get-layout` | Desktop → main（invoke） | 卡片排列（electron-store `desktopLayout`）；沒存過回 `null`（2026-10-12） |
