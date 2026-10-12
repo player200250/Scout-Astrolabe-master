@@ -36,6 +36,8 @@ function sanitizeCommand(cmd) {
   switch (cmd.type) {
     case 'open-task-center':
     case 'open-journal':
+    case 'open-inbox':
+    case 'open-data-safety':
     case 'refresh':
       return { type: cmd.type };
     case 'open-board':
@@ -55,6 +57,13 @@ function broadcast() {
   if (desktopWindow && !desktopWindow.isDestroyed()) {
     desktopWindow.webContents.send('desktop:summary-changed', summary);
   }
+}
+
+/** main.js 寫完一份硬碟備份後呼叫：Desktop 的「資料安全」卡跟著更新 */
+export async function notifyBackupChanged() {
+  if (!desktopWindow || desktopWindow.isDestroyed()) return;
+  const latest = await ctx.getLatestBackupAt();
+  if (desktopWindow && !desktopWindow.isDestroyed()) desktopWindow.webContents.send('desktop:backup-changed', latest);
 }
 
 /** 主視窗重載／崩潰／關閉時呼叫：Desktop 進入「未連線」 */
@@ -195,7 +204,7 @@ export function closeDesktopWindow() {
 /**
  * @param {{ store: any, dirname: string, getMainWindow: () => BrowserWindow | null,
  *           showMainWindow: () => void, loadPage: (win: BrowserWindow, page: string) => void,
- *           onChange: () => void }} options
+ *           onChange: () => void, getLatestBackupAt: () => Promise<number | null> }} options
  */
 export function initDesktopIpc(options) {
   ctx = options;
@@ -217,6 +226,10 @@ export function initDesktopIpc(options) {
   ipcMain.handle('desktop:is-open', (e) => (fromMain(e) ? isDesktopOpen() : false));
 
   ipcMain.handle('desktop:get-summary', (e) => (fromDesktop(e) ? summary : null));
+
+  // 最新一份硬碟備份的時間（只有時間，從檔名讀；不碰備份內容）。不經過主視窗：
+  // 備份檔是 main process 寫的，主視窗沒開好時也該看得到
+  ipcMain.handle('desktop:get-backup-status', async (e) => (fromDesktop(e) ? { latest: await ctx.getLatestBackupAt() } : null));
 
   // 排列：沒存過回 null（Desktop 用預設）；送來的格式不對一律拒絕
   ipcMain.handle('desktop:get-layout', (e) => (fromDesktop(e) ? storedLayout() : null));

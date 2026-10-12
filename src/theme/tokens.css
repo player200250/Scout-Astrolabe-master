@@ -48,6 +48,7 @@
     --danger-bg: #fee2e2;
     --danger-bg-soft: #fff5f5;
     --danger-border: #fecaca;
+    --warn: #c2410c;
     --warn-bg: #fff7ed;
     --success-bg: #f8fff8;
 
@@ -104,6 +105,7 @@
     --danger-bg: #3f1f1f;
     --danger-bg-soft: rgba(220, 38, 38, 0.14);
     --danger-border: #7f1d1d;
+    --warn: #fdba74;
     --warn-bg: #431407;
     --success-bg: #1a2e1a;
 

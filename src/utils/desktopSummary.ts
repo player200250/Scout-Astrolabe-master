@@ -11,10 +11,13 @@
 import type { BoardRecord } from '../db'
 import { getCardShapes } from './snapshot'
 import { findJournalCard } from './journalCards'
+import { toDateStr } from './date'
 
 /** 摘要裡最多帶幾筆待辦（畫面只顯示 5 筆，其餘算進「還有 N 項」） */
 export const DESKTOP_TASK_LIMIT = 20
 export const DESKTOP_RECENT_LIMIT = 5
+/** 「本週到期」看幾天：明天起算到 today + 7（含） */
+export const DESKTOP_UPCOMING_DAYS = 7
 /** 快速筆記長度上限：main process 也會擋一次 */
 export const DESKTOP_NOTE_MAX = 5000
 
@@ -36,6 +39,12 @@ export interface DesktopSummary {
         /** 逾期在前、同組內依到期日；最多 DESKTOP_TASK_LIMIT 筆 */
         items: DesktopTaskItem[]
     }
+    /** 明天到 DESKTOP_UPCOMING_DAYS 天後到期、還沒完成的待辦（不含今天與逾期：那些在 tasks） */
+    upcoming: {
+        count: number
+        /** 依到期日；最多 DESKTOP_TASK_LIMIT 筆 */
+        items: DesktopTaskItem[]
+    }
     recentBoards: { id: string; name: string; lastVisitedAt: number }[]
     journal: { hasEntryToday: boolean }
     inbox: { count: number }
@@ -46,22 +55,36 @@ export type DesktopCommand =
     | { type: 'open-board'; boardId: string }
     | { type: 'open-task-center' }
     | { type: 'open-journal' }
+    | { type: 'open-inbox' }
+    | { type: 'open-data-safety' }
     | { type: 'quick-capture'; text: string }
     | { type: 'refresh' }
 
 export type DesktopCommandResult = { ok: true } | { ok: false; reason: 'not-ready' | 'invalid' }
 
+/** 'YYYY-MM-DD' 加幾天（用本地日期算，不經過 UTC，避免跨時區差一天） */
+function addDays(dateStr: string, days: number): string {
+    const [y, m, d] = dateStr.split('-').map(Number)
+    return toDateStr(new Date(y, m - 1, d + days))
+}
+
 export function buildDesktopSummary(boards: BoardRecord[], today: string, now: number): DesktopSummary {
     let overdueCount = 0
     let todayCount = 0
     const items: DesktopTaskItem[] = []
+    const weekEnd = addDays(today, DESKTOP_UPCOMING_DAYS)
+    const upcoming: DesktopTaskItem[] = []
     // 跟側邊欄徽章（countDueTodos）同一個範圍：所有白板都算，數字才對得上
     for (const board of boards) {
         if (board.deletedAt) continue
         for (const shape of getCardShapes(board.snapshot)) {
             if (shape.props.type !== 'todo') continue
             for (const t of shape.props.todos ?? []) {
-                if (t.checked || !t.dueDate || t.dueDate > today) continue
+                if (t.checked || !t.dueDate) continue
+                if (t.dueDate > today) {
+                    if (t.dueDate <= weekEnd) upcoming.push({ boardName: board.name, text: t.text, dueDate: t.dueDate, isOverdue: false })
+                    continue
+                }
                 const isOverdue = t.dueDate < today
                 if (isOverdue) overdueCount++
                 else todayCount++
@@ -70,6 +93,7 @@ export function buildDesktopSummary(boards: BoardRecord[], today: string, now: n
         }
     }
     items.sort((a, b) => a.dueDate.localeCompare(b.dueDate))
+    upcoming.sort((a, b) => a.dueDate.localeCompare(b.dueDate))
 
     const recentBoards = boards
         .filter(b => !b.deletedAt && !b.isHome && !b.isInbox && !b.isJournal && !b.isFolder && b.lastVisitedAt)
@@ -84,6 +108,7 @@ export function buildDesktopSummary(boards: BoardRecord[], today: string, now: n
         generatedAt: now,
         today,
         tasks: { overdueCount, todayCount, items: items.slice(0, DESKTOP_TASK_LIMIT) },
+        upcoming: { count: upcoming.length, items: upcoming.slice(0, DESKTOP_TASK_LIMIT) },
         recentBoards,
         // 所有 Journal 白板都找（Dashboard 只看第一塊，是已知的不一致）
         journal: { hasEntryToday: findJournalCard(boards, today) !== null },

@@ -26,10 +26,10 @@
 五條規則：
 
 1. **Desktop 沒有自己的資料**。electron-store 只存 `desktopBounds`（位置）、`desktopOpen`（下次啟動要不要自動開）與 `desktopLayout`（卡片排列，2026-10-12 補充，見文末）。
-2. **Desktop 不碰 Dexie、snapshot、tldraw**。它看到的只有 `DesktopSummary`（`src/utils/desktopSummary.ts`）：數字、待辦文字、白板名稱，沒有縮圖、卡片 HTML、日記內容。
-3. **每個動作都是「打開 Scout 某處」或「呼叫主視窗既有的 handler」**。指令白名單：`open-board`／`open-task-center`／`open-journal`／`quick-capture`／`refresh`。快速筆記走 `handleAddCardToInbox`，和 Ctrl+Shift+Space 同一條路。
+2. **Desktop 不碰 Dexie、snapshot、tldraw**。它看到的只有 `DesktopSummary`（`src/utils/desktopSummary.ts`）：數字、待辦文字、白板名稱，沒有縮圖、卡片 HTML、日記內容。唯一例外是「資料安全」卡的最新硬碟備份時間：備份檔是 main process 寫的，由 main 從檔名讀出來直接給 Desktop（`desktop:get-backup-status`），只有一個時間戳、不碰備份內容（2026-10-12）。
+3. **每個動作都是「打開 Scout 某處」或「呼叫主視窗既有的 handler」**。指令白名單：`open-board`／`open-task-center`／`open-journal`／`open-inbox`／`open-data-safety`／`quick-capture`／`refresh`。快速筆記走 `handleAddCardToInbox`，和 Ctrl+Shift+Space 同一條路。
 4. **計算放 `src/utils/` 的純函式並測試**。`buildDesktopSummary` 零 runtime 依賴，node 環境就能測。
-5. **元件固定、不做 registry、沒有第三方 plugin**。v0.1 是 4 張卡（見附錄）。之後加卡上限 6 張；要超過就重新評估本 ADR。
+5. **元件固定、不做 registry、沒有第三方 plugin**。v0.1 是 4 張卡（見附錄）；2026-10-12 加了「本週到期」「資料安全」兩張（預設隱藏，從排列模式打開），**已到上限 6 張**，要再加就重新評估本 ADR。
 
 ---
 

@@ -50,6 +50,10 @@ export interface IDesktopAPI {
     getSummary: () => Promise<import('./utils/desktopSummary').DesktopSummary | null>
     onSummaryChanged: (callback: (summary: import('./utils/desktopSummary').DesktopSummary | null) => void) => () => void
     sendCommand: (cmd: import('./utils/desktopSummary').DesktopCommand) => Promise<import('./utils/desktopSummary').DesktopCommandResult>
+    /** 最新一份硬碟備份的時間（ms）；latest＝null 表示還沒有備份 */
+    getBackupStatus: () => Promise<{ latest: number | null } | null>
+    /** main 寫完一份硬碟備份；回傳 unsubscribe */
+    onBackupChanged: (callback: (latest: number | null) => void) => () => void
     /** 卡片排列；沒存過回 null。存的格式由 main 再檢查一次，不合格回 false */
     getLayout: () => Promise<unknown>
     setLayout: (layout: import('./utils/desktopLayout').DesktopLayout) => Promise<boolean>

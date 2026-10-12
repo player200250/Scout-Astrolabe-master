@@ -10,8 +10,18 @@ import {
 const layout = (order: DesktopCardId[], hidden: DesktopCardId[] = []): DesktopLayout => ({ version: 1, order, hidden })
 
 describe('normalizeDesktopLayout', () => {
-    it('預設＝ v1.5.0 的 2×2，全部顯示', () => {
-        expect(defaultDesktopLayout()).toEqual(layout(['clock', 'tasks', 'recent-boards', 'quick-note']))
+    it('預設＝ v1.5.0 的 2×2；新卡排在後面、預設隱藏', () => {
+        const d = defaultDesktopLayout()
+        expect(visibleDesktopCards(d)).toEqual(['clock', 'tasks', 'recent-boards', 'quick-note'])
+        expect(d.hidden).toEqual(['upcoming', 'backup'])
+    })
+
+    it('v1.6 之前存的排列（沒有新卡）：新卡補到最後、隱藏，畫面不變', () => {
+        const old = { order: ['quick-note', 'clock', 'tasks', 'recent-boards'], hidden: ['recent-boards'] }
+        expect(normalizeDesktopLayout(old)).toEqual(layout(
+            ['quick-note', 'clock', 'tasks', 'recent-boards', 'upcoming', 'backup'],
+            ['recent-boards', 'upcoming', 'backup'],
+        ))
     })
 
     it('壞掉的存檔回預設', () => {
@@ -21,18 +31,24 @@ describe('normalizeDesktopLayout', () => {
     })
 
     it('保留使用者的順序與隱藏', () => {
-        const saved = layout(['quick-note', 'clock', 'tasks', 'recent-boards'], ['recent-boards'])
+        const saved = layout(['quick-note', 'backup', 'clock', 'tasks', 'recent-boards', 'upcoming'], ['recent-boards'])
         expect(normalizeDesktopLayout(saved)).toEqual(saved)
     })
 
     it('不認得的丟掉、重複的只留第一個、缺的補到最後', () => {
         expect(normalizeDesktopLayout({ order: ['tasks', 'weather', 'tasks', 'clock'], hidden: ['weather'] }))
-            .toEqual(layout(['tasks', 'clock', 'recent-boards', 'quick-note']))
+            .toEqual(layout(['tasks', 'clock', 'recent-boards', 'quick-note', 'upcoming', 'backup'], ['upcoming', 'backup']))
     })
 
     it('快速筆記一律顯示', () => {
         expect(normalizeDesktopLayout({ order: [...DESKTOP_CARD_IDS], hidden: ['quick-note', 'clock'] }).hidden)
             .toEqual(['clock'])
+    })
+
+    it('六張全開剛好是上限', () => {
+        const all = normalizeDesktopLayout({ order: [...DESKTOP_CARD_IDS], hidden: [] })
+        expect(visibleDesktopCards(all)).toHaveLength(6)
+        expect(desktopRowCount(6)).toBe(3)
     })
 
     it('hidden 依 order 排序', () => {
@@ -51,7 +67,7 @@ describe('交換與移動', () => {
     const base = defaultDesktopLayout() // clock tasks / recent-boards quick-note
 
     it('拖曳交換兩張', () => {
-        expect(swapDesktopCards(base, 'clock', 'quick-note').order)
+        expect(visibleDesktopCards(swapDesktopCards(base, 'clock', 'quick-note')))
             .toEqual(['quick-note', 'tasks', 'recent-boards', 'clock'])
     })
 
@@ -61,9 +77,9 @@ describe('交換與移動', () => {
     })
 
     it('方向鍵在 2×2 裡移動', () => {
-        expect(moveDesktopCard(base, 'clock', 'right').order).toEqual(['tasks', 'clock', 'recent-boards', 'quick-note'])
-        expect(moveDesktopCard(base, 'clock', 'down').order).toEqual(['recent-boards', 'tasks', 'clock', 'quick-note'])
-        expect(moveDesktopCard(base, 'quick-note', 'up').order).toEqual(['clock', 'quick-note', 'recent-boards', 'tasks'])
+        expect(visibleDesktopCards(moveDesktopCard(base, 'clock', 'right'))).toEqual(['tasks', 'clock', 'recent-boards', 'quick-note'])
+        expect(visibleDesktopCards(moveDesktopCard(base, 'clock', 'down'))).toEqual(['recent-boards', 'tasks', 'clock', 'quick-note'])
+        expect(visibleDesktopCards(moveDesktopCard(base, 'quick-note', 'up'))).toEqual(['clock', 'quick-note', 'recent-boards', 'tasks'])
     })
 
     it('撞牆不動、不跨列', () => {
@@ -76,7 +92,7 @@ describe('交換與移動', () => {
     it('交換時跳過隱藏的卡（只看畫面上的格子）', () => {
         // 藏掉 tasks：畫面是 clock recent-boards / quick-note（橫跨）
         const l = hideDesktopCard(base, 'tasks')
-        expect(moveDesktopCard(l, 'clock', 'right').order).toEqual(['recent-boards', 'tasks', 'clock', 'quick-note'])
+        expect(visibleDesktopCards(moveDesktopCard(l, 'clock', 'right'))).toEqual(['recent-boards', 'clock', 'quick-note'])
     })
 
     it('單數張：最後一張橫跨兩欄，上下都接得到、左右不動', () => {
@@ -112,7 +128,7 @@ describe('隱藏與加回', () => {
     it('加回來的卡放在最後一格', () => {
         const l = showDesktopCard(hideDesktopCard(base, 'clock'), 'clock')
         expect(visibleDesktopCards(l)).toEqual(['tasks', 'recent-boards', 'quick-note', 'clock'])
-        expect(l.hidden).toEqual([])
+        expect(l.hidden).toEqual(['upcoming', 'backup'])
     })
 
     it('比較', () => {

@@ -17,6 +17,8 @@ export interface DesktopBridgeHandlers {
     onOpenBoard: (boardId: string) => void
     onOpenTaskCenter: () => void
     onOpenJournal: () => void
+    onOpenInbox: () => void
+    onOpenDataSafety: () => void
     onQuickCapture: (text: string) => void
 }
 
@@ -64,6 +66,8 @@ export function useDesktopBridge(boards: BoardRecord[], loading: boolean, handle
             }
             case 'open-task-center': h.onOpenTaskCenter(); break
             case 'open-journal': h.onOpenJournal(); break
+            case 'open-inbox': h.onOpenInbox(); break
+            case 'open-data-safety': h.onOpenDataSafety(); break
             case 'quick-capture': {
                 const text = typeof cmd.text === 'string' ? cmd.text.trim() : ''
                 if (text && text.length <= DESKTOP_NOTE_MAX) h.onQuickCapture(text)

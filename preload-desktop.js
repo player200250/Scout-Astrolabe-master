@@ -11,6 +11,12 @@ contextBridge.exposeInMainWorld('desktopAPI', {
     return () => ipcRenderer.removeListener('desktop:summary-changed', listener)
   },
   sendCommand: (cmd) => ipcRenderer.invoke('desktop:command', cmd),
+  getBackupStatus: () => ipcRenderer.invoke('desktop:get-backup-status'),
+  onBackupChanged: (callback) => {
+    const listener = (_e, latest) => callback(latest)
+    ipcRenderer.on('desktop:backup-changed', listener)
+    return () => ipcRenderer.removeListener('desktop:backup-changed', listener)
+  },
   getLayout: () => ipcRenderer.invoke('desktop:get-layout'),
   setLayout: (layout) => ipcRenderer.invoke('desktop:set-layout', layout),
 })

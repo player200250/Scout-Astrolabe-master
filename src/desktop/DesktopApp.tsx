@@ -21,19 +21,25 @@ import { ClockCard } from './ClockCard'
 import { TasksCard } from './TasksCard'
 import { RecentBoardsCard } from './RecentBoardsCard'
 import { QuickNoteCard } from './QuickNoteCard'
+import { UpcomingCard } from './UpcomingCard'
+import { BackupCard } from './BackupCard'
+import { useBackupStatus } from './useBackupStatus'
 
-function renderCard(id: DesktopCardId, now: Date, summary: DesktopSummary | null) {
+function renderCard(id: DesktopCardId, now: Date, summary: DesktopSummary | null, backupAt: number | null | undefined) {
     switch (id) {
         case 'clock': return <ClockCard now={now} summary={summary} />
         case 'tasks': return <TasksCard summary={summary} />
         case 'recent-boards': return <RecentBoardsCard summary={summary} />
-        case 'quick-note': return <QuickNoteCard connected={summary !== null} />
+        case 'quick-note': return <QuickNoteCard connected={summary !== null} inboxCount={summary?.inbox.count ?? 0} />
+        case 'upcoming': return <UpcomingCard summary={summary} />
+        case 'backup': return <BackupCard now={now} latest={backupAt} connected={summary !== null} />
     }
 }
 
 export function DesktopApp() {
     useDesktopTheme()
     const summary = useDesktopSummary()
+    const backupAt = useBackupStatus()
     const [layout, setLayout] = useDesktopLayout()
     const [editing, setEditing] = useState(false)
     const [now, setNow] = useState(() => new Date())
@@ -93,7 +99,7 @@ export function DesktopApp() {
                         onSwap={other => setLayout(swapDesktopCards(layout, other, id))}
                         onHide={() => setLayout(hideDesktopCard(layout, id))}
                     >
-                        {renderCard(id, now, summary)}
+                        {renderCard(id, now, summary, backupAt)}
                     </CardSlot>
                 ))}
             </main>

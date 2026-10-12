@@ -142,6 +142,8 @@ export default function App() {
         onOpenBoard: handleSwitch,
         onOpenTaskCenter: () => openPanel('taskCenter'),
         onOpenJournal: () => openReviewAt({ tab: 'journal', date: new Date() }),
+        onOpenInbox: () => openPanel('inboxTriage'),
+        onOpenDataSafety: () => openPanel('dataSafety'),
         onQuickCapture: handleAddCardToInbox,
     })
 
