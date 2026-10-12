@@ -11,7 +11,7 @@
 // 今日日記（JournalDayView）也用這支，只在外面多一排日期導覽。
 // `/` 選單與 `[[` 補全也與文字卡片共用（EditorMenus.tsx）。
 
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useEditor as useTiptap, EditorContent } from '@tiptap/react'
 import { richTextExtensions, RICH_TEXT_ATTRIBUTES } from '../card-shape/extensions/richText'
 import { RichTextToolbar } from '../card-shape/sub-components/RichTextToolbar'
@@ -57,10 +57,30 @@ export function JournalCardEditor({ boards, dateKey, template, onSaveJournal, ma
     const keyRef = useRef(dateKey)
     const boardIdRef = useRef(journalBoardId)
     const templateRef = useRef(template)
+    const onSaveRef = useRef(onSaveJournal)
     cardRef.current = card
     keyRef.current = dateKey
     boardIdRef.current = journalBoardId
     templateRef.current = template
+    onSaveRef.current = onSaveJournal
+
+    // 還沒存的編輯：連「是哪一天的」一起記下來。debounce 計時器到點、切換日期、關掉復盤中心
+    // 三條路都走 flushPending——以前卸載時只清掉計時器，最後 900ms 內打的字就沒了；切換日期時
+    // 計時器晚點才觸發，讀到的已經是新那天的內容，舊那天的字一樣沒存到。
+    const pending = useRef<{ html: string; key: string; card: typeof card; boardId: string | null; template: string } | null>(null)
+    const flushPending = useCallback(() => {
+        if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null }
+        const p = pending.current
+        pending.current = null
+        if (!p) return
+        // RC9：打了字又在同一個視窗內刪掉，這裡拿到的就是原封不動的模板——
+        // 存下去只會生出一張「只有標題、一個字沒填」的空殼卡（實測確認，見 bugs.md RC9）。
+        // 卡片已經存在就照常存：使用者可能是刻意清空。
+        if (!p.card && isUntouchedTemplate(p.html, p.template)) { setSaveStatus('none'); return }
+        setSaveStatus('saving')
+        onSaveRef.current(p.card?.boardId ?? p.boardId ?? '', p.key, p.html, p.card?.shapeId ?? null)
+        setTimeout(() => setSaveStatus('saved'), SAVE_STATUS_RESET_MS)
+    }, [])
 
     // `[[` 補全的候選：白板名＋卡片名。白板裡用的是 BacklinksContext 的增量索引，
     // 但復盤中心不在那個 Provider 底下，所以這裡由 boards 直接算（只在 boards 變動時重算）。
@@ -90,21 +110,20 @@ export function JournalCardEditor({ boards, dateKey, template, onSaveJournal, ma
         onUpdate: ({ editor }) => {
             if (skipUpdate.current) return
             setSaveStatus('pending')
+            // 每次編輯都存最新的 HTML（日記不大，getHTML 很便宜）：卸載時編輯器可能已經被銷毀，
+            // 那時候才去讀就來不及了
+            pending.current = {
+                html: editor.getHTML(), key: keyRef.current, card: cardRef.current,
+                boardId: boardIdRef.current, template: templateRef.current,
+            }
             if (saveTimer.current) clearTimeout(saveTimer.current)
-            saveTimer.current = setTimeout(() => {
-                const c = cardRef.current
-                const html = editor.getHTML()
-                // RC9：debounce 存的是「900ms 之後」的文件狀態，不是觸發當下。
-                // 打了字又在同一個視窗內刪掉，這裡拿到的就是原封不動的模板——
-                // 存下去只會生出一張「只有標題、一個字沒填」的空殼卡（實測確認，見 bugs.md RC9）。
-                // 卡片已經存在就照常存：使用者可能是刻意清空。
-                if (!c && isUntouchedTemplate(html, templateRef.current)) { setSaveStatus('none'); return }
-                setSaveStatus('saving')
-                onSaveJournal(c?.boardId ?? boardIdRef.current ?? '', keyRef.current, html, c?.shapeId ?? null)
-                setTimeout(() => setSaveStatus('saved'), SAVE_STATUS_RESET_MS)
-            }, 900)
+            saveTimer.current = setTimeout(flushPending, 900)
         },
     })
+
+    // 換日期前先把舊那天沒存的存掉。cleanup 會在下面那個 effect 換內容之前跑。
+    // syncToken（外部寫進卡片）刻意不 flush：那時存下去會蓋掉外部剛寫的內容，維持原本的行為
+    useEffect(() => flushPending, [dateKey, flushPending])
 
     useEffect(() => {
         skipUpdate.current = true
@@ -117,7 +136,6 @@ export function JournalCardEditor({ boards, dateKey, template, onSaveJournal, ma
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [dateKey, tiptap, syncToken])
 
-    useEffect(() => () => { if (saveTimer.current) clearTimeout(saveTimer.current) }, [])
 
     const menuPopups = useEditorMenus(tiptap, true, linkTargets, menuKeyRef)
 
