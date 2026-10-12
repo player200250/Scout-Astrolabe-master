@@ -13,12 +13,3 @@ export function openLink(url: string): void {
     if (window.electronAPI?.openLink) window.electronAPI.openLink(url)
     else window.open(url, '_blank', 'noopener,noreferrer')
 }
-
-/**
- * 在外部開啟一個（通常是本機 blob）URL，例如圖片卡的「新分頁」預覽。
- * 桌面走 electronAPI.openExternal，web fallback 開新分頁。
- */
-export function openExternalUrl(url: string): void {
-    if (window.electronAPI?.openExternal) window.electronAPI.openExternal(url)
-    else window.open(url, '_blank')
-}

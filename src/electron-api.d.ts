@@ -16,6 +16,10 @@ export interface IElectronAPI {
         ext: string
     } | null>
     openFile: (storedName: string) => Promise<void>
+    /** 用系統預設看圖程式開圖片卡的實體檔；不是圖片或找不到回 false */
+    openImage?: (storedName: string) => Promise<boolean>
+    /** 舊版 base64 圖片：寫暫存檔後用看圖程式開 */
+    openImageBytes?: (bytes: ArrayBuffer, ext: string) => Promise<boolean>
     deleteFile: (storedName: string) => Promise<void>
     saveImage: (bytes: ArrayBuffer, ext: string) => Promise<{ storedName: string }>
     /** 圖片同步（Supabase Storage）用的三個接縫；舊版 preload 沒有，故為選填。 */

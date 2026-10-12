@@ -8,6 +8,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getLinkPreview: (url) => ipcRenderer.invoke('get-link-preview', url),
   selectAndCopyFile: () => ipcRenderer.invoke('select-and-copy-file'),
   openFile: (storedName) => ipcRenderer.invoke('open-file', storedName),
+  openImage: (storedName) => ipcRenderer.invoke('open-image', storedName),
+  openImageBytes: (bytes, ext) => ipcRenderer.invoke('open-image-bytes', bytes, ext),
   deleteFile: (storedName) => ipcRenderer.invoke('delete-file', storedName),
   saveImage: (bytes, ext) => ipcRenderer.invoke('save-image', bytes, ext),
   // 圖片同步用（見 src/sync/imageSync.ts）。saveImage 會自己產生新 uuid 名字，

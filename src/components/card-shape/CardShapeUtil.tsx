@@ -18,7 +18,6 @@ import { CARD_COLORS, STICKY_COLORS, STICKY_COLOR_LIST, cardBackground } from '.
 import type { StickyColor } from './type/CardShape'
 import { Z_MODAL } from '../../constants'
 import { emitAppEvent, onAppEvent } from '../../utils/appEvents'
-import { openExternalUrl } from '../../platform/linkOpener'
 import { openStoredFile } from '../../platform/fileStore'
 import * as imageStore from '../../platform/imageStore'
 
@@ -283,32 +282,12 @@ function CardShapeComponent({ shape, editor }: { shape: TLCardShape; editor: Edi
                                 border: '1px solid rgba(255,255,255,0.2)',
                                 backdropFilter: 'blur(8px)',
                             }}
-                            onPointerDown={async (e) => {
+                            onPointerDown={(e) => {
                                 e.stopPropagation()
-                                const src = imageStore.getImageSrc(p)
-                                if (!src) return
-                                let blobUrl: string
-                                if (p.storedName) {
-                                    try {
-                                        const res = await fetch(src)
-                                        const blob = await res.blob()
-                                        blobUrl = URL.createObjectURL(blob)
-                                    } catch { return }
-                                } else {
-                                    const base64Data = src.split(',')[1]
-                                    const mimeType = src.split(';')[0].split(':')[1]
-                                    const byteCharacters = atob(base64Data)
-                                    const byteArray = new Uint8Array(byteCharacters.length)
-                                    for (let i = 0; i < byteCharacters.length; i++) {
-                                        byteArray[i] = byteCharacters.charCodeAt(i)
-                                    }
-                                    const blob = new Blob([byteArray], { type: mimeType })
-                                    blobUrl = URL.createObjectURL(blob)
-                                }
-                                openExternalUrl(blobUrl)
+                                void imageStore.openImageExternally(p)
                             }}
                         >
-                            🔗 新分頁
+                            🔗 用看圖程式開
                         </button>
                         <button
                             style={{

@@ -7,7 +7,7 @@
 //   3) open 已開、close 已關時回傳同一個 panels 物件（避免無謂 re-render）
 import { describe, it, expect } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
-import { usePanelState, PANEL_NAMES } from './usePanelState'
+import { usePanelState, PANEL_NAMES, showOnlyPanel, PANELS_SAFE_TO_CLOSE } from './usePanelState'
 
 describe('usePanelState', () => {
     it('初始時所有面板皆為關閉', () => {
@@ -64,5 +64,30 @@ describe('usePanelState', () => {
         })
         expect(result.current.panels.search).toBe(true)
         expect(result.current.panels.taskCenter).toBe(true)
+    })
+})
+
+describe('showOnlyPanel', () => {
+    const closed = Object.fromEntries(PANEL_NAMES.map(n => [n, false])) as Parameters<typeof showOnlyPanel>[0]
+
+    it('關掉會蓋住它的面板，再開指定的', () => {
+        const next = showOnlyPanel({ ...closed, inboxTriage: true, taskCenter: true }, 'dataSafety')
+        expect(next.dataSafety).toBe(true)
+        expect(next.inboxTriage).toBe(false)
+        expect(next.taskCenter).toBe(false)
+    })
+
+    it('有打到一半的東西的面板不關', () => {
+        const next = showOnlyPanel({ ...closed, quickCapture: true, reviewCenter: true, tagManager: true }, 'inboxTriage')
+        expect(next.quickCapture).toBe(true)
+        expect(next.reviewCenter).toBe(true)
+        expect(next.tagManager).toBe(true)
+        expect(PANELS_SAFE_TO_CLOSE).not.toContain('quickCapture')
+    })
+
+    it('null＝只收面板；沒變就回傳同一個物件', () => {
+        expect(showOnlyPanel({ ...closed, dataSafety: true }, null).dataSafety).toBe(false)
+        const same = { ...closed, dataSafety: true }
+        expect(showOnlyPanel(same, 'dataSafety')).toBe(same)
     })
 })

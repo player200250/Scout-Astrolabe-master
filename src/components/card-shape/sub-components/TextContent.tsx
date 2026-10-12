@@ -10,6 +10,7 @@ import { useEditorMenus } from './EditorMenus'
 import { BacklinksContext } from '../../../hooks/useBacklinks'
 import { emitAppEvent } from '../../../utils/appEvents'
 import { buildLinkTargets } from '../../../utils/cardLinks'
+import { sanitizeCardHtml } from '../../../utils/safeHtml'
 
 
 // 方案 A（Toggle 自動貼合高度）用的常數
@@ -269,7 +270,7 @@ export function TextContent({ editor: tldrawEditor, shape, isEditing, exitEdit, 
             })
             html = doc.body.innerHTML
         }
-        return html
+        return sanitizeCardHtml(html) // 最後一步：上面的加工也一起過濾（見 utils/safeHtml.ts）
     }, [p.text])
 
     // ⚠️ 唯讀內容用 useMemo 鎖成「同一個 React 元素」，只在 processedHtml（＝p.text）變時才重建。
@@ -284,11 +285,9 @@ export function TextContent({ editor: tldrawEditor, shape, isEditing, exitEdit, 
     if (!isEditing) {
         const isEmpty = !p.text || p.text === '<p></p>'
 
-        const getTextLength = (html: string) => {
-            const temp = document.createElement('div')
-            temp.innerHTML = html
-            return (temp.textContent || temp.innerText || '').length
-        }
+        // DOMParser 產生的文件不會載圖、不跑 onerror；document.createElement 的 div 即使沒掛上畫面也會
+        const getTextLength = (html: string) =>
+            (new DOMParser().parseFromString(html, 'text/html').body.textContent || '').length
         const textLength = getTextLength(p.text || '')
         // 含 Toggle 的卡片走 auto-fit：內容一定貼合卡片，故只有「超過上限被裁切」時才顯示 fade/footer；
         // 一般卡片維持原本以字數判斷。

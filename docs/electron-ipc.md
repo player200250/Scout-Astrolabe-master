@@ -58,7 +58,7 @@ app.setPath('userData', path.join(app.getPath('appData'), 'Scout-Astrolabe'))
 | channel | 方向 | 說明 |
 |---------|------|------|
 | `open-external-link` | renderer → main | 以系統預設瀏覽器開啟外部 URL |
-| `open-external` | renderer → main | 同上（圖片卡「新分頁」用） |
+| `open-external` | renderer → main | 同上（目前沒有呼叫端；圖片卡改走 `open-image`） |
 
 > 兩條都只放行 `http:`／`https:`／`mailto:`（根目錄 `externalUrl.js`，2026-10-12）。其他協定（`file:`、`ms-settings:`、`blob:`…）記一筆 warn 後丟掉，不交給 `shell.openExternal`。
 
@@ -69,6 +69,8 @@ app.setPath('userData', path.join(app.getPath('appData'), 'Scout-Astrolabe'))
 | `get-link-preview` | renderer → main | `{ title, description, thumbnail } \| null` | 以 `net.fetch` 抓取 URL 並用 regex 解析 og/meta tags |
 | `select-and-copy-file` | renderer → main | `{ storedName, originalName, fileSize, fileExt } \| null` | 開啟系統檔案選擇器（所有格式），將選取的檔案複製到 `userData/files/`，以 UUID 命名 |
 | `open-file` | renderer → main | `void` | 以系統預設程式開啟 `userData/files/` 中的指定檔案（`shell.openPath`） |
+| `open-image` | renderer → main | `boolean` | 圖片卡「用看圖程式開」：只放行圖片副檔名，用系統預設看圖程式開 `userData/files/` 的實體檔 |
+| `open-image-bytes` | renderer → main | `boolean` | 同上，給舊版 base64 圖片：寫到 temp 的「Scout Astrolabe 預覽」資料夾再開 |
 | `delete-file` | renderer → main | `void` | 刪除 `userData/files/` 中的指定檔案 |
 
 > ⚠️ 上面兩張表沒有跟上後來新增的 channel（圖片同步、硬碟備份等），以 `preload.js` 為準。
