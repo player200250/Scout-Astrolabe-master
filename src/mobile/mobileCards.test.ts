@@ -2,7 +2,7 @@
 // src/mobile/mobileCards.test.ts
 import { describe, it, expect } from 'vitest'
 import type { TLEditorSnapshot } from 'tldraw'
-import { toMobileCard, readBoardCards, splitCardText, summarizeCards } from './mobileCards'
+import { toMobileCard, readBoardCards, splitCardText, summarizeCards, hasRichFormatting } from './mobileCards'
 import { plainTextToHtml } from '../utils/snapshotPatch'
 
 const card = (id: string, props: Record<string, unknown>, x = 0, y = 0) => ({ id, x, y, props })
@@ -187,5 +187,21 @@ describe('summarizeCards', () => {
             card('shape:t', { type: 'todo', todos: [{ id: 'a', text: 'a', checked: true }] }),
         ]))
         expect(summarizeCards(cards)).toBe('1 張卡')
+    })
+})
+
+describe('hasRichFormatting（編輯前的掉格式警告）', () => {
+    it('只有 <p>／<br> 的卡不警告——手機自己存出來的就是這種', () => {
+        expect(hasRichFormatting('')).toBe(false)
+        expect(hasRichFormatting('<p>一</p><p>二<br>三</p><p></p>')).toBe(false)
+        expect(hasRichFormatting(plainTextToHtml('a < b\n第二行'))).toBe(false)
+    })
+
+    it('標題、粗體、清單、連結、帶屬性的段落都要警告', () => {
+        expect(hasRichFormatting('<h2>標題</h2><p>內文</p>')).toBe(true)
+        expect(hasRichFormatting('<p><strong>粗</strong></p>')).toBe(true)
+        expect(hasRichFormatting('<ul><li>項目</li></ul>')).toBe(true)
+        expect(hasRichFormatting('<p><a href="https://x.com">x</a></p>')).toBe(true)
+        expect(hasRichFormatting('<p style="text-align:center">置中</p>')).toBe(true)
     })
 })

@@ -12,6 +12,7 @@
     --border: #e3e6ea;
     --accent: #3b82f6;
     --danger: #ef4444;
+    --warn: #b45309;
     --ok: #22c55e;
 }
 
@@ -23,6 +24,7 @@
         --muted: #9aa1ac;
         --border: #2e323a;
         --accent: #60a5fa;
+        --warn: #fbbf24;
     }
 }
 
@@ -226,6 +228,7 @@ button {
 
 .notice { padding: 10px 12px; border-radius: 8px; margin-bottom: 10px; font-size: 13px; }
 .notice.err { background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--danger); }
+.notice.warn { background: color-mix(in srgb, var(--warn) 14%, transparent); color: var(--warn); margin-top: 8px; }
 
 /* S3 編輯：整列可按的待辦、卡片內的編輯框 */
 .todo-row {
