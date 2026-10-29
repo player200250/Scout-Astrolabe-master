@@ -46,6 +46,11 @@ export interface MobileCard {
      * 要顯示多長是 UI 的事（`.card-body` 用 CSS line-clamp 收），不要退回這一層做。
      */
     body: string
+    /**
+     * 內文帶有純文字表達不了的格式（標題、粗體、清單、連結…）。
+     * 手機編輯存回去只剩 `<p>`，這些格式會消失 ⇒ UI 要在編輯前先講。
+     */
+    hasFormatting: boolean
     todos: MobileTodo[]
     /** link 卡的網址；其餘型別為 null */
     url: string | null
@@ -124,7 +129,8 @@ export function toMobileCard(shape: {
         ? rawType as MobileCardType
         : 'unknown'
 
-    const { title, body } = splitCardText(typeof p.text === 'string' ? p.text : '')
+    const html = typeof p.text === 'string' ? p.text : ''
+    const { title, body } = splitCardText(html)
 
     const todos: MobileTodo[] = Array.isArray(p.todos)
         ? (p.todos as { id?: string; text?: string; checked?: boolean; dueDate?: string | null }[])
@@ -150,6 +156,7 @@ export function toMobileCard(shape: {
         type,
         title: finalTitle,
         body,
+        hasFormatting: hasRichFormatting(html),
         todos,
         url: typeof p.url === 'string' ? p.url : null,
         fileName: typeof p.originalName === 'string' ? p.originalName : null,
@@ -157,6 +164,14 @@ export function toMobileCard(shape: {
         x: shape.x,
         y: shape.y,
     }
+}
+
+/**
+ * 存回去會不會掉格式：只有不帶屬性的 `<p>`／`<br>` 能被 `plainTextToHtml` 原樣重建，
+ * 其他任何標籤（或帶 class/style 的 `<p>`）都會在手機編輯後消失。
+ */
+export function hasRichFormatting(html: string): boolean {
+    return /<(?!\/?p>|br\s*\/?>)/i.test(html)
 }
 
 /**

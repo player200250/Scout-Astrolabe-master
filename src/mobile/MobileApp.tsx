@@ -1,9 +1,9 @@
 // src/mobile/MobileApp.tsx
-// 手機速記 PWA 的畫面（S1）。
+// 手機 PWA 的畫面：S1 速記（預設畫面）＋ S2 瀏覽白板 ＋ S3 勾待辦／改文字。
 //
-// 範圍刻意極小：**登入 → 打字 → 送出 → 進桌機收件匣**。沒有畫布、沒有白板清單、
-// 不能編輯既有卡片（那是 S2 / S3）。理由是最高頻的痛點只有一個：
-// 「人在外面想記一下」，而那件事最怕的是流程長、開得慢。
+// 開啟就是速記畫面：**登入 → 打字 → 送出 → 進桌機收件匣**。最高頻的痛點是
+// 「人在外面想記一下」，那件事最怕流程長、開得慢，所以瀏覽與編輯都退到「白板」按鈕後面。
+// 沒有畫布（手機不跑 tldraw）；瀏覽畫面在 MobileBrowse.tsx。
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { loadSyncConfig, saveSyncConfig, isSyncConfigured, type SyncConfig } from '../sync/syncConfig'
 import { signIn, signOut, getCurrentSession } from '../sync/supabaseClient'

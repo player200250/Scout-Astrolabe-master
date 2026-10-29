@@ -11,6 +11,7 @@
 import { useState } from 'react'
 import type { MobileBoard } from './mobileSyncCore'
 import { summarizeCards, type MobileCard, type MobileCardType } from './mobileCards'
+import { isSafeExternalUrl } from '../../externalUrl.js'
 
 type Msg = { text: string; kind: 'ok' | 'err' } | null
 
@@ -141,6 +142,11 @@ function CardView({ card, edit }: { card: MobileCard; edit: CardEditHandlers }) 
 
             {editing ? (
                 <>
+                    {card.hasFormatting && (
+                        <div className="notice warn">
+                            這張卡有格式（標題、粗體、清單、連結等）。在手機上儲存後會全部變成純文字。
+                        </div>
+                    )}
                     <textarea
                         className="note edit"
                         value={draft}
@@ -187,8 +193,12 @@ function CardView({ card, edit }: { card: MobileCard; edit: CardEditHandlers }) 
                 </ul>
             )}
 
+            {/* 只放行 http(s)／mailto——`javascript:` 在這個 origin 跑得到 localStorage 裡的登入 token。
+                擋下來的照樣顯示成文字，看得到但點不了 */}
             {card.type === 'link' && card.url && (
-                <a className="small" href={card.url} target="_blank" rel="noreferrer">{card.url}</a>
+                isSafeExternalUrl(card.url)
+                    ? <a className="small" href={card.url} target="_blank" rel="noreferrer">{card.url}</a>
+                    : <div className="muted small">{card.url}</div>
             )}
 
             {/* 手機拿不到實體檔——說清楚而不是給一個按了沒反應的東西 */}
