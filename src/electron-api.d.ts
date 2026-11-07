@@ -42,6 +42,11 @@ export interface IElectronAPI {
     publishDesktopSummary?: (summary: import('./utils/desktopSummary').DesktopSummary) => void
     /** Scout Desktop 轉來的指令；回傳 unsubscribe */
     onDesktopCommand?: (callback: (cmd: import('./utils/desktopSummary').DesktopCommand) => void) => () => void
+    /** Claude Code（MCP）轉來的請求；回傳 unsubscribe。舊版 preload 沒有，故為選填 */
+    onMcpRequest?: (callback: (req: import('./utils/mcpTools').McpRequest) => void) => () => void
+    sendMcpResponse?: (id: string, result: import('./utils/mcpTools').McpResult) => void
+    /** 主視窗資料載好、可以接 MCP 請求了（false＝暫停） */
+    setMcpReady?: (ready: boolean) => void
     /** 開／關 Scout Desktop，回傳之後是否開著 */
     toggleDesktop?: () => Promise<boolean>
     isDesktopOpen?: () => Promise<boolean>

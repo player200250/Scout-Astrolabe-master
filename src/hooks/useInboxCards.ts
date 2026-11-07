@@ -88,9 +88,10 @@ export function useInboxCards(state: InboxCardsSharedState) {
         [handleMoveCardsToBoard],
     )
 
-    const handleAddCardToInbox = useCallback((text: string) => {
+    // 回傳新卡的 shapeId（MCP 的 add_to_inbox 要回給 Claude）；沒有收件匣回 null
+    const handleAddCardToInbox = useCallback((text: string): string | null => {
         const inboxBoard = boards.find(b => b.isInbox)
-        if (!inboxBoard) return
+        if (!inboxBoard) return null
 
         // 建卡本身抽到 utils/quickCaptureCard.ts，與手機 PWA 速記共用同一份實作
         const { snapshot, shapeId: newShapeId, x: slotX, y: slotY } =
@@ -101,6 +102,7 @@ export function useInboxCards(state: InboxCardsSharedState) {
         setBoards(prev => prev.map(b => b.id === inboxBoard.id ? updated : b))
 
         emitAppEvent('quick-capture-card', { text, x: slotX, y: slotY, shapeId: newShapeId })
+        return newShapeId
     }, [boards, setBoards])
 
     const handleUpdateInboxCardProps = useCallback((shapeId: string, patch: Partial<SnapshotShapeProps>) => {

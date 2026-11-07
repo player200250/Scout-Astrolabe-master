@@ -88,6 +88,8 @@
       "loginStartup.js",
       "desktopWindow.js",
       "desktopLayoutRules.js",
+      "mcpServer.js",
+      "mcpRules.js",
       "preload-desktop.js",
       "package.json"
     ],

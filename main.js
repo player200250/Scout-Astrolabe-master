@@ -12,6 +12,7 @@ import { isSafeExternalUrl } from './externalUrl.js';
 import { trayTooltip, TRAY_TITLE } from './trayTooltip.js';
 import { launchedAtLogin, startHidden, loginItemOptions } from './loginStartup.js';
 import { initDesktopIpc, notifyBackupChanged, toggleDesktopWindow, closeDesktopWindow, isDesktopOpen, markMainNotReady, summonDesktopWindow, restoreDesktopWindow, markDesktopShuttingDown } from './desktopWindow.js';
+import { initMcpIpc, isMcpEnabled, setMcpEnabled, markMcpNotReady, stopMcpServer } from './mcpServer.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -140,6 +141,16 @@ function buildTrayMenu() {
         tray?.setContextMenu(buildTrayMenu()); // 重讀系統狀態：寫入失敗時勾勾會跳回去
       },
     }] : []),
+    {
+      // Claude Code 讀寫白板的本機接口（ADR 0010）。預設關閉
+      label: '允許 Claude Code 連線',
+      type: 'checkbox',
+      checked: isMcpEnabled(),
+      click: (item) => {
+        setMcpEnabled(item.checked);
+        tray?.setContextMenu(buildTrayMenu());
+      },
+    },
     { type: 'separator' },
     { label: '離開 Scout Astrolabe', click: () => { isQuitting = true; app.quit(); } },
   ]);
@@ -229,10 +240,11 @@ function createWindow({ show = true } = {}) {
   win.webContents.on('render-process-gone', (_e, details) => {
     console.error('❌ renderer 程序結束（白屏元兇）:', details);
     markMainNotReady();
+    markMcpNotReady();
   });
   // 重新整理（含開發時的整頁重載）：舊摘要在新頁面發布前都不可信。
   // 用 did-navigate 而不是 did-start-loading：後者連 iframe（YouTube 內嵌）載入也會觸發
-  win.webContents.on('did-navigate', () => markMainNotReady());
+  win.webContents.on('did-navigate', () => { markMainNotReady(); markMcpNotReady(); });
   win.webContents.on('did-fail-load', (_e, code, desc, url) => {
     console.error('❌ 頁面載入失敗:', code, desc, url);
   });
@@ -247,6 +259,7 @@ function createWindow({ show = true } = {}) {
 
   win.on('closed', () => {
     mainWindow = null;
+    markMcpNotReady();
     // 資料來源沒了：Desktop 一起關，否則它會讓 window-all-closed 不觸發、還顯示過時資料
     markMainNotReady();
     closeDesktopWindow();
@@ -313,6 +326,7 @@ app.whenReady().then(() => {
     getLatestBackupAt: latestBackupAt,
     onSummary: (summary) => tray?.setToolTip(trayTooltip(summary)),
   });
+  initMcpIpc({ store, getMainWindow: () => mainWindow });
   // 托盤先建：開機啟動要先確定托盤在，才能把主視窗藏起來（沒托盤就叫不回來）
   createTray();
   createWindow({
@@ -341,7 +355,7 @@ app.whenReady().then(() => {
 });
 
 app.on('before-quit', () => { isQuitting = true; markDesktopShuttingDown(); });
-app.on('will-quit', () => { globalShortcut.unregisterAll(); });
+app.on('will-quit', () => { globalShortcut.unregisterAll(); stopMcpServer(); });
 
 app.on('window-all-closed', () => {
   // 有托盤且設定為最小化到托盤時，視窗全關只是收起來，不結束程式

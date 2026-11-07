@@ -39,6 +39,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('desktop:main-command', listener)
     return () => ipcRenderer.removeListener('desktop:main-command', listener)
   },
+  // Claude Code（MCP）：main 轉來的請求、主視窗執行完回覆（見 mcpServer.js、ADR 0010）
+  onMcpRequest: (callback) => {
+    const listener = (_e, req) => callback(req)
+    ipcRenderer.on('mcp:request', listener)
+    return () => ipcRenderer.removeListener('mcp:request', listener)
+  },
+  sendMcpResponse: (id, result) => ipcRenderer.send('mcp:response', { id, result }),
+  setMcpReady: (ready) => ipcRenderer.send('mcp:ready', ready),
   toggleDesktop: () => ipcRenderer.invoke('desktop:toggle'),
   isDesktopOpen: () => ipcRenderer.invoke('desktop:is-open'),
   onDesktopOpenChanged: (callback) => {

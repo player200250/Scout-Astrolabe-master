@@ -21,6 +21,7 @@ import { useFolder } from './useFolder'
 import { useJournal } from './useJournal'
 import { useInboxCards } from './useInboxCards'
 import { useTags } from './useTags'
+import { useTodoEdits } from './useTodoEdits'
 import { useCloudSync } from './useCloudSync'
 import { showToast } from '../utils/toast'
 
@@ -56,6 +57,7 @@ export function useBoardManager() {
         handleUpdateInboxCardProps,
     } = useInboxCards({ boards, setBoards })
     const { handleRewriteTag } = useTags({ boards, setBoards })
+    const { handleEditTodo } = useTodoEdits({ boards, setBoards })
     const { syncStatus } = useCloudSync({ setBoards, activeBoardId, setActiveBoardId, enabled: !loading })
 
     useEffect(() => {
@@ -365,6 +367,7 @@ export function useBoardManager() {
         handleSetFolder,
         handleDeleteFolder,
         handleRewriteTag,
+        handleEditTodo,
         imageMigrating,
         migrateAllNow,
         syncStatus,
