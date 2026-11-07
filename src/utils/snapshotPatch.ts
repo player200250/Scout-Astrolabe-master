@@ -64,6 +64,29 @@ export function toggleTodo(
 }
 
 /**
+ * 改一個待辦項目的到期日（'YYYY-MM-DD'；null＝拿掉到期日）。
+ * 同 toggleTodo 用 todo 的 id 定位；找不到就回傳原 snapshot。
+ */
+export function setTodoDue(
+    snapshot: TLEditorSnapshot,
+    shapeId: string,
+    todoId: string,
+    dueDate: string | null,
+): TLEditorSnapshot {
+    return patchCardProps(snapshot, shapeId, props => {
+        const todos = props.todos
+        if (!Array.isArray(todos)) return null
+        let hit = false
+        const next = (todos as { id?: string }[]).map(t => {
+            if (t?.id !== todoId) return t
+            hit = true
+            return { ...t, dueDate }
+        })
+        return hit ? { ...props, todos: next } : null
+    })
+}
+
+/**
  * 換掉文字卡的內容。
  *
  * ⚠️ 傳進來的是**純文字**（手機上編輯的就是純文字），這裡包成 `<p>` 段落再存。

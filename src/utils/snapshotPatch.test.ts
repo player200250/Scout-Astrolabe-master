@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest'
 import type { TLEditorSnapshot } from 'tldraw'
 import { getSnapshotStore } from './snapshot'
 import {
-    toggleTodo, setCardText, setCardStatus, setCardPriority, plainTextToHtml,
+    toggleTodo, setTodoDue, setCardText, setCardStatus, setCardPriority, plainTextToHtml,
 } from './snapshotPatch'
 
 function snap(shapes: Record<string, Record<string, unknown>>): TLEditorSnapshot {
@@ -18,6 +18,35 @@ function snap(shapes: Record<string, Record<string, unknown>>): TLEditorSnapshot
 
 const props = (s: TLEditorSnapshot, id: string) =>
     getSnapshotStore(s)[id]?.props as Record<string, unknown>
+
+describe('setTodoDue', () => {
+    const base = snap({
+        'shape:t': {
+            type: 'todo',
+            todos: [
+                { id: 'a', text: '第一項', checked: false, dueDate: '2026-11-01' },
+                { id: 'b', text: '第二項', checked: false },
+            ],
+        },
+    })
+
+    it('依 id 改到期日，其他項不動', () => {
+        const next = setTodoDue(base, 'shape:t', 'b', '2026-11-10')
+        expect(props(next, 'shape:t').todos).toEqual([
+            { id: 'a', text: '第一項', checked: false, dueDate: '2026-11-01' },
+            { id: 'b', text: '第二項', checked: false, dueDate: '2026-11-10' },
+        ])
+    })
+
+    it('null＝拿掉到期日', () => {
+        const next = setTodoDue(base, 'shape:t', 'a', null)
+        expect((props(next, 'shape:t').todos as { dueDate?: string | null }[])[0].dueDate).toBeNull()
+    })
+
+    it('找不到 todoId 時原樣回傳', () => {
+        expect(setTodoDue(base, 'shape:t', '不存在', '2026-11-10')).toBe(base)
+    })
+})
 
 describe('toggleTodo', () => {
     const base = snap({

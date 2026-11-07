@@ -13,6 +13,7 @@ import { ToastHost } from './components/ui/ToastHost'
 import { PromptHost } from './components/ui/PromptHost'
 import { onTriggerQuickCapture } from './platform/quickCapture'
 import { useDesktopBridge } from './hooks/useDesktopBridge'
+import { useMcpBridge } from './hooks/useMcpBridge'
 import { Whiteboard } from './components/Whiteboard'
 import { BoardTabBar } from './components/BoardTabBar'
 import { BoardOverview } from './components/BoardOverview'
@@ -60,7 +61,7 @@ export default function App() {
         handleAddCardToInbox, handleUpdateInboxCardProps, handleTrashInboxCard,
         recentlyTrashedShapeIds,
         handleCreateFolder, handleSetFolder, handleDeleteFolder,
-        handleRewriteTag,
+        handleRewriteTag, handleEditTodo,
         migrateAllNow,
     } = useBoardManager()
 
@@ -151,6 +152,9 @@ export default function App() {
         onSearch: (query) => { setSwitcherQuery(query); setSwitcherKey(k => k + 1); showOnly('quickSwitcher') },
         onQuickCapture: handleAddCardToInbox,
     })
+
+    // Claude Code（MCP）：寫入一樣走既有 handler，主視窗仍是唯一寫入者（ADR 0010）
+    useMcpBridge(boards, loading, { onAddToInbox: handleAddCardToInbox, onEditTodo: handleEditTodo })
 
     // Command Palette（N1）命令清單：把散落各處的入口統一為可搜尋動作。
     const commands = useMemo(() => buildCommands({

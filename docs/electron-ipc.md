@@ -97,6 +97,18 @@ Desktop 用自己的 `preload-desktop.js`（只暴露 `window.desktopAPI` 三個
 | `desktop:get-layout` | Desktop → main（invoke） | 卡片排列（electron-store `desktopLayout`）；沒存過回 `null`（2026-10-12） |
 | `desktop:set-layout` | Desktop → main（invoke） | 存排列，`desktopLayoutRules.js` 檢查格式，不合格回 `false`；列數變了就調最小高度，第一次變 3 列時把視窗加高到 700 |
 
+### Claude Code（MCP）接口（v1.7.0，見 ADR 0010）
+
+main 開一個只綁 `127.0.0.1` 的 HTTP 接口（`mcpServer.js`，門口檢查在 `mcpRules.js`），
+`scripts/scout-mcp.mjs`（Claude Code 啟動的 stdio MCP server）讀 userData 的 `mcp-endpoint.json` 拿 port 與 token 來連。
+托盤「允許 Claude Code 連線」打開才聽（electron-store `mcpEnabled`）。寫入紀錄在 userData 的 `mcp-log.jsonl`。
+
+| channel | 方向 | 說明 |
+|---------|------|------|
+| `mcp:ready` | 主視窗 → main（send） | 資料載好可以接請求（`true`）／卸載（`false`）；重載、崩潰、關閉時 main 自己歸零 |
+| `mcp:request` | main → 主視窗 | `{ id, tool, args }`；由 `useMcpBridge` 排隊執行，參數再用 `parseMcpArgs` 驗一次 |
+| `mcp:response` | 主視窗 → main（send） | `{ id, result }`，`result`＝`{ok:true, data}` 或 `{ok:false, error}`；10 秒沒回 main 自己回逾時 |
+
 electron-store 新增 `desktopBounds`（Desktop 視窗位置）與 `desktopOpen`（上次關 App 時開著 ⇒ 下次自動開；跟著 App 結束而關不算使用者關掉）。全域快捷鍵 `Ctrl+Alt+D`：沒開就開、被蓋住就叫到前面、已在最前面才關。開發時可設 `SCOUT_OPEN_DESKTOP=1` 讓 Desktop 隨 App 開啟（安裝版不理會）。
 
 ---
