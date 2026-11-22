@@ -1,6 +1,6 @@
 // src/utils/weeklyReviewUtils.test.ts
 import { describe, it, expect } from 'vitest'
-import { getISOWeekKey, getWeekRange, recentWeekStarts, weekOwnerMonth, weeksOfMonth, extractNextWeekGoals, nextWeekFriday, computeRangeStats } from './weeklyReviewUtils'
+import { getISOWeekKey, getWeekRange, recentWeekStarts, weekOwnerMonth, weeksOfMonth, extractNextWeekGoals, nextWeekFriday, goalDueDate, computeRangeStats } from './weeklyReviewUtils'
 import type { BoardRecord } from '../db'
 
 describe('getISOWeekKey', () => {
@@ -188,5 +188,19 @@ describe('computeRangeStats：完成待辦的番茄數', () => {
         const s = computeRangeStats(boards, w.start, w.end)
         expect(s.completedTodos).toBe(2)
         expect(s.focusOnCompleted).toBe(3)
+    })
+})
+
+describe('goalDueDate', () => {
+    it('該週的下週五還沒過：照用', () => {
+        expect(goalDueDate(new Date(2026, 10, 16), new Date(2026, 10, 22))).toBe('2026-11-27')
+    })
+    it('翻回舊的週（第 38 週，下週五 9/25 早過了）：改成今天算起的下週五', () => {
+        expect(goalDueDate(new Date(2026, 8, 14), new Date(2026, 10, 22))).toBe('2026-11-27')
+        // 今天是週一也一樣：下週五，不是這週五
+        expect(goalDueDate(new Date(2026, 8, 14), new Date(2026, 10, 23))).toBe('2026-12-04')
+    })
+    it('上週：下週五就是這週五，還沒過就照用', () => {
+        expect(goalDueDate(new Date(2026, 10, 9), new Date(2026, 10, 11))).toBe('2026-11-20')
     })
 })

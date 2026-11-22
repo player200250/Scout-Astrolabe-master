@@ -3,7 +3,7 @@ import {
     initialState, start, pause, reset, advance, setPreset,
     remainingMs, hasElapsed, isRunning, isIdle, formatRemaining, progress,
     nextPhaseAfterFocus, parseStored, phaseDurationMs, durationsOf, phaseLabel,
-    LONG_BREAK_EVERY, setLinkedTask,
+    LONG_BREAK_EVERY, setLinkedTask, readyToFocus,
 } from './pomodoro'
 
 const TODAY = '2026-08-08'
@@ -253,5 +253,23 @@ describe('pomodoro：綁待辦', () => {
         const back = parseStored(JSON.stringify(bad), TODAY)
         expect(back.linkedTask).toBeNull()
         expect(back.completedFocus).toBe(3)
+    })
+})
+
+describe('pomodoro：按「專注」準備好專注', () => {
+    it('停在休息（沒在跑）→ 切回專注，番茄數不動', () => {
+        const s = { ...initialState(TODAY), phase: 'shortBreak' as const, completedFocus: 2 }
+        const r = readyToFocus(s)
+        expect(r.phase).toBe('focus')
+        expect(r.completedFocus).toBe(2)
+        expect(isIdle(r)).toBe(true)
+    })
+    it('休息正在跑 → 不打斷', () => {
+        const s = start({ ...initialState(TODAY), phase: 'shortBreak' as const }, T0)
+        expect(readyToFocus(s)).toBe(s)
+    })
+    it('已經是專注 → 原樣', () => {
+        const s = initialState(TODAY)
+        expect(readyToFocus(s)).toBe(s)
     })
 })

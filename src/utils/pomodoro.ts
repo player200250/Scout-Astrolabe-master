@@ -200,6 +200,16 @@ export function setLinkedTask(state: PomodoroState, task: LinkedTask | null): Po
     return { ...state, linkedTask: task }
 }
 
+/**
+ * 從任務中心按「專注」：綁好之後要能直接按開始就專注。
+ * 停在休息階段（沒在跑）時切回專注——不然按開始跑的是休息（v1.8.0 驗收時桌面版 Claude 抓到）。
+ * 休息**正在跑**就不動：那是使用者自己按的，不該被另一顆按鈕打斷。
+ */
+export function readyToFocus(state: PomodoroState): PomodoroState {
+    if (state.phase === 'focus' || !isIdle(state)) return state
+    return { ...state, phase: 'focus', endsAt: null, pausedRemainingMs: null }
+}
+
 function parseLinkedTask(v: unknown): LinkedTask | null {
     if (!v || typeof v !== 'object') return null
     const o = v as Record<string, unknown>
