@@ -58,7 +58,7 @@ export default function App() {
         handleRestore, handleSaveJournal,
         handleMoveCardsToBoard, handleCreateBoard,
         handleToggleCollapse, handleGoToInbox, handleReorderBoards,
-        handleAddCardToInbox, handleUpdateInboxCardProps, handleTrashInboxCard,
+        handleAddCardToInbox, handleAddTodoToInbox, handleUpdateInboxCardProps, handleTrashInboxCard,
         recentlyTrashedShapeIds,
         handleCreateFolder, handleSetFolder, handleDeleteFolder,
         handleRewriteTag, handleEditTodo,
@@ -351,6 +351,7 @@ export default function App() {
                     onClose={() => closePanel('reviewCenter')}
                     onJumpToBoard={handleSwitch}
                     onSaveJournal={handleSaveJournal}
+                    onAddTodoToInbox={handleAddTodoToInbox}
                 />
             )}
             {panels.knowledgeGraph && (

@@ -16,6 +16,8 @@ interface ReviewCenterProps {
     onClose: () => void
     onJumpToBoard: (boardId: string) => void
     onSaveJournal: (boardId: string, dateStr: string, html: string, shapeId: string | null) => void
+    /** 週回顧的「下週目標 → 待辦」 */
+    onAddTodoToInbox?: (text: string, title: string, dueDate: string | null) => string | null
     /**
      * 開啟時停在哪個分頁，預設月曆。
      * 儀表板的「開啟今日日記 →」要落在日記頁——按鈕名稱承諾了目的地就得兌現。
@@ -36,7 +38,7 @@ const TABS: { key: ReviewTab; label: string; icon: IconName }[] = [
     { key: 'weekly',   label: '週回顧',   icon: 'stats' },
 ]
 
-export function ReviewCenter({ boards, onClose, onJumpToBoard, onSaveJournal, initialTab = 'calendar', initialDate }: ReviewCenterProps) {
+export function ReviewCenter({ boards, onClose, onJumpToBoard, onSaveJournal, onAddTodoToInbox, initialTab = 'calendar', initialDate }: ReviewCenterProps) {
     const [tab, setTab] = useState<ReviewTab>(initialTab)
     const [journalDate, setJournalDate] = useState<Date>(() => initialDate ?? new Date())
 
@@ -109,6 +111,7 @@ export function ReviewCenter({ boards, onClose, onJumpToBoard, onSaveJournal, in
                     <WeeklyReviewContent
                         boards={boards}
                         onSaveJournal={onSaveJournal}
+                        onAddTodoToInbox={onAddTodoToInbox}
                         initialAnchor={initialDate}
                     />
                 )}

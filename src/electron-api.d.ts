@@ -79,7 +79,7 @@ declare global {
         'board-card-enter': CustomEvent<{ linkedBoardId: string }>
         'cleanup-orphan-board-cards': CustomEvent<{ deletedBoardId: string }>
         'jump-to-card': CustomEvent<{ boardId?: string; shapeId?: string; x?: number; y?: number; targetName?: string }>
-        'quick-capture-card': CustomEvent<{ text: string; x: number; y: number; shapeId: string }>
+        'quick-capture-card': CustomEvent<{ text: string; x: number; y: number; shapeId: string; kind?: { type: 'text' | 'todo'; text: string; todos: { id: string; text: string; checked: boolean; dueDate: string | null }[] } }>
         'delete-shape-from-editor': CustomEvent<{ shapeId: string }>
         'update-shape-props-in-editor': CustomEvent<{ shapeId: string; props: Record<string, unknown> }>
     }

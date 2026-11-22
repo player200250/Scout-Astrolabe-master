@@ -105,6 +105,23 @@ export function useInboxCards(state: InboxCardsSharedState) {
         return newShapeId
     }, [boards, setBoards])
 
+    /**
+     * 在收件匣建一張**單項待辦卡**（週回顧「下週目標 → 待辦」用）。
+     * 同 handleAddCardToInbox 走 snapshot＋事件兩條路；事件帶的 kind 取自存好的 snapshot，
+     * editor 端才會拿到同一個待辦 id。
+     */
+    const handleAddTodoToInbox = useCallback((text: string, title: string, dueDate: string | null): string | null => {
+        const inboxBoard = boards.find(b => b.isInbox)
+        if (!inboxBoard) return null
+        const { snapshot, shapeId, x, y } = appendQuickCaptureCard(inboxBoard.snapshot, text, 'goal', { title, dueDate })
+        const updated = { ...inboxBoard, snapshot, updatedAt: Date.now() }
+        saveBoard(updated)
+        setBoards(prev => prev.map(b => b.id === inboxBoard.id ? updated : b))
+        const p = getSnapshotStore(snapshot)[shapeId]?.props as { type: 'todo'; text: string; todos: { id: string; text: string; checked: boolean; dueDate: string | null }[] }
+        emitAppEvent('quick-capture-card', { text, x, y, shapeId, kind: { type: p.type, text: p.text, todos: p.todos } })
+        return shapeId
+    }, [boards, setBoards])
+
     const handleUpdateInboxCardProps = useCallback((shapeId: string, patch: Partial<SnapshotShapeProps>) => {
         const inboxBoard = boards.find(b => b.isInbox)
         if (!inboxBoard?.snapshot) return
@@ -127,6 +144,7 @@ export function useInboxCards(state: InboxCardsSharedState) {
 
     return {
         handleAddCardToInbox,
+        handleAddTodoToInbox,
         handleMoveCardToBoard,
         handleMoveCardsToBoard,
         handleUpdateInboxCardProps,

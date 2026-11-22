@@ -30,6 +30,8 @@ export function appendQuickCaptureCard(
     snapshot: TLEditorSnapshot | null,
     text: string,
     idPrefix = 'qc',
+    /** 給了就建成**待辦卡**（一個項目＝text，卡片標題＝todo.title），不是文字卡 */
+    todo?: { title: string; dueDate: string | null },
 ): QuickCaptureResult {
     const snap = toMutableSnapshot(snapshot)
     const store = snap.document.store
@@ -45,13 +47,29 @@ export function appendQuickCaptureCard(
         x, y, rotation: 0, index: newIndex,
         parentId: pageId, isLocked: false, opacity: 1, meta: stampCreated({}, Date.now()),
         props: {
-            type: 'text', text,
-            image: null, todos: [], url: '',
+            ...cardKindProps(text, todo),
+            image: null, url: '',
             linkEmbedUrl: null, journalDate: null,
-            state: 'idle', color: 'none', w: 240, h: 180,
+            state: 'idle', color: 'none', w: 240, h: todo ? TODO_CARD_H : 180,
             cardStatus: 'none', priority: 'none', tags: [],
         },
     }
 
     return { snapshot: toTLEditorSnapshot(snap), shapeId, x, y }
+}
+
+/** 單項待辦卡的高度：標題列＋一行項目，不留一大片空白 */
+const TODO_CARD_H = 120
+
+/** 文字卡與待辦卡的差別只在 type／text／todos 三欄；其餘 props 共用 */
+export function cardKindProps(
+    text: string,
+    todo?: { title: string; dueDate: string | null },
+): { type: 'text' | 'todo'; text: string; todos: { id: string; text: string; checked: boolean; dueDate: string | null }[] } {
+    if (!todo) return { type: 'text', text, todos: [] }
+    return {
+        type: 'todo',
+        text: todo.title,
+        todos: [{ id: Math.random().toString(36).slice(2, 8), text, checked: false, dueDate: todo.dueDate }],
+    }
 }
