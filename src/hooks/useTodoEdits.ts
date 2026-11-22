@@ -3,7 +3,7 @@ import type { Dispatch, SetStateAction } from 'react'
 import type { BoardRecord } from '../db'
 import { saveBoard } from '../utils/boardDb'
 import { getSnapshotStore } from '../utils/snapshot'
-import { toggleTodo, setTodoDue } from '../utils/snapshotPatch'
+import { toggleTodo, setTodoDue, addTodoFocus, setTodoSchedule } from '../utils/snapshotPatch'
 import { emitAppEvent } from '../utils/appEvents'
 
 /** useTodoEdits 需共用的核心 board state（由 useBoardManager 傳入） */
@@ -12,10 +12,16 @@ export interface TodoEditsSharedState {
     setBoards: Dispatch<SetStateAction<BoardRecord[]>>
 }
 
-export type TodoChange = { checked: boolean } | { dueDate: string | null }
+/** addFocus：番茄鐘綁這項的專注跑完了，番茄數 +1 */
+export type TodoChange =
+    | { checked: boolean }
+    | { dueDate: string | null }
+    | { addFocus: true }
+    /** 排進行事曆（null＝取消） */
+    | { schedule: { start: string; end: string } | null }
 
 /**
- * 在編輯器外改任一白板上的一個待辦項目（Claude Code 的 MCP 工具用，見 ADR 0010）。
+ * 在編輯器外改任一白板上的一個待辦項目（Claude Code 的 MCP 工具、番茄鐘綁任務共用，見 ADR 0010）。
  * - 改 snapshot 走 snapshotPatch（與手機端同一份實作），會補 checkedAt 與卡片 meta.updatedAt。
  * - 同 useTags：存檔後發 update-shape-props-in-editor，該板若正開著，editor 跟上新 todos——
  *   否則它的自動存檔會用舊 props 蓋回去；也因此開著的板可以 Ctrl+Z 復原。
@@ -29,7 +35,11 @@ export function useTodoEdits(state: TodoEditsSharedState) {
         if (!board?.snapshot) return false
         const snapshot = 'checked' in change
             ? toggleTodo(board.snapshot, shapeId, todoId, change.checked)
-            : setTodoDue(board.snapshot, shapeId, todoId, change.dueDate)
+            : 'addFocus' in change
+                ? addTodoFocus(board.snapshot, shapeId, todoId)
+                : 'schedule' in change
+                    ? setTodoSchedule(board.snapshot, shapeId, todoId, change.schedule)
+                    : setTodoDue(board.snapshot, shapeId, todoId, change.dueDate)
         if (snapshot === board.snapshot) return false
 
         const updated: BoardRecord = { ...board, snapshot, updatedAt: Date.now() }

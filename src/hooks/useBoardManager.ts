@@ -53,7 +53,7 @@ export function useBoardManager() {
     } = useFolder({ boards, setBoards })
     const { handleSetJournal, handleSaveJournal } = useJournal({ boards, setBoards })
     const {
-        handleAddCardToInbox, handleMoveCardToBoard, handleMoveCardsToBoard,
+        handleAddCardToInbox, handleAddTodoToInbox, handleMoveCardToBoard, handleMoveCardsToBoard,
         handleUpdateInboxCardProps,
     } = useInboxCards({ boards, setBoards })
     const { handleRewriteTag } = useTags({ boards, setBoards })
@@ -359,7 +359,7 @@ export function useBoardManager() {
         handleToggleCollapse,
         handleGoToInbox,
         handleReorderBoards,
-        handleAddCardToInbox,
+        handleAddCardToInbox, handleAddTodoToInbox,
         handleUpdateInboxCardProps,
         handleTrashInboxCard,
         recentlyTrashedShapeIds,

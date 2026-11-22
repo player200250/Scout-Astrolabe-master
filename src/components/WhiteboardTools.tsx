@@ -392,16 +392,17 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
     }, [editor, board.id])
 
     useEffect(() => {
-        return onAppEvent('quick-capture-card', ({ text, x, y, shapeId }) => {
+        return onAppEvent('quick-capture-card', ({ text, x, y, shapeId, kind }) => {
             if (!isInboxBoard) return
             editor.createShape({
                 id: shapeId as TLShapeId,
                 type: 'card', x, y,
                 props: {
-                    type: 'text', text,
-                    image: null, todos: [], url: '',
+                    type: 'text', text, todos: [],
+                    ...kind,
+                    image: null, url: '',
                     linkEmbedUrl: null, journalDate: null,
-                    state: 'idle', color: 'none', w: 280, h: 320,
+                    state: 'idle', color: 'none', w: 280, h: kind?.type === 'todo' ? 120 : 320,
                     cardStatus: 'none', priority: 'none', tags: [],
                 },
             })

@@ -95,6 +95,12 @@ export interface RangeStats {
     totalCards: number
     /** 期間內打勾的待辦；10/02 之前勾的沒有 checkedAt，退回看到期日 */
     completedTodos: number
+    /**
+     * 期間內完成的待辦，累計花了幾個番茄（TodoItem.focusCount 加總）。
+     * ⚠️ focusCount 沒有時間戳，是那一項的總數——所以只能掛在「這段期間完成的」底下算，
+     * 不能說成「這週專注了幾個」：跨週做完的事，前幾週的番茄也會算進完成那一週。
+     */
+    focusOnCompleted: number
     /** 期間內動過的卡片裡的 [[連結]] 數 */
     wikiLinks: number
     /** 期間內寫了日記的天數（日記卡本來就帶日期，過去的週也算得出來） */
@@ -109,6 +115,7 @@ export interface RangeStats {
 export function computeRangeStats(boards: BoardRecord[], rangeStart: Date, rangeEnd: Date): RangeStats {
     const cardsByBoard: { boardName: string; count: number }[] = []
     let completedTodos = 0
+    let focusOnCompleted = 0
     let wikiLinks = 0
     const journalDates = new Set<string>()
     const startDs = toLocalDateStr(rangeStart), endDs = toLocalDateStr(rangeEnd)
@@ -116,7 +123,11 @@ export function computeRangeStats(boards: BoardRecord[], rangeStart: Date, range
         let count = 0
         for (const shape of getCardShapes(board.snapshot)) {
             const p = shape.props
-            completedTodos += ((p.todos ?? []) as TodoItem[]).filter(t => todoCompletedIn(t, rangeStart, rangeEnd)).length
+            for (const t of (p.todos ?? []) as TodoItem[]) {
+                if (!todoCompletedIn(t, rangeStart, rangeEnd)) continue
+                completedTodos++
+                if (typeof t.focusCount === 'number' && t.focusCount > 0) focusOnCompleted += t.focusCount
+            }
             const jd = p.journalDate
             if (board.isJournal && p.type === 'journal' && typeof jd === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(jd) && jd >= startDs && jd <= endDs) {
                 journalDates.add(jd)
@@ -131,11 +142,57 @@ export function computeRangeStats(boards: BoardRecord[], rangeStart: Date, range
     cardsByBoard.sort((a, b) => b.count - a.count)
     return {
         cardsByBoard, totalCards: cardsByBoard.reduce((s, b) => s + b.count, 0),
-        completedTodos, wikiLinks, journalDays: journalDates.size,
+        completedTodos, focusOnCompleted, wikiLinks, journalDays: journalDates.size,
         coverage: trackingCoverage(rangeStart, rangeEnd),
     }
 }
 
 function toLocalDateStr(d: Date): string {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+/** 週回顧卡裡放下週目標的那一段的標題（與 WeeklyReview.tsx 的模板一致） */
+export const NEXT_WEEK_GOALS_HEADING = '下週目標'
+
+/**
+ * 從週回顧卡的 HTML 取出「下週目標」那一段的每一行。
+ *
+ * 那一段＝標題段落之後、到下一個粗體標題段落（`<p><strong>`）或 `<h*>` 之前。
+ * 使用者可能寫成一行一段，也可能用清單；兩種都以 `</p>`／`</li>` 切行。
+ * 也可能三件寫在同一段、用 ①②③ 分隔（第 38 週就是這樣寫的），所以圈號也切。
+ * 行首的「1.」「-」「•」「①」編號與行尾的「；」「。」拿掉——轉成待辦後那只是雜訊。
+ */
+export function extractNextWeekGoals(html: string): string[] {
+    const at = html.indexOf(NEXT_WEEK_GOALS_HEADING)
+    if (at < 0) return []
+    const afterHeading = html.indexOf('</p>', at)
+    if (afterHeading < 0) return []
+    let body = html.slice(afterHeading + 4)
+    const stop = body.search(/<p[^>]*>\s*<strong>|<h[1-6][\s>]/)
+    if (stop >= 0) body = body.slice(0, stop)
+    return body
+        .split(/<\/p>|<\/li>|<br\s*\/?>/)
+        .flatMap(chunk => decodeEntities(chunk.replace(/<[^>]*>/g, '')).split(/(?=[①-⑳])/))
+        .map(line => line
+            .replace(/^\s*(?:\d+[.、)）]|[-*•・]|[①-⑳])\s*/, '')
+            .replace(/[；;。，,\s]+$/, '')
+            .trim())
+        .filter(line => line.length > 0)
+}
+
+function decodeEntities(s: string): string {
+    return s
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/&amp;/g, '&')
+}
+
+/** 某週的「下週五」（YYYY-MM-DD）：下週目標轉成待辦時的預設到期日 */
+export function nextWeekFriday(weekStart: Date): string {
+    const d = new Date(weekStart)
+    d.setDate(weekStart.getDate() + 11)   // 本週一 + 7（下週一）+ 4
+    return toLocalDateStr(d)
 }

@@ -25,7 +25,7 @@ export function YearDigest({ boards, year, onOpenMonth }: YearDigestProps) {
         const first = weeks[0], last = weeks[weeks.length - 1]
         const stats = first && last
             ? computeRangeStats(boards, getWeekRange(first).start, getWeekRange(last).end)
-            : { totalCards: 0, completedTodos: 0, wikiLinks: 0, journalDays: 0, cardsByBoard: [], coverage: 'none' as const }
+            : { totalCards: 0, completedTodos: 0, focusOnCompleted: 0, wikiLinks: 0, journalDays: 0, cardsByBoard: [], coverage: 'none' as const }
         return {
             m, weeks: weeks.length, written, stats,
             firstWeek: first ? getWeekRange(first).weekNum : null,

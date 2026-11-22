@@ -8,7 +8,11 @@
 // 全專案沒有任何人 import（孤兒，同 WO2 的情況），本次一併移除，只留 Content 版。
 import { useMemo, useState } from 'react'
 import type { BoardRecord } from './db'
-import { getWeekRange, getISOWeekKey, recentWeekStarts, computeRangeStats, weeksOfMonth } from './utils/weeklyReviewUtils'
+import { getWeekRange, getISOWeekKey, recentWeekStarts, computeRangeStats, weeksOfMonth, extractNextWeekGoals, nextWeekFriday } from './utils/weeklyReviewUtils'
+import { countDueTodos } from './hooks/useOverdueStats'
+import { getCardShapes } from './utils/snapshot'
+import { scanBoards } from './utils/todoScan'
+import { getTodayStr } from './utils/date'
 import { MonthDigest } from './components/review/MonthDigest'
 import { YearDigest } from './components/review/YearDigest'
 import { findJournalCard, isUntouchedTemplate } from './utils/journalCards'
@@ -55,11 +59,13 @@ function noOutputContent(weekNum: number, startLabel: string, endLabel: string):
 interface WeeklyReviewContentProps {
     boards: BoardRecord[]
     onSaveJournal: (boardId: string, dateStr: string, html: string, shapeId: string | null) => void
+    /** 下週目標轉成待辦：在收件匣建一張單項待辦卡。沒給就不顯示轉換按鈕 */
+    onAddTodoToInbox?: (text: string, title: string, dueDate: string | null) => string | null
     /** 一開始看哪一週（RC17：從別處跳到某張週回顧卡）。沒給就是本週 */
     initialAnchor?: Date
 }
 
-export function WeeklyReviewContent({ boards, onSaveJournal, initialAnchor }: WeeklyReviewContentProps) {
+export function WeeklyReviewContent({ boards, onSaveJournal, onAddTodoToInbox, initialAnchor }: WeeklyReviewContentProps) {
     const isDark = useIsDark()
     // 看哪一段：預設本週，← → 翻到過去／未來
     const [anchor, setAnchor] = useState<Date>(() => initialAnchor ?? new Date())
@@ -145,6 +151,25 @@ export function WeeklyReviewContent({ boards, onSaveJournal, initialAnchor }: We
     // 與 RC9 的存檔守門共用同一個述詞，免得兩邊對「未動過」的定義漂移
     const cardUntouched = !weekCard || isUntouchedTemplate(weekCard.text, weeklyTemplate(weekNum, startLabel, endLabel))
     const canMarkNoOutput = hasJournalBoard && isEmptyWeek && cardUntouched
+
+    /**
+     * 「現在」的兩個數字：逾期幾項、收件匣還有幾張沒整理。
+     * 這兩個是**當下**的狀態，沒有歷史紀錄可查，所以只在看本週時顯示——
+     * 翻到第 40 週還顯示今天的逾期數，會讓人以為那是第 40 週的。
+     */
+    const backlog = useMemo(() => {
+        const inbox = boards.find(b => b.isInbox)
+        return {
+            overdue: countDueTodos(boards, getTodayStr()).overdueCount,
+            inbox: inbox?.snapshot ? getCardShapes(inbox.snapshot).length : 0,
+        }
+    }, [boards])
+
+    /** 週回顧卡「下週目標」那一段的每一行；已經是某張待辦卡裡的項目就標成已轉 */
+    const goals = useMemo(() => extractNextWeekGoals(weekCard?.text ?? ''), [weekCard?.text])
+    const existingTodoTexts = useMemo(() => new Set(scanBoards(boards).map(t => t.todoText.trim())), [boards])
+    const goalDue = nextWeekFriday(weekStart)
+    const goalDueLabel = `${Number(goalDue.slice(5, 7))}/${Number(goalDue.slice(8, 10))}`
 
     const markNoOutput = () => {
         onSaveJournal(
@@ -277,9 +302,50 @@ export function WeeklyReviewContent({ boards, onSaveJournal, initialAnchor }: We
                     )}
                 </div>
 
-                {statCard('#f0fdf4', '#0d2818', 'done', '完成待辦', `${stats.completedTodos} 項`, '#16a34a')}
+                {statCard('#f0fdf4', '#0d2818', 'done', '完成待辦',
+                    stats.focusOnCompleted > 0 ? `${stats.completedTodos} 項 · ${stats.focusOnCompleted} 個番茄` : `${stats.completedTodos} 項`, '#16a34a')}
                 {statCard('#fffbeb', '#2a1f0a', 'cardJournal', '寫了日記', `${stats.journalDays} 天`, '#d97706')}
                 {statCard('#faf5ff', '#1d1133', 'knowledgeGraph', '[[]] 知識連結', noRecord ? '無紀錄' : `${stats.wikiLinks} 個`, noRecord ? textSecondary : '#7c3aed')}
+
+                {mode === 'week' && isCurrentWeek && (
+                    <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                        {([
+                            ['目前逾期', `${backlog.overdue} 項`, backlog.overdue > 0 ? '#ef4444' : textSecondary],
+                            ['收件匣待整理', `${backlog.inbox} 張`, backlog.inbox > 0 ? '#d97706' : textSecondary],
+                        ] as const).map(([label, value, color]) => (
+                            <div key={label} style={{ flex: 1, border: `1px solid ${T.borderLight}`, borderRadius: 10, padding: '8px 12px' }}>
+                                <div style={{ fontSize: 11, color: textSecondary }}>{label}</div>
+                                <div style={{ fontSize: 15, fontWeight: 700, color }}>{value}</div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                {mode === 'week' && onAddTodoToInbox && goals.length > 0 && (
+                    <div style={{ border: `1px solid ${T.borderLight}`, borderRadius: 10, padding: '10px 12px', marginBottom: 8 }}>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: textPrimary, marginBottom: 2 }}>下週目標 → 待辦</div>
+                        <div style={{ fontSize: 11, color: textSecondary, marginBottom: 8 }}>放進收件匣，到期日 {goalDueLabel}（下週五）</div>
+                        {goals.map((g, i) => {
+                            const done = existingTodoTexts.has(g)
+                            return (
+                                <div key={`${i}-${g}`} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0' }}>
+                                    <span style={{ flex: 1, minWidth: 0, fontSize: 12, color: textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={g}>{g}</span>
+                                    {done ? (
+                                        <span style={{ fontSize: 11, color: '#16a34a', flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 3 }}><Icon name="check" />已是待辦</span>
+                                    ) : (
+                                        <button
+                                            onClick={() => onAddTodoToInbox(g, `第 ${weekNum} 週定的下週目標`, goalDue)}
+                                            style={{
+                                                flexShrink: 0, fontSize: 11, padding: '3px 9px', borderRadius: 6, cursor: 'pointer',
+                                                color: T.accent, background: T.accentBg, border: `1px solid ${T.accentBorder}`,
+                                            }}
+                                        >轉成待辦</button>
+                                    )}
+                                </div>
+                            )
+                        })}
+                    </div>
+                )}
 
                 {mode === 'week' && canMarkNoOutput && (
                     <button

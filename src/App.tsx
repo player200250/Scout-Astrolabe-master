@@ -58,7 +58,7 @@ export default function App() {
         handleRestore, handleSaveJournal,
         handleMoveCardsToBoard, handleCreateBoard,
         handleToggleCollapse, handleGoToInbox, handleReorderBoards,
-        handleAddCardToInbox, handleUpdateInboxCardProps, handleTrashInboxCard,
+        handleAddCardToInbox, handleAddTodoToInbox, handleUpdateInboxCardProps, handleTrashInboxCard,
         recentlyTrashedShapeIds,
         handleCreateFolder, handleSetFolder, handleDeleteFolder,
         handleRewriteTag, handleEditTodo,
@@ -68,7 +68,11 @@ export default function App() {
     const { isDark, toggleTheme } = useTheme()
     const { panels, openPanel, closePanel, togglePanel, showOnly } = usePanelState()
     // ⚠️ 掛在這裡而不是面板裡：面板關掉計時器必須繼續跑。
-    const pomodoro = usePomodoro()
+    const pomodoro = usePomodoro({
+        ready: !loading,
+        // 寫入走 handleEditTodo（主視窗唯一寫入者，ADR 0009／0010），不直寫 IndexedDB。
+        onFocusComplete: t => handleEditTodo(t.boardId, t.shapeId, t.todoId, { addFocus: true }),
+    })
     const [movingCardShapeIds, setMovingCardShapeIds] = useState<string[] | null>(null)
     // 陣列而非單一 id：批次刪除（多選、清理重複）要一次確認全部。
     // 舊版是 string | null，呼叫端跑 forEach 只會留下最後一個 → 其餘靜默不刪。
@@ -280,12 +284,18 @@ export default function App() {
                 />
             )}
             {panels.hotkey && <HotkeyPanel onClose={() => closePanel('hotkey')} />}
-            {panels.pomodoro && <PomodoroPanel {...pomodoro} onClose={() => closePanel('pomodoro')} />}
+            {panels.pomodoro && <PomodoroPanel {...pomodoro} boards={boards} onClose={() => closePanel('pomodoro')} />}
             {panels.taskCenter && (
                 <TaskCenter
                     boards={boards}
                     onJump={(boardId, shapeId, x, y) => { closePanel('taskCenter'); jumpToCard(boardId, shapeId, x, y) }}
                     onClose={() => closePanel('taskCenter')}
+                    onFocus={t => {
+                        pomodoro.onLinkTask({ boardId: t.boardId, shapeId: t.shapeId, todoId: t.todoId, text: t.todoText })
+                        // 兩個都是右側抽屜、疊在同一個位置：不先關任務中心，番茄鐘會被蓋住看不到。
+                        closePanel('taskCenter')
+                        openPanel('pomodoro')
+                    }}
                 />
             )}
             {panels.filter && (
@@ -341,6 +351,8 @@ export default function App() {
                     onClose={() => closePanel('reviewCenter')}
                     onJumpToBoard={handleSwitch}
                     onSaveJournal={handleSaveJournal}
+                    onAddTodoToInbox={handleAddTodoToInbox}
+                    onScheduleTodo={(r, slot) => { handleEditTodo(r.boardId, r.shapeId, r.todoId, { schedule: slot }) }}
                 />
             )}
             {panels.knowledgeGraph && (

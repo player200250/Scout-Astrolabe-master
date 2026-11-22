@@ -7,18 +7,30 @@ import { Icon } from './ui/icons'
 import { T } from '../theme/tokens'
 import { PRESETS, formatRemaining, phaseLabel, progress, LONG_BREAK_EVERY } from '../utils/pomodoro'
 import type { UsePomodoro } from '../hooks/usePomodoro'
+import type { BoardRecord } from '../db'
+import { useMemo } from 'react'
+import { scanBoards } from '../utils/todoScan'
 
 const RING = 168
 const STROKE = 10
 
 export interface PomodoroPanelProps extends UsePomodoro {
     onClose: () => void
+    /** 列出可綁的待辦 */
+    boards: BoardRecord[]
 }
+
+const keyOf = (t: { boardId: string; shapeId: string; todoId: string }) => `${t.boardId}|${t.shapeId}|${t.todoId}`
 
 export function PomodoroPanel({
     state, remaining, running, idle, totalMs,
-    onStart, onPause, onReset, onSkip, onSetPreset, onClose,
+    onStart, onPause, onReset, onSkip, onSetPreset, onLinkTask, onClose, boards,
 }: PomodoroPanelProps) {
+    const openTasks = useMemo(() => scanBoards(boards).filter(t => !t.checked), [boards])
+    const linked = state.linkedTask
+    const linkedKey = linked ? keyOf(linked) : ''
+    // 綁的那項可能已經勾掉或被刪：下拉選單裡還是要有它，不然畫面會假裝沒綁。
+    const linkedInList = !linked || openTasks.some(t => keyOf(t) === linkedKey)
     const done = progress(state, Date.now())
     const r = (RING - STROKE) / 2
     const circumference = 2 * Math.PI * r
@@ -75,6 +87,30 @@ export function PomodoroPanel({
                     </div>
                 </div>
 
+                <div style={{ width: '100%' }}>
+                    <div style={{ fontSize: 11, color: T.textMuted, marginBottom: 6 }}>專注在哪個待辦</div>
+                    <select
+                        value={linkedKey}
+                        onChange={e => {
+                            const t = openTasks.find(x => keyOf(x) === e.target.value)
+                            onLinkTask(t ? { boardId: t.boardId, shapeId: t.shapeId, todoId: t.todoId, text: t.todoText } : null)
+                        }}
+                        style={{
+                            width: '100%', padding: '7px 8px', borderRadius: 8, fontSize: 12,
+                            border: `1px solid ${linked ? accent : T.borderLight}`,
+                            background: T.bgPanel, color: T.textPrimary,
+                        }}
+                    >
+                        <option value="">不綁（只算今天的番茄數）</option>
+                        {!linkedInList && linked && <option value={linkedKey}>{linked.text}（已完成或已刪除）</option>}
+                        {openTasks.map(t => (
+                            <option key={keyOf(t)} value={keyOf(t)}>
+                                {t.todoText} · {t.boardName}{t.focusCount > 0 ? ` · ${t.focusCount} 個番茄` : ''}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+
                 <div style={{ display: 'flex', gap: 8 }}>
                     {running ? (
                         <PomodoroButton icon="pause" label="暫停" onClick={onPause} primary accent={accent} />
@@ -104,7 +140,7 @@ export function PomodoroPanel({
                     </div>
                     <div style={{ fontSize: 11, color: T.textMuted, marginTop: 8, lineHeight: 1.7 }}>
                         跑到一半換長度會停下來重算，按開始重來。<br />
-                        <strong>跳過不計入番茄數</strong>，只有跑完的專注才算。
+                        <strong>跳過不計入番茄數</strong>，只有跑完的專注才算；有綁待辦的話也記到那一項。
                     </div>
                 </div>
             </div>

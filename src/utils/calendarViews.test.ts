@@ -6,6 +6,7 @@ import { describe, it, expect } from 'vitest'
 import {
     buildDayTimeline, buildWeekTimelines, buildYearDensity, densityLevel,
     startOfWeek, shiftViewDate, viewRangeLabel, weekdayColumn,
+    slotMinutes, hourSlot, moveSlot, formatMinutes,
 } from './calendarViews'
 import type { BoardRecord } from '../db'
 
@@ -44,7 +45,7 @@ describe('buildDayTimeline', () => {
             updatedAt: at('2026-01-01T00:00:00'), // 當天沒有白板活動
         })
         const t = buildDayTimeline([b], new Date('2026-09-20T00:00:00'))
-        expect(t.todos).toEqual([{ text: '綁骨', checked: false }])
+        expect(t.todos).toMatchObject([{ text: '綁骨', checked: false }])
         expect(t.timed).toHaveLength(0)
     })
 
@@ -162,5 +163,50 @@ describe('viewRangeLabel', () => {
         expect(viewRangeLabel('week', d)).toBe('2026 年 9/14 – 9/20')
         expect(viewRangeLabel('month', d)).toBe('2026 年 9 月')
         expect(viewRangeLabel('year', d)).toBe('2026 年')
+    })
+})
+
+describe('待辦排時段（執行閉環 ④）', () => {
+    it('slotMinutes：合法格式轉分鐘，壞的回 null', () => {
+        expect(slotMinutes('2026-11-25T14:30')).toBe(14 * 60 + 30)
+        expect(slotMinutes('2026-11-25')).toBeNull()
+        expect(slotMinutes('2026-11-25T25:00')).toBeNull()
+        expect(slotMinutes(null)).toBeNull()
+    })
+
+    it('hourSlot：從整點起排一小時；23 點不跨日', () => {
+        expect(hourSlot('2026-11-25', 9)).toEqual({ start: '2026-11-25T09:00', end: '2026-11-25T10:00' })
+        expect(hourSlot('2026-11-25', 23)).toEqual({ start: '2026-11-25T23:00', end: '2026-11-25T23:59' })
+    })
+
+    it('moveSlot：搬到別格長度不變', () => {
+        expect(moveSlot('2026-11-26', 15, { startMin: 9 * 60, endMin: 10 * 60 + 30 }))
+            .toEqual({ start: '2026-11-26T15:00', end: '2026-11-26T16:30' })
+    })
+
+    it('formatMinutes', () => {
+        expect(formatMinutes(9 * 60 + 5)).toBe('09:05')
+    })
+
+    const b = board({ id: 'b1', updatedAt: at('2026-01-01T00:00:00'), snapshot: withCards([
+        { type: 'todo', todos: [
+            { id: 'a', text: '畫線稿', checked: false, dueDate: '2026-11-25', scheduledStart: '2026-11-25T14:00', scheduledEnd: '2026-11-25T15:30' },
+            { id: 'b', text: '沒排', checked: false, dueDate: '2026-11-25' },
+            { id: 'c', text: '別天', checked: false, scheduledStart: '2026-11-26T09:00', scheduledEnd: '2026-11-26T10:00' },
+            { id: 'd', text: '壞結束', checked: true, scheduledStart: '2026-11-25T08:00', scheduledEnd: 'xx' },
+        ] },
+    ]) })
+
+    it('排了時段的待辦進時間軸，帶得回原本的位置；到期日照樣在全天列', () => {
+        const t = buildDayTimeline([b], new Date('2026-11-25T00:00:00'))
+        expect(t.scheduled.map(s => s.todoId)).toEqual(['d', 'a'])   // 依開始時間排序
+        expect(t.scheduled[1]).toMatchObject({ boardId: 'b1', shapeId: 'shape:c0', todoId: 'a', startMin: 840, endMin: 930 })
+        expect(t.todos.map(x => x.todoId)).toEqual(['a', 'b'])
+        expect(t.todos[0]).toMatchObject({ boardId: 'b1', shapeId: 'shape:c0' })
+    })
+
+    it('結束時間壞掉就當一小時', () => {
+        const t = buildDayTimeline([b], new Date('2026-11-25T00:00:00'))
+        expect(t.scheduled[0]).toMatchObject({ todoId: 'd', startMin: 480, endMin: 540 })
     })
 })

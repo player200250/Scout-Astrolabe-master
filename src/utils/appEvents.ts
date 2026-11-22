@@ -64,12 +64,17 @@ export interface AppEventPayloads {
     /** 刪除白板後，清除所有指向該白板的孤兒 board 卡片 */
     'cleanup-orphan-board-cards': { deletedBoardId: string }
 
-    /** QuickCapture 建立文字卡後，在 Inbox 白板顯示該 shape */
+    /** QuickCapture 建立文字卡後，在 Inbox 白板顯示該 shape（帶 todo 則是待辦卡，例：週回顧的下週目標） */
     'quick-capture-card': {
         text: string
         x: number
         y: number
         shapeId: string
+        /**
+         * 待辦卡時帶上建好的 type／text／todos。⚠️ 必須是 snapshot 裡那一份：待辦項目的 id 是隨機產生的，
+         * editor 端自己再產一次會跟存檔的對不上，之後依 id 勾選、記番茄都會找不到。
+         */
+        kind?: { type: 'text' | 'todo'; text: string; todos: { id: string; text: string; checked: boolean; dueDate: string | null }[] }
     }
 
     /**

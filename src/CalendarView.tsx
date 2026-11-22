@@ -23,7 +23,7 @@ import {
     VIEW_MODES, buildDayTimeline, buildWeekTimelines, buildYearDensity,
     shiftViewDate, viewRangeLabel,
 } from './utils/calendarViews'
-import type { CalendarViewMode } from './utils/calendarViews'
+import type { CalendarViewMode, TodoRef } from './utils/calendarViews'
 import { MonthGrid } from './components/calendar/MonthGrid'
 import { TimeGrid } from './components/calendar/TimeGrid'
 import { YearGrid } from './components/calendar/YearGrid'
@@ -34,9 +34,11 @@ interface CalendarContentProps {
     boards: BoardRecord[]
     onJumpToBoard: (boardId: string) => void
     onOpenJournalDay: (date: Date) => void
+    /** 日／週檢視拖曳排時段（null＝取消） */
+    onScheduleTodo?: (ref: TodoRef, slot: { start: string; end: string } | null) => void
 }
 
-export function CalendarContent({ boards, onJumpToBoard, onOpenJournalDay }: CalendarContentProps) {
+export function CalendarContent({ boards, onJumpToBoard, onOpenJournalDay, onScheduleTodo }: CalendarContentProps) {
     const today = new Date()
     const [view, setView] = useState<CalendarViewMode>('month')
     /** 錨點：月檢視看它的年月、週檢視看它所在的週、日檢視就是那一天 */
@@ -123,6 +125,7 @@ export function CalendarContent({ boards, onJumpToBoard, onOpenJournalDay }: Cal
                         onJumpToBoard={onJumpToBoard}
                         onOpenJournalDay={onOpenJournalDay}
                         onPickDay={d => pickDay(d)}
+                        onScheduleTodo={onScheduleTodo}
                     />
                 )}
 

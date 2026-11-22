@@ -9,8 +9,8 @@
 //    掛在面板裡會隨著卸載一起消失。
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import {
-    type PomodoroState, POMODORO_STORAGE_KEY,
-    parseStored, initialState, start, pause, reset, advance, setPreset,
+    type PomodoroState, type LinkedTask, POMODORO_STORAGE_KEY,
+    parseStored, initialState, start, pause, reset, advance, setPreset, setLinkedTask,
     remainingMs, hasElapsed, isRunning, isIdle, phaseLabel, phaseDurationMs,
 } from '../utils/pomodoro'
 import { getTodayStr } from '../utils/date'
@@ -29,12 +29,21 @@ export interface UsePomodoro {
     /** 手動跳過這一段（不計入完成數） */
     onSkip: () => void
     onSetPreset: (presetId: string) => void
+    /** 換綁的待辦（null＝解除），不影響計時 */
+    onLinkTask: (task: LinkedTask | null) => void
 }
 
 /** 蓋住視窗時 tick 會被節流，所以只拿它重畫；1 秒是顯示需求不是計時需求。 */
 const TICK_MS = 1000
 
-export function usePomodoro(): UsePomodoro {
+export interface UsePomodoroOptions {
+    /** 白板載入完成了沒；沒完成前不結算到點的專注（綁的待辦還找不到） */
+    ready: boolean
+    /** 綁了待辦的 focus 跑完時呼叫；回傳是否真的記到（待辦被刪、白板進垃圾桶就是 false） */
+    onFocusComplete?: (task: LinkedTask) => boolean
+}
+
+export function usePomodoro(opts: UsePomodoroOptions = { ready: true }): UsePomodoro {
     const [state, setState] = useState<PomodoroState>(() => {
         try {
             return parseStored(localStorage.getItem(POMODORO_STORAGE_KEY), getTodayStr())
@@ -59,8 +68,13 @@ export function usePomodoro(): UsePomodoro {
     // 到點處理。⚠️ 用 ref 擋重入：一次 elapse 只能通知一次，
     // 否則 tick 與 re-render 會讓 toast 連噴好幾張。
     const firedRef = useRef<number | null>(null)
+    // 用 ref 拿最新的 callback：它依賴 boards，放進 effect 的 deps 會讓計時檢查每次存檔都重掛。
+    const onFocusCompleteRef = useRef(opts.onFocusComplete)
+    onFocusCompleteRef.current = opts.onFocusComplete
     useEffect(() => {
         if (!isRunning(state)) return
+        // 白板還沒載入完就先不結算：關著 App 時跑完的那段，重開時要等 boards 到了才記得進待辦。
+        if (!opts.ready) return
         const endsAt = state.endsAt!
         const check = () => {
             if (!hasElapsed(state, Date.now())) return
@@ -71,8 +85,12 @@ export function usePomodoro(): UsePomodoro {
             const next = advance(state, getTodayStr(), true)
             setState(next)
 
+            // 只有跑完的 focus 才記到綁的待辦；跳過走 onSkip，不會經過這裡。
+            const task = finished === 'focus' ? state.linkedTask : null
+            const credited = task ? onFocusCompleteRef.current?.(task) ?? false : false
+
             const msg = finished === 'focus'
-                ? `專注結束，第 ${next.completedFocus} 個番茄完成 → 接著${phaseLabel(next.phase)}`
+                ? `專注結束，第 ${next.completedFocus} 個番茄完成${task ? (credited ? `（記到「${task.text}」）` : '（綁的待辦找不到了，沒記到）') : ''} → 接著${phaseLabel(next.phase)}`
                 : `${phaseLabel(finished)}結束 → 回到專注`
             showToast(msg, 'success', {
                 durationMs: null,   // 人多半不在螢幕前，不能自己消失
@@ -88,7 +106,7 @@ export function usePomodoro(): UsePomodoro {
         check()
         const id = setInterval(check, 500)
         return () => clearInterval(id)
-    }, [state])
+    }, [state, opts.ready])
 
     // 第一次用到時要一次權限；不阻塞、被拒也不影響功能。
     useEffect(() => {
@@ -104,6 +122,7 @@ export function usePomodoro(): UsePomodoro {
     const onReset = useCallback(() => setState(s => reset(s)), [])
     const onSkip = useCallback(() => setState(s => advance(s, getTodayStr(), false)), [])
     const onSetPreset = useCallback((presetId: string) => setState(s => setPreset(s, presetId)), [])
+    const onLinkTask = useCallback((task: LinkedTask | null) => setState(s => setLinkedTask(s, task)), [])
 
     const now = Date.now()
     const remaining = remainingMs(state, now)
@@ -114,6 +133,6 @@ export function usePomodoro(): UsePomodoro {
         running: isRunning(state),
         idle: isIdle(state),
         totalMs: phaseDurationMs(state),
-        onStart, onPause, onReset, onSkip, onSetPreset,
-    }), [state, remaining, onStart, onPause, onReset, onSkip, onSetPreset])
+        onStart, onPause, onReset, onSkip, onSetPreset, onLinkTask,
+    }), [state, remaining, onStart, onPause, onReset, onSkip, onSetPreset, onLinkTask])
 }

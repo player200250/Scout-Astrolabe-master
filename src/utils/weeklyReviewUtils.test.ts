@@ -1,6 +1,7 @@
 // src/utils/weeklyReviewUtils.test.ts
 import { describe, it, expect } from 'vitest'
-import { getISOWeekKey, getWeekRange, recentWeekStarts, weekOwnerMonth, weeksOfMonth } from './weeklyReviewUtils'
+import { getISOWeekKey, getWeekRange, recentWeekStarts, weekOwnerMonth, weeksOfMonth, extractNextWeekGoals, nextWeekFriday, computeRangeStats } from './weeklyReviewUtils'
+import type { BoardRecord } from '../db'
 
 describe('getISOWeekKey', () => {
     it('回傳格式為 week-YYYY-WW，週次補零', () => {
@@ -123,5 +124,69 @@ describe('weeksOfMonth / weekOwnerMonth', () => {
         for (const [, n] of seen) expect(n).toBe(1)
         // 2026 有 53 個 ISO 週，扣掉跨年歸給 2025／2027 的，落在 2026 各月的應為 52
         expect(seen.size).toBeGreaterThanOrEqual(52)
+    })
+})
+
+describe('extractNextWeekGoals', () => {
+    const tpl = (goals: string) => '<h2>第 47 週回顧（11/16 - 11/22）</h2>'
+        + '<p><strong>這週完成了什麼</strong></p><p>畫完線稿</p>'
+        + '<p><strong>下週目標（3 件事）</strong></p>' + goals
+        + '<p><strong>需要跟進的白板</strong></p><p>作品集</p>'
+
+    it('一行一段：只取下週目標那一段，不吃到下一個標題', () => {
+        expect(extractNextWeekGoals(tpl('<p>Spine 綁骨</p><p>投 2 家</p>'))).toEqual(['Spine 綁骨', '投 2 家'])
+    })
+
+    it('清單寫法也行，行首編號拿掉', () => {
+        expect(extractNextWeekGoals(tpl('<ol><li><p>1. 上色</p></li><li><p>- 拆件</p></li></ol>'))).toEqual(['上色', '拆件'])
+    })
+
+    it('空段落與模板留白都略過；沒寫就是空陣列', () => {
+        expect(extractNextWeekGoals(tpl('<p></p>'))).toEqual([])
+        expect(extractNextWeekGoals('')).toEqual([])
+        expect(extractNextWeekGoals('<p>沒有這個段落</p>')).toEqual([])
+    })
+
+    it('HTML 實體還原、行內格式去掉', () => {
+        expect(extractNextWeekGoals(tpl('<p>A &amp; B <em>重要</em></p>'))).toEqual(['A & B 重要'])
+    })
+
+    it('三件寫在同一段、用圈號分隔（第 38 週的實際寫法）', () => {
+        expect(extractNextWeekGoals(tpl('<p>① 決定求職線的去留；② 修掉 RC1／RC2；③ 決定 Supabase。</p>')))
+            .toEqual(['決定求職線的去留', '修掉 RC1／RC2', '決定 Supabase'])
+    })
+
+    it('下週目標是最後一段也行', () => {
+        expect(extractNextWeekGoals('<p><strong>下週目標（3 件事）</strong></p><p>只有這件</p>')).toEqual(['只有這件'])
+    })
+})
+
+describe('nextWeekFriday', () => {
+    it('第 47 週（11/16 週一）的下週五是 11/27', () => {
+        expect(nextWeekFriday(new Date(2026, 10, 16))).toBe('2026-11-27')
+    })
+    it('跨月', () => {
+        expect(nextWeekFriday(new Date(2026, 10, 30))).toBe('2026-12-11')
+    })
+})
+
+describe('computeRangeStats：完成待辦的番茄數', () => {
+    it('只加總這段期間完成的待辦；沒完成的番茄不算', () => {
+        const at = (m: number, d: number) => new Date(2026, m - 1, d, 12).getTime()
+        const boards = [{
+            id: 'b', name: '工作', thumbnail: null, updatedAt: 0,
+            snapshot: { document: { store: {
+                'shape:t': { id: 'shape:t', typeName: 'shape', type: 'card', x: 0, y: 0, meta: {}, props: { type: 'todo', todos: [
+                    { id: 'a', text: 'a', checked: true, checkedAt: at(11, 18), focusCount: 3 },
+                    { id: 'b', text: 'b', checked: true, checkedAt: at(11, 19) },
+                    { id: 'c', text: 'c', checked: false, focusCount: 5 },
+                    { id: 'd', text: 'd', checked: true, checkedAt: at(11, 5), focusCount: 2 },
+                ] } },
+            } } },
+        }] as unknown as BoardRecord[]
+        const w = getWeekRange(new Date(2026, 10, 18))
+        const s = computeRangeStats(boards, w.start, w.end)
+        expect(s.completedTodos).toBe(2)
+        expect(s.focusOnCompleted).toBe(3)
     })
 })
