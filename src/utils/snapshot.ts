@@ -5,6 +5,8 @@ export interface SnapshotTodo {
     text: string
     checked: boolean
     dueDate?: string | null
+    /** 綁這項跑完的番茄數（見 TodoItem.focusCount） */
+    focusCount?: number
 }
 
 export interface SnapshotShapeProps {

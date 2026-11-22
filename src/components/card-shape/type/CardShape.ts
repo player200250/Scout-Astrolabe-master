@@ -84,6 +84,8 @@ export interface TodoItem {
     dueDate?: string | null  // YYYY-MM-DD
     /** 打勾的時間（毫秒，RC16）。取消勾就拿掉；2026-10-02 之前勾的沒有 */
     checkedAt?: number | null
+    /** 綁這項跑完的番茄數（只有 focus 跑完才 +1，跳過不算）。沒跑過就沒有這欄 */
+    focusCount?: number
 }
 
 export interface TLCardProps {

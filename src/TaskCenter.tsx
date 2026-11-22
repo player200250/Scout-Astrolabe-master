@@ -2,26 +2,13 @@
 import { useState, useEffect, useMemo } from 'react'
 import type { BoardRecord } from './db'
 import { getTodayStr, getWeekLaterStr, formatDueDate } from './utils/date'
-import { getCardShapes } from './utils/snapshot'
+import { scanBoards, type TaskItem } from './utils/todoScan'
 
 import { EmptyState } from './components/ui/EmptyState'
 import { SideDrawer } from './components/ui/SideDrawer'
 import { T } from './theme/tokens'
 import { Icon } from './components/ui/icons'
 import type { IconName } from './components/ui/icons'
-
-interface TaskItem {
-    boardId: string
-    boardName: string
-    shapeId: string
-    cardTitle: string
-    todoId: string
-    todoText: string
-    dueDate: string
-    checked: boolean
-    x: number
-    y: number
-}
 
 type GroupKey = 'overdue' | 'today' | 'week' | 'later' | 'noduedate'
 type FilterTab = 'active' | 'overdue' | 'today' | 'week' | 'all'
@@ -34,28 +21,6 @@ function getGroupKey(dueDate: string | undefined, todayStr: string, weekStr: str
     if (dueDate === todayStr) return 'today'
     if (dueDate <= weekStr) return 'week'
     return 'later'
-}
-
-function scanBoards(boards: BoardRecord[]): TaskItem[] {
-    const items: TaskItem[] = []
-    const seen = new Set<string>()
-    for (const board of boards) {
-        for (const shape of getCardShapes(board.snapshot)) {
-            if (shape.props.type !== 'todo') continue
-            for (const t of shape.props.todos ?? []) {
-                if (!t.text) continue
-                const dedupKey = `${board.id}-${t.id}`
-                if (seen.has(dedupKey)) continue
-                seen.add(dedupKey)
-                items.push({
-                    boardId: board.id, boardName: board.name, shapeId: shape.id,
-                    cardTitle: shape.props.text || '', todoId: t.id, todoText: t.text,
-                    dueDate: t.dueDate ?? '', checked: !!t.checked, x: shape.x ?? 0, y: shape.y ?? 0,
-                })
-            }
-        }
-    }
-    return items
 }
 
 // 五個分組是同一條時間軸上的刻度，所以圖示也走同一族（Alarm→Calendar*→Inbox），
@@ -73,9 +38,10 @@ interface TaskItemRowProps {
     todayStr: string
     weekStr: string
     onJump: (boardId: string, shapeId: string, x: number, y: number) => void
+    onFocus?: (item: TaskItem) => void
 }
 
-function TaskItemRow({ item, todayStr, weekStr, onJump }: TaskItemRowProps) {
+function TaskItemRow({ item, todayStr, weekStr, onJump, onFocus }: TaskItemRowProps) {
     const [hovered, setHovered] = useState(false)
     const groupKey = getGroupKey(item.dueDate || undefined, todayStr, weekStr)
     const config = GROUP_CONFIG[groupKey]
@@ -129,8 +95,27 @@ function TaskItemRow({ item, todayStr, weekStr, onJump }: TaskItemRowProps) {
                     {item.cardTitle && (
                         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.cardTitle}</span>
                     )}
+                    {item.focusCount > 0 && (
+                        <span title={`跑完 ${item.focusCount} 個番茄`} style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+                            <Icon name="pomodoro" />{item.focusCount}
+                        </span>
+                    )}
                 </div>
             </div>
+            {onFocus && !item.checked && (
+                <button
+                    title="綁這項開始專注"
+                    onClick={e => { e.stopPropagation(); onFocus(item) }}
+                    style={{
+                        // 只在滑過時現身：常駐的話每一行多一顆鈕，清單會變吵。
+                        visibility: hovered ? 'visible' : 'hidden',
+                        display: 'inline-flex', alignItems: 'center', gap: 3,
+                        fontSize: 11, color: T.accent, background: T.accentBg,
+                        border: `1px solid ${T.accentBorder}`, borderRadius: 6,
+                        padding: '2px 7px', cursor: 'pointer', flexShrink: 0, alignSelf: 'center',
+                    }}
+                ><Icon name="pomodoro" />專注</button>
+            )}
             {item.dueDate && (
                 <span style={{
                     fontSize: 10, fontWeight: 500,
@@ -149,9 +134,11 @@ interface TaskCenterProps {
     boards: BoardRecord[]
     onJump: (boardId: string, shapeId: string, x: number, y: number) => void
     onClose: () => void
+    /** 綁這項開番茄鐘 */
+    onFocus?: (item: TaskItem) => void
 }
 
-export function TaskCenter({ boards, onJump, onClose }: TaskCenterProps) {
+export function TaskCenter({ boards, onJump, onClose, onFocus }: TaskCenterProps) {
     const [tab, setTab] = useState<FilterTab>('active')
     const [showNoDueDate, setShowNoDueDate] = useState(false)
 
@@ -290,7 +277,7 @@ export function TaskCenter({ boards, onJump, onClose }: TaskCenterProps) {
                                     <TaskItemRow
                                         key={`${item.boardId}_${item.shapeId}_${item.todoId}`}
                                         item={item} todayStr={todayStr} weekStr={weekStr}
-                                        onJump={onJump}
+                                        onJump={onJump} onFocus={onFocus}
                                     />
                                 ))}
                             </div>

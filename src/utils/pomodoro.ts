@@ -54,6 +54,19 @@ export interface PomodoroState {
     completedFocus: number
     /** completedFocus 是哪一天的，跨日自動歸零。 */
     countedOn: string
+    /** 這段專注綁的待辦（null＝沒綁）。focus 跑完時該待辦的 focusCount +1。 */
+    linkedTask: LinkedTask | null
+}
+
+/**
+ * 番茄鐘綁定的待辦。用 id 定位（同 snapshotPatch.toggleTodo 的理由）；
+ * text 只是顯示用的快照——原卡改了字、或待辦被刪掉，面板上還認得出綁的是哪一項。
+ */
+export interface LinkedTask {
+    boardId: string
+    shapeId: string
+    todoId: string
+    text: string
 }
 
 export function durationsOf(presetId: string): PomodoroDurations {
@@ -72,6 +85,7 @@ export function initialState(todayStr: string, presetId = DEFAULT_PRESET_ID): Po
         pausedRemainingMs: null,
         completedFocus: 0,
         countedOn: todayStr,
+        linkedTask: null,
     }
 }
 
@@ -178,6 +192,27 @@ export function setPreset(state: PomodoroState, presetId: string): PomodoroState
     return { ...state, presetId, endsAt: null, pausedRemainingMs: null }
 }
 
+/**
+ * 換綁的待辦（null＝解除）。**不動計時**：跑到一半發現綁錯了，改過來就好，
+ * 不該連已經專注的時間一起丟掉；跑完時記到當下綁的那一項。
+ */
+export function setLinkedTask(state: PomodoroState, task: LinkedTask | null): PomodoroState {
+    return { ...state, linkedTask: task }
+}
+
+function parseLinkedTask(v: unknown): LinkedTask | null {
+    if (!v || typeof v !== 'object') return null
+    const o = v as Record<string, unknown>
+    const ok = (k: string) => typeof o[k] === 'string' && (o[k] as string).length > 0
+    if (!ok('boardId') || !ok('shapeId') || !ok('todoId')) return null
+    return {
+        boardId: o.boardId as string,
+        shapeId: o.shapeId as string,
+        todoId: o.todoId as string,
+        text: typeof o.text === 'string' ? o.text : '',
+    }
+}
+
 // ---- 持久化 ----
 
 export const POMODORO_STORAGE_KEY = 'pomodoro-state'
@@ -208,6 +243,8 @@ export function parseStored(raw: string | null, todayStr: string): PomodoroState
             // 跨日歸零：昨天的番茄數不該算進今天。
             completedFocus: countedOn === todayStr ? rawCount : 0,
             countedOn: todayStr,
+            // 舊版存的沒有這欄＝沒綁；綁定壞掉也只是解除綁定，不整包丟掉。
+            linkedTask: parseLinkedTask((o as Record<string, unknown>).linkedTask),
         }
     } catch {
         return initialState(todayStr)

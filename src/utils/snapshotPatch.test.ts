@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest'
 import type { TLEditorSnapshot } from 'tldraw'
 import { getSnapshotStore } from './snapshot'
 import {
-    toggleTodo, setTodoDue, setCardText, setCardStatus, setCardPriority, plainTextToHtml,
+    toggleTodo, setTodoDue, addTodoFocus, setCardText, setCardStatus, setCardPriority, plainTextToHtml,
 } from './snapshotPatch'
 
 function snap(shapes: Record<string, Record<string, unknown>>): TLEditorSnapshot {
@@ -164,5 +164,38 @@ describe('setCardStatus / setCardPriority', () => {
 
     it('找不到卡片時原樣回傳', () => {
         expect(setCardStatus(base, 'shape:無', 'done')).toBe(base)
+    })
+})
+
+describe('addTodoFocus', () => {
+    const base = snap({
+        'shape:t': {
+            type: 'todo',
+            todos: [
+                { id: 'a', text: '第一項', checked: false },
+                { id: 'b', text: '第二項', checked: false, focusCount: 2 },
+            ],
+        },
+    })
+    const todos = (s: TLEditorSnapshot) => props(s, 'shape:t').todos as { id: string; focusCount?: number }[]
+
+    it('沒跑過的從 0 加到 1，其他項目不動', () => {
+        const next = addTodoFocus(base, 'shape:t', 'a')
+        expect(todos(next)[0].focusCount).toBe(1)
+        expect(todos(next)[1].focusCount).toBe(2)
+    })
+
+    it('累加', () => {
+        expect(todos(addTodoFocus(base, 'shape:t', 'b'))[1].focusCount).toBe(3)
+    })
+
+    it('不改傳進來的 snapshot', () => {
+        addTodoFocus(base, 'shape:t', 'a')
+        expect(todos(base)[0].focusCount).toBeUndefined()
+    })
+
+    it('找不到卡或項目時原樣回傳', () => {
+        expect(addTodoFocus(base, 'shape:無', 'a')).toBe(base)
+        expect(addTodoFocus(base, 'shape:t', '無')).toBe(base)
     })
 })

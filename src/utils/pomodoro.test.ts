@@ -3,7 +3,7 @@ import {
     initialState, start, pause, reset, advance, setPreset,
     remainingMs, hasElapsed, isRunning, isIdle, formatRemaining, progress,
     nextPhaseAfterFocus, parseStored, phaseDurationMs, durationsOf, phaseLabel,
-    LONG_BREAK_EVERY,
+    LONG_BREAK_EVERY, setLinkedTask,
 } from './pomodoro'
 
 const TODAY = '2026-08-08'
@@ -210,6 +210,48 @@ describe('pomodoro：讀回持久化狀態', () => {
         const back = parseStored(JSON.stringify({
             ...initialState(TODAY), completedFocus: 3, countedOn: TODAY,
         }), TODAY)
+        expect(back.completedFocus).toBe(3)
+    })
+})
+
+describe('pomodoro：綁待辦', () => {
+    const task = { boardId: 'b1', shapeId: 'shape:t', todoId: 'x', text: '畫敵人草稿' }
+
+    it('初始沒綁', () => {
+        expect(initialState(TODAY).linkedTask).toBeNull()
+    })
+
+    it('換綁不動計時：跑到一半改綁，剩餘時間不變', () => {
+        const running = start(initialState(TODAY), T0)
+        const linked = setLinkedTask(running, task)
+        expect(linked.linkedTask).toEqual(task)
+        expect(remainingMs(linked, T0 + 5 * MIN)).toBe(remainingMs(running, T0 + 5 * MIN))
+        expect(setLinkedTask(linked, null).linkedTask).toBeNull()
+    })
+
+    it('階段推進後綁定還在（下一段專注接著記同一項）', () => {
+        const s = setLinkedTask(initialState(TODAY), task)
+        const afterFocus = advance(s, TODAY, true)
+        expect(afterFocus.linkedTask).toEqual(task)
+        expect(advance(afterFocus, TODAY, true).linkedTask).toEqual(task)
+    })
+
+    it('重開 App 綁定還在', () => {
+        const s = setLinkedTask(initialState(TODAY), task)
+        expect(parseStored(JSON.stringify(s), TODAY).linkedTask).toEqual(task)
+    })
+
+    it('舊版存的沒有 linkedTask：當作沒綁，其他欄位照讀', () => {
+        const old = { phase: 'focus', presetId: 'classic', endsAt: null, pausedRemainingMs: null, completedFocus: 2, countedOn: TODAY }
+        const back = parseStored(JSON.stringify(old), TODAY)
+        expect(back.linkedTask).toBeNull()
+        expect(back.completedFocus).toBe(2)
+    })
+
+    it('綁定壞掉只解除綁定，不整包丟掉', () => {
+        const bad = { ...initialState(TODAY), completedFocus: 3, linkedTask: { boardId: 'b1', shapeId: '', todoId: 7 } }
+        const back = parseStored(JSON.stringify(bad), TODAY)
+        expect(back.linkedTask).toBeNull()
         expect(back.completedFocus).toBe(3)
     })
 })
