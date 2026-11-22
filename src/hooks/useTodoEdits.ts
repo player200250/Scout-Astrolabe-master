@@ -3,7 +3,7 @@ import type { Dispatch, SetStateAction } from 'react'
 import type { BoardRecord } from '../db'
 import { saveBoard } from '../utils/boardDb'
 import { getSnapshotStore } from '../utils/snapshot'
-import { toggleTodo, setTodoDue, addTodoFocus } from '../utils/snapshotPatch'
+import { toggleTodo, setTodoDue, addTodoFocus, setTodoSchedule } from '../utils/snapshotPatch'
 import { emitAppEvent } from '../utils/appEvents'
 
 /** useTodoEdits 需共用的核心 board state（由 useBoardManager 傳入） */
@@ -13,7 +13,12 @@ export interface TodoEditsSharedState {
 }
 
 /** addFocus：番茄鐘綁這項的專注跑完了，番茄數 +1 */
-export type TodoChange = { checked: boolean } | { dueDate: string | null } | { addFocus: true }
+export type TodoChange =
+    | { checked: boolean }
+    | { dueDate: string | null }
+    | { addFocus: true }
+    /** 排進行事曆（null＝取消） */
+    | { schedule: { start: string; end: string } | null }
 
 /**
  * 在編輯器外改任一白板上的一個待辦項目（Claude Code 的 MCP 工具、番茄鐘綁任務共用，見 ADR 0010）。
@@ -32,7 +37,9 @@ export function useTodoEdits(state: TodoEditsSharedState) {
             ? toggleTodo(board.snapshot, shapeId, todoId, change.checked)
             : 'addFocus' in change
                 ? addTodoFocus(board.snapshot, shapeId, todoId)
-                : setTodoDue(board.snapshot, shapeId, todoId, change.dueDate)
+                : 'schedule' in change
+                    ? setTodoSchedule(board.snapshot, shapeId, todoId, change.schedule)
+                    : setTodoDue(board.snapshot, shapeId, todoId, change.dueDate)
         if (snapshot === board.snapshot) return false
 
         const updated: BoardRecord = { ...board, snapshot, updatedAt: Date.now() }

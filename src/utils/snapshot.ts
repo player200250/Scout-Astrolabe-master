@@ -7,6 +7,9 @@ export interface SnapshotTodo {
     dueDate?: string | null
     /** 綁這項跑完的番茄數（見 TodoItem.focusCount） */
     focusCount?: number
+    /** 排進行事曆的時段（見 TodoItem.scheduledStart） */
+    scheduledStart?: string | null
+    scheduledEnd?: string | null
 }
 
 export interface SnapshotShapeProps {

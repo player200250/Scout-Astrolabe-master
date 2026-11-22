@@ -110,6 +110,33 @@ export function addTodoFocus(
 }
 
 /**
+ * 把待辦排進某個時段（null＝取消排程）。時段格式見 TodoItem.scheduledStart。
+ * 同 toggleTodo 用 todo 的 id 定位；找不到就回傳原 snapshot。
+ */
+export function setTodoSchedule(
+    snapshot: TLEditorSnapshot,
+    shapeId: string,
+    todoId: string,
+    slot: { start: string; end: string } | null,
+): TLEditorSnapshot {
+    return patchCardProps(snapshot, shapeId, props => {
+        const todos = props.todos
+        if (!Array.isArray(todos)) return null
+        let hit = false
+        const next = (todos as { id?: string }[]).map(t => {
+            if (t?.id !== todoId) return t
+            hit = true
+            if (slot) return { ...t, scheduledStart: slot.start, scheduledEnd: slot.end }
+            const rest = { ...t } as Record<string, unknown>
+            delete rest.scheduledStart
+            delete rest.scheduledEnd
+            return rest
+        })
+        return hit ? { ...props, todos: next } : null
+    })
+}
+
+/**
  * 換掉文字卡的內容。
  *
  * ⚠️ 傳進來的是**純文字**（手機上編輯的就是純文字），這裡包成 `<p>` 段落再存。

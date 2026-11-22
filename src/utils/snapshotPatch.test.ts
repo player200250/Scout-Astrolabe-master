@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest'
 import type { TLEditorSnapshot } from 'tldraw'
 import { getSnapshotStore } from './snapshot'
 import {
-    toggleTodo, setTodoDue, addTodoFocus, setCardText, setCardStatus, setCardPriority, plainTextToHtml,
+    toggleTodo, setTodoDue, addTodoFocus, setTodoSchedule, setCardText, setCardStatus, setCardPriority, plainTextToHtml,
 } from './snapshotPatch'
 
 function snap(shapes: Record<string, Record<string, unknown>>): TLEditorSnapshot {
@@ -197,5 +197,27 @@ describe('addTodoFocus', () => {
     it('找不到卡或項目時原樣回傳', () => {
         expect(addTodoFocus(base, 'shape:無', 'a')).toBe(base)
         expect(addTodoFocus(base, 'shape:t', '無')).toBe(base)
+    })
+})
+
+describe('setTodoSchedule', () => {
+    const base = snap({ 'shape:t': { type: 'todo', todos: [{ id: 'a', text: 'x', checked: false }, { id: 'b', text: 'y', checked: false }] } })
+    const todos = (s: TLEditorSnapshot) => props(s, 'shape:t').todos as Record<string, unknown>[]
+
+    it('排上時段，其他項目不動', () => {
+        const next = setTodoSchedule(base, 'shape:t', 'a', { start: '2026-11-25T14:00', end: '2026-11-25T15:00' })
+        expect(todos(next)[0]).toMatchObject({ scheduledStart: '2026-11-25T14:00', scheduledEnd: '2026-11-25T15:00' })
+        expect(todos(next)[1].scheduledStart).toBeUndefined()
+    })
+
+    it('null 取消：兩欄都拿掉，不是留 null', () => {
+        const on = setTodoSchedule(base, 'shape:t', 'a', { start: '2026-11-25T14:00', end: '2026-11-25T15:00' })
+        const off = setTodoSchedule(on, 'shape:t', 'a', null)
+        expect('scheduledStart' in todos(off)[0]).toBe(false)
+        expect('scheduledEnd' in todos(off)[0]).toBe(false)
+    })
+
+    it('找不到項目時原樣回傳', () => {
+        expect(setTodoSchedule(base, 'shape:t', '無', null)).toBe(base)
     })
 })

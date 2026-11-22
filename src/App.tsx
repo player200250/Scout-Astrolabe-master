@@ -352,6 +352,7 @@ export default function App() {
                     onJumpToBoard={handleSwitch}
                     onSaveJournal={handleSaveJournal}
                     onAddTodoToInbox={handleAddTodoToInbox}
+                    onScheduleTodo={(r, slot) => { handleEditTodo(r.boardId, r.shapeId, r.todoId, { schedule: slot }) }}
                 />
             )}
             {panels.knowledgeGraph && (

@@ -2,12 +2,12 @@
 //
 // 小時檢視 ＝ 一欄的 TimeGrid，週檢視 ＝ 七欄的 TimeGrid，差別只有 days 的長度。
 //
-// ⚠️ 時間軸上目前只放得了「白板活動」：待辦只有 dueDate（無時刻）、日記是整天的，
-//    它們一律進上方的全天列（Google 對無時間事件也是這樣）。
-//    等待辦有了時刻，只要 buildDayTimeline 把它放進 timed，這裡不用改。
-import { useRef, useEffect } from 'react'
-import { WEEKDAYS } from '../../utils/calendarViews'
-import type { DayTimeline } from '../../utils/calendarViews'
+// 時間軸上有兩種東西：白板活動（最後更新的時刻）與排了時段的待辦（2026-11-22，執行閉環 ④）。
+// 待辦的到期日沒有時刻，仍進上方全天列；**把全天列的待辦拖到某個小時**就是排時段，
+// 已排好的拖到別格是改時段，按 × 取消。拖放用原生 HTML5 DnD，資料放 dataTransfer。
+import { useRef, useEffect, useState } from 'react'
+import { WEEKDAYS, hourSlot, moveSlot, formatMinutes } from '../../utils/calendarViews'
+import type { DayTimeline, TodoRef } from '../../utils/calendarViews'
 import { JournalChip, TodoChip } from './primitives'
 import { T } from '../../theme/tokens'
 
@@ -22,12 +22,66 @@ interface TimeGridProps {
     onJumpToBoard: (boardId: string) => void
     onOpenJournalDay: (date: Date) => void
     onPickDay: (date: Date) => void
+    /** 排／改／取消時段。沒給就不能拖 */
+    onScheduleTodo?: (ref: TodoRef, slot: { start: string; end: string } | null) => void
 }
 
-export function TimeGrid({ days, todayDs, onJumpToBoard, onOpenJournalDay, onPickDay }: TimeGridProps) {
+/** dataTransfer 的型別鍵：只接自己拖出來的東西，拖檔案或文字進來不理 */
+const DRAG_MIME = 'application/x-scout-todo'
+type DragPayload = TodoRef & { startMin?: number; endMin?: number }
+
+export function TimeGrid({ days, todayDs, onJumpToBoard, onOpenJournalDay, onPickDay, onScheduleTodo }: TimeGridProps) {
     const scrollRef = useRef<HTMLDivElement | null>(null)
+    /** 目前滑過哪一格（ds|hour），畫放置提示 */
+    const [dropTarget, setDropTarget] = useState<string | null>(null)
+
+    const dragProps = (payload: DragPayload) => onScheduleTodo ? {
+        draggable: true,
+        onDragStart: (e: React.DragEvent) => {
+            const { boardId, shapeId, todoId, startMin, endMin } = payload
+            e.dataTransfer.setData(DRAG_MIME, JSON.stringify({ boardId, shapeId, todoId, startMin, endMin }))
+            e.dataTransfer.effectAllowed = 'move'
+        },
+    } : {}
+
+    const dropProps = (ds: string, hour: number) => onScheduleTodo ? {
+        onDragOver: (e: React.DragEvent) => {
+            if (!e.dataTransfer.types.includes(DRAG_MIME)) return
+            e.preventDefault()
+            e.dataTransfer.dropEffect = 'move'
+            const key = `${ds}|${hour}`
+            if (dropTarget !== key) setDropTarget(key)
+        },
+        onDragLeave: () => setDropTarget(t => (t === `${ds}|${hour}` ? null : t)),
+        onDrop: (e: React.DragEvent) => {
+            setDropTarget(null)
+            const raw = e.dataTransfer.getData(DRAG_MIME)
+            if (!raw) return
+            e.preventDefault()
+            try {
+                const p = JSON.parse(raw) as DragPayload
+                const slot = p.startMin !== undefined && p.endMin !== undefined
+                    ? moveSlot(ds, hour, { startMin: p.startMin, endMin: p.endMin })
+                    : hourSlot(ds, hour)
+                onScheduleTodo({ boardId: p.boardId, shapeId: p.shapeId, todoId: p.todoId }, slot)
+            } catch { /* 不是我們的格式 */ }
+        },
+    } : {}
     useEffect(() => {
         if (scrollRef.current) scrollRef.current.scrollTop = SCROLL_TO_HOUR * HOUR_ROW_H
+    }, [])
+
+    // 下面 24 小時那區有捲軸、上面的表頭與全天列沒有 ⇒ 兩邊的欄寬差一條捲軸，欄線對不齊。
+    // 量出捲軸寬，補在上面兩列的右邊。
+    const [scrollbarW, setScrollbarW] = useState(0)
+    useEffect(() => {
+        const el = scrollRef.current
+        if (!el) return
+        const measure = () => setScrollbarW(el.offsetWidth - el.clientWidth)
+        measure()
+        const ro = new ResizeObserver(measure)
+        ro.observe(el)
+        return () => ro.disconnect()
     }, [])
 
     const cols = `56px repeat(${days.length}, 1fr)`
@@ -35,7 +89,7 @@ export function TimeGrid({ days, todayDs, onJumpToBoard, onOpenJournalDay, onPic
     return (
         <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
             {/* 日期表頭 */}
-            <div style={{ display: 'grid', gridTemplateColumns: cols, borderBottom: `1px solid ${T.borderLight}`, flexShrink: 0 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: cols, borderBottom: `1px solid ${T.borderLight}`, flexShrink: 0, paddingRight: scrollbarW }}>
                 <div />
                 {days.map(d => {
                     const isToday = d.ds === todayDs
@@ -59,14 +113,19 @@ export function TimeGrid({ days, todayDs, onJumpToBoard, onOpenJournalDay, onPic
             </div>
 
             {/* 全天列 */}
-            <div style={{ display: 'grid', gridTemplateColumns: cols, borderBottom: `1px solid ${T.borderLight}`, flexShrink: 0, minHeight: 34 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: cols, borderBottom: `1px solid ${T.borderLight}`, flexShrink: 0, minHeight: 34, paddingRight: scrollbarW }}>
                 <div style={{ fontSize: 10, color: '#bbb', padding: '6px 6px 0 0', textAlign: 'right' }}>全天</div>
                 {days.map(d => (
                     <div key={d.ds} style={{ borderLeft: `1px solid ${T.borderLight}`, padding: 4, display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
                         {d.hasJournal && (
                             <div onClick={() => onOpenJournalDay(d.date)} style={{ cursor: 'pointer' }}><JournalChip /></div>
                         )}
-                        {d.todos.map((t, i) => <TodoChip key={i} text={t.text} checked={t.checked} />)}
+                        {d.todos.map(t => (
+                            <div key={`${t.shapeId}_${t.todoId}`} {...dragProps(t)} style={{ cursor: onScheduleTodo ? 'grab' : undefined }}
+                                title={onScheduleTodo ? '拖到下面的時間排進行程' : undefined}>
+                                <TodoChip text={t.text} checked={t.checked} />
+                            </div>
+                        ))}
                     </div>
                 ))}
             </div>
@@ -79,7 +138,36 @@ export function TimeGrid({ days, todayDs, onJumpToBoard, onOpenJournalDay, onPic
                             {String(h).padStart(2, '0')}:00
                         </div>
                         {days.map(d => (
-                            <div key={d.ds} style={{ borderTop: `1px solid ${T.borderLight}`, borderLeft: `1px solid ${T.borderLight}`, padding: 2, display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+                            <div key={d.ds} {...dropProps(d.ds, h)} style={{
+                                borderTop: `1px solid ${T.borderLight}`, borderLeft: `1px solid ${T.borderLight}`, padding: 2,
+                                display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0,
+                                background: dropTarget === `${d.ds}|${h}` ? T.accentBg : undefined,
+                            }}>
+                                {d.scheduled.filter(s => Math.floor(s.startMin / 60) === h).map(s => (
+                                    <div
+                                        key={`${s.shapeId}_${s.todoId}`}
+                                        {...dragProps(s)}
+                                        title={`${formatMinutes(s.startMin)}–${formatMinutes(s.endMin)} ${s.text}`}
+                                        style={{
+                                            display: 'flex', alignItems: 'center', gap: 4,
+                                            fontSize: 11, lineHeight: '16px', borderRadius: 4, padding: '1px 3px 1px 5px',
+                                            cursor: onScheduleTodo ? 'grab' : 'default',
+                                            background: s.checked ? T.bgHover : '#fee2e2', color: s.checked ? '#aaa' : '#991b1b',
+                                            textDecoration: s.checked ? 'line-through' : 'none',
+                                        }}
+                                    >
+                                        <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+                                            {formatMinutes(s.startMin)}–{formatMinutes(s.endMin)} · {s.text || '（無標題）'}
+                                        </span>
+                                        {onScheduleTodo && (
+                                            <button
+                                                title="取消排程"
+                                                onClick={e => { e.stopPropagation(); onScheduleTodo(s, null) }}
+                                                style={{ border: 'none', background: 'transparent', color: 'inherit', cursor: 'pointer', padding: '0 2px', fontSize: 12, lineHeight: 1 }}
+                                            >×</button>
+                                        )}
+                                    </div>
+                                ))}
                                 {d.timed.filter(a => a.hour === h).map(a => (
                                     <div
                                         key={a.boardId}

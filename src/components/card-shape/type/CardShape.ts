@@ -86,6 +86,9 @@ export interface TodoItem {
     checkedAt?: number | null
     /** 綁這項跑完的番茄數（只有 focus 跑完才 +1，跳過不算）。沒跑過就沒有這欄 */
     focusCount?: number
+    /** 排進行事曆的時段，本地時間 'YYYY-MM-DDTHH:mm'（不帶時區：「週三下午兩點」換時區也還是兩點）。沒排就沒有這兩欄 */
+    scheduledStart?: string | null
+    scheduledEnd?: string | null
 }
 
 export interface TLCardProps {

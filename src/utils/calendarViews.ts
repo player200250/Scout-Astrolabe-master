@@ -39,13 +39,56 @@ export interface TimedActivity {
     minute: number
 }
 
-/** 一天的完整內容：全天列（日記／待辦）＋ 時間軸（白板活動） */
+/** 待辦的位置：拖曳排程時要寫回哪一項 */
+export interface TodoRef { boardId: string; shapeId: string; todoId: string }
+
+/** 全天列上的待辦（到期日是這天）。帶 ref 才拖得進時間軸 */
+export type TimelineTodo = DayTodo & TodoRef
+
+/** 時間軸上排了時段的待辦。分鐘數從當天 00:00 起算 */
+export interface ScheduledTodo extends TodoRef {
+    text: string
+    checked: boolean
+    startMin: number
+    endMin: number
+}
+
+/** 一天的完整內容：全天列（日記／待辦）＋ 時間軸（白板活動、排了時段的待辦） */
 export interface DayTimeline {
     ds: string
     date: Date
     hasJournal: boolean
-    todos: DayTodo[]
+    todos: TimelineTodo[]
     timed: TimedActivity[]
+    scheduled: ScheduledTodo[]
+}
+
+/** 'YYYY-MM-DDTHH:mm' → 當天第幾分鐘；格式不對回 null */
+export function slotMinutes(slot: string | null | undefined): number | null {
+    const m = typeof slot === 'string' ? /^\d{4}-\d{2}-\d{2}T(\d{2}):(\d{2})$/.exec(slot) : null
+    if (!m) return null
+    const h = Number(m[1]), min = Number(m[2])
+    return h < 24 && min < 60 ? h * 60 + min : null
+}
+
+/**
+ * 拖到某天某小時：從整點開始、預設排一小時。
+ * 23 點那格只能排到 23:59——時段不跨日，跨日的話隔天的格子裡要畫半截，先不做。
+ */
+export function hourSlot(ds: string, hour: number, durationMin = 60): { start: string; end: string } {
+    const startMin = hour * 60
+    const endMin = Math.min(startMin + durationMin, 24 * 60 - 1)
+    const fmt = (min: number) => `${ds}T${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`
+    return { start: fmt(startMin), end: fmt(endMin) }
+}
+
+/** 搬到另一個時段，長度不變（拖曳已排好的待辦用） */
+export function moveSlot(ds: string, hour: number, current: { startMin: number; endMin: number }): { start: string; end: string } {
+    return hourSlot(ds, hour, Math.max(15, current.endMin - current.startMin))
+}
+
+export function formatMinutes(min: number): string {
+    return `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`
 }
 
 export function startOfDay(d: Date): Date {
@@ -67,7 +110,7 @@ export function addDays(d: Date, n: number): Date {
 /** 一天的內容。boards 已含全部白板，這裡自己過濾主頁／收件匣（與 buildMonthEvents 一致）。 */
 export function buildDayTimeline(boards: BoardRecord[], date: Date): DayTimeline {
     const ds = dateStr(date)
-    const out: DayTimeline = { ds, date: startOfDay(date), hasJournal: false, todos: [], timed: [] }
+    const out: DayTimeline = { ds, date: startOfDay(date), hasJournal: false, todos: [], timed: [], scheduled: [] }
     for (const board of boards) {
         if (board.isHome || board.isInbox) continue
         const at = new Date(board.updatedAt)
@@ -85,12 +128,22 @@ export function buildDayTimeline(boards: BoardRecord[], date: Date): DayTimeline
             }
             if (shape.props.type === 'todo') {
                 for (const t of shape.props.todos ?? []) {
-                    if (t.dueDate === ds) out.todos.push({ text: t.text ?? '', checked: !!t.checked })
+                    const ref = { boardId: board.id, shapeId: shape.id, todoId: t.id }
+                    if (t.dueDate === ds) out.todos.push({ text: t.text ?? '', checked: !!t.checked, ...ref })
+                    const startMin = t.scheduledStart?.startsWith(ds) ? slotMinutes(t.scheduledStart) : null
+                    if (startMin !== null) {
+                        const endRaw = t.scheduledEnd?.startsWith(ds) ? slotMinutes(t.scheduledEnd) : null
+                        out.scheduled.push({
+                            text: t.text ?? '', checked: !!t.checked, ...ref,
+                            startMin, endMin: endRaw !== null && endRaw > startMin ? endRaw : Math.min(startMin + 60, 24 * 60 - 1),
+                        })
+                    }
                 }
             }
         }
     }
     out.timed.sort((a, b) => a.at - b.at)
+    out.scheduled.sort((a, b) => a.startMin - b.startMin)
     return out
 }
 
