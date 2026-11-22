@@ -8,7 +8,7 @@
 // 全專案沒有任何人 import（孤兒，同 WO2 的情況），本次一併移除，只留 Content 版。
 import { useMemo, useState } from 'react'
 import type { BoardRecord } from './db'
-import { getWeekRange, getISOWeekKey, recentWeekStarts, computeRangeStats, weeksOfMonth, extractNextWeekGoals, nextWeekFriday } from './utils/weeklyReviewUtils'
+import { getWeekRange, getISOWeekKey, recentWeekStarts, computeRangeStats, weeksOfMonth, extractNextWeekGoals, goalDueDate, nextWeekFriday } from './utils/weeklyReviewUtils'
 import { countDueTodos } from './hooks/useOverdueStats'
 import { getCardShapes } from './utils/snapshot'
 import { scanBoards } from './utils/todoScan'
@@ -168,7 +168,7 @@ export function WeeklyReviewContent({ boards, onSaveJournal, onAddTodoToInbox, i
     /** 週回顧卡「下週目標」那一段的每一行；已經是某張待辦卡裡的項目就標成已轉 */
     const goals = useMemo(() => extractNextWeekGoals(weekCard?.text ?? ''), [weekCard?.text])
     const existingTodoTexts = useMemo(() => new Set(scanBoards(boards).map(t => t.todoText.trim())), [boards])
-    const goalDue = nextWeekFriday(weekStart)
+    const goalDue = goalDueDate(weekStart, new Date())
     const goalDueLabel = `${Number(goalDue.slice(5, 7))}/${Number(goalDue.slice(8, 10))}`
 
     const markNoOutput = () => {
@@ -324,7 +324,7 @@ export function WeeklyReviewContent({ boards, onSaveJournal, onAddTodoToInbox, i
                 {mode === 'week' && onAddTodoToInbox && goals.length > 0 && (
                     <div style={{ border: `1px solid ${T.borderLight}`, borderRadius: 10, padding: '10px 12px', marginBottom: 8 }}>
                         <div style={{ fontSize: 12, fontWeight: 600, color: textPrimary, marginBottom: 2 }}>下週目標 → 待辦</div>
-                        <div style={{ fontSize: 11, color: textSecondary, marginBottom: 8 }}>放進收件匣，到期日 {goalDueLabel}（下週五）</div>
+                        <div style={{ fontSize: 11, color: textSecondary, marginBottom: 8 }}>放進收件匣，到期日 {goalDueLabel}（{goalDue === nextWeekFriday(weekStart) ? '該週的下週五' : '該週的下週五已過，改用今天算起的下週五'}）</div>
                         {goals.map((g, i) => {
                             const done = existingTodoTexts.has(g)
                             return (

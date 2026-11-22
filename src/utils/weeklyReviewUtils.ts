@@ -190,6 +190,20 @@ function decodeEntities(s: string): string {
         .replace(/&amp;/g, '&')
 }
 
+/**
+ * 下週目標轉成待辦的到期日：那一週的下週五；但那天已經過了（翻回舊的週轉）就改成
+ * **今天算起的下週五**——一建立就逾期的待辦只會變成紅字噪音（v1.8.0 驗收時桌面版 Claude 抓到）。
+ */
+export function goalDueDate(weekStart: Date, today: Date): string {
+    const due = nextWeekFriday(weekStart)
+    const todayStr = toLocalDateStr(today)
+    if (due >= todayStr) return due
+    const d = new Date(today)
+    d.setHours(0, 0, 0, 0)
+    d.setDate(d.getDate() - ((d.getDay() || 7) - 1))   // 今天所在週的週一
+    return nextWeekFriday(d)
+}
+
 /** 某週的「下週五」（YYYY-MM-DD）：下週目標轉成待辦時的預設到期日 */
 export function nextWeekFriday(weekStart: Date): string {
     const d = new Date(weekStart)

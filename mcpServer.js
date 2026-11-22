@@ -138,5 +138,9 @@ export function stopMcpServer() {
     p.resolve({ ok: false, error: 'Scout 已關閉 Claude Code 連線' });
     pending.delete(id);
   }
-  try { fs.rmSync(endpointPath(), { force: true }); } catch { /* 刪不掉就算了：pid 對不上時橋接腳本會當作沒開 */ }
+  // 只刪自己寫的那份：別的實例寫的（pid 不同）不能順手刪掉，否則它的連線也跟著斷。
+  try {
+    const cur = JSON.parse(fs.readFileSync(endpointPath(), 'utf8'));
+    if (cur?.pid === process.pid) fs.rmSync(endpointPath(), { force: true });
+  } catch { /* 檔案不在或壞掉：沒有要刪的 */ }
 }

@@ -291,7 +291,7 @@ export default function App() {
                     onJump={(boardId, shapeId, x, y) => { closePanel('taskCenter'); jumpToCard(boardId, shapeId, x, y) }}
                     onClose={() => closePanel('taskCenter')}
                     onFocus={t => {
-                        pomodoro.onLinkTask({ boardId: t.boardId, shapeId: t.shapeId, todoId: t.todoId, text: t.todoText })
+                        pomodoro.onFocusTask({ boardId: t.boardId, shapeId: t.shapeId, todoId: t.todoId, text: t.todoText })
                         // 兩個都是右側抽屜、疊在同一個位置：不先關任務中心，番茄鐘會被蓋住看不到。
                         closePanel('taskCenter')
                         openPanel('pomodoro')

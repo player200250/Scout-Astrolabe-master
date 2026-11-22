@@ -10,7 +10,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import {
     type PomodoroState, type LinkedTask, POMODORO_STORAGE_KEY,
-    parseStored, initialState, start, pause, reset, advance, setPreset, setLinkedTask,
+    parseStored, initialState, start, pause, reset, advance, setPreset, setLinkedTask, readyToFocus,
     remainingMs, hasElapsed, isRunning, isIdle, phaseLabel, phaseDurationMs,
 } from '../utils/pomodoro'
 import { getTodayStr } from '../utils/date'
@@ -31,6 +31,8 @@ export interface UsePomodoro {
     onSetPreset: (presetId: string) => void
     /** 換綁的待辦（null＝解除），不影響計時 */
     onLinkTask: (task: LinkedTask | null) => void
+    /** 綁好並準備專注（任務中心的「專注」）：停在休息時切回專注 */
+    onFocusTask: (task: LinkedTask) => void
 }
 
 /** 蓋住視窗時 tick 會被節流，所以只拿它重畫；1 秒是顯示需求不是計時需求。 */
@@ -123,6 +125,7 @@ export function usePomodoro(opts: UsePomodoroOptions = { ready: true }): UsePomo
     const onSkip = useCallback(() => setState(s => advance(s, getTodayStr(), false)), [])
     const onSetPreset = useCallback((presetId: string) => setState(s => setPreset(s, presetId)), [])
     const onLinkTask = useCallback((task: LinkedTask | null) => setState(s => setLinkedTask(s, task)), [])
+    const onFocusTask = useCallback((task: LinkedTask) => setState(s => readyToFocus(setLinkedTask(s, task))), [])
 
     const now = Date.now()
     const remaining = remainingMs(state, now)
@@ -133,6 +136,6 @@ export function usePomodoro(opts: UsePomodoroOptions = { ready: true }): UsePomo
         running: isRunning(state),
         idle: isIdle(state),
         totalMs: phaseDurationMs(state),
-        onStart, onPause, onReset, onSkip, onSetPreset, onLinkTask,
-    }), [state, remaining, onStart, onPause, onReset, onSkip, onSetPreset, onLinkTask])
+        onStart, onPause, onReset, onSkip, onSetPreset, onLinkTask, onFocusTask,
+    }), [state, remaining, onStart, onPause, onReset, onSkip, onSetPreset, onLinkTask, onFocusTask])
 }

@@ -286,6 +286,11 @@ const filesDir = path.join(app.getPath('userData'), 'files')
 fs.mkdirSync(filesDir, { recursive: true })
 
 app.whenReady().then(() => {
+  // 第二個實例：上面已經 app.quit()，但 quit 是非同步的，whenReady 照樣會跑。
+  // 不擋的話它會啟動自己的 MCP 接口、把 mcp-endpoint.json 蓋成自己的 port，接著結束——
+  // 主實例還開著，Claude Code 卻連到一個死掉的 port（2026-11-22 實際發生兩次）。
+  if (!gotTheLock) return;
+
   if (!chromeGuard.ok) {
     dialog.showMessageBoxSync({
       type: 'error',
