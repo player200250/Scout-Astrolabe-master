@@ -4,7 +4,7 @@
 //
 // 時間軸上有兩種東西：白板活動（最後更新的時刻）與排了時段的待辦（2026-11-22，執行閉環 ④）。
 // 待辦的到期日沒有時刻，仍進上方全天列；**把全天列的待辦拖到某個小時**就是排時段，
-// 已排好的拖到別格是改時段，按 × 取消。拖放用原生 HTML5 DnD，資料放 dataTransfer。
+// 已排好的拖到別格是改時段，拖回全天列或按 × 是取消。拖放用原生 HTML5 DnD，資料放 dataTransfer。
 import { useRef, useEffect, useState } from 'react'
 import { WEEKDAYS, hourSlot, moveSlot, formatMinutes } from '../../utils/calendarViews'
 import type { DayTimeline, TodoRef } from '../../utils/calendarViews'
@@ -41,6 +41,33 @@ export function TimeGrid({ days, todayDs, onJumpToBoard, onOpenJournalDay, onPic
             const { boardId, shapeId, todoId, startMin, endMin } = payload
             e.dataTransfer.setData(DRAG_MIME, JSON.stringify({ boardId, shapeId, todoId, startMin, endMin }))
             e.dataTransfer.effectAllowed = 'move'
+        },
+    } : {}
+
+    /**
+     * 全天列也收：已排時段的拖回來＝取消時段（使用者第一次用就這樣試）。
+     * 只取消、不改到期日——拖到別天的全天列，待辦仍回到它原本到期那天。
+     * 本來就在全天列的（沒排時段）拖來拖去不做事。
+     */
+    const allDayDropProps = (ds: string) => onScheduleTodo ? {
+        onDragOver: (e: React.DragEvent) => {
+            if (!e.dataTransfer.types.includes(DRAG_MIME)) return
+            e.preventDefault()
+            e.dataTransfer.dropEffect = 'move'
+            const key = `${ds}|allday`
+            if (dropTarget !== key) setDropTarget(key)
+        },
+        onDragLeave: () => setDropTarget(t => (t === `${ds}|allday` ? null : t)),
+        onDrop: (e: React.DragEvent) => {
+            setDropTarget(null)
+            const raw = e.dataTransfer.getData(DRAG_MIME)
+            if (!raw) return
+            e.preventDefault()
+            try {
+                const p = JSON.parse(raw) as DragPayload
+                if (p.startMin === undefined) return
+                onScheduleTodo({ boardId: p.boardId, shapeId: p.shapeId, todoId: p.todoId }, null)
+            } catch { /* 不是我們的格式 */ }
         },
     } : {}
 
@@ -116,7 +143,10 @@ export function TimeGrid({ days, todayDs, onJumpToBoard, onOpenJournalDay, onPic
             <div style={{ display: 'grid', gridTemplateColumns: cols, borderBottom: `1px solid ${T.borderLight}`, flexShrink: 0, minHeight: 34, paddingRight: scrollbarW }}>
                 <div style={{ fontSize: 10, color: '#bbb', padding: '6px 6px 0 0', textAlign: 'right' }}>全天</div>
                 {days.map(d => (
-                    <div key={d.ds} style={{ borderLeft: `1px solid ${T.borderLight}`, padding: 4, display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+                    <div key={d.ds} {...allDayDropProps(d.ds)} style={{
+                        borderLeft: `1px solid ${T.borderLight}`, padding: 4, display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0,
+                        background: dropTarget === `${d.ds}|allday` ? T.accentBg : undefined,
+                    }}>
                         {d.hasJournal && (
                             <div onClick={() => onOpenJournalDay(d.date)} style={{ cursor: 'pointer' }}><JournalChip /></div>
                         )}
