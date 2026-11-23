@@ -45,6 +45,13 @@ export function SidebarFooter({ onOpenPanel,  onToggleTheme }: SidebarFooterProp
                     onMouseEnter={e => (e.currentTarget.style.background = iconHoverBg)}
                     onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                 ><Icon name={isDark ? 'themeLight' : 'themeDark'} size="md" /></button>
+                <button
+                    onClick={() => onOpenPanel('settings')}
+                    title="設定"
+                    style={iconBtnStyle}
+                    onMouseEnter={e => (e.currentTarget.style.background = iconHoverBg)}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                ><Icon name="settings" size="md" /></button>
                 <div style={{ position: 'relative' }}>
                     <button
                         onClick={() => setMoreMenuOpen(v => !v)}

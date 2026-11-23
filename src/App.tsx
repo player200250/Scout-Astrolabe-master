@@ -203,7 +203,6 @@ export default function App() {
         : panels.reviewCenter ? 'reviewCenter'
         : panels.knowledgeGraph ? 'knowledgeGraph'
         : panels.pomodoro ? 'pomodoro'
-        : panels.settings ? 'settings'
         : null
 
     const inboxCardCount = useMemo(() => {
