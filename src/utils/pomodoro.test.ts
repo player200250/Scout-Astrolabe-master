@@ -3,7 +3,7 @@ import {
     initialState, start, pause, reset, advance, setPreset,
     remainingMs, hasElapsed, isRunning, isIdle, formatRemaining, progress,
     nextPhaseAfterFocus, parseStored, phaseDurationMs, durationsOf, phaseLabel,
-    LONG_BREAK_EVERY, setLinkedTask, readyToFocus,
+    LONG_BREAK_EVERY, setLinkedTask, readyToFocus, navNote, PHASE_COLOR,
 } from './pomodoro'
 
 const TODAY = '2026-08-08'
@@ -271,5 +271,31 @@ describe('pomodoro：按「專注」準備好專注', () => {
     it('已經是專注 → 原樣', () => {
         const s = initialState(TODAY)
         expect(readyToFocus(s)).toBe(s)
+    })
+})
+
+describe('pomodoro：側邊導覽狀態字', () => {
+    const base = { phase: 'focus' as const, presetId: 'classic', endsAt: null, pausedRemainingMs: null, completedFocus: 0, countedOn: '2026-11-23', linkedTask: null }
+    const NOW = 1_000_000
+
+    it('沒開始不顯示', () => {
+        expect(navNote(base, NOW)).toBeNull()
+    })
+    it('專注中：藍色「專注 mm:ss」', () => {
+        const n = navNote({ ...base, endsAt: NOW + 23 * 60_000 + 41_000 }, NOW)!
+        expect(n.text).toBe('專注 23:41')
+        expect(n.color).toBe(PHASE_COLOR.focus)
+        expect(n.title).toBe('番茄鐘 · 專注中')
+    })
+    it('休息中：綠色「休息」，長短休息都一樣', () => {
+        const n = navNote({ ...base, phase: 'longBreak', endsAt: NOW + 8 * 60_000 }, NOW)!
+        expect(n.text).toBe('休息 08:00')
+        expect(n.color).toBe(PHASE_COLOR.break)
+    })
+    it('暫停：灰色「暫停」，滑過說明帶上綁的待辦', () => {
+        const n = navNote({ ...base, pausedRemainingMs: 5 * 60_000, linkedTask: { boardId: 'b', shapeId: 's', todoId: 't', text: '綁骨' } }, NOW)!
+        expect(n.text).toBe('暫停 05:00')
+        expect(n.color).toBe(PHASE_COLOR.paused)
+        expect(n.title).toBe('番茄鐘 · 暫停（專注） · 綁：綁骨')
     })
 })

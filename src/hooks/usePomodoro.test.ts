@@ -90,3 +90,51 @@ describe('usePomodoro：綁任務', () => {
         expect(onFocusComplete).toHaveBeenCalledWith(task)
     })
 })
+
+describe('usePomodoro：跳過／重設／換長度可以復原', () => {
+    const lastToast = async () => {
+        const { showToast } = await import('../utils/toast')
+        const calls = vi.mocked(showToast).mock.calls
+        return calls[calls.length - 1]
+    }
+    beforeEach(async () => {
+        const { showToast } = await import('../utils/toast')
+        vi.mocked(showToast).mockClear()
+    })
+
+    it('跑到一半跳過 → 給「復原」；按下去剩餘時間跟沒按過一樣', async () => {
+        const { result } = renderHook(() => usePomodoro({ ready: true }))
+        act(() => result.current.onStart())
+        act(() => { vi.advanceTimersByTime(10 * 60_000) })
+        const before = result.current.state
+        act(() => result.current.onSkip())
+        expect(result.current.state.phase).toBe('shortBreak')
+
+        const [msg, , opts] = (await lastToast())!
+        expect(msg).toBe('已跳過專注')
+        expect(opts?.action?.label).toBe('復原')
+        act(() => { vi.advanceTimersByTime(3000) })
+        act(() => opts!.action!.run())
+        expect(result.current.state).toEqual(before)
+        // 中間那 3 秒照算：剩 15 分鐘 − 3 秒
+        expect(result.current.remaining).toBe(FOCUS_MS - 10 * 60_000 - 3000)
+    })
+
+    it('重設與換長度也給復原', async () => {
+        const { result } = renderHook(() => usePomodoro({ ready: true }))
+        act(() => result.current.onStart())
+        act(() => result.current.onReset())
+        expect((await lastToast())![0]).toBe('已重設專注')
+        act(() => result.current.onStart())
+        act(() => result.current.onSetPreset('deep'))
+        expect((await lastToast())![0]).toContain('已換成 50 / 10')
+    })
+
+    it('還沒開始就按：沒有東西會丟，不跳提示', async () => {
+        const { showToast } = await import('../utils/toast')
+        const { result } = renderHook(() => usePomodoro({ ready: true }))
+        act(() => result.current.onSkip())
+        act(() => result.current.onSetPreset('deep'))
+        expect(showToast).not.toHaveBeenCalled()
+    })
+})

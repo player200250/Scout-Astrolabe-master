@@ -6,7 +6,7 @@ import { useOverdueStats } from './hooks/useOverdueStats'
 import { useGlobalHotkeys } from './hooks/useGlobalHotkeys'
 import { usePomodoro } from './hooks/usePomodoro'
 import { PomodoroPanel } from './components/PomodoroPanel'
-import { formatRemaining } from './utils/pomodoro'
+import { navNote } from './utils/pomodoro'
 import { ThemeProvider } from './theme/ThemeContext'
 import { CloudSyncPanel } from './components/CloudSyncPanel'
 import { ToastHost } from './components/ui/ToastHost'
@@ -257,7 +257,7 @@ export default function App() {
                 inboxCardCount={inboxCardCount}
                 overdueCount={overdueCount}
                 todayCount={todayCount}
-                pomodoroNote={pomodoro.running ? formatRemaining(pomodoro.remaining) : null}
+                pomodoroNote={navNote(pomodoro.state, Date.now())}
                 desktopOpen={desktopOpen}
                 onToggleDesktop={toggleDesktop}
                 activePanel={activePanel}
@@ -284,7 +284,13 @@ export default function App() {
                 />
             )}
             {panels.hotkey && <HotkeyPanel onClose={() => closePanel('hotkey')} />}
-            {panels.pomodoro && <PomodoroPanel {...pomodoro} boards={boards} onClose={() => closePanel('pomodoro')} />}
+            {panels.pomodoro && (
+                <PomodoroPanel
+                    {...pomodoro} boards={boards} onClose={() => closePanel('pomodoro')}
+                    // 換綁走任務中心（全螢幕、可搜尋）；在那邊按「專注」就綁好並回到這裡。
+                    onPickTask={() => { closePanel('pomodoro'); openPanel('taskCenter') }}
+                />
+            )}
             {panels.taskCenter && (
                 <TaskCenter
                     boards={boards}

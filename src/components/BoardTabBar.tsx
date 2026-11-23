@@ -17,6 +17,7 @@ import { showToast } from '../utils/toast'
 import { InlineEdit } from './ui/InlineEdit'
 import { useThumbnailPreview } from './ui/ThumbnailPreview'
 import { Icon, type IconName } from './ui/icons'
+import type { PomodoroNavNote } from '../utils/pomodoro'
 
 interface NavItemDef {
     icon: IconName
@@ -26,10 +27,10 @@ interface NavItemDef {
     isActive: boolean
     badge?: { count: number; color: string }
     /**
-     * 徽章放不下的短文字（目前只有番茄鐘的倒數 "24:31"）。
+     * 徽章放不下的短文字（目前只有番茄鐘的「專注 24:31」）。
      * 不塞進 badge 是因為 badge.count 是數字，把「剩幾分鐘」顯示成計數會被讀成「有幾件事」。
      */
-    note?: string
+    note?: { text: string; color: string }
 }
 
 /**
@@ -71,8 +72,8 @@ interface BoardTabBarProps {
     inboxCardCount: number
     overdueCount: number
     todayCount: number
-    /** 番茄鐘進行中的倒數（"24:31"）；沒在跑時為 null，側欄就不顯示。 */
-    pomodoroNote?: string | null
+    /** 番茄鐘狀態（「專注 24:31」＋顏色＋滑過說明）；沒開始時為 null，側欄就不顯示。 */
+    pomodoroNote?: PomodoroNavNote | null
     /** Scout Desktop 開著時按鈕亮起；onToggleDesktop 沒傳（PWA）就不顯示這一項 */
     desktopOpen?: boolean
     onToggleDesktop?: () => void
@@ -224,7 +225,7 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                         { icon: 'taskCenter', label: '任務中心', title: '任務中心', onClick: () => onOpenPanel('taskCenter'), isActive: activePanel === 'taskCenter', badge: (overdueCount > 0 || todayCount > 0) ? { count: overdueCount > 0 ? overdueCount : todayCount, color: overdueCount > 0 ? '#ef4444' : '#f97316' } : undefined },
                         { icon: 'reviewCenter', label: '復盤中心', title: '復盤中心 (Ctrl+Shift+C)', onClick: () => onOpenPanel('reviewCenter'), isActive: activePanel === 'reviewCenter' },
                         { icon: 'knowledgeGraph', label: '知識圖譜', title: '知識圖譜 (Ctrl+Shift+G)', onClick: () => onOpenPanel('knowledgeGraph'), isActive: activePanel === 'knowledgeGraph' },
-                        { icon: 'pomodoro', label: '番茄鐘', title: '番茄鐘', onClick: () => onOpenPanel('pomodoro'), isActive: activePanel === 'pomodoro', note: pomodoroNote ?? undefined },
+                        { icon: 'pomodoro', label: '番茄鐘', title: pomodoroNote?.title ?? '番茄鐘', onClick: () => onOpenPanel('pomodoro'), isActive: activePanel === 'pomodoro', note: pomodoroNote ? { text: pomodoroNote.text, color: pomodoroNote.color } : undefined },
                         ...(onToggleDesktop ? [{ icon: 'desktopWidget', label: 'Scout Desktop', title: (desktopOpen ? '關閉' : '開啟') + ' Scout Desktop (Ctrl+Alt+D)', onClick: onToggleDesktop, isActive: !!desktopOpen } satisfies NavItemDef] : []),
                         { icon: 'trash', label: '垃圾桶', title: '垃圾桶 (Ctrl+Shift+T)', onClick: () => onOpenPanel('trash'), isActive: false, badge: (trashCount ?? 0) > 0 ? { count: trashCount!, color: '#94a3b8' } : undefined },
                     ]
@@ -255,9 +256,9 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                                                 {item.badge.count > 99 ? '99+' : item.badge.count}
                                             </span>
                                         )}
-                                        {/* 收合時放不下 "24:31"，改用一個綠點表示「還在跑」 */}
+                                        {/* 收合時放不下「專注 24:31」，改用一個點表示狀態（顏色同展開時：專注藍／休息綠／暫停灰） */}
                                         {!item.badge && item.note && (
-                                            <span style={{ position: 'absolute', top: 1, right: 1, width: 7, height: 7, borderRadius: 999, background: '#16a34a', border: '1.5px solid var(--bg-sidebar)', pointerEvents: 'none' }} />
+                                            <span style={{ position: 'absolute', top: 1, right: 1, width: 7, height: 7, borderRadius: 999, background: item.note.color, border: '1.5px solid var(--bg-sidebar)', pointerEvents: 'none' }} />
                                         )}
                                     </div>
                                 ))}
@@ -295,8 +296,8 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                                     )}
                                     {!item.badge && item.note && (
                                         // 等寬數字，否則秒數跳動時整排字會左右抖
-                                        <span style={{ marginRight: 10, fontSize: 11, color: '#16a34a', fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>
-                                            {item.note}
+                                        <span style={{ marginRight: 10, fontSize: 11, color: item.note.color, fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>
+                                            {item.note.text}
                                         </span>
                                     )}
                                 </button>

@@ -131,6 +131,8 @@ const page = targets.find(t => t.type === 'page' && !t.url.startsWith('devtools:
   否則永遠是空的、會誤判成沒有視窗）。
 - **`Add-Type -ReferencedAssemblies` 拼錯會報參數錯**，但若型別已被定義則不影響；腳本已用
   `[PSTypeName]'Win'` 檢查避免重複定義。
+- **寫完 localStorage 馬上 `Stop-Process -Force` 會丟掉那筆寫入**（Chromium 是延遲批次落盤；2026-11-23 還原番茄鐘狀態時踩到，使用者的 App 因此停在錯的階段）。
+  還原測試資料後**等 ~6 秒**，先 `CloseMainWindow()` 讓它正常關，最後才 Force。
 - **改了程式忘了 rebuild** → `file://` 載到舊 dist，畫面對不上。先 `npm run build`。
 - App 用 Dexie/IndexedDB 存白板資料，`ELECTRON_PROD_TEST=1` 的 origin 與安裝版一致，
   所以能重現「只在安裝版發生」的問題（例如白屏 OOM）。
