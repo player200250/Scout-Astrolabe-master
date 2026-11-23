@@ -1,4 +1,4 @@
-// src/CalendarView.tsx — 復盤中心的月曆分頁（組裝層）
+// src/components/CalendarView.tsx — 復盤中心的月曆分頁（組裝層）
 //
 // 2026-09-20：加上多種檢視（參考 Google Calendar）。
 // 2026-09-29：收成「日／週／月／年」四種——原本的「小時」與「日」都是看一天，
@@ -16,19 +16,19 @@
 // 後者開頭寫了「待辦沒有時刻」這個前提，看時間軸相關的東西前先讀它。
 import { useState, useMemo } from 'react'
 import React from 'react'
-import type { BoardRecord } from './db'
-import { toDateStr as dateStr } from './utils/date'
-import { buildMonthEvents, buildAgenda } from './utils/calendarEvents'
+import type { BoardRecord } from '../db'
+import { toDateStr as dateStr } from '../utils/date'
+import { buildMonthEvents, buildAgenda } from '../utils/calendarEvents'
 import {
     VIEW_MODES, buildDayTimeline, buildWeekTimelines, buildYearDensity,
     shiftViewDate, viewRangeLabel,
-} from './utils/calendarViews'
-import type { CalendarViewMode, TodoRef } from './utils/calendarViews'
-import { MonthGrid } from './components/calendar/MonthGrid'
-import { TimeGrid } from './components/calendar/TimeGrid'
-import { YearGrid } from './components/calendar/YearGrid'
-import { AgendaPanel } from './components/calendar/AgendaPanel'
-import { T } from './theme/tokens'
+} from '../utils/calendarViews'
+import type { CalendarViewMode, TodoRef } from '../utils/calendarViews'
+import { MonthGrid } from './calendar/MonthGrid'
+import { TimeGrid } from './calendar/TimeGrid'
+import { YearGrid } from './calendar/YearGrid'
+import { AgendaPanel } from './calendar/AgendaPanel'
+import { T } from '../theme/tokens'
 
 interface CalendarContentProps {
     boards: BoardRecord[]

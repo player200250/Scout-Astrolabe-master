@@ -6,14 +6,14 @@
 
 ## 適用範圍
 
-`src/components/card-shape/sub-components/TextContent.tsx`（白板卡片內聯編輯 + Modal 模式）、`src/JournalDayView.tsx`（日記專用編輯器）。
+`src/components/card-shape/sub-components/TextContent.tsx`（白板卡片內聯編輯 + Modal 模式）、`src/components/JournalDayView.tsx`（日記專用編輯器）。
 
 ## 相關檔案
 
 | 檔案 | 說明 |
 |------|------|
 | `src/components/card-shape/sub-components/TextContent.tsx` | 主要富文字編輯器（含工具列、補全、view/edit 模式切換） |
-| `src/JournalDayView.tsx` | 日記編輯器（簡化版 TipTap，無語法高亮） |
+| `src/components/JournalDayView.tsx` | 日記編輯器（簡化版 TipTap，無語法高亮） |
 | `src/utils/exportMarkdown.ts` | HTML → Markdown 轉換（`htmlToMarkdown`） |
 
 ---

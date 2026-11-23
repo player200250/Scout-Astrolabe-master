@@ -22,8 +22,8 @@
 | `src/components/BoardTabBar.tsx` | 側邊欄，顯示白板清單、導航、工具圖示 |
 | `src/utils/boardDb.ts` | IndexedDB CRUD 封裝（`saveBoard`、`deleteBoard`、`loadAllBoards`） |
 | `src/utils/appEvents.ts` | 型別安全事件匯流排（`emitAppEvent` / `onAppEvent`，定義 `AppEventPayloads`） |
-| `src/QuickSwitcher.tsx` | Ctrl+P 白板快速切換面板（搜尋、鍵盤導航、縮圖、相對時間戳） |
-| `src/utils/contextMenuUtils.tsx` | `useContextMenu` hook、`BUILTIN_TEMPLATES` 常數、`alignShapes`/`distributeShapes`（從 ContextMenu.tsx 分離） |
+| `src/components/QuickSwitcher.tsx` | Ctrl+P 白板快速切換面板（搜尋、鍵盤導航、縮圖、相對時間戳） |
+| `src/hooks/useContextMenu.tsx` | `useContextMenu` hook、`BUILTIN_TEMPLATES` 常數、`alignShapes`/`distributeShapes`（從 ContextMenu.tsx 分離） |
 | `src/utils/trashUtils.ts` | `saveCardToTrash`、`getCardPreview`（從 TrashPanel.tsx 分離） |
 | `src/utils/weeklyReviewUtils.ts` | `getISOWeekKey`、`getWeekRange`（從 WeeklyReview.tsx 分離） |
 | `src/utils/whiteboardUtils.ts` | `exportBtnStyle`（從 WhiteboardTools.tsx 分離；TD8 後不再隨主題變，已由 `getExportBtnStyle(isDark)` 收斂成常數） |
@@ -70,8 +70,8 @@
 現況範例（復盤中心）：
 
 ```
-src/ReviewCenter.tsx                     分頁切換（組裝層）
-src/CalendarView.tsx                     月曆：目前檢視／錨點日期（組裝層）
+src/components/ReviewCenter.tsx                     分頁切換（組裝層）
+src/components/CalendarView.tsx                     月曆：目前檢視／錨點日期（組裝層）
 src/components/calendar/MonthGrid.tsx    月檢視（格子，週一起頭）
 src/components/calendar/TimeGrid.tsx     日／週檢視（全天列 ＋ 24 小時軸）
 src/components/calendar/YearGrid.tsx     年檢視（密度圖，週一起頭）

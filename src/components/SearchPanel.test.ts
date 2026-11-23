@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
-// src/SearchPanel.test.ts
+// src/components/SearchPanel.test.ts
 //
 // 這個檔案存在的直接理由：舊版 buildSearchIndex 只索引 5 種卡片型別，
 // 其餘 6 種（heading／sticky／table／color／board／file）被 `continue` 跳過＝**根本搜不到**。
 // 那種 bug 不會報錯、不會當機，只會讓人覺得「我明明記過這件事」，然後怪自己記錯。
 import { describe, it, expect } from 'vitest'
 import type { TLEditorSnapshot } from 'tldraw'
-import { buildCardSearchText, buildSearchIndex, searchFromIndex, typeCountsFor, buildSnippet } from './utils/searchIndex'
+import { buildCardSearchText, buildSearchIndex, searchFromIndex, typeCountsFor, buildSnippet } from '../utils/searchIndex'
 
 const boardNames = new Map([['b_target', '被連到的白板']])
 

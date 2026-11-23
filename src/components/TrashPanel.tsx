@@ -1,13 +1,13 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { db } from './db'
-import type { BoardRecord, DeletedCardRecord } from './db'
-import { emitAppEvent, onAppEvent } from './utils/appEvents'
-import { deleteStoredFile } from './platform/fileStore'
-import { T } from './theme/tokens'
-import { FullscreenPanel } from './components/ui/FullscreenPanel'
-import { Icon } from './components/ui/icons'
-import { CARD_TYPE_ICON } from './utils/cardMeta'
-import type { CardType } from './components/card-shape/type/CardShape'
+import { db } from '../db'
+import type { BoardRecord, DeletedCardRecord } from '../db'
+import { emitAppEvent, onAppEvent } from '../utils/appEvents'
+import { deleteStoredFile } from '../platform/fileStore'
+import { T } from '../theme/tokens'
+import { FullscreenPanel } from './ui/FullscreenPanel'
+import { Icon } from './ui/icons'
+import { CARD_TYPE_ICON } from '../utils/cardMeta'
+import type { CardType } from './card-shape/type/CardShape'
 
 interface TrashPanelProps {
     onClose: () => void

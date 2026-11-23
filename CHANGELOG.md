@@ -31,6 +31,7 @@
 ### 內部
 
 - 「逾期／今天到期」收成單一定義（`utils/dueStatus.ts`），主頁、側邊徽章、任務中心、Scout Desktop、MCP、知識圖譜、待辦卡共用
+- 檔案位置整理：`src/` 最外層的 15 個面板搬進 `src/components/`；`Usehotkeys` → `hooks/useHotkeys`、`utils/contextMenuUtils` → `hooks/useContextMenu`、`TIdrawToolPanel` 改正拼字為 `TldrawToolPanel`
 
 ---
 

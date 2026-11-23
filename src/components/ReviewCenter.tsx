@@ -1,13 +1,13 @@
-// src/ReviewCenter.tsx
+// src/components/ReviewCenter.tsx
 import { useState, useEffect } from 'react'
-import type { BoardRecord } from './db'
+import type { BoardRecord } from '../db'
 import { CalendarContent } from './CalendarView'
 import { JournalDayContent } from './JournalDayView'
 import { WeeklyReviewContent } from './WeeklyReview'
-import { T } from './theme/tokens'
-import { FullscreenPanel } from './components/ui/FullscreenPanel'
-import { Icon } from './components/ui/icons'
-import type { IconName } from './components/ui/icons'
+import { T } from '../theme/tokens'
+import { FullscreenPanel } from './ui/FullscreenPanel'
+import { Icon } from './ui/icons'
+import type { IconName } from './ui/icons'
 
 export type ReviewTab = 'calendar' | 'journal' | 'weekly'
 

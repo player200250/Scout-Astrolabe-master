@@ -6,7 +6,7 @@
 
 ## 適用範圍
 
-`src/utils/boardExport.ts`、`src/utils/exportMarkdown.ts`、`src/BackupPanel.tsx`、`src/components/WhiteboardTools.tsx`（觸發匯出的元件）、`src/hooks/useBoardManager.ts`（`handleRestore`）。
+`src/utils/boardExport.ts`、`src/utils/exportMarkdown.ts`、`src/components/BackupPanel.tsx`、`src/components/WhiteboardTools.tsx`（觸發匯出的元件）、`src/hooks/useBoardManager.ts`（`handleRestore`）。
 
 ## 相關檔案
 
@@ -14,7 +14,7 @@
 |------|------|
 | `src/utils/boardExport.ts` | JSON 匯入 / 匯出工具函式 |
 | `src/utils/exportMarkdown.ts` | Markdown 匯出（含 HTML→Markdown 轉換） |
-| `src/BackupPanel.tsx` | 備份清單 UI、手動還原、刪除備份 |
+| `src/components/BackupPanel.tsx` | 備份清單 UI、手動還原、刪除備份 |
 | `src/hooks/useBoardManager.ts` | `handleRestore(boards)` 將備份寫回 DB |
 | `src/components/WhiteboardTools.tsx` | tldraw `editor.toImage()` 觸發 PNG/PDF 匯出 |
 | `src/db.ts` | `BackupRecord` table（id, timestamp, boardCount, boards） |

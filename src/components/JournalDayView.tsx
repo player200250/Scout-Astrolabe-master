@@ -1,10 +1,10 @@
-// src/JournalDayView.tsx
+// src/components/JournalDayView.tsx
 // 編輯器本體與週回顧共用 JournalCardEditor（2026-09-30 併掉原本這裡的整份複本）。
 import { useEffect } from 'react'
-import type { BoardRecord } from './db'
-import { JournalCardEditor } from './components/review/JournalCardEditor'
-import { EmptyState } from './components/ui/EmptyState'
-import { T } from './theme/tokens'
+import type { BoardRecord } from '../db'
+import { JournalCardEditor } from './review/JournalCardEditor'
+import { EmptyState } from './ui/EmptyState'
+import { T } from '../theme/tokens'
 
 function toDateStr(d: Date): string {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`

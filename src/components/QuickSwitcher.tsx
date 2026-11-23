@@ -1,9 +1,9 @@
-// src/QuickSwitcher.tsx
+// src/components/QuickSwitcher.tsx
 import { useEffect, useRef, useState, useMemo } from 'react'
-import type { BoardRecord } from './db'
-import { Z_MODAL_BACKDROP, Z_MODAL, MODAL_TOP, MODAL_WIDTH, MODAL_BACKDROP } from './constants'
-import { T } from './theme/tokens'
-import { Icon } from './components/ui/icons'
+import type { BoardRecord } from '../db'
+import { Z_MODAL_BACKDROP, Z_MODAL, MODAL_TOP, MODAL_WIDTH, MODAL_BACKDROP } from '../constants'
+import { T } from '../theme/tokens'
+import { Icon } from './ui/icons'
 
 interface QuickSwitcherProps {
     boards: BoardRecord[]

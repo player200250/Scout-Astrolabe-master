@@ -1,7 +1,7 @@
-// src/HotkeyPanel.tsx
-import { isMac } from './Usehotkeys'
-import { Z_MODAL_BACKDROP, Z_MODAL, MODAL_TOP, MODAL_WIDTH, MODAL_BACKDROP } from './constants'
-import { T } from './theme/tokens'
+// src/components/HotkeyPanel.tsx
+import { isMac } from '../hooks/useHotkeys'
+import { Z_MODAL_BACKDROP, Z_MODAL, MODAL_TOP, MODAL_WIDTH, MODAL_BACKDROP } from '../constants'
+import { T } from '../theme/tokens'
 
 const MOD = isMac ? '⌘' : 'Ctrl'
 

@@ -1,4 +1,4 @@
-// src/WeeklyReview.tsx
+// src/components/WeeklyReview.tsx
 //
 // 週回顧分頁。RC2（2026-09-20）之前這裡是一條 440px 的窄欄居中，兩側大片空白，
 // 而且**看不到週回顧卡的內容**——只有「本週統計」加一顆跳去白板的按鈕，
@@ -7,21 +7,21 @@
 // 註：原本檔尾還有一個 320px 的 standalone 側邊面板 `WeeklyReview`，
 // 全專案沒有任何人 import（孤兒，同 WO2 的情況），本次一併移除，只留 Content 版。
 import { useMemo, useState } from 'react'
-import type { BoardRecord } from './db'
-import { getWeekRange, getISOWeekKey, recentWeekStarts, computeRangeStats, weeksOfMonth, extractNextWeekGoals, goalDueDate, nextWeekFriday } from './utils/weeklyReviewUtils'
-import { countDueTodos } from './hooks/useOverdueStats'
-import { getCardShapes } from './utils/snapshot'
-import { scanBoards } from './utils/todoScan'
-import { getTodayStr } from './utils/date'
-import { MonthDigest } from './components/review/MonthDigest'
-import { YearDigest } from './components/review/YearDigest'
-import { findJournalCard, isUntouchedTemplate } from './utils/journalCards'
-import { JournalCardEditor } from './components/review/JournalCardEditor'
-import { EmptyState } from './components/ui/EmptyState'
-import { Icon } from './components/ui/icons'
-import type { IconName } from './components/ui/icons'
-import { T } from './theme/tokens'
-import { useIsDark } from './theme/ThemeContext'
+import type { BoardRecord } from '../db'
+import { getWeekRange, getISOWeekKey, recentWeekStarts, computeRangeStats, weeksOfMonth, extractNextWeekGoals, goalDueDate, nextWeekFriday } from '../utils/weeklyReviewUtils'
+import { countDueTodos } from '../hooks/useOverdueStats'
+import { getCardShapes } from '../utils/snapshot'
+import { scanBoards } from '../utils/todoScan'
+import { getTodayStr } from '../utils/date'
+import { MonthDigest } from './review/MonthDigest'
+import { YearDigest } from './review/YearDigest'
+import { findJournalCard, isUntouchedTemplate } from '../utils/journalCards'
+import { JournalCardEditor } from './review/JournalCardEditor'
+import { EmptyState } from './ui/EmptyState'
+import { Icon } from './ui/icons'
+import type { IconName } from './ui/icons'
+import { T } from '../theme/tokens'
+import { useIsDark } from '../theme/ThemeContext'
 
 
 /** 該週還沒有回顧卡時，編輯器帶入的空模板（與既有卡片的結構一致） */

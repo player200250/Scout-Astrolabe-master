@@ -1,17 +1,17 @@
-// src/TaskCenter.tsx — 任務中心（全螢幕五欄看板）
+// src/components/TaskCenter.tsx — 任務中心（全螢幕五欄看板）
 //
 // 原本是右側 360px 抽屜＋分頁；改成全螢幕後五個時間分組直接攤成五欄，分頁就不需要了。
 // 「無截止日」原本要點開才看得到（驗收時 71 項很難找），現在是第五欄，已完成預設藏起來。
 import { useState, useEffect, useMemo } from 'react'
-import type { BoardRecord } from './db'
-import { getTodayStr, getWeekLaterStr, formatDueDate } from './utils/date'
-import { scanBoards, type TaskItem } from './utils/todoScan'
-import { GROUP_ORDER, getGroupKey, groupTasks, dropTargetDate, type GroupKey } from './utils/taskCenterBoard'
+import type { BoardRecord } from '../db'
+import { getTodayStr, getWeekLaterStr, formatDueDate } from '../utils/date'
+import { scanBoards, type TaskItem } from '../utils/todoScan'
+import { GROUP_ORDER, getGroupKey, groupTasks, dropTargetDate, type GroupKey } from '../utils/taskCenterBoard'
 
-import { FullscreenPanel } from './components/ui/FullscreenPanel'
-import { T } from './theme/tokens'
-import { Icon } from './components/ui/icons'
-import type { IconName } from './components/ui/icons'
+import { FullscreenPanel } from './ui/FullscreenPanel'
+import { T } from '../theme/tokens'
+import { Icon } from './ui/icons'
+import type { IconName } from './ui/icons'
 
 /** 欄寬下限：240 × 5 = 1200。視窗再窄就整排橫向捲動，不把欄擠扁。 */
 const COLUMN_MIN_WIDTH = 240

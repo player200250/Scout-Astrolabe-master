@@ -6,7 +6,7 @@
 
 ## 適用範圍
 
-`src/hooks/useBoardManager.ts`（白板軟/永久刪除）、`src/components/WhiteboardTools.tsx`（卡片軟刪除、Ctrl+Z 同步）、`src/TrashPanel.tsx`（還原/永久刪除卡片）、`src/db.ts`（`deletedCards` table、`boards.deletedAt` 欄位）。
+`src/hooks/useBoardManager.ts`（白板軟/永久刪除）、`src/components/WhiteboardTools.tsx`（卡片軟刪除、Ctrl+Z 同步）、`src/components/TrashPanel.tsx`（還原/永久刪除卡片）、`src/db.ts`（`deletedCards` table、`boards.deletedAt` 欄位）。
 
 ## 相關檔案
 
@@ -15,9 +15,9 @@
 | `src/db.ts` | `deletedCards` table 定義；`BoardRecord.deletedAt` |
 | `src/hooks/useBoardManager.ts` | 白板 CRUD：軟刪、永久刪、還原、清空垃圾桶 |
 | `src/components/WhiteboardTools.tsx` | 卡片軟刪除（Delete 鍵/右鍵）、Ctrl+Z 同步、permanent-delete-shape 接收 |
-| `src/TrashPanel.tsx` | 垃圾桶 UI：卡片/白板列表、還原、永久刪除 |
-| `src/ContextMenu.tsx` / `src/utils/contextMenuUtils.tsx` | 右鍵選單「刪除」觸發 `saveCardToTrash` |
-| `src/Usehotkeys.tsx` | Delete 鍵觸發 `onDeleteShapes`（檔名大寫 U、`.tsx`、src 根） |
+| `src/components/TrashPanel.tsx` | 垃圾桶 UI：卡片/白板列表、還原、永久刪除 |
+| `src/components/ContextMenu.tsx` / `src/hooks/useContextMenu.tsx` | 右鍵選單「刪除」觸發 `saveCardToTrash` |
+| `src/hooks/useHotkeys.tsx` | Delete 鍵觸發 `onDeleteShapes`（檔名大寫 U、`.tsx`、src 根） |
 
 ---
 
@@ -39,7 +39,7 @@ Scout Astrolabe 有兩類可被刪除的物件，機制略有差異：
 | 觸發 | 元件 |
 |------|------|
 | 選取卡片後按 `Delete` | `Usehotkeys.tsx` → `onDeleteShapes()` |
-| 右鍵選單 → 刪除 | `contextMenuUtils.tsx` → `saveCardToTrash()` |
+| 右鍵選單 → 刪除 | `useContextMenu.tsx` → `saveCardToTrash()` |
 
 ### `onDeleteShapes` 完整流程
 

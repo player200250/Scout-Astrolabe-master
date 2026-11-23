@@ -1,14 +1,14 @@
-// src/CommandPalette.tsx
+// src/components/CommandPalette.tsx
 // 全域 Command Palette（N1，Ctrl+K）。命令清單來自 utils/commands，
 // 白板切換作為額外一組結果併入，統一為可搜尋的單一入口。
 import { useEffect, useRef, useState, useMemo } from 'react'
-import type { BoardRecord } from './db'
-import type { Command } from './utils/commands'
-import { filterCommands } from './utils/commands'
-import { Z_MODAL_BACKDROP, Z_MODAL, MODAL_TOP, MODAL_WIDTH, MODAL_BACKDROP } from './constants'
-import { T } from './theme/tokens'
-import { Icon } from './components/ui/icons'
-import type { IconName } from './components/ui/icons'
+import type { BoardRecord } from '../db'
+import type { Command } from '../utils/commands'
+import { filterCommands } from '../utils/commands'
+import { Z_MODAL_BACKDROP, Z_MODAL, MODAL_TOP, MODAL_WIDTH, MODAL_BACKDROP } from '../constants'
+import { T } from '../theme/tokens'
+import { Icon } from './ui/icons'
+import type { IconName } from './ui/icons'
 
 interface CommandPaletteProps {
     commands: Command[]

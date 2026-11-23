@@ -1,4 +1,4 @@
-// src/utils/contextMenuUtils.tsx
+// src/hooks/useContextMenu.tsx
 // useContextMenu hook（從 ContextMenu.tsx 拆出，避免 component 與 hook/util 混在同一檔案）
 
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -7,14 +7,14 @@ import { STICKY_COLORS, STICKY_COLOR_LIST } from '../components/card-shape/type/
 import type { CardColor, TLCardShape, StickyColor, CardStatusType, PriorityType } from '../components/card-shape/type/CardShape'
 import { db } from '../db'
 import type { TemplateRecord } from '../db'
-import { saveCardToTrash, getCardPreview } from './trashUtils'
-import { sanitizeCardProps } from './snapshot'
-import type { SnapshotShapeProps } from './snapshot'
+import { saveCardToTrash, getCardPreview } from '../utils/trashUtils'
+import { sanitizeCardProps } from '../utils/snapshot'
+import type { SnapshotShapeProps } from '../utils/snapshot'
 import { canAttachFile } from '../platform/fileStore'
-import { ContextMenuUI, SaveTemplateModal, BatchAddTagModal } from '../ContextMenu'
-import type { MenuItem } from '../ContextMenu'
+import { ContextMenuUI, SaveTemplateModal, BatchAddTagModal } from '../components/ContextMenu'
+import type { MenuItem } from '../components/ContextMenu'
 import type { IconName } from '../components/ui/icons'
-import { alignShapes } from './align'
+import { alignShapes } from '../utils/align'
 
 // ── Alignment helpers ───────────────────────────────────────────────────────
 
