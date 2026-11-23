@@ -705,7 +705,6 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
         // 這段由 `initialized` ref 守成「每次掛載只跑一次」（載入 snapshot、seed 範例卡、
         // 補今日/本週日記卡），刻意只讀掛載當下的 `boards`。
         // 放進依賴不會有任何效果——重跑會立刻被 initialized 擋掉——只會讓人誤以為它會跟著更新。
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [editor, board])
 
     useEffect(() => {

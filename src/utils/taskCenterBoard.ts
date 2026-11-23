@@ -1,5 +1,6 @@
 // src/utils/taskCenterBoard.ts — 任務中心看板的分欄與過濾（純函式，方便測試）
 import type { TaskItem } from './todoScan'
+import { isPastDue, isDueToday } from './dueStatus'
 
 export type GroupKey = 'overdue' | 'today' | 'week' | 'later' | 'noduedate'
 
@@ -7,8 +8,8 @@ export const GROUP_ORDER: GroupKey[] = ['overdue', 'today', 'week', 'later', 'no
 
 export function getGroupKey(dueDate: string | undefined, todayStr: string, weekStr: string): GroupKey {
     if (!dueDate) return 'noduedate'
-    if (dueDate < todayStr) return 'overdue'
-    if (dueDate === todayStr) return 'today'
+    if (isPastDue(dueDate, todayStr)) return 'overdue'
+    if (isDueToday(dueDate, todayStr)) return 'today'
     if (dueDate <= weekStr) return 'week'
     return 'later'
 }

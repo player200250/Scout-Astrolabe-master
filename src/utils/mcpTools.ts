@@ -11,6 +11,7 @@ import type { BoardRecord } from '../db'
 import { getCardShapes } from './snapshot'
 import { buildCardSearchText, buildSearchIndex, searchFromIndex } from './searchIndex'
 import type { SnapshotTodo } from './snapshot'
+import { isOverdue, isOpenDueToday } from './dueStatus'
 
 export const MCP_TOOL_NAMES = [
     'list_boards', 'read_board', 'search_cards', 'list_todos',
@@ -158,13 +159,13 @@ export function listTodos(boards: BoardRecord[], filter: TodoFilter, today: stri
             if (shape.props.type !== 'todo') continue
             for (const t of shape.props.todos ?? []) {
                 const due = t.dueDate ?? null
-                const isOverdue = !t.checked && !!due && due < today
+                const overdue = isOverdue(t, today)
                 const keep = filter === 'all'
                     || (filter === 'open' && !t.checked)
-                    || (filter === 'overdue' && isOverdue)
-                    || (filter === 'today' && !t.checked && due === today)
+                    || (filter === 'overdue' && overdue)
+                    || (filter === 'today' && isOpenDueToday(t, today))
                 if (!keep) continue
-                items.push({ boardId: board.id, boardName: board.name, cardId: shape.id, todoId: t.id, text: t.text, checked: !!t.checked, dueDate: due, isOverdue })
+                items.push({ boardId: board.id, boardName: board.name, cardId: shape.id, todoId: t.id, text: t.text, checked: !!t.checked, dueDate: due, isOverdue: overdue })
             }
         }
     }

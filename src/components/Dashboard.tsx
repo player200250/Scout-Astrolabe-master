@@ -8,6 +8,7 @@ import { T } from '../theme/tokens'
 import { Icon } from './ui/icons'
 import { TYPE_COLOR, CARD_TYPE_ICON } from '../utils/cardMeta'
 import type { CardType } from './card-shape/type/CardShape'
+import { isOverdue, isOpenDueToday } from '../utils/dueStatus'
 
 interface DashboardProps {
     boards: BoardRecord[]
@@ -61,13 +62,9 @@ export function Dashboard({
             for (const shape of getCardShapes(board.snapshot)) {
                 if (shape.props.type !== 'todo') continue
                 for (const t of shape.props.todos ?? []) {
-                    if (!t.dueDate) continue
-                    if (!t.checked) {
-                        if (t.dueDate < todayStr) overdueCount++
-                        else if (t.dueDate === todayStr) todayCount++
-                    } else {
-                        if (t.dueDate >= weekStart && t.dueDate <= weekEnd) weekDoneCount++
-                    }
+                    if (isOverdue(t, todayStr)) overdueCount++
+                    else if (isOpenDueToday(t, todayStr)) todayCount++
+                    else if (t.checked && t.dueDate && t.dueDate >= weekStart && t.dueDate <= weekEnd) weekDoneCount++
                 }
             }
         }
@@ -93,10 +90,9 @@ export function Dashboard({
             for (const shape of getCardShapes(board.snapshot)) {
                 if (shape.props.type !== 'todo') continue
                 for (const t of shape.props.todos ?? []) {
-                    if (t.checked || !t.dueDate) continue
-                    const isOverdue = t.dueDate < todayStr
-                    if (isOverdue || t.dueDate === todayStr) {
-                        items.push({ boardId: board.id, boardName: board.name, shapeId: shape.id, text: t.text, isOverdue })
+                    const overdue = isOverdue(t, todayStr)
+                    if (overdue || isOpenDueToday(t, todayStr)) {
+                        items.push({ boardId: board.id, boardName: board.name, shapeId: shape.id, text: t.text, isOverdue: overdue })
                     }
                 }
             }
