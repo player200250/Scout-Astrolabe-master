@@ -6,7 +6,7 @@
 
 ## 適用範圍
 
-`src/db.ts`（Dexie schema）、`src/utils/snapshot.ts`（sanitize）、`src/hooks/useBoardManager.ts`（14 天清除、sanitizeBoards）、`src/BackupPanel.tsx`（備份）、`src/platform/imageStore.ts`（圖片改存實體檔）、`src/components/DataSafetyPanel.tsx`（唯讀容量統計）。
+`src/db.ts`（Dexie schema）、`src/utils/snapshot.ts`（sanitize）、`src/hooks/useBoardManager.ts`（14 天清除、sanitizeBoards）、`src/components/BackupPanel.tsx`（備份）、`src/platform/imageStore.ts`（圖片改存實體檔）、`src/components/DataSafetyPanel.tsx`（唯讀容量統計）。
 
 ## 相關檔案
 
@@ -16,7 +16,7 @@
 | `src/utils/backupSettings.ts` | 備份保留份數設定（N17）：`BACKUP_LIMIT_OPTIONS`／`getBackupLimit`／`setBackupLimit`／`normalizeBackupLimit` |
 | `src/utils/snapshot.ts` | `sanitizeSnapshot`、`sanitizeCardProps`、`CARD_PROP_DEFAULTS` |
 | `src/hooks/useBoardManager.ts` | 啟動時 sanitizeBoards、14 天自動清除、備份觸發 |
-| `src/BackupPanel.tsx` | 備份清單 UI、手動還原、手動「立即遷移」圖片 |
+| `src/components/BackupPanel.tsx` | 備份清單 UI、手動還原、手動「立即遷移」圖片 |
 | `src/platform/imageStore.ts` | image 卡改存 `userData/files`（astro-img protocol）；snapshot 只存 `storedName`（TD-IMG） |
 | `src/utils/dataSafetyStats.ts` + `src/components/DataSafetyPanel.tsx` | 資料安全中心：`computeVaultStats` 純函式 + 統計面板（N10）＋備份保留份數設定（N17） |
 | `src/constants.ts` | `BACKUP_THROTTLE_MS`（5 分鐘） |

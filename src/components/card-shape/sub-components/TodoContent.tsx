@@ -4,6 +4,8 @@ import { useEditor } from 'tldraw'
 import { useIsDarkMode } from '@tldraw/editor'
 import type { TLCardShape, TodoItem } from '../type/CardShape'
 import { blockCanvasPointerDown } from '../nativeInputGuards'
+import { isPastDue, isDueToday } from '../../../utils/dueStatus'
+import { getTodayStr } from '../../../utils/date'
 
 // 常數定義
 const ITEM_HEIGHT = 28
@@ -19,10 +21,9 @@ const calculateNewHeight = (todosCount: number, editing: boolean) => {
 // 到期日狀態計算
 const getDueDateStatus = (dueDate: string | undefined): { label: string; color: string; bg: string } | null => {
     if (!dueDate) return null
-    const today = new Date()
-    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
-    if (dueDate < todayStr) return { label: '逾期', color: '#ff4d4f', bg: '#fff5f5' }
-    if (dueDate === todayStr) return { label: '今天', color: '#e67e00', bg: '#fff7f0' }
+    const todayStr = getTodayStr()
+    if (isPastDue(dueDate, todayStr)) return { label: '逾期', color: '#ff4d4f', bg: '#fff5f5' }
+    if (isDueToday(dueDate, todayStr)) return { label: '今天', color: '#e67e00', bg: '#fff7f0' }
     const diffMs = new Date(dueDate + 'T00:00:00').getTime() - new Date(todayStr + 'T00:00:00').getTime()
     const diffDays = Math.round(diffMs / 86400000)
     if (diffDays <= 7) return { label: `${diffDays}天後`, color: '#3b82f6', bg: '#eff6ff' }

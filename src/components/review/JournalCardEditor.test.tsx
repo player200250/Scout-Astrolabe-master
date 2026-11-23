@@ -60,3 +60,25 @@ describe('JournalCardEditor 沒存完就離開', () => {
         expect(save).not.toHaveBeenCalled()
     })
 })
+
+describe('JournalCardEditor 存檔狀態', () => {
+    // 第 38 週那種：卡片早就存在
+    const withCard = [{
+        id: 'journal', name: '📔 日誌', isJournal: true,
+        snapshot: { document: { store: { 'shape:w38': {
+            typeName: 'shape', type: 'card', id: 'shape:w38',
+            props: { type: 'journal', journalDate: '2026-W38', text: '<p>舊的回顧</p>' },
+        } } } },
+    }] as unknown as BoardRecord[]
+
+    it('打開已存在的卡不顯示「已儲存」；打字後才出現「未儲存」→「已儲存」', async () => {
+        const { container } = render(
+            <JournalCardEditor boards={withCard} dateKey="2026-W38" template="" onSaveJournal={vi.fn()} />,
+        )
+        expect(container.textContent).not.toContain('已儲存')
+        await typeInto(container, '補一句')
+        expect(container.textContent).toContain('未儲存')
+        await act(async () => { await new Promise(r => setTimeout(r, 1500)) })
+        expect(container.textContent).toContain('已儲存')
+    })
+})

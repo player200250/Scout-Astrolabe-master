@@ -15,6 +15,9 @@ export interface TaskItem {
     checked: boolean
     /** 綁這項跑完的番茄數 */
     focusCount: number
+    /** 行事曆排的時段（拖曳改日期時要清掉、復原時要放回） */
+    scheduledStart?: string
+    scheduledEnd?: string
     x: number
     y: number
 }
@@ -35,6 +38,7 @@ export function scanBoards(boards: BoardRecord[]): TaskItem[] {
                     cardTitle: shape.props.text || '', todoId: t.id, todoText: t.text,
                     dueDate: t.dueDate ?? '', checked: !!t.checked,
                     focusCount: typeof t.focusCount === 'number' ? t.focusCount : 0,
+                    ...(t.scheduledStart && t.scheduledEnd ? { scheduledStart: t.scheduledStart, scheduledEnd: t.scheduledEnd } : {}),
                     x: shape.x ?? 0, y: shape.y ?? 0,
                 })
             }

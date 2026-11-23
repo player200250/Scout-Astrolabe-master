@@ -11,6 +11,7 @@ import { useMemo } from 'react'
 import type { BoardRecord } from '../db'
 import { getCardShapes } from '../utils/snapshot'
 import { getTodayStr } from '../utils/date'
+import { isOverdue, isOpenDueToday } from '../utils/dueStatus'
 
 export interface OverdueStats {
     /** 到期日早於今天、尚未完成 */
@@ -26,9 +27,8 @@ export function countDueTodos(boards: BoardRecord[], todayStr: string): OverdueS
         for (const shape of getCardShapes(board.snapshot)) {
             if (shape.props.type !== 'todo') continue
             for (const t of shape.props.todos ?? []) {
-                if (t.checked || !t.dueDate) continue
-                if (t.dueDate < todayStr) overdueCount++
-                else if (t.dueDate === todayStr) todayCount++
+                if (isOverdue(t, todayStr)) overdueCount++
+                else if (isOpenDueToday(t, todayStr)) todayCount++
             }
         }
     }

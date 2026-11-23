@@ -10,8 +10,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { usePomodoro } from './usePomodoro'
 import { POMODORO_STORAGE_KEY } from '../utils/pomodoro'
+import { playChime, setSoundOn } from '../utils/chime'
 
 vi.mock('../utils/toast', () => ({ showToast: vi.fn() }))
+vi.mock('../utils/chime', async orig => ({ ...(await orig<typeof import('../utils/chime')>()), playChime: vi.fn() }))
 
 const task = { boardId: 'b1', shapeId: 'shape:t', todoId: 'x', text: '畫敵人草稿' }
 const FOCUS_MS = 25 * 60_000
@@ -88,5 +90,75 @@ describe('usePomodoro：綁任務', () => {
         act(() => { vi.advanceTimersByTime(600) })
         expect(onFocusComplete).toHaveBeenCalledTimes(1)
         expect(onFocusComplete).toHaveBeenCalledWith(task)
+    })
+})
+
+describe('usePomodoro：跳過／重設／換長度可以復原', () => {
+    const lastToast = async () => {
+        const { showToast } = await import('../utils/toast')
+        const calls = vi.mocked(showToast).mock.calls
+        return calls[calls.length - 1]
+    }
+    beforeEach(async () => {
+        const { showToast } = await import('../utils/toast')
+        vi.mocked(showToast).mockClear()
+    })
+
+    it('跑到一半跳過 → 給「復原」；按下去剩餘時間跟沒按過一樣', async () => {
+        const { result } = renderHook(() => usePomodoro({ ready: true }))
+        act(() => result.current.onStart())
+        act(() => { vi.advanceTimersByTime(10 * 60_000) })
+        const before = result.current.state
+        act(() => result.current.onSkip())
+        expect(result.current.state.phase).toBe('shortBreak')
+
+        const [msg, , opts] = (await lastToast())!
+        expect(msg).toBe('已跳過專注')
+        expect(opts?.action?.label).toBe('復原')
+        act(() => { vi.advanceTimersByTime(3000) })
+        act(() => opts!.action!.run())
+        expect(result.current.state).toEqual(before)
+        // 中間那 3 秒照算：剩 15 分鐘 − 3 秒
+        expect(result.current.remaining).toBe(FOCUS_MS - 10 * 60_000 - 3000)
+    })
+
+    it('重設與換長度也給復原', async () => {
+        const { result } = renderHook(() => usePomodoro({ ready: true }))
+        act(() => result.current.onStart())
+        act(() => result.current.onReset())
+        expect((await lastToast())![0]).toBe('已重設專注')
+        act(() => result.current.onStart())
+        act(() => result.current.onSetPreset('deep'))
+        expect((await lastToast())![0]).toContain('已換成 50 / 10')
+    })
+
+    it('還沒開始就按：沒有東西會丟，不跳提示', async () => {
+        const { showToast } = await import('../utils/toast')
+        const { result } = renderHook(() => usePomodoro({ ready: true }))
+        act(() => result.current.onSkip())
+        act(() => result.current.onSetPreset('deep'))
+        expect(showToast).not.toHaveBeenCalled()
+    })
+})
+
+describe('usePomodoro：提示音', () => {
+    beforeEach(() => vi.mocked(playChime).mockClear())
+
+    it('到點響一次；跳過不響', () => {
+        const { result } = renderHook(() => usePomodoro({ ready: true }))
+        act(() => result.current.onStart())
+        act(() => { vi.advanceTimersByTime(FOCUS_MS + 3000) })
+        expect(playChime).toHaveBeenCalledTimes(1)
+        act(() => result.current.onStart())
+        act(() => result.current.onSkip())
+        expect(playChime).toHaveBeenCalledTimes(1)
+    })
+
+    it('關掉提示音就不響', () => {
+        setSoundOn(false)
+        const { result } = renderHook(() => usePomodoro({ ready: true }))
+        act(() => result.current.onStart())
+        act(() => { vi.advanceTimersByTime(FOCUS_MS + 1000) })
+        expect(playChime).not.toHaveBeenCalled()
     })
 })

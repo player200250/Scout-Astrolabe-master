@@ -214,7 +214,7 @@
 
 ### ~~RC1：長日記時日期列／工具列消失、內容從中間開始~~ ✅ 已修（2026-09-20）
 
-- **位置**：`src/JournalDayView.tsx:187`（編輯器容器）＋ `src/ReviewCenter.tsx:77`（body）
+- **位置**：`src/components/JournalDayView.tsx:187`（編輯器容器）＋ `src/components/ReviewCenter.tsx:77`（body）
 - **現象**：打開內容較長的日記時，上方日期導覽（← 2026年8月29日 →）與工具列（B I U H2）整排被捲走，
   內容從句子中間開始。
 - **根因（2026-09-20 用 CDP 量到整條祖先鏈才確定，與 8/30 的推測只對了一半）**：
@@ -273,7 +273,7 @@
 
 ### ~~RC4：還沒有日記的日子，右上角照樣顯示綠色「已儲存」~~ ✅ 已修（2026-09-29）
 
-- **位置**：`src/JournalDayView.tsx:48`（`saveStatus` 的 useState 初值）
+- **位置**：`src/components/JournalDayView.tsx:48`（`saveStatus` 的 useState 初值）
 - **現象**：一進「今日日記」分頁，右上角就是綠色「已儲存」，但那天其實一張日記卡都還沒建立——
   同一時間月曆右欄寫的是「尚無日記，點擊建立」。週回顧分頁同樣症狀。
 - **根因**：`useState<'saved' | 'saving' | 'pending'>('saved')` 初值直接給 `'saved'`，
@@ -309,7 +309,7 @@
 
 ### ~~RC7：週回顧的空狀態三張卡全 0，資訊量太低~~ ✅ 已處理（2026-09-29）
 
-- **位置**：`src/WeeklyReview.tsx`（`statCard` 區塊）
+- **位置**：`src/components/WeeklyReview.tsx`（`statCard` 區塊）
 - **現象**：沒有活動的那一週，「有活動的卡片 0／完成待辦 0／知識連結 0」三張卡並排，
   加上一句「這週尚無活動」，佔掉整個左欄卻沒說任何事。
 - **根因**：不是 bug，是空狀態沒有單獨設計——統計卡直接照常渲染 0。
@@ -328,7 +328,7 @@
 
 ### ~~RC8：週回顧左欄加「最近 8 週」迷你走勢圖（功能，非 bug）~~ ✅ 已做（2026-09-29）
 
-- **位置**：`src/WeeklyReview.tsx` 左欄（固定 420px）
+- **位置**：`src/components/WeeklyReview.tsx` 左欄（固定 420px）
 - **要做什麼**：在週導覽（← 第 N 週 →）的正下方、統計卡的上方，放一排 8 根柱子代表最近 8 週的活動量，
   柱子可點，點了跳到那一週。
 - **為什麼放那裡**（2026-09-29 與使用者討論後定的）：
@@ -403,7 +403,7 @@
 
 ### ~~RC10：「在白板上開啟本週卡片 →」很多餘~~ ✅ 已修（2026-09-30）
 
-- **位置**：`src/WeeklyReview.tsx` 左欄底部
+- **位置**：`src/components/WeeklyReview.tsx` 左欄底部
 - **現象**：使用者 2026-09-29 回報「很多餘」。那顆按鈕把你送去白板上看同一張卡，
   但右欄已經可以直接讀寫了，等於繞遠路做同一件事。
 - **另一個問題**：它不管翻到哪一週，都只跳到「本週」的卡。
@@ -555,7 +555,7 @@
 ### RC21：知識圖譜的連線會從標籤文字中間穿過
 
 - **優先**：低（外觀）　**排程**：未排（使用者 2026-09-30：「之後處理」）
-- **位置**：`src/KnowledgeGraph.tsx`
+- **位置**：`src/components/KnowledgeGraph.tsx`
 - **現象**：標籤已由 `drawLabels` 保證互不重疊，但連線是 force-graph 自己畫的，會穿過文字，例如「遊戲 ADR 0002」那條。
 - **方向**：一般標籤也墊半透明底板（主線／支線已經有），或在 `drawLabels` 裡為文字描一圈畫布底色的外框。
 - **2026-10-02 補充**：佈局已拉開（連線 55→120、碰撞力、往中心收；顯示全部 94 節點時有連結的節點最近 85px、圓零重疊）。
@@ -599,14 +599,14 @@
 ### ~~RC24：左側工具列的「對齊」有四個方向算錯（右鍵選單的對齊正常）~~ ✅ 已修（2026-10-05）
 
 - **優先**：中（功能錯誤，Ctrl+Z 可救回）
-- **位置**：`src/TIdrawToolPanel.tsx` 的 `alignSelected`（約第 940 行）
+- **位置**：`src/components/TldrawToolPanel.tsx` 的 `alignSelected`（約第 940 行）
 - **現象（2026-10-05 CDP 實測，兩張卡 A=x100 y100 240×180、B=x400 y100 280×320）**：
   靠左／靠上正確；**靠右**把右緣對到 400（應 680）、**水平置中**對到 250（應 390）、
   **垂直置中**對到 y100（應 260）、**靠下**把底邊對到 y100（應 420，卡片被推到上方）。
 - **原因**：參考線只取各卡左上角 `s.x`／`s.y` 的最大值或平均，沒加上寬高；非 card 的形狀 `w／h` 還一律當 0。
-  右鍵選單用的是另一份正確實作 `contextMenuUtils.tsx` 的 `alignShapes`（用 `x + w` 算）。
+  右鍵選單用的是另一份正確實作 `useContextMenu.tsx` 的 `alignShapes`（用 `x + w` 算）。
 - **修法**：新增 `src/utils/align.ts`——純函式 `alignOffsets`（算每個矩形的位移）＋`alignShapes`（用 `getShapePageBounds` 量實際外框）；
-  右鍵選單與工具列都改呼叫它，`contextMenuUtils.tsx` 舊的卡片限定版移除。
+  右鍵選單與工具列都改呼叫它，`useContextMenu.tsx` 舊的卡片限定版移除。
 - **驗證**：`align.test.ts` 7 條（用上面的重現數字釘死參考線、含卡片＋geo 混選）；CDP 實機兩個入口各跑六方向，結果完全一致且正確
   （靠右 680、置中 390／260、靠下 420）；收件匣卡片已還原原位。
 - **最後更新**：2026-10-05
@@ -708,7 +708,7 @@
 
 ### ~~WO2：CalendarView / JournalDayView 無掛載點~~ ✅ 已解決（2026-06-20）
 
-- 位置：`src/CalendarView.tsx`、`src/JournalDayView.tsx`
+- 位置：`src/components/CalendarView.tsx`、`src/components/JournalDayView.tsx`
 - 現象：standalone 全螢幕版存在但無任何引用（`ReviewCenter` 只用內嵌 `*Content`）
 - 結論：確認為孤兒，已刪除 standalone 包裝（保留 Content 版）；連同孤兒 `useFileStorage.ts` 一併刪除（roadmap-v2 A5 / TD7）
 

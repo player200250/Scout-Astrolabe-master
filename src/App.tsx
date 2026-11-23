@@ -5,8 +5,9 @@ import { useTheme } from './hooks/useTheme'
 import { useOverdueStats } from './hooks/useOverdueStats'
 import { useGlobalHotkeys } from './hooks/useGlobalHotkeys'
 import { usePomodoro } from './hooks/usePomodoro'
+import { useTaskMove } from './hooks/useTaskMove'
 import { PomodoroPanel } from './components/PomodoroPanel'
-import { formatRemaining } from './utils/pomodoro'
+import { navNote } from './utils/pomodoro'
 import { ThemeProvider } from './theme/ThemeContext'
 import { CloudSyncPanel } from './components/CloudSyncPanel'
 import { ToastHost } from './components/ui/ToastHost'
@@ -18,24 +19,25 @@ import { Whiteboard } from './components/Whiteboard'
 import { BoardTabBar } from './components/BoardTabBar'
 import { BoardOverview } from './components/BoardOverview'
 import { MoveCardModal } from './components/MoveCardModal'
-import { SearchPanel } from './SearchPanel'
-import { TaskCenter } from './TaskCenter'
-import { FilterPanel } from './FilterPanel'
-import { BackupPanel } from './BackupPanel'
+import { SearchPanel } from './components/SearchPanel'
+import { TaskCenter } from './components/TaskCenter'
+import { SettingsPanel } from './components/SettingsPanel'
+import { FilterPanel } from './components/FilterPanel'
+import { BackupPanel } from './components/BackupPanel'
 import { DataSafetyPanel } from './components/DataSafetyPanel'
-import { ReviewCenter } from './ReviewCenter'
-import type { ReviewTab } from './ReviewCenter'
-import { HotkeyPanel } from './HotkeyPanel'
-import { KnowledgeGraph } from './KnowledgeGraph'
-import { CardLibrary } from './CardLibrary'
+import { ReviewCenter } from './components/ReviewCenter'
+import type { ReviewTab } from './components/ReviewCenter'
+import { HotkeyPanel } from './components/HotkeyPanel'
+import { KnowledgeGraph } from './components/KnowledgeGraph'
+import { CardLibrary } from './components/CardLibrary'
 import { QuickCapture } from './components/QuickCapture'
 import { InboxTriage } from './components/InboxTriage'
 import { TagManager } from './components/TagManager'
-import { QuickSwitcher } from './QuickSwitcher'
-import { CommandPalette } from './CommandPalette'
+import { QuickSwitcher } from './components/QuickSwitcher'
+import { CommandPalette } from './components/CommandPalette'
 import { buildCommands } from './utils/commands'
 import { OnboardingModal } from './components/OnboardingModal'
-import { TrashPanel } from './TrashPanel'
+import { TrashPanel } from './components/TrashPanel'
 import { DeleteBoardDialog } from './components/DeleteBoardDialog'
 import { SIDEBAR_WIDTH, SIDEBAR_COLLAPSED_WIDTH, INBOX_BOARD_ID, JUMP_DELAY_MS, Z_MODAL_BACKDROP } from './constants'
 import { getCardShapes } from './utils/snapshot'
@@ -73,6 +75,7 @@ export default function App() {
         // 寫入走 handleEditTodo（主視窗唯一寫入者，ADR 0009／0010），不直寫 IndexedDB。
         onFocusComplete: t => handleEditTodo(t.boardId, t.shapeId, t.todoId, { addFocus: true }),
     })
+    const moveTask = useTaskMove(handleEditTodo)
     const [movingCardShapeIds, setMovingCardShapeIds] = useState<string[] | null>(null)
     // 陣列而非單一 id：批次刪除（多選、清理重複）要一次確認全部。
     // 舊版是 string | null，呼叫端跑 forEach 只會留下最後一個 → 其餘靜默不刪。
@@ -182,6 +185,7 @@ export default function App() {
         toggleTheme,
         openOnboarding: () => openPanel('onboarding'),
         openHotkey: () => openPanel('hotkey'),
+        openSettings: () => openPanel('settings'),
         toggleDesktop,
     }), [goHome, handleGoToInbox, handleNew, openPanel, toggleTheme, toggleDesktop])
 
@@ -257,7 +261,7 @@ export default function App() {
                 inboxCardCount={inboxCardCount}
                 overdueCount={overdueCount}
                 todayCount={todayCount}
-                pomodoroNote={pomodoro.running ? formatRemaining(pomodoro.remaining) : null}
+                pomodoroNote={navNote(pomodoro.state, Date.now())}
                 desktopOpen={desktopOpen}
                 onToggleDesktop={toggleDesktop}
                 activePanel={activePanel}
@@ -284,15 +288,22 @@ export default function App() {
                 />
             )}
             {panels.hotkey && <HotkeyPanel onClose={() => closePanel('hotkey')} />}
-            {panels.pomodoro && <PomodoroPanel {...pomodoro} boards={boards} onClose={() => closePanel('pomodoro')} />}
+            {panels.pomodoro && (
+                <PomodoroPanel
+                    {...pomodoro} boards={boards} onClose={() => closePanel('pomodoro')}
+                    // 換綁走任務中心（全螢幕、可搜尋）；在那邊按「專注」就綁好並回到這裡。
+                    onPickTask={() => { closePanel('pomodoro'); openPanel('taskCenter') }}
+                />
+            )}
             {panels.taskCenter && (
                 <TaskCenter
                     boards={boards}
                     onJump={(boardId, shapeId, x, y) => { closePanel('taskCenter'); jumpToCard(boardId, shapeId, x, y) }}
                     onClose={() => closePanel('taskCenter')}
+                    onMove={moveTask}
                     onFocus={t => {
                         pomodoro.onFocusTask({ boardId: t.boardId, shapeId: t.shapeId, todoId: t.todoId, text: t.todoText })
-                        // 兩個都是右側抽屜、疊在同一個位置：不先關任務中心，番茄鐘會被蓋住看不到。
+                        // 任務中心是全螢幕、層級比番茄鐘抽屜高：不先關掉，番茄鐘會被蓋住看不到。
                         closePanel('taskCenter')
                         openPanel('pomodoro')
                     }}
@@ -467,6 +478,14 @@ export default function App() {
                         >稍後再說</button>
                     </div>
                 </div>
+            )}
+
+            {panels.settings && (
+                <SettingsPanel
+                    onClose={() => closePanel('settings')}
+                    onToggleTheme={toggleTheme}
+                    onOpenPanel={name => { closePanel('settings'); openPanel(name) }}
+                />
             )}
 
             {panels.cloudSync && (

@@ -19,6 +19,8 @@ export type TodoChange =
     | { addFocus: true }
     /** 排進行事曆（null＝取消） */
     | { schedule: { start: string; end: string } | null }
+    /** 改到期日＋時段一次寫（任務中心拖曳）；分兩次呼叫的話第二次會用舊 boards 蓋掉第一次 */
+    | { reschedule: { dueDate: string | null; schedule: { start: string; end: string } | null } }
 
 /**
  * 在編輯器外改任一白板上的一個待辦項目（Claude Code 的 MCP 工具、番茄鐘綁任務共用，見 ADR 0010）。
@@ -39,7 +41,9 @@ export function useTodoEdits(state: TodoEditsSharedState) {
                 ? addTodoFocus(board.snapshot, shapeId, todoId)
                 : 'schedule' in change
                     ? setTodoSchedule(board.snapshot, shapeId, todoId, change.schedule)
-                    : setTodoDue(board.snapshot, shapeId, todoId, change.dueDate)
+                    : 'reschedule' in change
+                        ? setTodoSchedule(setTodoDue(board.snapshot, shapeId, todoId, change.reschedule.dueDate), shapeId, todoId, change.reschedule.schedule)
+                        : setTodoDue(board.snapshot, shapeId, todoId, change.dueDate)
         if (snapshot === board.snapshot) return false
 
         const updated: BoardRecord = { ...board, snapshot, updatedAt: Date.now() }

@@ -6,16 +6,16 @@
 
 ## 適用範圍
 
-`src/JournalDayView.tsx`、`src/CalendarView.tsx`、`src/WeeklyReview.tsx`、`src/ReviewCenter.tsx`、`src/hooks/useBoardManager.ts`（`handleSaveJournal`、`handleGoToWeeklyCard`）。
+`src/components/JournalDayView.tsx`、`src/components/CalendarView.tsx`、`src/components/WeeklyReview.tsx`、`src/components/ReviewCenter.tsx`、`src/hooks/useBoardManager.ts`（`handleSaveJournal`、`handleGoToWeeklyCard`）。
 
 ## 相關檔案
 
 | 檔案 | 說明 |
 |------|------|
-| `src/JournalDayView.tsx` | 單日日記沉浸式編輯器（`JournalDayContent`，嵌入 `ReviewCenter`） |
-| `src/CalendarView.tsx` | 月曆視圖（`CalendarContent`，嵌入 `ReviewCenter`） |
-| `src/WeeklyReview.tsx` | 週回顧統計（獨立側邊板 + 可嵌入） |
-| `src/ReviewCenter.tsx` | 三合一復盤中心（月曆 + 日記 + 週回顧） |
+| `src/components/JournalDayView.tsx` | 單日日記沉浸式編輯器（`JournalDayContent`，嵌入 `ReviewCenter`） |
+| `src/components/CalendarView.tsx` | 月曆視圖（`CalendarContent`，嵌入 `ReviewCenter`） |
+| `src/components/WeeklyReview.tsx` | 週回顧統計（獨立側邊板 + 可嵌入） |
+| `src/components/ReviewCenter.tsx` | 三合一復盤中心（月曆 + 日記 + 週回顧） |
 | `src/hooks/useJournal.ts` | `handleSetJournal`、`handleSaveJournal`（TD2 後居此子 hook，經 useBoardManager 回傳） |
 | `src/hooks/useBoardManager.ts` | `handleGoToWeeklyCard`（跨領域，仍留合成層） |
 | `src/utils/date.ts` | `toDateStr`、`getTodayStr`、`getWeekLaterStr`、`formatDueDate`、`formatRelativeDate` |

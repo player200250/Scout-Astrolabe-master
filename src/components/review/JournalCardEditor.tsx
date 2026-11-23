@@ -48,7 +48,9 @@ export function JournalCardEditor({ boards, dateKey, template, onSaveJournal, ma
     // RC4：'none' ＝「這一天／這一週還沒有卡片」。少了它，初值一律是 'saved'，
     // 於是還沒寫過的日子一打開就顯示綠色「已儲存」，而月曆右欄同時寫著「尚無日記」。
     // 'none' 時狀態列整個不顯示——什麼都還沒發生，就不該報告任何狀態。
-    const [saveStatus, setSaveStatus] = useState<'none' | 'saved' | 'saving' | 'pending'>(() => (card ? 'saved' : 'none'))
+    // 已有卡片也從 'none' 起算：翻到舊週就亮「已儲存」，看起來像剛寫了什麼（v1.8.0／1.8.2 驗收都被問）。
+    // 打了字才依序顯示 未儲存 → 儲存中… → 已儲存。
+    const [saveStatus, setSaveStatus] = useState<'none' | 'saved' | 'saving' | 'pending'>('none')
     const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
     // 掛載當下與切換 dateKey 時 setContent 會觸發 onUpdate，那不是使用者編輯，不能當成待存
     const skipUpdate = useRef(true)
@@ -129,7 +131,7 @@ export function JournalCardEditor({ boards, dateKey, template, onSaveJournal, ma
         skipUpdate.current = true
         const c = cardRef.current
         tiptap?.commands.setContent(c?.text ?? template, false)
-        setSaveStatus(c ? 'saved' : 'none')
+        setSaveStatus('none')
         const t = setTimeout(() => { skipUpdate.current = false }, 120)
         return () => clearTimeout(t)
         // template 刻意不進 deps：它只在卡片不存在時當初值，跟著 dateKey 一起換就夠了

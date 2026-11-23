@@ -50,9 +50,21 @@ export interface IElectronAPI {
     /** 開／關 Scout Desktop，回傳之後是否開著 */
     toggleDesktop?: () => Promise<boolean>
     isDesktopOpen?: () => Promise<boolean>
+    /** 設定頁與托盤選單共用的狀態（main.js getAppSettings）。舊版 preload 沒有，故為選填 */
+    getAppSettings?: () => Promise<AppSettings>
+    setAppSetting?: (key: AppSettingKey, value: boolean) => Promise<AppSettings>
+    onAppSettingsChanged?: (callback: (settings: AppSettings) => void) => () => void
     /** Desktop 開關狀態改變（含從托盤、快捷鍵、Desktop 自己的 ✕）；回傳 unsubscribe */
     onDesktopOpenChanged?: (callback: (open: boolean) => void) => () => void
 }
+
+/** openAtLogin 為 null＝這個版本不能設（開發／測試版） */
+export interface AppSettings {
+    minimizeToTray: boolean
+    openAtLogin: boolean | null
+    mcpEnabled: boolean
+}
+export type AppSettingKey = keyof AppSettings
 
 /** Scout Desktop 視窗專用（preload-desktop.js）；主視窗沒有這個物件 */
 export interface IDesktopAPI {

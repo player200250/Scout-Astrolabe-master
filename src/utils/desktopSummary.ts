@@ -12,6 +12,7 @@ import type { BoardRecord } from '../db'
 import { getCardShapes } from './snapshot'
 import { findJournalCard } from './journalCards'
 import { toDateStr } from './date'
+import { isPastDue } from './dueStatus'
 
 /** 摘要裡最多帶幾筆待辦（畫面只顯示 5 筆，其餘算進「還有 N 項」） */
 export const DESKTOP_TASK_LIMIT = 20
@@ -89,10 +90,10 @@ export function buildDesktopSummary(boards: BoardRecord[], today: string, now: n
                     if (t.dueDate <= weekEnd) upcoming.push({ boardName: board.name, text: t.text, dueDate: t.dueDate, isOverdue: false })
                     continue
                 }
-                const isOverdue = t.dueDate < today
-                if (isOverdue) overdueCount++
+                const overdue = isPastDue(t.dueDate, today)
+                if (overdue) overdueCount++
                 else todayCount++
-                items.push({ boardName: board.name, text: t.text, dueDate: t.dueDate, isOverdue })
+                items.push({ boardName: board.name, text: t.text, dueDate: t.dueDate, isOverdue: overdue })
             }
         }
     }

@@ -57,7 +57,7 @@
 → [card-shape-spec.md](card-shape-spec.md) → `src/components/card-shape/type/CardShape.ts`
 
 ### 我想知道右鍵選單有哪些功能 / 加一個選單項
-→ [context-menu-spec.md](context-menu-spec.md) → `src/utils/contextMenuUtils.tsx`
+→ [context-menu-spec.md](context-menu-spec.md) → `src/hooks/useContextMenu.tsx`
 
 ### 我想追一個跨元件的事件
 → [state-and-events.md](state-and-events.md) → CustomEvent 總覽表

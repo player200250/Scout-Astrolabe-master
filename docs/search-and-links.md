@@ -6,18 +6,18 @@
 
 ## 適用範圍
 
-`src/SearchPanel.tsx`、`src/hooks/useBacklinks.ts`、`src/components/card-shape/sub-components/BacklinksPanel.tsx`、`src/components/card-shape/sub-components/TextContent.tsx`（補全觸發）、`src/KnowledgeGraph.tsx`。
+`src/components/SearchPanel.tsx`、`src/hooks/useBacklinks.ts`、`src/components/card-shape/sub-components/BacklinksPanel.tsx`、`src/components/card-shape/sub-components/TextContent.tsx`（補全觸發）、`src/components/KnowledgeGraph.tsx`。
 
 ## 相關檔案
 
 | 檔案 | 說明 |
 |------|------|
-| `src/SearchPanel.tsx` | 全文搜尋 UI + 搜尋邏輯（純前端） |
+| `src/components/SearchPanel.tsx` | 全文搜尋 UI + 搜尋邏輯（純前端） |
 | `src/hooks/useBacklinks.ts` | 雙向連結索引建立（`useBacklinks` hook + `BacklinksContext`） |
 | `src/components/card-shape/sub-components/BacklinksPanel.tsx` | 卡片底部雙向連結面板 |
 | `src/components/card-shape/sub-components/TextContent.tsx` | `[[]]` 自動補全觸發邏輯 |
 | `src/utils/cardLinks.ts` | `[[]]` 解析與補全候選純函式（`resolveLinkTarget`／`buildLinkTargets`／`filterLinkTargets`／`groupLinkTargets`，B-LINK 新增） |
-| `src/KnowledgeGraph.tsx` | `react-force-graph-2d` 知識圖譜（呈現層） |
+| `src/components/KnowledgeGraph.tsx` | `react-force-graph-2d` 知識圖譜（呈現層） |
 | `src/utils/knowledgeGraph.ts` | `buildGraph` 純函式（節點/邊建構，與 React 解耦） |
 
 ---
@@ -26,7 +26,7 @@
 
 ### 觸發方式
 
-- `Ctrl+F`（`src/Usehotkeys.tsx`）→ `openSearch` action → `openPanel('search')`
+- `Ctrl+F`（`src/hooks/useHotkeys.tsx`）→ `openSearch` action → `openPanel('search')`
 - 側邊欄搜尋按鈕
 
 ### 搜尋架構（索引式，commit `ff38071`）
@@ -118,7 +118,7 @@ function searchFromIndex(
 
 各處的 `stripHtml` 已統一到 `src/utils/stringUtils.ts`（2026-06-20，TD5/WO3）：以 `DOMParser` 解碼所有 HTML entity，並只在區塊邊界插空格（行內標籤不插，避免 CJK 被誤拆）。`SearchPanel` 等 7 處皆 import 此單一實作。
 
-`buildCardSearchText`／`buildSearchIndex`／`searchFromIndex`／`typeCountsFor` 皆為 `export`（純函式，為可測性匯出、邏輯未動），測試見 `src/SearchPanel.test.ts`（25 案例，每種型別各有一條）。
+`buildCardSearchText`／`buildSearchIndex`／`searchFromIndex`／`typeCountsFor` 皆為 `export`（純函式，為可測性匯出、邏輯未動），測試見 `src/components/SearchPanel.test.ts`（25 案例，每種型別各有一條）。
 
 ---
 

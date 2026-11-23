@@ -31,7 +31,7 @@ import {
     Compass, MousePointerClick, FileImage, FileVideo, FileAudio, FileArchive, File, CopyMinus,
     Pilcrow, Heading1, Heading2, Heading3, List, ListOrdered, Quote, SquareCode, Minus,
     Sigma, Bold, Italic, Underline, Strikethrough, Highlighter, Code,
-    Timer, Play, Pause, RotateCcw, SkipForward,
+    Timer, Play, Pause, RotateCcw, SkipForward, Settings,
     Magnet, Grid2x2, AppWindow,
 } from 'lucide-react'
 
@@ -55,6 +55,7 @@ const REGISTRY = {
     knowledgeGraph: Network,
     pomodoro: Timer,
     desktopWidget: AppWindow,
+    settings: Settings,
     trash: Trash2,
 
     // 番茄鐘控制列

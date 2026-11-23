@@ -1,4 +1,4 @@
-// src/KnowledgeGraph.tsx
+// src/components/KnowledgeGraph.tsx
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import _ForceGraph2D from 'react-force-graph-2d'
 import type { NodeObject, LinkObject } from 'react-force-graph-2d'
@@ -6,13 +6,13 @@ import type { NodeObject, LinkObject } from 'react-force-graph-2d'
 // producing NodeObject<NodeObject<NodeObject<T>>>[] — bypass with a local cast.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const ForceGraph2D = _ForceGraph2D as any
-import type { BoardRecord } from './db'
-import { useBacklinks } from './hooks/useBacklinks'
-import { buildGraph, shouldShowNodeLabel, questTitle, shortenKeepDue, type GraphNode, type GraphLink } from './utils/knowledgeGraph'
-import { FullscreenPanel } from './components/ui/FullscreenPanel'
-import { T } from './theme/tokens'
-import { QuestPanel } from './components/knowledge-graph/QuestPanel'
-import { SURFACE, SURFACE_OVERLAY, INK, QUEST_COLOR, QUEST_TEXT } from './components/knowledge-graph/palette'
+import type { BoardRecord } from '../db'
+import { useBacklinks } from '../hooks/useBacklinks'
+import { buildGraph, shouldShowNodeLabel, questTitle, shortenKeepDue, type GraphNode, type GraphLink } from '../utils/knowledgeGraph'
+import { FullscreenPanel } from './ui/FullscreenPanel'
+import { T } from '../theme/tokens'
+import { QuestPanel } from './knowledge-graph/QuestPanel'
+import { SURFACE, SURFACE_OVERLAY, INK, QUEST_COLOR, QUEST_TEXT } from './knowledge-graph/palette'
 
 /* ------------------------------------------------------------------ 畫布配色
  * A3 的決定：**面板外框跟隨主題（交給 FullscreenPanel），畫布本身維持深色**。
@@ -323,6 +323,9 @@ export function KnowledgeGraph({ boards, onClose, onJumpToCard, onSwitchBoard }:
             const box = { x1: x - w / 2, y1: top, x2: x + w / 2, y2: top + px(size + 2) }
             if (!free(box.x1, box.y1, box.x2, box.y2)) continue // 放不下就讓位給更重要的標籤
             placed.push(box)
+            // RC21：字外描一圈背景色，穿過的連線在字附近被蓋掉（不用底板：一般標籤很多，整排方塊太吵）
+            ctx.lineJoin = 'round'; ctx.lineWidth = px(3); ctx.strokeStyle = SURFACE
+            ctx.strokeText(lbl, x, top)
             ctx.fillStyle = node.type === 'board' ? INK.strong : INK.normal
             ctx.fillText(lbl, x, top)
         }

@@ -6,14 +6,14 @@
 
 ## 適用範圍
 
-`src/utils/contextMenuUtils.tsx`（`useContextMenu` hook，組出選單資料）、`src/ContextMenu.tsx`（`ContextMenuUI` 呈現層 + `SaveTemplateModal` / `BatchAddTagModal`）。選單掛在 `WhiteboardTools` 內，透過 `window` 的 `contextmenu` capture 事件攔截。
+`src/hooks/useContextMenu.tsx`（`useContextMenu` hook，組出選單資料）、`src/components/ContextMenu.tsx`（`ContextMenuUI` 呈現層 + `SaveTemplateModal` / `BatchAddTagModal`）。選單掛在 `WhiteboardTools` 內，透過 `window` 的 `contextmenu` capture 事件攔截。
 
 ## 相關檔案
 
 | 檔案 | 說明 |
 |------|------|
-| `src/utils/contextMenuUtils.tsx` | `useContextMenu`：對齊/分佈、批次屬性、表格欄數、內建模板等 helper，並依情境組出 `MenuItem[]` |
-| `src/ContextMenu.tsx` | `ContextMenuUI` 呈現、`MenuItem` 型別、顏色選擇器、存模板/批次標籤 modal |
+| `src/hooks/useContextMenu.tsx` | `useContextMenu`：對齊/分佈、批次屬性、表格欄數、內建模板等 helper，並依情境組出 `MenuItem[]` |
+| `src/components/ContextMenu.tsx` | `ContextMenuUI` 呈現、`MenuItem` 型別、顏色選擇器、存模板/批次標籤 modal |
 | `src/components/WhiteboardTools.tsx` | 提供各 `createXxxCard` callback 與 `onMoveCard` 等接線 |
 | `src/components/card-shape/type/CardShape.ts` | `STICKY_COLORS` / `STICKY_COLOR_LIST`、卡片型別與顏色常數 |
 

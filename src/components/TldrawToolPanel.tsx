@@ -1,18 +1,18 @@
 import { useState, useRef, useEffect, type ReactNode } from "react"
 import { useEditor, DefaultColorStyle, DefaultSizeStyle } from "tldraw"
-import { Z_TOOL_SUBMENU, Z_MODAL } from "./constants"
+import { Z_TOOL_SUBMENU, Z_MODAL } from "../constants"
 import type { TLDefaultColorStyle, TLDefaultSizeStyle, TLShapeId } from "tldraw"
-import { useSnapMode } from "./hooks/useSnapMode"
-import { resolveTidyTargets, TIDY_GAP } from "./utils/snapPref"
-import { showToast } from "./utils/toast"
+import { useSnapMode } from "../hooks/useSnapMode"
+import { resolveTidyTargets, TIDY_GAP } from "../utils/snapPref"
+import { showToast } from "../utils/toast"
 import { GeoShapeGeoStyle } from "@tldraw/tlschema"
 import type { TLGeoShapeGeoStyle } from "@tldraw/tlschema"
-import type { CardType } from "./components/card-shape/type/CardShape"
-import { alignShapes } from "./utils/align"
-import { canAttachFile } from "./platform/fileStore"
-import { T } from './theme/tokens'
-import { Icon } from './components/ui/icons'
-import type { IconName } from './components/ui/icons'
+import type { CardType } from "./card-shape/type/CardShape"
+import { alignShapes } from "../utils/align"
+import { canAttachFile } from "../platform/fileStore"
+import { T } from '../theme/tokens'
+import { Icon } from './ui/icons'
+import type { IconName } from './ui/icons'
 
 /* ─── Style constants ─── */
 const DRAW_COLORS: { id: TLDefaultColorStyle; css: string; label: string }[] = [

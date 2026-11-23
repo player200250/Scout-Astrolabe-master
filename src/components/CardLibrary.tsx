@@ -1,17 +1,17 @@
-// src/CardLibrary.tsx
+// src/components/CardLibrary.tsx
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import type { ReactNode } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import type { BoardRecord } from './db'
-import { getCardShapes } from './utils/snapshot'
-import { splitTitleBodyFull } from './utils/stringUtils'
-import { CARD_TYPE_ICON, TYPE_LABEL, TYPE_COLOR, hexToRgba, STATUS_ICON, STATUS_LABEL, PRIORITY_ICON, PRIORITY_LABEL } from './utils/cardMeta'
-import { Icon } from './components/ui/icons'
-import { loadTagColors, getTagColor, type TagColorMap } from './utils/tagColors'
-import { EmptyState } from './components/ui/EmptyState'
-import { T } from './theme/tokens'
-import { FullscreenPanel } from './components/ui/FullscreenPanel'
-import { useIsDark } from './theme/ThemeContext'
+import type { BoardRecord } from '../db'
+import { getCardShapes } from '../utils/snapshot'
+import { splitTitleBodyFull } from '../utils/stringUtils'
+import { CARD_TYPE_ICON, TYPE_LABEL, TYPE_COLOR, hexToRgba, STATUS_ICON, STATUS_LABEL, PRIORITY_ICON, PRIORITY_LABEL } from '../utils/cardMeta'
+import { Icon } from './ui/icons'
+import { loadTagColors, getTagColor, type TagColorMap } from '../utils/tagColors'
+import { EmptyState } from './ui/EmptyState'
+import { T } from '../theme/tokens'
+import { FullscreenPanel } from './ui/FullscreenPanel'
+import { useIsDark } from '../theme/ThemeContext'
 
 /* ─── Types ─── */
 type LibCardType = 'text' | 'todo' | 'link' | 'journal' | 'heading' | 'sticky' | 'table' | 'color' | 'file'

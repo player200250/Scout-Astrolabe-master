@@ -240,7 +240,7 @@ App.tsx 僅另外保留兩個帶 payload 的 modal state（非單純開關）與
 | `Ctrl+P` | openPanel('quickSwitcher')（Dashboard 模式備援，防止瀏覽器列印） |
 | `Ctrl+K` | togglePanel('commandPalette')（指令面板） |
 
-在 **`src/Usehotkeys.tsx`**（注意：檔名大寫 `U`、`.tsx`、位於 `src/` 根，非 `src/hooks/`；`useHotkeys(editor, actions)` hook，掛在 WhiteboardTools 層）監聽全域 `keydown`。`mod` = Mac 上 `metaKey`／其餘 `ctrlKey`。分三段：
+在 **`src/hooks/useHotkeys.tsx`**（注意：檔名大寫 `U`、`.tsx`、位於 `src/` 根，非 `src/hooks/`；`useHotkeys(editor, actions)` hook，掛在 WhiteboardTools 層）監聽全域 `keydown`。`mod` = Mac 上 `metaKey`／其餘 `ctrlKey`。分三段：
 
 **修飾鍵組（在 input 內也生效）**：
 

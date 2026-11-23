@@ -195,7 +195,7 @@ describe('goalDueDate', () => {
     it('該週的下週五還沒過：照用', () => {
         expect(goalDueDate(new Date(2026, 10, 16), new Date(2026, 10, 22))).toBe('2026-11-27')
     })
-    it('翻回舊的週（第 38 週，下週五 9/25 早過了）：改成今天算起的下週五', () => {
+    it('翻回舊的週（第 38 週，下週五 9/25 早過了）：改成今天所在週的下週五', () => {
         expect(goalDueDate(new Date(2026, 8, 14), new Date(2026, 10, 22))).toBe('2026-11-27')
         // 今天是週一也一樣：下週五，不是這週五
         expect(goalDueDate(new Date(2026, 8, 14), new Date(2026, 10, 23))).toBe('2026-12-04')

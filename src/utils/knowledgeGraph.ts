@@ -11,6 +11,7 @@
 import type { BoardRecord } from '../db'
 import { getCardShapes } from './snapshot'
 import { extractCardName } from '../hooks/useBacklinks'
+import { isPastDue } from './dueStatus'
 
 export interface GraphNode {
     id: string
@@ -61,7 +62,7 @@ export function questProgress(todos: TodoLike[] | undefined, today: string): {
                 text: failed ? raw.slice(FAILED_PREFIX.length).trim() : raw,
                 dueDate: t.dueDate || null,
                 status,
-                overdue: status === 'open' && !!t.dueDate && t.dueDate < today,
+                overdue: status === 'open' && isPastDue(t.dueDate, today),
                 isNext: false,
             }
         })

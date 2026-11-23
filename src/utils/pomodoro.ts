@@ -119,6 +119,36 @@ export function hasElapsed(state: PomodoroState, now: number): boolean {
 }
 
 /** mm:ss。超過一小時會顯示 h:mm:ss（長休息 30 分鐘用不到，但設定可能被改）。 */
+/** 專注藍、休息綠、暫停灰——面板與側邊導覽共用，一眼分辨現在該工作還是該離開椅子。 */
+export const PHASE_COLOR = { focus: '#2563eb', break: '#16a34a', paused: '#94a3b8' } as const
+
+export function phaseAccent(phase: PomodoroPhase): string {
+    return phase === 'focus' ? PHASE_COLOR.focus : PHASE_COLOR.break
+}
+
+export interface PomodoroNavNote {
+    /** 「專注 23:41」「休息 8:12」「暫停 23:41」 */
+    text: string
+    color: string
+    /** 滑過時的說明，有綁待辦就帶上 */
+    title: string
+}
+
+/**
+ * 側邊導覽「番茄鐘」那一行的狀態字。沒開始（idle）回 null＝不顯示。
+ * 原本只在跑的時候顯示倒數，看不出是專注還是休息，暫停時乾脆消失。
+ */
+export function navNote(state: PomodoroState, now: number): PomodoroNavNote | null {
+    if (isIdle(state)) return null
+    const running = isRunning(state)
+    const rem = formatRemaining(remainingMs(state, now))
+    const short = !running ? '暫停' : state.phase === 'focus' ? '專注' : '休息'
+    const color = !running ? PHASE_COLOR.paused : phaseAccent(state.phase)
+    const status = running ? `${phaseLabel(state.phase)}中` : `暫停（${phaseLabel(state.phase)}）`
+    const title = `番茄鐘 · ${status}${state.linkedTask ? ` · 綁：${state.linkedTask.text}` : ''}`
+    return { text: `${short} ${rem}`, color, title }
+}
+
 export function formatRemaining(ms: number): string {
     const total = Math.ceil(Math.max(0, ms) / 1000)
     const s = total % 60

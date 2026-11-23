@@ -28,6 +28,7 @@ export type PanelName =
     | 'inboxTriage'
     | 'tagManager'
     | 'cloudSync'
+    | 'settings'
 
 export type PanelState = Record<PanelName, boolean>
 
@@ -35,7 +36,7 @@ export const PANEL_NAMES: PanelName[] = [
     'search', 'hotkey', 'overview', 'taskCenter', 'filter',
     'reviewCenter', 'backup', 'knowledgeGraph', 'pomodoro', 'cardLibrary',
     'quickCapture', 'onboarding', 'trash', 'quickSwitcher', 'overdueBanner',
-    'dataSafety', 'commandPalette', 'inboxTriage', 'tagManager', 'cloudSync',
+    'dataSafety', 'commandPalette', 'inboxTriage', 'tagManager', 'cloudSync', 'settings',
 ]
 
 /**
@@ -45,7 +46,7 @@ export const PANEL_NAMES: PanelName[] = [
  */
 export const PANELS_SAFE_TO_CLOSE: readonly PanelName[] = [
     'search', 'hotkey', 'overview', 'taskCenter', 'filter', 'backup', 'knowledgeGraph',
-    'cardLibrary', 'trash', 'quickSwitcher', 'dataSafety', 'commandPalette', 'inboxTriage',
+    'cardLibrary', 'trash', 'quickSwitcher', 'dataSafety', 'commandPalette', 'inboxTriage', 'settings',
 ]
 
 /**

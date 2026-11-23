@@ -1,11 +1,11 @@
-// src/ContextMenu.tsx
+// src/components/ContextMenu.tsx
 import { useEffect, useRef, useState } from 'react'
-import { CARD_COLORS, STICKY_COLORS, STICKY_COLOR_LIST } from './components/card-shape/type/CardShape'
-import type { CardColor } from './components/card-shape/type/CardShape'
-import { Z_CLICK_AWAY, Z_MODAL, Z_ABOVE_MODAL } from './constants'
-import { T } from './theme/tokens'
-import { Icon } from './components/ui/icons'
-import type { IconName } from './components/ui/icons'
+import { CARD_COLORS, STICKY_COLORS, STICKY_COLOR_LIST } from './card-shape/type/CardShape'
+import type { CardColor } from './card-shape/type/CardShape'
+import { Z_CLICK_AWAY, Z_MODAL, Z_ABOVE_MODAL } from '../constants'
+import { T } from '../theme/tokens'
+import { Icon } from './ui/icons'
+import type { IconName } from './ui/icons'
 
 export interface MenuItem {
     label: string

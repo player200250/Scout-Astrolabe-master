@@ -1,17 +1,17 @@
-// src/SearchPanel.tsx
+// src/components/SearchPanel.tsx
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import type { ReactNode } from 'react'
-import { Z_MODAL_BACKDROP, Z_MODAL, MODAL_TOP, MODAL_WIDTH, MODAL_BACKDROP } from './constants'
-import { T } from './theme/tokens'
-import { CARD_TYPE_ICON, TYPE_LABEL } from './utils/cardMeta'
-import { Icon } from './components/ui/icons'
-import type { CardType } from './components/card-shape/type/CardShape'
+import { Z_MODAL_BACKDROP, Z_MODAL, MODAL_TOP, MODAL_WIDTH, MODAL_BACKDROP } from '../constants'
+import { T } from '../theme/tokens'
+import { CARD_TYPE_ICON, TYPE_LABEL } from '../utils/cardMeta'
+import { Icon } from './ui/icons'
+import type { CardType } from './card-shape/type/CardShape'
 // 搜尋的純邏輯住在 utils/searchIndex.ts——元件檔只留元件，
 // 免得 react-refresh 的熱更新因為混合匯出而退化成整頁重載。
 import {
     buildSearchIndex, searchFromIndex, typeCountsFor, buildSnippet, MAX_RESULTS,
-} from './utils/searchIndex'
-import type { BoardRecord } from './utils/searchIndex'
+} from '../utils/searchIndex'
+import type { BoardRecord } from '../utils/searchIndex'
 
 interface SearchPanelProps {
     boards: BoardRecord[]

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-// src/Usehotkeys.test.tsx
+// src/hooks/useHotkeys.test.tsx
 //
 // useHotkeys 只在 window 掛一個 keydown listener，依按鍵分派到 actions。
 // 這裡不需要真的 tldraw editor——只 mock 出 handler 會用到的方法即可，
@@ -7,7 +7,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook } from '@testing-library/react'
 import type { Editor } from 'tldraw'
-import { useHotkeys, type HotkeyActions } from './Usehotkeys'
+import { useHotkeys, type HotkeyActions } from './useHotkeys'
 
 // 最小 editor：只放 handler 會碰到的方法，避免 null 短路。
 function makeEditor(): Editor {

@@ -1,13 +1,13 @@
-// src/BackupPanel.tsx
+// src/components/BackupPanel.tsx
 import { useState, useEffect } from 'react'
-import { loadBackups, deleteBackup, type BackupRecord, type BoardRecord } from './db'
-import { Z_PANEL, Z_BACKUP_PANEL } from './constants'
-import { canSaveImage } from './platform/imageStore'
-import { getBackupLimit } from './utils/backupSettings'
-import { T } from './theme/tokens'
-import { SideDrawer } from './components/ui/SideDrawer'
-import { Icon } from './components/ui/icons'
-import { isSyncConfigured } from './sync/syncConfig'
+import { loadBackups, deleteBackup, type BackupRecord, type BoardRecord } from '../db'
+import { Z_PANEL, Z_BACKUP_PANEL } from '../constants'
+import { canSaveImage } from '../platform/imageStore'
+import { getBackupLimit } from '../utils/backupSettings'
+import { T } from '../theme/tokens'
+import { SideDrawer } from './ui/SideDrawer'
+import { Icon } from './ui/icons'
+import { isSyncConfigured } from '../sync/syncConfig'
 
 interface BackupPanelProps {
     sidebarWidth: number

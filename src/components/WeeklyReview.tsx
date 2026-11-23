@@ -1,4 +1,4 @@
-// src/WeeklyReview.tsx
+// src/components/WeeklyReview.tsx
 //
 // 週回顧分頁。RC2（2026-09-20）之前這裡是一條 440px 的窄欄居中，兩側大片空白，
 // 而且**看不到週回顧卡的內容**——只有「本週統計」加一顆跳去白板的按鈕，
@@ -7,21 +7,21 @@
 // 註：原本檔尾還有一個 320px 的 standalone 側邊面板 `WeeklyReview`，
 // 全專案沒有任何人 import（孤兒，同 WO2 的情況），本次一併移除，只留 Content 版。
 import { useMemo, useState } from 'react'
-import type { BoardRecord } from './db'
-import { getWeekRange, getISOWeekKey, recentWeekStarts, computeRangeStats, weeksOfMonth, extractNextWeekGoals, goalDueDate, nextWeekFriday } from './utils/weeklyReviewUtils'
-import { countDueTodos } from './hooks/useOverdueStats'
-import { getCardShapes } from './utils/snapshot'
-import { scanBoards } from './utils/todoScan'
-import { getTodayStr } from './utils/date'
-import { MonthDigest } from './components/review/MonthDigest'
-import { YearDigest } from './components/review/YearDigest'
-import { findJournalCard, isUntouchedTemplate } from './utils/journalCards'
-import { JournalCardEditor } from './components/review/JournalCardEditor'
-import { EmptyState } from './components/ui/EmptyState'
-import { Icon } from './components/ui/icons'
-import type { IconName } from './components/ui/icons'
-import { T } from './theme/tokens'
-import { useIsDark } from './theme/ThemeContext'
+import type { BoardRecord } from '../db'
+import { getWeekRange, getISOWeekKey, recentWeekStarts, computeRangeStats, weeksOfMonth, extractNextWeekGoals, goalDueDate, nextWeekFriday } from '../utils/weeklyReviewUtils'
+import { countDueTodos } from '../hooks/useOverdueStats'
+import { getCardShapes } from '../utils/snapshot'
+import { scanBoards } from '../utils/todoScan'
+import { getTodayStr } from '../utils/date'
+import { MonthDigest } from './review/MonthDigest'
+import { YearDigest } from './review/YearDigest'
+import { findJournalCard, isUntouchedTemplate } from '../utils/journalCards'
+import { JournalCardEditor } from './review/JournalCardEditor'
+import { EmptyState } from './ui/EmptyState'
+import { Icon } from './ui/icons'
+import type { IconName } from './ui/icons'
+import { T } from '../theme/tokens'
+import { useIsDark } from '../theme/ThemeContext'
 
 
 /** 該週還沒有回顧卡時，編輯器帶入的空模板（與既有卡片的結構一致） */
@@ -169,7 +169,11 @@ export function WeeklyReviewContent({ boards, onSaveJournal, onAddTodoToInbox, i
     const goals = useMemo(() => extractNextWeekGoals(weekCard?.text ?? ''), [weekCard?.text])
     const existingTodoTexts = useMemo(() => new Set(scanBoards(boards).map(t => t.todoText.trim())), [boards])
     const goalDue = goalDueDate(weekStart, new Date())
-    const goalDueLabel = `${Number(goalDue.slice(5, 7))}/${Number(goalDue.slice(8, 10))}`
+    const mdLabel = (ds: string) => `${Number(ds.slice(5, 7))}/${Number(ds.slice(8, 10))}`
+    const goalDueLabel = mdLabel(goalDue)
+    // 舊週的下週五已過時把那天寫出來：「今天算起的下週五」週一看會以為是本週五（v1.8.2 驗收）
+    const weekFriday = nextWeekFriday(weekStart)
+    const goalDueNote = goalDue === weekFriday ? '該週的下週五' : `該週的下週五 ${mdLabel(weekFriday)} 已過，改成下週的週五`
 
     const markNoOutput = () => {
         onSaveJournal(
@@ -324,7 +328,7 @@ export function WeeklyReviewContent({ boards, onSaveJournal, onAddTodoToInbox, i
                 {mode === 'week' && onAddTodoToInbox && goals.length > 0 && (
                     <div style={{ border: `1px solid ${T.borderLight}`, borderRadius: 10, padding: '10px 12px', marginBottom: 8 }}>
                         <div style={{ fontSize: 12, fontWeight: 600, color: textPrimary, marginBottom: 2 }}>下週目標 → 待辦</div>
-                        <div style={{ fontSize: 11, color: textSecondary, marginBottom: 8 }}>放進收件匣，到期日 {goalDueLabel}（{goalDue === nextWeekFriday(weekStart) ? '該週的下週五' : '該週的下週五已過，改用今天算起的下週五'}）</div>
+                        <div style={{ fontSize: 11, color: textSecondary, marginBottom: 8 }}>放進收件匣，到期日 {goalDueLabel}（{goalDueNote}）</div>
                         {goals.map((g, i) => {
                             const done = existingTodoTexts.has(g)
                             return (

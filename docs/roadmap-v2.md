@@ -179,7 +179,7 @@
 ### B 類：UX 改善
 
 #### B1 — 批次操作（多選）✅ 完成（2026-06-20）
-**說明**：多選卡片（`opCount>1`）後右鍵選單新增（全部於 `contextMenuUtils.tsx`，以 `editor.batch` 套用）：
+**說明**：多選卡片（`opCount>1`）後右鍵選單新增（全部於 `useContextMenu.tsx`，以 `editor.batch` 套用）：
 - ✅ **批次修改 Status**：📊 submenu（待辦/進行中/完成/清除）
 - ✅ **批次修改 Priority**：⚑ submenu（高/中/低/清除）
 - ✅ **批次修改標籤**：🏷 開 `BatchAddTagModal` 輸入，附加（去重、不覆蓋既有）

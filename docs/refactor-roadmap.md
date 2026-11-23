@@ -16,7 +16,7 @@
 | `src/hooks/useBoardManager.ts` | ✅ TD2 已拆分（677→303 行，職責下放至 8 hook + 2 util，合成層僅留跨領域 handler） |
 | `src/components/WhiteboardTools.tsx` | 10+ useEffect 事件橋接、緊耦合 tldraw |
 | `src/hooks/useBacklinks.ts` | ✅ TD4 已解（per-board `useRef` 增量快取，37× 加速）；千板以上的 Dexie 持久化 index 列入觀察（見 TD4 段） |
-| `src/SearchPanel.tsx` | 全量掃描、無防抖、無分頁 |
+| `src/components/SearchPanel.tsx` | 全量掃描、無防抖、無分頁 |
 
 ---
 
@@ -179,7 +179,7 @@ Effects 共 4 個：onboarding 首開、逾期橫幅計時、`data-theme` 套用
 
 | 新檔案 | 來源 | 內容 |
 |--------|------|------|
-| `src/utils/contextMenuUtils.tsx` | `ContextMenu.tsx` | `useContextMenu` hook、`BUILTIN_TEMPLATES` |
+| `src/hooks/useContextMenu.tsx` | `ContextMenu.tsx` | `useContextMenu` hook、`BUILTIN_TEMPLATES` |
 | `src/utils/trashUtils.ts` | `TrashPanel.tsx` | `saveCardToTrash`、`getCardPreview` |
 | `src/utils/weeklyReviewUtils.ts` | `WeeklyReview.tsx` | `getISOWeekKey`、`getWeekRange` |
 | `src/utils/whiteboardUtils.ts` | `WhiteboardTools.tsx` | `getExportBtnStyle`、`exportBtnStyle` |
