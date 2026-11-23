@@ -169,7 +169,11 @@ export function WeeklyReviewContent({ boards, onSaveJournal, onAddTodoToInbox, i
     const goals = useMemo(() => extractNextWeekGoals(weekCard?.text ?? ''), [weekCard?.text])
     const existingTodoTexts = useMemo(() => new Set(scanBoards(boards).map(t => t.todoText.trim())), [boards])
     const goalDue = goalDueDate(weekStart, new Date())
-    const goalDueLabel = `${Number(goalDue.slice(5, 7))}/${Number(goalDue.slice(8, 10))}`
+    const mdLabel = (ds: string) => `${Number(ds.slice(5, 7))}/${Number(ds.slice(8, 10))}`
+    const goalDueLabel = mdLabel(goalDue)
+    // 舊週的下週五已過時把那天寫出來：「今天算起的下週五」週一看會以為是本週五（v1.8.2 驗收）
+    const weekFriday = nextWeekFriday(weekStart)
+    const goalDueNote = goalDue === weekFriday ? '該週的下週五' : `該週的下週五 ${mdLabel(weekFriday)} 已過，改成下週的週五`
 
     const markNoOutput = () => {
         onSaveJournal(
@@ -324,7 +328,7 @@ export function WeeklyReviewContent({ boards, onSaveJournal, onAddTodoToInbox, i
                 {mode === 'week' && onAddTodoToInbox && goals.length > 0 && (
                     <div style={{ border: `1px solid ${T.borderLight}`, borderRadius: 10, padding: '10px 12px', marginBottom: 8 }}>
                         <div style={{ fontSize: 12, fontWeight: 600, color: textPrimary, marginBottom: 2 }}>下週目標 → 待辦</div>
-                        <div style={{ fontSize: 11, color: textSecondary, marginBottom: 8 }}>放進收件匣，到期日 {goalDueLabel}（{goalDue === nextWeekFriday(weekStart) ? '該週的下週五' : '該週的下週五已過，改用今天算起的下週五'}）</div>
+                        <div style={{ fontSize: 11, color: textSecondary, marginBottom: 8 }}>放進收件匣，到期日 {goalDueLabel}（{goalDueNote}）</div>
                         {goals.map((g, i) => {
                             const done = existingTodoTexts.has(g)
                             return (
