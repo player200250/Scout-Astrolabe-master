@@ -21,6 +21,7 @@ import { BoardOverview } from './components/BoardOverview'
 import { MoveCardModal } from './components/MoveCardModal'
 import { SearchPanel } from './components/SearchPanel'
 import { TaskCenter } from './components/TaskCenter'
+import { SettingsPanel } from './components/SettingsPanel'
 import { FilterPanel } from './components/FilterPanel'
 import { BackupPanel } from './components/BackupPanel'
 import { DataSafetyPanel } from './components/DataSafetyPanel'
@@ -184,6 +185,7 @@ export default function App() {
         toggleTheme,
         openOnboarding: () => openPanel('onboarding'),
         openHotkey: () => openPanel('hotkey'),
+        openSettings: () => openPanel('settings'),
         toggleDesktop,
     }), [goHome, handleGoToInbox, handleNew, openPanel, toggleTheme, toggleDesktop])
 
@@ -201,6 +203,7 @@ export default function App() {
         : panels.reviewCenter ? 'reviewCenter'
         : panels.knowledgeGraph ? 'knowledgeGraph'
         : panels.pomodoro ? 'pomodoro'
+        : panels.settings ? 'settings'
         : null
 
     const inboxCardCount = useMemo(() => {
@@ -476,6 +479,14 @@ export default function App() {
                         >稍後再說</button>
                     </div>
                 </div>
+            )}
+
+            {panels.settings && (
+                <SettingsPanel
+                    onClose={() => closePanel('settings')}
+                    onToggleTheme={toggleTheme}
+                    onOpenPanel={name => { closePanel('settings'); openPanel(name) }}
+                />
             )}
 
             {panels.cloudSync && (

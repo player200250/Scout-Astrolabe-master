@@ -45,6 +45,7 @@ export interface CommandActions {
     toggleTheme: () => void
     openOnboarding: () => void
     openHotkey: () => void
+    openSettings: () => void
     /** 開／關 Scout Desktop；PWA 沒有這個視窗 ⇒ 不傳，命令就不出現 */
     toggleDesktop?: () => void
 }
@@ -81,6 +82,7 @@ export function buildCommands(a: CommandActions): Command[] {
         // 說明
         { id: 'open-onboarding', title: '使用導覽', icon: 'onboarding', group: '說明', keywords: 'onboarding guide help 導覽 教學', run: a.openOnboarding },
         { id: 'open-hotkey', title: '快捷鍵一覽', icon: 'hotkey', group: '說明', keywords: 'hotkey shortcut 快捷鍵', run: a.openHotkey },
+        { id: 'open-settings', title: '設定', icon: 'settings', group: '說明', keywords: 'settings preferences 設定 托盤 開機 連線 提示音', run: a.openSettings },
     ]
 }
 

@@ -8,7 +8,7 @@ const makeActions = (): CommandActions => ({
     quickCapture: vi.fn(), openInboxTriage: vi.fn(), openSearch: vi.fn(), openCardLibrary: vi.fn(), openTaskCenter: vi.fn(),
     openReviewCenter: vi.fn(), openKnowledgeGraph: vi.fn(), openPomodoro: vi.fn(), openFilter: vi.fn(),
     openTagManager: vi.fn(), openTrash: vi.fn(),
-    openBackup: vi.fn(), openDataSafety: vi.fn(), toggleTheme: vi.fn(), openOnboarding: vi.fn(), openHotkey: vi.fn(),
+    openBackup: vi.fn(), openDataSafety: vi.fn(), toggleTheme: vi.fn(), openOnboarding: vi.fn(), openHotkey: vi.fn(), openSettings: vi.fn(),
 })
 
 describe('buildCommands', () => {

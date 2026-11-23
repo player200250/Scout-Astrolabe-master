@@ -47,6 +47,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   sendMcpResponse: (id, result) => ipcRenderer.send('mcp:response', { id, result }),
   setMcpReady: (ready) => ipcRenderer.send('mcp:ready', ready),
+  // 設定頁：與托盤選單同一份狀態（main.js getAppSettings）
+  getAppSettings: () => ipcRenderer.invoke('settings:get'),
+  setAppSetting: (key, value) => ipcRenderer.invoke('settings:set', key, value),
+  onAppSettingsChanged: (callback) => {
+    const listener = (_e, settings) => callback(settings)
+    ipcRenderer.on('settings:changed', listener)
+    return () => ipcRenderer.removeListener('settings:changed', listener)
+  },
   toggleDesktop: () => ipcRenderer.invoke('desktop:toggle'),
   isDesktopOpen: () => ipcRenderer.invoke('desktop:is-open'),
   onDesktopOpenChanged: (callback) => {

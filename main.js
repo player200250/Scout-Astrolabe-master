@@ -129,7 +129,7 @@ function buildTrayMenu() {
       checked: minimizeToTray(),
       click: (item) => {
         store.set('minimizeToTray', item.checked);
-        tray?.setContextMenu(buildTrayMenu());
+        notifySettingsChanged();
       },
     },
     ...(app.isPackaged ? [{
@@ -138,7 +138,7 @@ function buildTrayMenu() {
       checked: openAtLogin(),
       click: (item) => {
         setOpenAtLogin(item.checked);
-        tray?.setContextMenu(buildTrayMenu()); // 重讀系統狀態：寫入失敗時勾勾會跳回去
+        notifySettingsChanged(); // 重讀系統狀態：寫入失敗時勾勾會跳回去
       },
     }] : []),
     {
@@ -148,13 +148,40 @@ function buildTrayMenu() {
       checked: isMcpEnabled(),
       click: (item) => {
         setMcpEnabled(item.checked);
-        tray?.setContextMenu(buildTrayMenu());
+        notifySettingsChanged();
       },
     },
     { type: 'separator' },
     { label: '離開 Scout Astrolabe', click: () => { isQuitting = true; app.quit(); } },
   ]);
 }
+
+// ── 設定頁（renderer）與托盤選單共用同一份狀態 ───────────────────────────
+// 兩邊任一邊改，都走 notifySettingsChanged：托盤重建勾勾、設定頁收到新值。
+/** openAtLogin：開發／測試版沒有這個選項（只有安裝版能設開機啟動），回 null 讓畫面隱藏 */
+function getAppSettings() {
+  return {
+    minimizeToTray: minimizeToTray(),
+    openAtLogin: app.isPackaged ? openAtLogin() : null,
+    mcpEnabled: isMcpEnabled(),
+  };
+}
+
+function notifySettingsChanged() {
+  tray?.setContextMenu(buildTrayMenu());
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('settings:changed', getAppSettings());
+}
+
+ipcMain.handle('settings:get', () => getAppSettings());
+ipcMain.handle('settings:set', (_event, key, value) => {
+  if (typeof value !== 'boolean') return getAppSettings();
+  if (key === 'minimizeToTray') store.set('minimizeToTray', value);
+  else if (key === 'openAtLogin' && app.isPackaged) setOpenAtLogin(value);
+  else if (key === 'mcpEnabled') setMcpEnabled(value);
+  else return getAppSettings();
+  notifySettingsChanged();
+  return getAppSettings();
+});
 
 function createTray() {
   // 放 assets/ 而非 build/：build/ 是 electron-builder 的保留資源目錄，不會打包進 asar。

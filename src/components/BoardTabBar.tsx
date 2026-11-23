@@ -227,6 +227,7 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                         { icon: 'knowledgeGraph', label: '知識圖譜', title: '知識圖譜 (Ctrl+Shift+G)', onClick: () => onOpenPanel('knowledgeGraph'), isActive: activePanel === 'knowledgeGraph' },
                         { icon: 'pomodoro', label: '番茄鐘', title: pomodoroNote?.title ?? '番茄鐘', onClick: () => onOpenPanel('pomodoro'), isActive: activePanel === 'pomodoro', note: pomodoroNote ? { text: pomodoroNote.text, color: pomodoroNote.color } : undefined },
                         ...(onToggleDesktop ? [{ icon: 'desktopWidget', label: 'Scout Desktop', title: (desktopOpen ? '關閉' : '開啟') + ' Scout Desktop (Ctrl+Alt+D)', onClick: onToggleDesktop, isActive: !!desktopOpen } satisfies NavItemDef] : []),
+                        { icon: 'settings', label: '設定', title: '設定', onClick: () => onOpenPanel('settings'), isActive: activePanel === 'settings' },
                         { icon: 'trash', label: '垃圾桶', title: '垃圾桶 (Ctrl+Shift+T)', onClick: () => onOpenPanel('trash'), isActive: false, badge: (trashCount ?? 0) > 0 ? { count: trashCount!, color: '#94a3b8' } : undefined },
                     ]
                     if (collapsed) {
