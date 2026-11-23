@@ -292,7 +292,7 @@ export default function App() {
                     onClose={() => closePanel('taskCenter')}
                     onFocus={t => {
                         pomodoro.onFocusTask({ boardId: t.boardId, shapeId: t.shapeId, todoId: t.todoId, text: t.todoText })
-                        // 兩個都是右側抽屜、疊在同一個位置：不先關任務中心，番茄鐘會被蓋住看不到。
+                        // 任務中心是全螢幕、層級比番茄鐘抽屜高：不先關掉，番茄鐘會被蓋住看不到。
                         closePanel('taskCenter')
                         openPanel('pomodoro')
                     }}

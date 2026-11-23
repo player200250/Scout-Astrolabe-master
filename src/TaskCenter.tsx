@@ -1,39 +1,31 @@
-// src/TaskCenter.tsx
+// src/TaskCenter.tsx — 任務中心（全螢幕五欄看板）
+//
+// 原本是右側 360px 抽屜＋分頁；改成全螢幕後五個時間分組直接攤成五欄，分頁就不需要了。
+// 「無截止日」原本要點開才看得到（驗收時 71 項很難找），現在是第五欄，已完成預設藏起來。
 import { useState, useEffect, useMemo } from 'react'
 import type { BoardRecord } from './db'
 import { getTodayStr, getWeekLaterStr, formatDueDate } from './utils/date'
 import { scanBoards, type TaskItem } from './utils/todoScan'
+import { GROUP_ORDER, getGroupKey, groupTasks, type GroupKey } from './utils/taskCenterBoard'
 
-import { EmptyState } from './components/ui/EmptyState'
-import { SideDrawer } from './components/ui/SideDrawer'
+import { FullscreenPanel } from './components/ui/FullscreenPanel'
 import { T } from './theme/tokens'
 import { Icon } from './components/ui/icons'
 import type { IconName } from './components/ui/icons'
 
-type GroupKey = 'overdue' | 'today' | 'week' | 'later' | 'noduedate'
-type FilterTab = 'active' | 'overdue' | 'today' | 'week' | 'all'
+/** 欄寬下限：240 × 5 = 1200。視窗再窄就整排橫向捲動，不把欄擠扁。 */
+const COLUMN_MIN_WIDTH = 240
 
-const isOpenTask = (item: TaskItem) => !item.checked
-
-function getGroupKey(dueDate: string | undefined, todayStr: string, weekStr: string): GroupKey {
-    if (!dueDate) return 'noduedate'
-    if (dueDate < todayStr) return 'overdue'
-    if (dueDate === todayStr) return 'today'
-    if (dueDate <= weekStr) return 'week'
-    return 'later'
-}
-
-// 五個分組是同一條時間軸上的刻度，所以圖示也走同一族（Alarm→Calendar*→Inbox），
-// 不像原本 ⚠️🌟📅🗓️📋 那樣每個各自為政。緊迫感靠既有的 color/bg 表達。
+// 五個分組是同一條時間軸上的刻度，圖示走同一族（Alarm→Calendar*→Inbox）。
 const GROUP_CONFIG: Record<GroupKey, { icon: IconName; label: string; color: string; bg: string }> = {
-    overdue:   { icon: 'dueOverdue',   label: '已逾期',   color: '#ff4d4f', bg: '#fff5f5' },
-    today:     { icon: 'dueToday',     label: '今天',     color: '#e67e00', bg: '#fff7f0' },
-    week:      { icon: 'dueWeek',      label: '本週',     color: '#3b82f6', bg: '#eff6ff' },
-    later:     { icon: 'dueLater',     label: '之後',     color: '#888',    bg: '#f5f5f5' },
-    noduedate: { icon: 'dueNone',      label: '無截止日', color: '#aaa',    bg: '#fafafa' },
+    overdue:   { icon: 'dueOverdue', label: '已逾期',   color: '#ff4d4f', bg: '#fff5f5' },
+    today:     { icon: 'dueToday',   label: '今天',     color: '#e67e00', bg: '#fff7f0' },
+    week:      { icon: 'dueWeek',    label: '本週',     color: '#3b82f6', bg: '#eff6ff' },
+    later:     { icon: 'dueLater',   label: '之後',     color: '#888',    bg: '#f5f5f5' },
+    noduedate: { icon: 'dueNone',    label: '無截止日', color: '#aaa',    bg: '#fafafa' },
 }
 
-interface TaskItemRowProps {
+interface TaskCardProps {
     item: TaskItem
     todayStr: string
     weekStr: string
@@ -41,91 +33,87 @@ interface TaskItemRowProps {
     onFocus?: (item: TaskItem) => void
 }
 
-function TaskItemRow({ item, todayStr, weekStr, onJump, onFocus }: TaskItemRowProps) {
-    const [hovered, setHovered] = useState(false)
-    const groupKey = getGroupKey(item.dueDate || undefined, todayStr, weekStr)
-    const config = GROUP_CONFIG[groupKey]
-    const hoverBg = T.bgHover
-    const textColor = T.textPrimary
+function TaskCard({ item, todayStr, weekStr, onJump, onFocus }: TaskCardProps) {
+    const config = GROUP_CONFIG[getGroupKey(item.dueDate || undefined, todayStr, weekStr)]
 
     return (
         <div
             onClick={() => onJump(item.boardId, item.shapeId, item.x, item.y)}
-            onMouseEnter={() => setHovered(true)}
-            onMouseLeave={() => setHovered(false)}
+            title={item.todoText}
             style={{
-                padding: '7px 16px', cursor: 'pointer',
-                background: hovered ? hoverBg : 'transparent',
-                display: 'flex', alignItems: 'flex-start', gap: 8,
+                padding: '9px 10px', cursor: 'pointer',
+                background: T.bgCard, borderRadius: 8,
+                border: `1px solid ${T.borderLight}`,
+                display: 'flex', flexDirection: 'column', gap: 6,
                 transition: 'background 0.1s',
             }}
+            onMouseEnter={e => { e.currentTarget.style.background = T.bgCardHover }}
+            onMouseLeave={e => { e.currentTarget.style.background = T.bgCard }}
         >
-            <div style={{
-                width: 14, height: 14, borderRadius: 3,
-                border: `1.5px solid ${item.checked ? '#bbb' : '#d0d0d0'}`,
-                background: item.checked ? '#bbb' : 'transparent',
-                flexShrink: 0, marginTop: 2,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-                {item.checked && <span style={{ color: 'white', display: 'flex' }}><Icon name="check" /></span>}
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
                 <div style={{
-                    fontSize: 13,
-                    color: item.checked ? '#aaa' : textColor,
+                    width: 14, height: 14, borderRadius: 3,
+                    border: `1.5px solid ${item.checked ? '#bbb' : '#d0d0d0'}`,
+                    background: item.checked ? '#bbb' : 'transparent',
+                    flexShrink: 0, marginTop: 2,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                    {item.checked && <span style={{ color: 'white', display: 'flex' }}><Icon name="check" /></span>}
+                </div>
+                {/* 最多兩行：欄窄，只放一行常看不出是哪一項 */}
+                <div style={{
+                    flex: 1, minWidth: 0, fontSize: 13, lineHeight: 1.45,
+                    color: item.checked ? '#aaa' : T.textPrimary,
                     textDecoration: item.checked ? 'line-through' : 'none',
-                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+                    overflow: 'hidden', wordBreak: 'break-word',
                 }}>
                     {item.todoText}
                 </div>
-                <div style={{ fontSize: 11, color: '#bbb', marginTop: 2, display: 'flex', gap: 6, alignItems: 'center', overflow: 'hidden' }}>
-                    <span
-                        title={item.boardName}
-                        style={{
-                            flexShrink: 0, maxWidth: 140,
-                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                            fontSize: 10, lineHeight: 1.5,
-                            color: T.accent,
-                            background: T.accentBg,
-                            border: `1px solid ${T.accentBorder}`,
-                            borderRadius: 4, padding: '1px 6px',
-                            display: 'inline-flex', alignItems: 'center', gap: 4,
-                        }}
-                    ><Icon name="cardBoard" />{item.boardName}</span>
-                    {item.cardTitle && (
-                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.cardTitle}</span>
-                    )}
-                    {item.focusCount > 0 && (
-                        <span title={`跑完 ${item.focusCount} 個番茄`} style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 2 }}>
-                            <Icon name="pomodoro" />{item.focusCount}
-                        </span>
-                    )}
-                </div>
+                {item.dueDate && (
+                    <span style={{
+                        fontSize: 10, fontWeight: 500,
+                        color: config.color, background: config.bg,
+                        borderRadius: 4, padding: '2px 6px', flexShrink: 0,
+                        border: `1px solid ${config.color}22`, whiteSpace: 'nowrap',
+                    }}>
+                        {formatDueDate(item.dueDate, todayStr)}
+                    </span>
+                )}
             </div>
-            {onFocus && !item.checked && (
-                <button
-                    title="綁這項開始專注"
-                    onClick={e => { e.stopPropagation(); onFocus(item) }}
+            <div style={{ fontSize: 11, color: T.textMuted, display: 'flex', gap: 6, alignItems: 'center', minWidth: 0 }}>
+                <span
+                    title={item.boardName}
                     style={{
-                        // 只在滑過時現身：常駐的話每一行多一顆鈕，清單會變吵。
-                        visibility: hovered ? 'visible' : 'hidden',
-                        display: 'inline-flex', alignItems: 'center', gap: 3,
-                        fontSize: 11, color: T.accent, background: T.accentBg,
-                        border: `1px solid ${T.accentBorder}`, borderRadius: 6,
-                        padding: '2px 7px', cursor: 'pointer', flexShrink: 0, alignSelf: 'center',
+                        minWidth: 0, flexShrink: 1,
+                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        fontSize: 10, lineHeight: 1.5,
+                        color: T.accent, background: T.accentBg,
+                        border: `1px solid ${T.accentBorder}`,
+                        borderRadius: 4, padding: '1px 6px',
+                        display: 'inline-flex', alignItems: 'center', gap: 4,
                     }}
-                ><Icon name="pomodoro" />專注</button>
-            )}
-            {item.dueDate && (
-                <span style={{
-                    fontSize: 10, fontWeight: 500,
-                    color: config.color, background: config.bg,
-                    borderRadius: 4, padding: '2px 6px', flexShrink: 0, alignSelf: 'center',
-                    border: `1px solid ${config.color}22`, whiteSpace: 'nowrap',
-                }}>
-                    {formatDueDate(item.dueDate, todayStr)}
-                </span>
-            )}
+                ><Icon name="cardBoard" />{item.boardName}</span>
+                {item.focusCount > 0 && (
+                    <span title={`跑完 ${item.focusCount} 個番茄`} style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+                        <Icon name="pomodoro" />{item.focusCount}
+                    </span>
+                )}
+                <span style={{ flex: 1 }} />
+                {onFocus && !item.checked && (
+                    // 常駐：原本只在 hover 時出現，驗收發現要先捲動才叫得出來。
+                    <button
+                        title="綁這項開始專注"
+                        onClick={e => { e.stopPropagation(); onFocus(item) }}
+                        style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 3,
+                            fontSize: 11, color: T.accent, background: T.accentBg,
+                            border: `1px solid ${T.accentBorder}`, borderRadius: 6,
+                            padding: '2px 7px', cursor: 'pointer', flexShrink: 0,
+                        }}
+                    ><Icon name="pomodoro" />專注</button>
+                )}
+            </div>
         </div>
     )
 }
@@ -139,50 +127,21 @@ interface TaskCenterProps {
 }
 
 export function TaskCenter({ boards, onJump, onClose, onFocus }: TaskCenterProps) {
-    const [tab, setTab] = useState<FilterTab>('active')
-    const [showNoDueDate, setShowNoDueDate] = useState(false)
+    const [query, setQuery] = useState('')
+    const [showDone, setShowDone] = useState(false)
 
     const todayStr = getTodayStr()
     const weekStr = getWeekLaterStr()
 
     const allItems = useMemo(() => scanBoards(boards), [boards])
+    const columns = useMemo(
+        () => groupTasks(allItems, query, showDone, todayStr, weekStr),
+        [allItems, query, showDone, todayStr, weekStr],
+    )
 
-    const grouped = useMemo(() => {
-        const g: Record<GroupKey, TaskItem[]> = { overdue: [], today: [], week: [], later: [], noduedate: [] }
-        for (const item of allItems) {
-            const key = getGroupKey(item.dueDate || undefined, todayStr, weekStr)
-            g[key].push(item)
-        }
-        return g
-    }, [allItems, todayStr, weekStr])
-
-    const overdueCount = grouped.overdue.filter(t => !t.checked).length
-    const todayCount   = grouped.today.filter(t => !t.checked).length
-    const weekCount    = grouped.week.filter(t => !t.checked).length
-    const activeCount  = overdueCount + todayCount + weekCount
-
-    const visibleItemsByGroup = useMemo(() => {
-        const out: Record<GroupKey, TaskItem[]> = { overdue: [], today: [], week: [], later: [], noduedate: [] }
-        for (const key of Object.keys(grouped) as GroupKey[]) {
-            out[key] = tab === 'all' ? grouped[key] : grouped[key].filter(isOpenTask)
-        }
-        return out
-    }, [grouped, tab])
-
-    const getVisibleGroups = (): GroupKey[] => {
-        if (tab === 'overdue') return ['overdue']
-        if (tab === 'today')   return ['today']
-        if (tab === 'week')    return ['week']
-        const base: GroupKey[] = ['overdue', 'today', 'week', 'later']
-        return showNoDueDate ? [...base, 'noduedate'] : base
-    }
-
-    const visibleGroups = getVisibleGroups()
-
-    /** 目前被「無截止日任務」收合區藏起來的筆數（0 ＝沒有被藏的東西）。 */
-    const hiddenNoDueDateCount = !showNoDueDate && (tab === 'active' || tab === 'all')
-        ? visibleItemsByGroup.noduedate.length
-        : 0
+    const overdueCount = allItems.filter(t => !t.checked && getGroupKey(t.dueDate || undefined, todayStr, weekStr) === 'overdue').length
+    const totalActive   = allItems.filter(t => !t.checked).length
+    const totalComplete = allItems.length - totalActive
 
     useEffect(() => {
         const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -190,135 +149,90 @@ export function TaskCenter({ boards, onJump, onClose, onFocus }: TaskCenterProps
         return () => window.removeEventListener('keydown', handler)
     }, [onClose])
 
-    const totalActive   = allItems.filter(t => !t.checked).length
-    const totalComplete = allItems.filter(t => t.checked).length
-
-    // 外框、標題列、關閉鈕、底部分隔線都由 SideDrawer 負責；這裡只剩分頁列自己的顏色
-    const tabActiveBg = T.bgActive
-    const tabInactiveColor = T.textSecondary
-    const tabHoverBg = T.bgHover
-
-    const tabs: { key: FilterTab; label: string; count?: number }[] = [
-        { key: 'active',  label: '待辦',  count: activeCount },
-        { key: 'overdue', label: '逾期',  count: overdueCount },
-        { key: 'today',   label: '今天',  count: todayCount },
-        { key: 'week',    label: '本週',  count: weekCount },
-        { key: 'all',     label: '全部' },
-    ]
-
     return (
-        <SideDrawer
+        <FullscreenPanel
             title="任務中心"
-            badge={overdueCount > 0 ? (
-                <span style={{ fontSize: 11, fontWeight: 600, color: '#ff4d4f', background: '#fff5f5', borderRadius: 10, padding: '1px 7px', border: '1px solid #ffccc7' }}>
-                    {overdueCount} 逾期
-                </span>
-            ) : undefined}
+            titleIcon="taskCenter"
+            badge={`待辦 ${totalActive} · 已完成 ${totalComplete}${overdueCount > 0 ? ` · ${overdueCount} 逾期` : ''}`}
             onClose={onClose}
-            bodyPadding="4px 0"
-            headerExtra={(
-                    <div style={{ display: 'flex', gap: 3 }}>
-                        {tabs.map(t => (
-                            <button
-                                key={t.key}
-                                onClick={() => setTab(t.key)}
-                                style={{
-                                    padding: '4px 9px', borderRadius: 8, border: 'none',
-                                    background: tab === t.key ? tabActiveBg : 'transparent',
-                                    color: tab === t.key ? 'white' : tabInactiveColor,
-                                    fontSize: 12, fontWeight: tab === t.key ? 600 : 400,
-                                    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
-                                    transition: 'background 0.1s',
-                                }}
-                                onMouseEnter={e => { if (tab !== t.key) e.currentTarget.style.background = tabHoverBg }}
-                                onMouseLeave={e => { if (tab !== t.key) e.currentTarget.style.background = 'transparent' }}
-                            >
-                                {t.label}
-                                {t.count !== undefined && t.count > 0 && (
-                                    <span style={{
-                                        fontSize: 10,
-                                        background: tab === t.key ? 'rgba(255,255,255,0.25)' : (T.bgMuted),
-                                        borderRadius: 8, padding: '0 5px', lineHeight: '16px',
-                                        color: tab === t.key ? 'white' : (t.key === 'overdue' ? '#ff4d4f' : tabInactiveColor),
-                                    }}>
-                                        {t.count}
-                                    </span>
-                                )}
-                            </button>
-                        ))}
-                    </div>
-            )}
-            footer={(
-                <div style={{ fontSize: 11, color: T.textMuted, display: 'flex', gap: 10 }}>
-                    <span>待辦 {totalActive}</span>
-                    <span style={{ color: T.textMuted }}>·</span>
-                    <span>已完成 {totalComplete}</span>
-                    <span style={{ flex: 1 }} />
-                    <span>點擊跳轉到卡片</span>
+            padded={false}
+            headerContent={(
+                <div style={{ maxWidth: 420, margin: '0 auto', position: 'relative' }}>
+                    <input
+                        type="text"
+                        value={query}
+                        onChange={e => setQuery(e.target.value)}
+                        placeholder="搜尋待辦、白板…"
+                        autoFocus
+                        style={{
+                            width: '100%', height: 34, borderRadius: 8,
+                            border: `1px solid ${T.borderMid}`,
+                            background: T.bgApp, color: T.textPrimary,
+                            padding: query ? '0 32px 0 12px' : '0 12px',
+                            fontSize: 13, outline: 'none', boxSizing: 'border-box',
+                        }}
+                    />
+                    {query && (
+                        <button
+                            onClick={() => setQuery('')}
+                            title="清除搜尋"
+                            style={{
+                                position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
+                                background: 'transparent', border: 'none', cursor: 'pointer',
+                                color: T.textMuted, padding: 2, display: 'flex',
+                            }}
+                        ><Icon name="close" /></button>
+                    )}
                 </div>
             )}
+            headerActions={(
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: T.textSecondary, cursor: 'pointer', userSelect: 'none', flexShrink: 0 }}>
+                    <input type="checkbox" checked={showDone} onChange={e => setShowDone(e.target.checked)} />
+                    顯示已完成
+                </label>
+            )}
         >
-                    {visibleGroups.map(groupKey => {
-                        const config = GROUP_CONFIG[groupKey]
-                        const items = visibleItemsByGroup[groupKey]
-                        if (items.length === 0) return null
-                        return (
-                            <div key={groupKey} style={{ marginBottom: 4 }}>
-                                <div style={{
-                                    padding: '5px 16px 4px', fontSize: 11, fontWeight: 600,
-                                    color: config.color, background: config.bg,
-                                    display: 'flex', alignItems: 'center', gap: 6,
-                                    position: 'sticky', top: 0, zIndex: 1,
-                                }}>
-                                    <Icon name={config.icon} />{config.label}
-                                    <span style={{ fontSize: 10, fontWeight: 400, color: '#aaa' }}>{items.length} 項</span>
-                                </div>
-                                {items.map(item => (
-                                    <TaskItemRow
+            <div style={{
+                height: '100%', boxSizing: 'border-box',
+                display: 'flex', gap: 12, padding: 16,
+                overflowX: 'auto', overflowY: 'hidden',
+            }}>
+                {GROUP_ORDER.map(key => {
+                    const config = GROUP_CONFIG[key]
+                    const items = columns[key]
+                    return (
+                        <section key={key} style={{
+                            flex: `1 0 ${COLUMN_MIN_WIDTH}px`, minWidth: COLUMN_MIN_WIDTH,
+                            display: 'flex', flexDirection: 'column', minHeight: 0,
+                            background: T.bgSidebar, borderRadius: 10,
+                            border: `1px solid ${T.borderLight}`,
+                            borderTop: `3px solid ${config.color}`,
+                        }}>
+                            <header style={{
+                                padding: '10px 12px 8px', flexShrink: 0,
+                                display: 'flex', alignItems: 'center', gap: 6,
+                                fontSize: 13, fontWeight: 600, color: config.color,
+                            }}>
+                                <Icon name={config.icon} />{config.label}
+                                <span style={{ fontSize: 11, fontWeight: 400, color: T.textMuted }}>{items.length}</span>
+                            </header>
+                            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '0 8px 8px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                {items.length === 0 ? (
+                                    <div style={{ fontSize: 12, color: T.textMuted, textAlign: 'center', padding: '20px 0' }}>
+                                        {query ? '沒有符合的待辦' : '沒有待辦'}
+                                    </div>
+                                ) : items.map(item => (
+                                    <TaskCard
                                         key={`${item.boardId}_${item.shapeId}_${item.todoId}`}
                                         item={item} todayStr={todayStr} weekStr={weekStr}
                                         onJump={onJump} onFocus={onFocus}
                                     />
                                 ))}
                             </div>
-                        )
-                    })}
-    
-                    {visibleGroups.every(k => visibleItemsByGroup[k].length === 0) && (
-                        hiddenNoDueDateCount > 0 ? (
-                            /* 「待辦」與「全部」分頁不含 noduedate 組（要展開才看得到）。
-                               所有待辦都沒設截止日時，這裡原本會說「這個分類沒有任務」，
-                               但底部狀態列同時寫著「待辦 N」——畫面自己打自己。
-                               所以空狀態要講出真相，並給展開的入口。 */
-                            <EmptyState
-                                icon="inbox"
-                                title={`${hiddenNoDueDateCount} 筆待辦沒有設截止日`}
-                                hint="沒有截止日的任務不會排進逾期／今天／本週，所以上面是空的。"
-                                actionLabel="展開查看 →"
-                                onAction={() => setShowNoDueDate(true)}
-                            />
-                        ) : (
-                            <EmptyState
-                                icon="done"
-                                title={tab === 'all' ? '所有白板都沒有待辦項目' : '這個分類沒有任務'}
-                                hint={tab === 'all'
-                                    ? '在白板上建立待辦卡片（斜線選單的「待辦」），設好到期日就會集中到這裡。'
-                                    : '換一個分類看看，或到白板上的待辦卡片設定到期日。'}
-                            />
-                        )
-                    )}
-    
-                    {(tab === 'active' || tab === 'all') && grouped.noduedate.length > 0 && (
-                        <div style={{ padding: '8px 16px' }}>
-                            <button
-                                onClick={() => setShowNoDueDate(v => !v)}
-                                style={{ fontSize: 12, color: '#aaa', background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: 4 }}
-                            >
-                                <span style={{ fontSize: 10 }}>{showNoDueDate ? '▼' : '▶'}</span>
-                                無截止日任務 ({grouped.noduedate.filter(t => !t.checked).length})
-                            </button>
-                        </div>
-                    )}
-        </SideDrawer>
+                        </section>
+                    )
+                })}
+            </div>
+        </FullscreenPanel>
     )
 }
