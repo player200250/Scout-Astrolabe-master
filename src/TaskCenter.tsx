@@ -6,7 +6,7 @@ import { useState, useEffect, useMemo } from 'react'
 import type { BoardRecord } from './db'
 import { getTodayStr, getWeekLaterStr, formatDueDate } from './utils/date'
 import { scanBoards, type TaskItem } from './utils/todoScan'
-import { GROUP_ORDER, getGroupKey, groupTasks, type GroupKey } from './utils/taskCenterBoard'
+import { GROUP_ORDER, getGroupKey, groupTasks, dropTargetDate, type GroupKey } from './utils/taskCenterBoard'
 
 import { FullscreenPanel } from './components/ui/FullscreenPanel'
 import { T } from './theme/tokens'
@@ -31,17 +31,30 @@ interface TaskCardProps {
     weekStr: string
     onJump: (boardId: string, shapeId: string, x: number, y: number) => void
     onFocus?: (item: TaskItem) => void
+    /** 有給才可拖（拖到別欄＝改到期日） */
+    onDragStart?: (item: TaskItem) => void
+    onDragEnd?: () => void
+    isDragging?: boolean
 }
 
-function TaskCard({ item, todayStr, weekStr, onJump, onFocus }: TaskCardProps) {
+function TaskCard({ item, todayStr, weekStr, onJump, onFocus, onDragStart, onDragEnd, isDragging }: TaskCardProps) {
     const config = GROUP_CONFIG[getGroupKey(item.dueDate || undefined, todayStr, weekStr)]
 
     return (
         <div
             onClick={() => onJump(item.boardId, item.shapeId, item.x, item.y)}
             title={item.todoText}
+            draggable={!!onDragStart}
+            onDragStart={onDragStart ? e => {
+                // Chromium 沒 setData 不會開始拖
+                e.dataTransfer.setData('text/plain', item.todoText)
+                e.dataTransfer.effectAllowed = 'move'
+                onDragStart(item)
+            } : undefined}
+            onDragEnd={onDragEnd}
             style={{
                 padding: '9px 10px', cursor: 'pointer',
+                opacity: isDragging ? 0.4 : 1,
                 background: T.bgCard, borderRadius: 8,
                 border: `1px solid ${T.borderLight}`,
                 display: 'flex', flexDirection: 'column', gap: 6,
@@ -124,11 +137,17 @@ interface TaskCenterProps {
     onClose: () => void
     /** 綁這項開番茄鐘 */
     onFocus?: (item: TaskItem) => void
+    /** 卡片拖到別欄：改到期日（null＝清掉），並清掉排好的時段 */
+    onMove?: (item: TaskItem, dueDate: string | null) => void
 }
 
-export function TaskCenter({ boards, onJump, onClose, onFocus }: TaskCenterProps) {
+const itemKey = (t: TaskItem) => `${t.boardId}_${t.shapeId}_${t.todoId}`
+
+export function TaskCenter({ boards, onJump, onClose, onFocus, onMove }: TaskCenterProps) {
     const [query, setQuery] = useState('')
     const [showDone, setShowDone] = useState(false)
+    const [dragging, setDragging] = useState<TaskItem | null>(null)
+    const [overKey, setOverKey] = useState<GroupKey | null>(null)
 
     const todayStr = getTodayStr()
     const weekStr = getWeekLaterStr()
@@ -200,11 +219,31 @@ export function TaskCenter({ boards, onJump, onClose, onFocus }: TaskCenterProps
                 {GROUP_ORDER.map(key => {
                     const config = GROUP_CONFIG[key]
                     const items = columns[key]
+                    const target = dropTargetDate(key, todayStr, weekStr)
+                    // 可放＝拖曳中、這欄有合理日期、且不是原本那欄
+                    const canDrop = !!dragging && target !== undefined
+                        && getGroupKey(dragging.dueDate || undefined, todayStr, weekStr) !== key
+                    const isOver = canDrop && overKey === key
                     return (
-                        <section key={key} style={{
+                        <section key={key}
+                            onDragOver={canDrop ? e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (overKey !== key) setOverKey(key) } : undefined}
+                            onDragLeave={canDrop ? e => {
+                                // 移進子元素也會觸發 dragleave，只有真的離開這欄才取消
+                                if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOverKey(k => k === key ? null : k)
+                            } : undefined}
+                            onDrop={canDrop ? e => {
+                                e.preventDefault()
+                                const item = dragging
+                                setDragging(null); setOverKey(null)
+                                if (item && target !== undefined) onMove?.(item, target)
+                            } : undefined}
+                            style={{
+                            outline: canDrop ? `2px ${isOver ? 'solid' : 'dashed'} ${config.color}` : 'none',
+                            outlineOffset: -1,
+                            background: isOver ? config.bg : T.bgSidebar,
                             flex: `1 0 ${COLUMN_MIN_WIDTH}px`, minWidth: COLUMN_MIN_WIDTH,
                             display: 'flex', flexDirection: 'column', minHeight: 0,
-                            background: T.bgSidebar, borderRadius: 10,
+                            borderRadius: 10,
                             border: `1px solid ${T.borderLight}`,
                             borderTop: `3px solid ${config.color}`,
                         }}>
@@ -223,9 +262,12 @@ export function TaskCenter({ boards, onJump, onClose, onFocus }: TaskCenterProps
                                     </div>
                                 ) : items.map(item => (
                                     <TaskCard
-                                        key={`${item.boardId}_${item.shapeId}_${item.todoId}`}
+                                        key={itemKey(item)}
                                         item={item} todayStr={todayStr} weekStr={weekStr}
                                         onJump={onJump} onFocus={onFocus}
+                                        onDragStart={onMove ? setDragging : undefined}
+                                        onDragEnd={() => { setDragging(null); setOverKey(null) }}
+                                        isDragging={!!dragging && itemKey(dragging) === itemKey(item)}
                                     />
                                 ))}
                             </div>

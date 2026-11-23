@@ -32,3 +32,26 @@ export function groupTasks(
     }
     return out
 }
+
+/** 'YYYY-MM-DD' 加 n 天（用本地日期算，避開時區把日期推前一天）。 */
+function addDays(dateStr: string, n: number): string {
+    const [y, m, d] = dateStr.split('-').map(Number)
+    const dt = new Date(y, m - 1, d + n)
+    return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`
+}
+
+/**
+ * 卡片拖到某欄後要設的到期日。
+ * - undefined＝這欄不能放（已逾期：拖過去沒有合理的日期）
+ * - null＝清掉到期日（無截止日）
+ * 「本週」是今天起 7 天內（見 getGroupKey），所以放明天；「之後」放第 8 天＝該欄最早的一天。
+ */
+export function dropTargetDate(key: GroupKey, todayStr: string, weekStr: string): string | null | undefined {
+    switch (key) {
+        case 'overdue': return undefined
+        case 'today': return todayStr
+        case 'week': return addDays(todayStr, 1)
+        case 'later': return addDays(weekStr, 1)
+        case 'noduedate': return null
+    }
+}

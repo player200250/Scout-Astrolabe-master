@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { getGroupKey, groupTasks, matchesQuery } from './taskCenterBoard'
+import { getGroupKey, groupTasks, matchesQuery, dropTargetDate } from './taskCenterBoard'
 import type { TaskItem } from './todoScan'
 
 const TODAY = '2026-11-23'
@@ -53,5 +53,22 @@ describe('groupTasks', () => {
         const g = groupTasks(items, '女主角', false, TODAY, WEEK)
         expect(g.overdue).toHaveLength(1)
         expect(g.noduedate).toHaveLength(0)
+    })
+})
+
+describe('dropTargetDate', () => {
+    it('逾期欄不能放', () => { expect(dropTargetDate('overdue', TODAY, WEEK)).toBeUndefined() })
+    it('今天＝今天、本週＝明天、之後＝第 8 天、無截止日＝清掉', () => {
+        expect(dropTargetDate('today', TODAY, WEEK)).toBe('2026-11-23')
+        expect(dropTargetDate('week', TODAY, WEEK)).toBe('2026-11-24')
+        expect(dropTargetDate('later', TODAY, WEEK)).toBe('2026-12-01')
+        expect(dropTargetDate('noduedate', TODAY, WEEK)).toBeNull()
+    })
+    it('放下後的日期確實落在那一欄（跨月、跨年）', () => {
+        for (const [today, week] of [[TODAY, WEEK], ['2026-12-28', '2027-01-04'], ['2027-02-27', '2027-03-06']]) {
+            for (const key of ['today', 'week', 'later'] as const) {
+                expect(getGroupKey(dropTargetDate(key, today, week)!, today, week)).toBe(key)
+            }
+        }
     })
 })

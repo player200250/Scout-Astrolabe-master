@@ -5,6 +5,7 @@ import { useTheme } from './hooks/useTheme'
 import { useOverdueStats } from './hooks/useOverdueStats'
 import { useGlobalHotkeys } from './hooks/useGlobalHotkeys'
 import { usePomodoro } from './hooks/usePomodoro'
+import { useTaskMove } from './hooks/useTaskMove'
 import { PomodoroPanel } from './components/PomodoroPanel'
 import { navNote } from './utils/pomodoro'
 import { ThemeProvider } from './theme/ThemeContext'
@@ -73,6 +74,7 @@ export default function App() {
         // 寫入走 handleEditTodo（主視窗唯一寫入者，ADR 0009／0010），不直寫 IndexedDB。
         onFocusComplete: t => handleEditTodo(t.boardId, t.shapeId, t.todoId, { addFocus: true }),
     })
+    const moveTask = useTaskMove(handleEditTodo)
     const [movingCardShapeIds, setMovingCardShapeIds] = useState<string[] | null>(null)
     // 陣列而非單一 id：批次刪除（多選、清理重複）要一次確認全部。
     // 舊版是 string | null，呼叫端跑 forEach 只會留下最後一個 → 其餘靜默不刪。
@@ -296,6 +298,7 @@ export default function App() {
                     boards={boards}
                     onJump={(boardId, shapeId, x, y) => { closePanel('taskCenter'); jumpToCard(boardId, shapeId, x, y) }}
                     onClose={() => closePanel('taskCenter')}
+                    onMove={moveTask}
                     onFocus={t => {
                         pomodoro.onFocusTask({ boardId: t.boardId, shapeId: t.shapeId, todoId: t.todoId, text: t.todoText })
                         // 任務中心是全螢幕、層級比番茄鐘抽屜高：不先關掉，番茄鐘會被蓋住看不到。
