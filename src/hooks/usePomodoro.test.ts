@@ -10,8 +10,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { usePomodoro } from './usePomodoro'
 import { POMODORO_STORAGE_KEY } from '../utils/pomodoro'
+import { playChime, setSoundOn } from '../utils/chime'
 
 vi.mock('../utils/toast', () => ({ showToast: vi.fn() }))
+vi.mock('../utils/chime', async orig => ({ ...(await orig<typeof import('../utils/chime')>()), playChime: vi.fn() }))
 
 const task = { boardId: 'b1', shapeId: 'shape:t', todoId: 'x', text: '畫敵人草稿' }
 const FOCUS_MS = 25 * 60_000
@@ -136,5 +138,27 @@ describe('usePomodoro：跳過／重設／換長度可以復原', () => {
         act(() => result.current.onSkip())
         act(() => result.current.onSetPreset('deep'))
         expect(showToast).not.toHaveBeenCalled()
+    })
+})
+
+describe('usePomodoro：提示音', () => {
+    beforeEach(() => vi.mocked(playChime).mockClear())
+
+    it('到點響一次；跳過不響', () => {
+        const { result } = renderHook(() => usePomodoro({ ready: true }))
+        act(() => result.current.onStart())
+        act(() => { vi.advanceTimersByTime(FOCUS_MS + 3000) })
+        expect(playChime).toHaveBeenCalledTimes(1)
+        act(() => result.current.onStart())
+        act(() => result.current.onSkip())
+        expect(playChime).toHaveBeenCalledTimes(1)
+    })
+
+    it('關掉提示音就不響', () => {
+        setSoundOn(false)
+        const { result } = renderHook(() => usePomodoro({ ready: true }))
+        act(() => result.current.onStart())
+        act(() => { vi.advanceTimersByTime(FOCUS_MS + 1000) })
+        expect(playChime).not.toHaveBeenCalled()
     })
 })

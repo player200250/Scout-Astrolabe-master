@@ -323,6 +323,9 @@ export function KnowledgeGraph({ boards, onClose, onJumpToCard, onSwitchBoard }:
             const box = { x1: x - w / 2, y1: top, x2: x + w / 2, y2: top + px(size + 2) }
             if (!free(box.x1, box.y1, box.x2, box.y2)) continue // 放不下就讓位給更重要的標籤
             placed.push(box)
+            // RC21：字外描一圈背景色，穿過的連線在字附近被蓋掉（不用底板：一般標籤很多，整排方塊太吵）
+            ctx.lineJoin = 'round'; ctx.lineWidth = px(3); ctx.strokeStyle = SURFACE
+            ctx.strokeText(lbl, x, top)
             ctx.fillStyle = node.type === 'board' ? INK.strong : INK.normal
             ctx.fillText(lbl, x, top)
         }

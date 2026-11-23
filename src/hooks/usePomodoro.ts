@@ -15,6 +15,7 @@ import {
 } from '../utils/pomodoro'
 import { getTodayStr } from '../utils/date'
 import { showToast } from '../utils/toast'
+import { isSoundOn, playChime } from '../utils/chime'
 
 export interface UsePomodoro {
     state: PomodoroState
@@ -100,6 +101,7 @@ export function usePomodoro(opts: UsePomodoroOptions = { ready: true }): UsePomo
                 durationMs: null,   // 人多半不在螢幕前，不能自己消失
                 action: { label: `開始${phaseLabel(next.phase)}`, run: () => setState(s => start(s, Date.now())) },
             })
+            if (isSoundOn()) playChime()
             // 視窗被蓋住時 toast 看不到，補一則系統通知。權限沒給就算了，不強求。
             try {
                 if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {

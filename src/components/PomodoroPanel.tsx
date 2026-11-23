@@ -8,7 +8,8 @@ import { T } from '../theme/tokens'
 import { PRESETS, formatRemaining, phaseLabel, phaseAccent, progress, LONG_BREAK_EVERY } from '../utils/pomodoro'
 import type { UsePomodoro } from '../hooks/usePomodoro'
 import type { BoardRecord } from '../db'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
+import { isSoundOn, setSoundOn } from '../utils/chime'
 import { scanBoards } from '../utils/todoScan'
 
 const RING = 168
@@ -35,6 +36,8 @@ export function PomodoroPanel({
         const key = keyOf(linked)
         return scanBoards(boards).find(t => !t.checked && keyOf(t) === key) ?? null
     }, [boards, linked])
+    const [showHelp, setShowHelp] = useState(false)
+    const [soundOn, setSoundOnState] = useState(isSoundOn)
     const done = progress(state, Date.now())
     const r = (RING - STROKE) / 2
     const circumference = 2 * Math.PI * r
@@ -139,7 +142,29 @@ export function PomodoroPanel({
                 </div>
 
                 <div style={{ width: '100%', borderTop: `1px solid ${T.borderLight}`, paddingTop: 12 }}>
-                    <div style={{ fontSize: 11, color: T.textMuted, marginBottom: 6 }}>長度</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: T.textMuted, marginBottom: 6 }}>
+                        長度
+                        {/* 說明收起來：每次打開都掛著兩行字，用過一次就不必再看（UI/UX 稽核第 5 點） */}
+                        <button
+                            title={showHelp ? '收起說明' : '跳過和換長度怎麼算'}
+                            aria-expanded={showHelp}
+                            onClick={() => setShowHelp(v => !v)}
+                            style={{
+                                width: 16, height: 16, borderRadius: '50%', padding: 0, cursor: 'pointer',
+                                fontSize: 10, lineHeight: '14px', textAlign: 'center',
+                                border: `1px solid ${showHelp ? accent : T.borderMid}`,
+                                color: showHelp ? accent : T.textMuted, background: 'transparent',
+                            }}
+                        >?</button>
+                        <span style={{ flex: 1 }} />
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', userSelect: 'none' }}>
+                            <input
+                                type="checkbox" checked={soundOn}
+                                onChange={e => { setSoundOn(e.target.checked); setSoundOnState(e.target.checked) }}
+                            />
+                            提示音
+                        </label>
+                    </div>
                     <div style={{ display: 'flex', gap: 6 }}>
                         {PRESETS.map(p => (
                             <button
@@ -156,10 +181,12 @@ export function PomodoroPanel({
                             >{p.label}</button>
                         ))}
                     </div>
-                    <div style={{ fontSize: 11, color: T.textMuted, marginTop: 8, lineHeight: 1.7 }}>
-                        跑到一半換長度會停下來重算，按開始重來。<br />
-                        <strong>跳過不計入番茄數</strong>，只有跑完的專注才算；有綁待辦的話也記到那一項。
-                    </div>
+                    {showHelp && (
+                        <div data-testid="pomodoro-help" style={{ fontSize: 11, color: T.textMuted, marginTop: 8, lineHeight: 1.7 }}>
+                            跑到一半換長度會停下來重算，按開始重來。<br />
+                            <strong>跳過不計入番茄數</strong>，只有跑完的專注才算；有綁待辦的話也記到那一項。
+                        </div>
+                    )}
                 </div>
             </div>
         </SideDrawer>
