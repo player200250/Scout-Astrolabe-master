@@ -1,8 +1,9 @@
-import { useCallback } from 'react'
+import { useCallback, useRef } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
 import type { TLEditorSnapshot } from 'tldraw'
 import type { BoardRecord } from '../db'
 import { saveBoard, generateId, uniqueName } from '../utils/boardDb'
+import { showToast } from '../utils/toast'
 
 /** useBoardCRUD 需共用的核心 board state（由 useBoardManager 傳入） */
 export interface BoardCRUDSharedState {
@@ -19,17 +20,30 @@ export interface BoardCRUDSharedState {
 export function useBoardCRUD(state: BoardCRUDSharedState) {
     const { boards, setBoards, activeBoardId } = state
 
+    // 最新的白板清單。handleSaveBoard 可能被「已經卸載的白板」用舊 closure 呼叫（切板時補存），
+    // 那份 closure 裡的 boards 是舊的；ref 物件不變，所以舊 closure 也讀得到最新值。
+    const boardsRef = useRef(boards)
+    boardsRef.current = boards
+
     // thumbnail 傳 undefined＝保留現有縮圖（用於高頻存檔時不重產昂貴的整板 PNG）；
     // 傳 string/null＝明確覆蓋。
-    const handleSaveBoard = useCallback((snapshot: TLEditorSnapshot, thumbnail?: string | null) => {
-        if (!activeBoardId) return
-        const board = boards.find(b => b.id === activeBoardId)
-        if (!board) return
+    // boardId：寫進哪一塊板。白板卸載時補存，那一刻 activeBoardId 已換成下一塊，所以由呼叫端明講；
+    // 沒給才退回 activeBoardId（相容舊呼叫）。
+    const handleSaveBoard = useCallback((snapshot: TLEditorSnapshot, thumbnail?: string | null, boardId?: string) => {
+        const targetId = boardId ?? activeBoardId
+        if (!targetId) return
+        // 只寫「目前還活著」的板：剛被刪掉（不在清單或已進垃圾桶）的板若被補存寫回，會從垃圾桶復活
+        const board = boardsRef.current.find(b => b.id === targetId)
+        if (!board || board.deletedAt) return
         const nextThumbnail = thumbnail === undefined ? board.thumbnail : thumbnail
         const updated = { ...board, snapshot, thumbnail: nextThumbnail, updatedAt: Date.now() }
-        saveBoard(updated).catch(err => console.error('[handleSaveBoard] DB 寫入失敗', err))
-        setBoards(prev => prev.map(b => b.id === activeBoardId ? updated : b))
-    }, [activeBoardId, boards, setBoards])
+        saveBoard(updated).catch(err => {
+            console.error('[handleSaveBoard] DB 寫入失敗', err)
+            showToast(`「${board.name}」存檔失敗，最近的修改可能沒有寫入。請先別關閉 App，並到資料安全中心做一次備份。`, 'error', { durationMs: null })
+        })
+        boardsRef.current = boardsRef.current.map(b => b.id === targetId ? updated : b)
+        setBoards(prev => prev.map(b => b.id === targetId ? updated : b))
+    }, [activeBoardId, setBoards])
 
     const handleCreateBoard = useCallback((name: string): BoardRecord => {
         const safeName = uniqueName(name, boards)

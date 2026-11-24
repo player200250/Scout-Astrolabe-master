@@ -17,6 +17,7 @@ import { selectAndCopyFile } from '../platform/fileStore'
 import { saveCardToTrash, getCardPreview } from '../utils/trashUtils'
 import { sanitizeSnapshot, sanitizeCardProps } from '../utils/snapshot'
 import type { SnapshotShapeProps } from '../utils/snapshot'
+import { useBoardAutosave } from '../hooks/useBoardAutosave'
 import { JUMP_DELAY_MS, Z_TOOL_SUBMENU, THUMBNAIL_SHAPE_LIMIT, THUMBNAIL_MIN_INTERVAL_MS } from '../constants'
 import { emitAppEvent, onAppEvent } from '../utils/appEvents'
 import { resolveLinkTarget } from '../utils/cardLinks'
@@ -67,7 +68,8 @@ async function compressImage(dataUrl: string): Promise<string> {
 interface WhiteboardToolsProps {
     board: BoardRecord
     boards: BoardRecord[]
-    onSaveBoard: (snapshot: TLEditorSnapshot, thumbnail?: string | null) => void
+    /** boardId 一定要帶：卸載補存時 App 的 activeBoardId 已經是下一塊板 */
+    onSaveBoard: (snapshot: TLEditorSnapshot, thumbnail: string | null | undefined, boardId: string) => void
     jumpRef: React.MutableRefObject<((shapeId: string, x: number, y: number) => void) | null>
     onOpenSearch: () => void
     onOpenHotkey: () => void
@@ -720,14 +722,6 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
         return () => { jumpRef.current = null }
     }, [editor, jumpRef])
 
-    const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-    // Always keep a ref to the latest onSaveBoard so saveDebounce never captures a stale closure.
-    // Without this, every boards-state update recreates onSaveBoard → recreates saveDebounce →
-    // the store-listener effect cleanup cancels the pending 500 ms timer → edits are lost.
-    const onSaveBoardRef = useRef(onSaveBoard)
-    onSaveBoardRef.current = onSaveBoard
-
     const generateThumbnail = useCallback(async (): Promise<string | null> => {
         try {
             const shapeIds = [...editor.getCurrentPageShapeIds()]
@@ -744,35 +738,25 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
 
     // 縮圖很貴（exportToBlob 把整板所有 shape 渲染成 PNG），不應跟著每次編輯跑。
     // 大板直接跳過（避免凍結/白屏），小板最多每 THUMBNAIL_MIN_INTERVAL_MS 產一次。
-    // 存 snapshot（資料安全）照舊每 500ms；thumbnail 傳 undefined＝保留現有。
+    // 存 snapshot（資料安全）照舊每 500ms；thumbnail 回 undefined＝保留現有。
     const lastThumbnailAtRef = useRef(0)
-
-    const saveDebounce = useCallback(() => {
-        if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
-        saveTimerRef.current = setTimeout(async () => {
-            const snap = getSnapshot(editor.store) as TLEditorSnapshot
-            const shapeCount = editor.getCurrentPageShapeIds().size
-            let thumbnail: string | null | undefined = undefined
-            if (shapeCount <= THUMBNAIL_SHAPE_LIMIT &&
-                Date.now() - lastThumbnailAtRef.current > THUMBNAIL_MIN_INTERVAL_MS) {
-                thumbnail = await generateThumbnail()
-                lastThumbnailAtRef.current = Date.now()
-            }
-            onSaveBoardRef.current(snap, thumbnail)
-            saveTimerRef.current = null
-        }, 500)
+    const getAutosaveThumbnail = useCallback(async (): Promise<string | null | undefined> => {
+        const shapeCount = editor.getCurrentPageShapeIds().size
+        if (shapeCount > THUMBNAIL_SHAPE_LIMIT ||
+            Date.now() - lastThumbnailAtRef.current <= THUMBNAIL_MIN_INTERVAL_MS) return undefined
+        const thumbnail = await generateThumbnail()
+        lastThumbnailAtRef.current = Date.now()
+        return thumbnail
     }, [editor, generateThumbnail])
 
-    useEffect(() => {
-        if (!editor) return
-        const cleanup = editor.store.listen(() => {
-            saveDebounce()
-        }, { scope: 'document' })
-        return () => {
-            cleanup()
-            if (saveTimerRef.current) { clearTimeout(saveTimerRef.current); saveTimerRef.current = null }
-        }
-    }, [editor, saveDebounce])
+    // debounce、切板（卸載）時補存、還原備份前先補存——生命週期都在 useBoardAutosave（P0 修復 2）
+    useBoardAutosave({
+        store: editor?.store,
+        boardId: board.id,
+        getSnapshot: () => getSnapshot(editor.store) as TLEditorSnapshot,
+        onSave: onSaveBoard,
+        getThumbnail: getAutosaveThumbnail,
+    })
 
     return (
         <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>

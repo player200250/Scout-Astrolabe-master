@@ -134,3 +134,52 @@ export const loadAllBoards = async (): Promise<BoardRecord[]> => {
     })
     return [...home, ...inbox, ...rest]
 }
+
+// ── 備份還原（P0 修復 3）──────────────────────────────────────────────────
+
+export type RestoreValidation =
+    | { ok: true; boards: BoardRecord[] }
+    | { ok: false; error: string }
+
+/**
+ * 寫入前先驗證要還原的白板清單。純函式。
+ * 刻意「整份拒絕」而不是濾掉壞的那幾塊：還原會清空現有資料，半份備份等於靜靜丟掉資料。
+ */
+export function validateRestoreBoards(input: unknown): RestoreValidation {
+    if (!Array.isArray(input)) return { ok: false, error: '備份格式不正確（白板清單不是陣列）。' }
+    if (input.length === 0) return { ok: false, error: '備份裡沒有任何白板。' }
+    const seen = new Set<string>()
+    for (let i = 0; i < input.length; i++) {
+        const b = input[i] as Partial<BoardRecord> | null
+        if (!b || typeof b !== 'object') return { ok: false, error: `備份第 ${i + 1} 筆不是白板資料。` }
+        if (typeof b.id !== 'string' || !b.id) return { ok: false, error: `備份第 ${i + 1} 筆缺少白板 id。` }
+        if (typeof b.name !== 'string') return { ok: false, error: `白板「${b.id}」缺少名稱。` }
+        if (b.snapshot != null && typeof b.snapshot !== 'object') return { ok: false, error: `白板「${b.name}」的內容格式不正確。` }
+        if (seen.has(b.id)) return { ok: false, error: `備份裡有重複的白板 id「${b.id}」。` }
+        seen.add(b.id)
+    }
+    const boards = input as BoardRecord[]
+    if (!boards.some(b => !b.deletedAt)) return { ok: false, error: '備份裡的白板全都在垃圾桶，還原後會沒有任何可用白板。' }
+    return { ok: true, boards }
+}
+
+/**
+ * 用備份**整批取代** boards 表——清空與寫入在同一個 Dexie 交易裡：
+ * 任何一筆寫入失敗（配額、資料無法序列化、程序被中斷）⇒ 整個交易回滾，資料庫維持還原前的樣子。
+ * 寫完在交易內再數一次筆數，對不上也回滾。
+ *
+ * ⚠️ 交易只涵蓋 IndexedDB。圖片實體檔（從備份資料夾補回缺檔）在主程序，
+ * 那一步只新增缺少的檔、不覆蓋不刪除，失敗或取消都不影響現有資料，所以不需要回滾。
+ * 同步狀態（clearSyncState）由呼叫端在交易成功後才處理。
+ */
+export async function replaceAllBoards(boards: BoardRecord[]): Promise<void> {
+    const table = db.table('boards')
+    await db.transaction('rw', table, async () => {
+        await table.clear()
+        await table.bulkPut(boards)
+        const count = await table.count()
+        if (count !== boards.length) {
+            throw new Error(`還原後白板數量不符（預期 ${boards.length}，實際 ${count}）`)
+        }
+    })
+}

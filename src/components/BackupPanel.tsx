@@ -8,11 +8,13 @@ import { T } from '../theme/tokens'
 import { SideDrawer } from './ui/SideDrawer'
 import { Icon } from './ui/icons'
 import { isSyncConfigured } from '../sync/syncConfig'
+import { showToast } from '../utils/toast'
 
 interface BackupPanelProps {
     sidebarWidth: number
     onClose: () => void
-    onRestore: (boards: BoardRecord[]) => void
+    /** 失敗時要 reject：面板據此告訴使用者「沒有還原」，而不是安靜地什麼都沒發生 */
+    onRestore: (boards: BoardRecord[]) => void | Promise<void>
     /** 立即把所有白板的舊 base64 圖片遷移成存檔格式；回傳遷移的白板數。 */
     onMigrateImages?: () => Promise<number>
 }
@@ -69,10 +71,18 @@ export function BackupPanel({ sidebarWidth, onClose, onRestore, onMigrateImages 
 
     const handleRestore = async () => {
         if (!confirmRestore) return
-        setRestoringId(confirmRestore.id)
+        const target = confirmRestore
+        setRestoringId(target.id)
         setConfirmRestore(null)
-        onRestore(confirmRestore.boards)
-        setRestoringId(null)
+        try {
+            await onRestore(target.boards)
+        } catch (err) {
+            // P0 修復 3：還原失敗時資料庫已回滾到還原前，要明講，不能讓使用者以為還原成功
+            console.error('[backup] 還原失敗', err)
+            showToast(`還原失敗，目前的資料沒有被更動。${err instanceof Error ? err.message : ''}`, 'error', { durationMs: null })
+        } finally {
+            setRestoringId(null)
+        }
     }
 
     const handleDelete = async (id: string) => {
