@@ -33,9 +33,11 @@ interface JournalDayContentProps {
     onSaveJournal: (boardId: string, dateStr: string, html: string, shapeId: string | null) => void
     onDateChange: (date: Date) => void
     onClose?: () => void
+    /** 還沒有日誌白板時一鍵建立（P2-6）；沒給就只顯示說明 */
+    onCreateJournalBoard?: () => void
 }
 
-export function JournalDayContent({ date, boards, onSaveJournal, onDateChange, onClose }: JournalDayContentProps) {
+export function JournalDayContent({ date, boards, onSaveJournal, onDateChange, onClose, onCreateJournalBoard }: JournalDayContentProps) {
     const ds = toDateStr(date)
     const journalBoardId = boards.find(b => b.isJournal)?.id ?? null
 
@@ -86,8 +88,10 @@ export function JournalDayContent({ date, boards, onSaveJournal, onDateChange, o
                 <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <EmptyState
                         icon="cardJournal"
-                        title="尚未設定 Journal 白板"
-                        hint="在側邊欄的白板上按右鍵，選「設為 Journal 白板」，之後每天的日記都會存進那塊板。"
+                        title="還沒有日誌白板"
+                        hint="日記會存進一塊專用的白板。按下面的按鈕建立；已經有想用的白板，也可以在側邊欄對它按右鍵，選「設為 Journal 白板」。"
+                        actionLabel={onCreateJournalBoard ? '建立日誌白板' : undefined}
+                        onAction={onCreateJournalBoard}
                     />
                 </div>
             ) : (

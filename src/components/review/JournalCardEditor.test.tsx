@@ -81,4 +81,15 @@ describe('JournalCardEditor 存檔狀態', () => {
         await act(async () => { await new Promise(r => setTimeout(r, 1500)) })
         expect(container.textContent).toContain('已儲存')
     })
+
+    // v1.8.4 報告 P3：打完字馬上翻週，舊那週補存的「已儲存」晚到，亮在沒打字的新週
+    it('打完字馬上翻到別週：新週不顯示「已儲存」', async () => {
+        const { container, rerender } = render(
+            <JournalCardEditor boards={withCard} dateKey="2026-W38" template="" onSaveJournal={vi.fn()} />,
+        )
+        await typeInto(container, '補一句')
+        rerender(<JournalCardEditor boards={withCard} dateKey="2026-W39" template="" onSaveJournal={vi.fn()} />)
+        await act(async () => { await new Promise(r => setTimeout(r, 1500)) })
+        expect(container.textContent).not.toContain('已儲存')
+    })
 })

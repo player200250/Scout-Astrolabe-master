@@ -8,9 +8,9 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import type { BoardRecord } from '../db'
-import type { SnapshotShapeProps } from '../utils/snapshot'
+import { getSnapshotStore, type SnapshotShapeProps } from '../utils/snapshot'
 import {
-    buildTriageQueue, nextCursor, prevCursor, triageProgress, summarizeDecisions,
+    buildTriageQueue, nextCursor, prevCursor, triageProgress, summarizeDecisions, textCardToTodoPatch,
     type TriageDecision,
 } from '../utils/inboxTriage'
 import { CARD_TYPE_ICON, TYPE_LABEL, TYPE_COLOR, hexToRgba } from '../utils/cardMeta'
@@ -61,9 +61,14 @@ export function InboxTriage({ boards, onMoveCard, onUpdateCardProps, onTrashCard
 
     const handleTask = useCallback(() => {
         if (!item) return
-        onUpdateCardProps(item.shapeId, { cardStatus: 'todo' })
+        // 文字卡直接轉成待辦卡，任務中心與行事曆才看得到（P1-3）；
+        // 其他類型（圖片、連結…）沒有可轉成項目的文字，維持舊的狀態標記
+        const inbox = boards.find(b => b.isInbox)
+        const props = inbox?.snapshot ? getSnapshotStore(inbox.snapshot)[item.shapeId]?.props : undefined
+        const patch = props ? textCardToTodoPatch(props) : null
+        onUpdateCardProps(item.shapeId, patch ?? { cardStatus: 'todo' })
         decide('task')
-    }, [item, onUpdateCardProps, decide])
+    }, [item, boards, onUpdateCardProps, decide])
 
     const handleTrash = useCallback(() => {
         if (!item) return
@@ -82,18 +87,24 @@ export function InboxTriage({ boards, onMoveCard, onUpdateCardProps, onTrashCard
         const handler = (e: KeyboardEvent) => {
             // 選白板時鍵盤讓給 MoveCardModal（它自己處理 Esc）
             if (picking) return
-            if (e.key === 'Escape') { e.preventDefault(); onClose(); return }
+            // 帶修飾鍵的組合（Ctrl+Z 等）不歸整理模式管
+            if (e.ctrlKey || e.metaKey || e.altKey) return
+            // 處理掉的鍵一定要停止傳遞：只 preventDefault 的話，白板的單鍵快捷鍵
+            // （useHotkeys：T＝新增待辦卡、方向鍵＝移動選取的卡）在冒泡階段照樣觸發，
+            // 按 T 標為任務會在畫布上多出一張空白「新任務」卡（v1.8.4 測試報告 P1-2）。
+            const consume = () => { e.preventDefault(); e.stopPropagation() }
+            if (e.key === 'Escape') { consume(); onClose(); return }
             if (done) {
-                if (e.key === 'Enter') { e.preventDefault(); onClose() }
+                if (e.key === 'Enter') { consume(); onClose() }
                 return
             }
             const k = e.key.toLowerCase()
-            if (k === 'm') { e.preventDefault(); setPicking(true) }
-            else if (k === 't') { e.preventDefault(); handleTask() }
-            else if (k === 'k') { e.preventDefault(); decide('kept') }
-            else if (k === 'd') { e.preventDefault(); handleTrash() }
-            else if (k === 's' || e.key === 'ArrowRight') { e.preventDefault(); setCursor(c => nextCursor(c, total)) }
-            else if (e.key === 'ArrowLeft') { e.preventDefault(); setCursor(prevCursor) }
+            if (k === 'm') { consume(); setPicking(true) }
+            else if (k === 't') { consume(); handleTask() }
+            else if (k === 'k') { consume(); decide('kept') }
+            else if (k === 'd') { consume(); handleTrash() }
+            else if (k === 's' || e.key === 'ArrowRight') { consume(); setCursor(c => nextCursor(c, total)) }
+            else if (e.key === 'ArrowLeft') { consume(); setCursor(prevCursor) }
         }
         window.addEventListener('keydown', handler, true)
         return () => window.removeEventListener('keydown', handler, true)

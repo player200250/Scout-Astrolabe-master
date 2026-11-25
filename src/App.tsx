@@ -57,7 +57,7 @@ export default function App() {
         handleSoftDeleteBoardsWithInboxMove, handlePermanentDeleteBoard, handleRestoreBoard,
         handleEmptyTrash, handleCardTrashed,
         handleJump, handleSetJournal, handleSetStatus,
-        handleRestore, handleSaveJournal,
+        handleRestore, handleSaveJournal, handleCreateJournalBoard,
         handleMoveCardsToBoard, handleCreateBoard,
         handleToggleCollapse, handleGoToInbox, handleReorderBoards,
         handleAddCardToInbox, handleAddTodoToInbox, handleUpdateInboxCardProps, handleTrashInboxCard,
@@ -362,6 +362,7 @@ export default function App() {
                     onClose={() => closePanel('reviewCenter')}
                     onJumpToBoard={handleSwitch}
                     onSaveJournal={handleSaveJournal}
+                    onCreateJournalBoard={() => { handleCreateJournalBoard() }}
                     onAddTodoToInbox={handleAddTodoToInbox}
                     onScheduleTodo={(r, slot) => { handleEditTodo(r.boardId, r.shapeId, r.todoId, { schedule: slot }) }}
                 />

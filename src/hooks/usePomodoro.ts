@@ -14,6 +14,7 @@ import {
     remainingMs, hasElapsed, isRunning, isIdle, phaseLabel, phaseDurationMs, PRESETS,
 } from '../utils/pomodoro'
 import { getTodayStr } from '../utils/date'
+import { recordFocus } from '../utils/focusLog'
 import { showToast } from '../utils/toast'
 import { isSoundOn, playChime } from '../utils/chime'
 
@@ -89,6 +90,8 @@ export function usePomodoro(opts: UsePomodoroOptions = { ready: true }): UsePomo
             const finished = state.phase
             const next = advance(state, getTodayStr(), true)
             setState(next)
+            // 週回顧的「本週專注」（P2-5）：不管有沒有綁待辦都算
+            if (finished === 'focus') recordFocus(getTodayStr(), phaseDurationMs(state) / 60000)
 
             // 只有跑完的 focus 才記到綁的待辦；跳過走 onSkip，不會經過這裡。
             const task = finished === 'focus' ? state.linkedTask : null

@@ -10,6 +10,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { usePomodoro } from './usePomodoro'
 import { POMODORO_STORAGE_KEY } from '../utils/pomodoro'
+import { loadFocusLog } from '../utils/focusLog'
 import { playChime, setSoundOn } from '../utils/chime'
 
 vi.mock('../utils/toast', () => ({ showToast: vi.fn() }))
@@ -69,6 +70,18 @@ describe('usePomodoro：綁任務', () => {
         act(() => { vi.advanceTimersByTime(FOCUS_MS + 1000) })
         expect(onFocusComplete).not.toHaveBeenCalled()
         expect(result.current.state.completedFocus).toBe(1)
+    })
+
+    it('專注紀錄（週回顧用，P2-5）：沒綁待辦也記；休息、跳過不記', () => {
+        const { result } = renderHook(() => usePomodoro({ ready: true }))
+        act(() => result.current.onStart())
+        act(() => { vi.advanceTimersByTime(FOCUS_MS + 1000) })        // 跑完一個專注
+        act(() => result.current.onStart())
+        act(() => { vi.advanceTimersByTime(5 * 60_000 + 1000) })      // 跑完短休息
+        act(() => result.current.onStart())
+        act(() => { vi.advanceTimersByTime(60_000) })
+        act(() => result.current.onSkip())                            // 跳過第二個專注
+        expect(loadFocusLog()).toEqual({ '2026-11-22': { count: 1, minutes: 25 } })
     })
 
     it('關著 App 時跑完的那段：白板載入前不結算，載入後才記', () => {

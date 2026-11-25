@@ -17,13 +17,14 @@ export function buildMonthEvents(boards: BoardRecord[], year: number, month: num
         return map.get(ds)!
     }
     for (const board of boards) {
-        if (board.isHome || board.isInbox) continue
+        if (board.isHome) continue
+        // 收件匣的待辦要算（週回顧「下週目標 → 待辦」就放在收件匣，P1-4），白板活動不算
         // 白板活動：右側 agenda 一直有這一段，月曆格子卻看不出來，得一天天點才知道。
         // 注意 BoardRecord 只有一個 updatedAt，所以這反映的是「最後一次更新」落在哪天，
         // 不是「這天動過幾次」——與 buildAgenda 的 activeBoards 同一套語意。
         const boardDs = dateStr(new Date(board.updatedAt))
         // 日誌板不算白板活動（RC12）：它只當日記的倉庫、各清單都不列；那天的日記另有 hasJournal
-        if (!board.isJournal && boardDs.startsWith(prefix)) get(boardDs).boardActivity++
+        if (!board.isJournal && !board.isInbox && boardDs.startsWith(prefix)) get(boardDs).boardActivity++
         for (const shape of getCardShapes(board.snapshot)) {
             if (board.isJournal && shape.props.type === 'journal' && shape.props.journalDate?.startsWith(prefix)) {
                 get(shape.props.journalDate).hasJournal = true

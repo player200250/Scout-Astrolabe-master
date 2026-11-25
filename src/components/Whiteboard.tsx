@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo } from 'react'
 import { Tldraw, SelectTool, defaultTools, useEditor } from 'tldraw'
 import type { TLEditorSnapshot } from 'tldraw'
+import { getAssetUrlsByImport } from '@tldraw/assets/imports.vite'
 import type { BoardRecord } from '../db'
 import { CardShapeUtil, BoardsContext, BacklinksContext } from './card-shape/CardShapeUtil'
 import { CustomFrameShapeUtil } from './CustomFrameShapeUtil'
@@ -9,6 +10,19 @@ import { WhiteboardTools } from './WhiteboardTools'
 import { Dashboard } from './Dashboard'
 import { ErrorBoundary } from './ErrorBoundary'
 import { useIsDark } from '../theme/ThemeContext'
+
+// tldraw 預設從 cdn.tldraw.com 抓字型、圖示、翻譯檔（v1.8.4 測試報告 P1-1）：
+// 斷網又沒有快取時，翻譯檔抓不到變成 unhandledrejection，整個 App 被錯誤畫面蓋掉。
+// 改成打包進 App（@tldraw/assets 版本要跟 tldraw 一致，package.json 已釘死）。
+// 例外是翻譯檔：tldraw 用 fetch() 讀它，而 Electron 的 fetch 不支援 file://（實測照樣 Failed to fetch）。
+// 我們 hideUi、用不到 tldraw 的介面文字，給空的 data: URL，讓它退回內建英文。
+// 傳 identity：base './' 下匯入的網址已是完整 file:///…，預設格式化會在前面再加一個 / 變成 file:///C:/file:///…
+const BUNDLED_ASSET_URLS = getAssetUrlsByImport(url => url)
+const EMPTY_TRANSLATION = 'data:application/json,{}'
+const TLDRAW_ASSET_URLS = {
+    ...BUNDLED_ASSET_URLS,
+    translations: Object.fromEntries(Object.keys(BUNDLED_ASSET_URLS.translations).map(k => [k, EMPTY_TRANSLATION])),
+}
 
 class CustomSelectTool extends SelectTool {
     static id = 'select' as const
@@ -96,7 +110,7 @@ export function Whiteboard({
             >
                 <BacklinksContext.Provider value={backlinksValue}>
                     <BoardsContext.Provider value={boardInfos}>
-                        <Tldraw hideUi={true} tools={customTools} shapeUtils={[CardShapeUtil, CustomFrameShapeUtil]}>
+                        <Tldraw hideUi={true} assetUrls={TLDRAW_ASSET_URLS} tools={customTools} shapeUtils={[CardShapeUtil, CustomFrameShapeUtil]}>
                             <ThemeSync />
                             <WhiteboardTools
                                 board={board}

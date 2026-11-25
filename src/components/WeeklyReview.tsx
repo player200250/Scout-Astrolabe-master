@@ -12,7 +12,8 @@ import { getWeekRange, getISOWeekKey, recentWeekStarts, computeRangeStats, weeks
 import { countDueTodos } from '../hooks/useOverdueStats'
 import { getCardShapes } from '../utils/snapshot'
 import { scanBoards } from '../utils/todoScan'
-import { getTodayStr } from '../utils/date'
+import { getTodayStr, toDateStr } from '../utils/date'
+import { loadFocusLog, sumFocus } from '../utils/focusLog'
 import { MonthDigest } from './review/MonthDigest'
 import { YearDigest } from './review/YearDigest'
 import { findJournalCard, isUntouchedTemplate } from '../utils/journalCards'
@@ -59,13 +60,15 @@ function noOutputContent(weekNum: number, startLabel: string, endLabel: string):
 interface WeeklyReviewContentProps {
     boards: BoardRecord[]
     onSaveJournal: (boardId: string, dateStr: string, html: string, shapeId: string | null) => void
+    /** 還沒有日誌白板時一鍵建立（P2-6）；沒給就只顯示說明 */
+    onCreateJournalBoard?: () => void
     /** 下週目標轉成待辦：在收件匣建一張單項待辦卡。沒給就不顯示轉換按鈕 */
     onAddTodoToInbox?: (text: string, title: string, dueDate: string | null) => string | null
     /** 一開始看哪一週（RC17：從別處跳到某張週回顧卡）。沒給就是本週 */
     initialAnchor?: Date
 }
 
-export function WeeklyReviewContent({ boards, onSaveJournal, onAddTodoToInbox, initialAnchor }: WeeklyReviewContentProps) {
+export function WeeklyReviewContent({ boards, onSaveJournal, onCreateJournalBoard, onAddTodoToInbox, initialAnchor }: WeeklyReviewContentProps) {
     const isDark = useIsDark()
     // 看哪一段：預設本週，← → 翻到過去／未來
     const [anchor, setAnchor] = useState<Date>(() => initialAnchor ?? new Date())
@@ -96,6 +99,8 @@ export function WeeklyReviewContent({ boards, onSaveJournal, onAddTodoToInbox, i
     }, [mode, anchor, weekStart, weekEnd, weekNum])
 
     const stats = useMemo(() => computeRangeStats(boards, range.start, range.end), [boards, range])
+    // 這段期間跑完的番茄，不管有沒有綁待辦、待辦有沒有完成（P2-5）
+    const focus = useMemo(() => sumFocus(loadFocusLog(), toDateStr(range.start), toDateStr(range.end)), [range])
 
     /** 起訖跨年時要帶年份，否則年檢視會顯示成「12/29 – 1/3」，看起來像五天 */
     const rangeLabel = useMemo(() => {
@@ -308,6 +313,8 @@ export function WeeklyReviewContent({ boards, onSaveJournal, onAddTodoToInbox, i
 
                 {statCard('#f0fdf4', '#0d2818', 'done', '完成待辦',
                     stats.focusOnCompleted > 0 ? `${stats.completedTodos} 項 · ${stats.focusOnCompleted} 個番茄` : `${stats.completedTodos} 項`, '#16a34a')}
+                {statCard('#eff6ff', '#0b1a33', 'pomodoro', '專注',
+                    `${focus.count} 個番茄 · ${focus.minutes} 分鐘`, focus.count > 0 ? '#2563eb' : textSecondary)}
                 {statCard('#fffbeb', '#2a1f0a', 'cardJournal', '寫了日記', `${stats.journalDays} 天`, '#d97706')}
                 {statCard('#faf5ff', '#1d1133', 'knowledgeGraph', '[[]] 知識連結', noRecord ? '無紀錄' : `${stats.wikiLinks} 個`, noRecord ? textSecondary : '#7c3aed')}
 
@@ -370,7 +377,7 @@ export function WeeklyReviewContent({ boards, onSaveJournal, onAddTodoToInbox, i
                 )}
 
                 <div style={{ fontSize: 11, color: '#bbb', lineHeight: 1.6, padding: '8px 10px', background: noteBg, borderRadius: 8, border: `1px solid ${noteBorder}`, marginTop: 4 }}>
-                    統計範圍：{rangeLabel}（整段以週一至週日對齊）。卡片與連結看每張卡自己的修改時間，2026/10/2 起才有紀錄
+                    統計範圍：{rangeLabel}（整段以週一至週日對齊）。卡片與連結看每張卡自己的修改時間，2026/10/2 起才有紀錄；專注番茄 2026/11/25 起才有紀錄
                 </div>
 
                 {!hasJournalBoard && (
@@ -399,8 +406,10 @@ export function WeeklyReviewContent({ boards, onSaveJournal, onAddTodoToInbox, i
                     <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <EmptyState
                             icon="cardJournal"
-                            title="尚未設定 Journal 白板"
-                            hint="在側邊欄的白板上按右鍵，選「設為 Journal 白板」，週回顧就會寫進那塊板。"
+                            title="還沒有日誌白板"
+                            hint="週回顧會存進一塊專用的白板。按下面的按鈕建立；已經有想用的白板，也可以在側邊欄對它按右鍵，選「設為 Journal 白板」。"
+                            actionLabel={onCreateJournalBoard ? '建立日誌白板' : undefined}
+                            onAction={onCreateJournalBoard}
                         />
                     </div>
                 ) : mode === 'week' ? (

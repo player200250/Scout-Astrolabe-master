@@ -214,5 +214,5 @@ describe('tldraw store 在 editor.dispose() 之後仍可取 snapshot（卸載補
         const snap = getSnapshot(store)
         expect(Object.keys(snap.document.store).length).toBe(before + 1)
         expect(snap.document.store[id]).toBeTruthy()
-    })
+    }, 30_000)   // 動態載入整個 tldraw：單跑約 1 秒，全套平行跑時曾到 9 秒、撞到預設 5 秒上限
 })

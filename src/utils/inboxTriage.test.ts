@@ -6,7 +6,7 @@ import { describe, it, expect } from 'vitest'
 import type { TLEditorSnapshot } from 'tldraw'
 import {
     triagePreview, buildTriageQueue, nextCursor, prevCursor,
-    triageProgress, summarizeDecisions, type TriageDecision,
+    triageProgress, summarizeDecisions, textCardToTodoPatch, inboxLineText, type TriageDecision,
 } from './inboxTriage'
 import type { TLSnapshotStore } from './snapshot'
 
@@ -135,5 +135,62 @@ describe('summarizeDecisions', () => {
             a: 'moved', b: 'moved', c: 'task', d: 'deleted',
         }
         expect(summarizeDecisions(decisions)).toEqual({ moved: 2, task: 1, kept: 0, deleted: 1 })
+    })
+})
+
+describe('textCardToTodoPatch（P1-3：標為任務＝轉成待辦卡）', () => {
+    let n = 0
+    const id = () => `t${++n}`
+
+    it('沒有標題的單行卡 ⇒ 一個項目、待辦卡標題空白', () => {
+        n = 0
+        expect(textCardToTodoPatch({ type: 'text', text: '<p>買牛奶</p>', h: 180 }, id)).toEqual({
+            type: 'todo', text: '',
+            todos: [{ id: 't1', text: '買牛奶', checked: false, dueDate: null }],
+            h: 180,
+        })
+    })
+
+    it('有標題 ⇒ 標題當卡片標題，每個段落一個項目，內容不丟', () => {
+        const p = textCardToTodoPatch({ type: 'text', text: '<h1>週末</h1><p>洗衣服</p><p>繳<strong>電費</strong></p><ul><li>買菜</li></ul>' }, id)!
+        expect(p.text).toBe('週末')
+        expect(p.todos!.map(t => t.text)).toEqual(['洗衣服', '繳電費', '買菜'])
+    })
+
+    it('只有標題 ⇒ 標題變成唯一的項目', () => {
+        const p = textCardToTodoPatch({ type: 'text', text: '<h1>只有標題</h1>' }, id)!
+        expect(p.text).toBe('')
+        expect(p.todos!.map(t => t.text)).toEqual(['只有標題'])
+    })
+
+    it('項目多時卡片長高，但有上限', () => {
+        const many = Array.from({ length: 30 }, (_, i) => `<p>${i}</p>`).join('')
+        expect(textCardToTodoPatch({ type: 'text', text: '<p>a</p><p>b</p><p>c</p><p>d</p>', h: 120 }, id)!.h).toBe(92 + 28 * 4)
+        expect(textCardToTodoPatch({ type: 'text', text: many }, id)!.h).toBe(480)
+    })
+
+    it('不是文字卡 ⇒ null（交給呼叫端維持舊行為）', () => {
+        expect(textCardToTodoPatch({ type: 'image' }, id)).toBeNull()
+        expect(textCardToTodoPatch({ type: 'todo', todos: [] }, id)).toBeNull()
+    })
+})
+
+describe('inboxLineText（首頁收件匣預覽，P3）', () => {
+    it('沒標題的待辦卡 ⇒ 顯示第一個項目，不是「（無內容）」', () => {
+        expect(inboxLineText({ type: 'todo', text: '', todos: [{ text: '' }, { text: '寄履歷' }] })).toBe('寄履歷')
+    })
+    it('有標題的待辦卡 ⇒ 顯示標題', () => {
+        expect(inboxLineText({ type: 'todo', text: '下週目標', todos: [{ text: 'a' }] })).toBe('下週目標')
+    })
+    it('空的待辦卡 ⇒ 說它是空白待辦', () => {
+        expect(inboxLineText({ type: 'todo', text: '', todos: [] })).toBe('（空白待辦）')
+    })
+    it('文字卡 ⇒ 標題優先，沒有就內文', () => {
+        expect(inboxLineText({ type: 'text', text: '<h1>標題</h1><p>內文</p>' })).toBe('標題')
+        expect(inboxLineText({ type: 'text', text: '<p>只有內文</p>' })).toBe('只有內文')
+        expect(inboxLineText({ type: 'text', text: '' })).toBe('（無內容）')
+    })
+    it('連結卡 ⇒ 連結標題', () => {
+        expect(inboxLineText({ type: 'link', title: '文章', url: 'https://x' })).toBe('文章')
     })
 })

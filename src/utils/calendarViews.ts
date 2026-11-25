@@ -107,16 +107,17 @@ export function addDays(d: Date, n: number): Date {
     const r = new Date(d); r.setDate(r.getDate() + n); return r
 }
 
-/** 一天的內容。boards 已含全部白板，這裡自己過濾主頁／收件匣（與 buildMonthEvents 一致）。 */
+/** 一天的內容。boards 已含全部白板，這裡自己過濾主頁；收件匣只收待辦、不算白板活動（與 buildMonthEvents 一致）。 */
 export function buildDayTimeline(boards: BoardRecord[], date: Date): DayTimeline {
     const ds = dateStr(date)
     const out: DayTimeline = { ds, date: startOfDay(date), hasJournal: false, todos: [], timed: [], scheduled: [] }
     for (const board of boards) {
-        if (board.isHome || board.isInbox) continue
+        if (board.isHome) continue
+        // 收件匣的待辦要算（週回顧「下週目標 → 待辦」就放在收件匣，P1-4），白板活動不算
         const at = new Date(board.updatedAt)
         // 日誌板不算白板活動（RC12）：它只當日記的倉庫、各清單都不列，這裡再列就能點「前往」進隱藏的畫布；
         // 那天寫了日記本來就另有一筆。只擋活動，不能 continue——日記卡還要從這塊板收。
-        if (!board.isJournal && dateStr(at) === ds) {
+        if (!board.isJournal && !board.isInbox && dateStr(at) === ds) {
             out.timed.push({
                 boardId: board.id, boardName: board.name, at: board.updatedAt,
                 hour: at.getHours(), minute: at.getMinutes(),
@@ -129,8 +130,9 @@ export function buildDayTimeline(boards: BoardRecord[], date: Date): DayTimeline
             if (shape.props.type === 'todo') {
                 for (const t of shape.props.todos ?? []) {
                     const ref = { boardId: board.id, shapeId: shape.id, todoId: t.id }
-                    if (t.dueDate === ds) out.todos.push({ text: t.text ?? '', checked: !!t.checked, ...ref })
                     const startMin = t.scheduledStart?.startsWith(ds) ? slotMinutes(t.scheduledStart) : null
+                    // 當天已排時段的就只出現在時段格，不在全天列再列一次（P2-7）
+                    if (t.dueDate === ds && startMin === null) out.todos.push({ text: t.text ?? '', checked: !!t.checked, ...ref })
                     if (startMin !== null) {
                         const endRaw = t.scheduledEnd?.startsWith(ds) ? slotMinutes(t.scheduledEnd) : null
                         out.scheduled.push({
@@ -162,9 +164,10 @@ export function buildYearDensity(boards: BoardRecord[], year: number): Map<strin
     const map = new Map<string, number>()
     const bump = (ds: string, n = 1) => map.set(ds, (map.get(ds) ?? 0) + n)
     for (const board of boards) {
-        if (board.isHome || board.isInbox) continue
+        if (board.isHome) continue
+        // 收件匣的待辦要算（週回顧「下週目標 → 待辦」就放在收件匣，P1-4），白板活動不算
         const boardDs = dateStr(new Date(board.updatedAt))
-        if (!board.isJournal && boardDs.startsWith(prefix)) bump(boardDs) // 日誌板不算白板活動（RC12，見 buildDayTimeline）
+        if (!board.isJournal && !board.isInbox && boardDs.startsWith(prefix)) bump(boardDs) // 日誌板不算白板活動（RC12，見 buildDayTimeline）
         for (const shape of getCardShapes(board.snapshot)) {
             if (board.isJournal && shape.props.type === 'journal' && shape.props.journalDate?.startsWith(prefix)) {
                 bump(shape.props.journalDate)

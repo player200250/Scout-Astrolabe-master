@@ -81,7 +81,9 @@ export function JournalCardEditor({ boards, dateKey, template, onSaveJournal, ma
         if (!p.card && isUntouchedTemplate(p.html, p.template)) { setSaveStatus('none'); return }
         setSaveStatus('saving')
         onSaveRef.current(p.card?.boardId ?? p.boardId ?? '', p.key, p.html, p.card?.shapeId ?? null)
-        setTimeout(() => setSaveStatus('saved'), SAVE_STATUS_RESET_MS)
+        // 只在還停在同一天／同一週時才亮「已儲存」：打完字馬上翻週，這次補存是舊那週的，
+        // 計時器到點時畫面已經是新的那週——以前會在沒打任何字的新週亮「已儲存」（v1.8.4 報告 P3）
+        setTimeout(() => { if (keyRef.current === p.key) setSaveStatus('saved') }, SAVE_STATUS_RESET_MS)
     }, [])
 
     // `[[` 補全的候選：白板名＋卡片名。白板裡用的是 BacklinksContext 的增量索引，

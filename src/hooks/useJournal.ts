@@ -1,7 +1,7 @@
 import { useCallback } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
 import type { BoardRecord } from '../db'
-import { saveBoard } from '../utils/boardDb'
+import { saveBoard, generateId, uniqueName } from '../utils/boardDb'
 import { toMutableSnapshot, toTLEditorSnapshot } from '../utils/snapshot'
 import { ensurePageScaffold, nextAppendX, lastShapeIndex } from '../utils/snapshotCards'
 import { stampCreated, stampUpdated } from '../utils/cardActivity'
@@ -25,6 +25,22 @@ export function useJournal(state: JournalSharedState) {
         const updated = { ...board, isJournal }
         saveBoard(updated)
         setBoards(prev => prev.map(b => b.id === boardId ? updated : b))
+    }, [boards, setBoards])
+
+    /**
+     * 一鍵建立日誌白板（v1.8.4 測試報告 P2-6）：新使用者打開日記／週回顧時，
+     * 原本只看到「去側邊欄右鍵設定」的說明，卡在第一步。已經有日誌板就直接用那塊。
+     */
+    const handleCreateJournalBoard = useCallback((): BoardRecord => {
+        const existing = boards.find(b => b.isJournal)
+        if (existing) return existing
+        const board: BoardRecord = {
+            id: generateId(), name: uniqueName('📔 日誌', boards),
+            snapshot: null, thumbnail: null, updatedAt: Date.now(), isJournal: true,
+        }
+        saveBoard(board)
+        setBoards(prev => [...prev, board])
+        return board
     }, [boards, setBoards])
 
     const handleSaveJournal = useCallback((boardId: string, dateStr: string, html: string, shapeId: string | null) => {
@@ -65,5 +81,6 @@ export function useJournal(state: JournalSharedState) {
     return {
         handleSetJournal,
         handleSaveJournal,
+        handleCreateJournalBoard,
     }
 }
