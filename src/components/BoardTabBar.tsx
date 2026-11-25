@@ -18,6 +18,7 @@ import { InlineEdit } from './ui/InlineEdit'
 import { useThumbnailPreview } from './ui/ThumbnailPreview'
 import { Icon, type IconName } from './ui/icons'
 import type { PomodoroNavNote } from '../utils/pomodoro'
+import { pickRecentBoards } from '../utils/recentBoards'
 
 interface NavItemDef {
     icon: IconName
@@ -111,6 +112,8 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
     const [contextMenu, setContextMenu] = useState<{ boardId: string; y: number } | null>(null)
     const [archivedOpen, setArchivedOpen] = useState(false)
     const [recentOpen, setRecentOpen] = useState(true)
+    // 滑鼠在白板清單上時凍結「最近使用」順序，離開才重排（見 utils/recentBoards）
+    const [frozenRecent, setFrozenRecent] = useState<string[] | null>(null)
     const [pinnedOpen, setPinnedOpen] = useState(true)
     const [allOpen, setAllOpen] = useState(true)
     const [folderOpen, setFolderOpen] = useState<Record<string, boolean>>({})
@@ -346,10 +349,7 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                     const archivedBoards = realBoards.filter(b => !b.folderId && b.status === 'archived' && !b.isInbox)
                     const unfolderedBoards = realBoards.filter(b => !b.folderId && b.status !== 'pinned' && b.status !== 'archived' && !b.isHome && !b.isInbox)
 
-                    const recentBoards = realBoards
-                        .filter(b => b.id !== activeBoardId && !b.isHome && !b.isInbox && b.status !== 'archived' && b.status !== 'pinned' && b.lastVisitedAt)
-                        .sort((a, b) => (b.lastVisitedAt ?? 0) - (a.lastVisitedAt ?? 0))
-                        .slice(0, 5)
+                    const recentBoards = pickRecentBoards(realBoards, activeBoardId, frozenRecent)
 
                     const renderBoardCard = (board: BoardRecord, opts?: { dimmed?: boolean }) => {
                         const isActive  = activeBoardId === board.id
@@ -515,7 +515,10 @@ export function BoardTabBar({ boards, activeBoardId, onSwitch, onNew, onRename, 
                         // 「一列被切一半的白板」直接貼著分隔線＝兩種內容再次讀成同一串。
                         <>
                             <SectionLabel>白板</SectionLabel>
-                            <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '0 6px 6px', scrollbarWidth: 'none', display: 'flex', flexDirection: 'column', gap: 1 }}>
+                            <div
+                                onMouseEnter={() => setFrozenRecent(recentBoards.map(b => b.id))}
+                                onMouseLeave={() => setFrozenRecent(null)}
+                                style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '0 6px 6px', scrollbarWidth: 'none', display: 'flex', flexDirection: 'column', gap: 1 }}>
                             {recentBoards.length > 0 && (
                                 <>
                                     <CollapsibleHeader label="最近使用" open={recentOpen} onToggle={() => setRecentOpen(v => !v)} />

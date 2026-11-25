@@ -90,9 +90,17 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
     const imageInputRef = useRef<HTMLInputElement>(null)
     const jsonInputRef = useRef<HTMLInputElement>(null)
 
-    const createTextCard = useCallback((x?: number, y?: number) => {
-        editor.createShape({ type: 'card', x, y, props: { type: 'text', text: '', image: null, todos: [], url: '', state: 'idle', w: 280, h: 320 } })
+    // 沒給座標（快捷鍵／工具列新增）⇒ 放在畫面正中央。以前不給 x/y，tldraw 放到頁面原點，
+    // 白板一空就落在左上角、被左側工具列蓋住（v1.8.4 驗收觀察）。
+    const centerPos = useCallback((w: number, h: number, x?: number, y?: number) => {
+        if (x !== undefined && y !== undefined) return { x, y }
+        const c = editor.screenToPage(editor.getViewportScreenCenter())
+        return { x: c.x - w / 2, y: c.y - h / 2 }
     }, [editor])
+
+    const createTextCard = useCallback((x?: number, y?: number) => {
+        editor.createShape({ type: 'card', ...centerPos(280, 320, x, y), props: { type: 'text', text: '', image: null, todos: [], url: '', state: 'idle', w: 280, h: 320 } })
+    }, [editor, centerPos])
 
     // C4：Markdown → 文字卡。轉換是純函式（utils/markdownImport），這裡只負責放位置。
     // 卡片開大一點（400×400）——匯入的通常是整篇文件，用文字卡預設的 280×320 會一進來就被截掉。
@@ -111,12 +119,12 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
     }, [editor])
 
     const createTodoCard = useCallback((x?: number, y?: number) => {
-        editor.createShape({ type: 'card', x, y, props: { type: 'todo', text: '', image: null, todos: [{ id: `todo_${Date.now()}`, text: '新任務', checked: false }], url: null, state: 'idle', w: 280, h: 320 } })
-    }, [editor])
+        editor.createShape({ type: 'card', ...centerPos(280, 320, x, y), props: { type: 'todo', text: '', image: null, todos: [{ id: `todo_${Date.now()}`, text: '新任務', checked: false }], url: null, state: 'idle', w: 280, h: 320 } })
+    }, [editor, centerPos])
 
     const createLinkCard = useCallback((x?: number, y?: number) => {
-        editor.createShape({ type: 'card', x, y, props: { type: 'link', text: '', image: null, todos: [], url: 'https://example.com', linkEmbedUrl: null, state: 'idle', color: 'none', cardStatus: 'none', priority: 'none', tags: [], w: 280, h: 200 } })
-    }, [editor])
+        editor.createShape({ type: 'card', ...centerPos(280, 200, x, y), props: { type: 'link', text: '', image: null, todos: [], url: 'https://example.com', linkEmbedUrl: null, state: 'idle', color: 'none', cardStatus: 'none', priority: 'none', tags: [], w: 280, h: 200 } })
+    }, [editor, centerPos])
 
     // image 卡改存實體檔：壓縮後的 data URL 交給 imageStore 存檔，snapshot 只留 storedName；
     // 無 electronAPI（未來 PWA）或存檔失敗時 fallback 存舊 base64（含遠端 URL）。（TD-IMG）
@@ -127,12 +135,12 @@ export function WhiteboardTools({ board, boards, onSaveBoard, jumpRef, onOpenSea
         const { x, y, w = 280, h = 200 } = opts
         const storedName = await imageStore.saveImage(dataUrl)
         editor.createShape({
-            type: 'card', x, y,
+            type: 'card', ...centerPos(w, h, x, y),
             props: storedName
                 ? { type: 'image', text: '', image: null, storedName, todos: [], url: '', state: 'idle', w, h }
                 : { type: 'image', text: '', image: dataUrl, todos: [], url: '', state: 'idle', w, h },
         })
-    }, [editor])
+    }, [editor, centerPos])
 
     const createImageCard = useCallback((imgBase64: string) => {
         void createImageShape(imgBase64)
