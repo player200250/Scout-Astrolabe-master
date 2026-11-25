@@ -3,6 +3,7 @@
 
 import { db } from '../db'
 import type { DeletedCardRecord } from '../db'
+import { releaseStoredFiles, storedNameOfTrashedCard } from './localCleanup'
 
 /** 將一個 shape 存入 deletedCards 資料表（加入垃圾桶） */
 export async function saveCardToTrash(
@@ -42,4 +43,15 @@ export function getCardPreview(shape: { props?: Record<string, unknown> }): stri
     if (p.type === 'image') return '圖片卡片'
     if (p.type === 'board') return `白板卡: ${String(p.text ?? '')}`
     return '卡片'
+}
+
+/**
+ * 永久刪除垃圾桶裡的單卡：先刪記錄，再釋放實體檔（只刪已經沒人引用的）。
+ * 垃圾桶「永久刪除」與啟動時「14 天過期清理」共用這一條，順序不會寫錯。
+ */
+export async function purgeTrashedCards(records: DeletedCardRecord[]): Promise<void> {
+    if (records.length === 0) return
+    await db.table('deletedCards').bulkDelete(records.map(r => r.id))
+    const names = records.map(storedNameOfTrashedCard).filter((n): n is string => !!n)
+    await releaseStoredFiles(names)
 }

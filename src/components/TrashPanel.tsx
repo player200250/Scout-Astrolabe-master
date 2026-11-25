@@ -2,7 +2,8 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { db } from '../db'
 import type { BoardRecord, DeletedCardRecord } from '../db'
 import { emitAppEvent, onAppEvent } from '../utils/appEvents'
-import { deleteStoredFile } from '../platform/fileStore'
+import { purgeTrashedCards } from '../utils/trashUtils'
+import { releaseStoredFiles, storedNameOfTrashedCard } from '../utils/localCleanup'
 import { T } from '../theme/tokens'
 import { FullscreenPanel } from './ui/FullscreenPanel'
 import { Icon } from './ui/icons'
@@ -13,7 +14,7 @@ interface TrashPanelProps {
     onClose: () => void
     onRestoreBoard: (id: string) => void
     onPermanentDeleteBoard: (id: string) => void
-    onEmptyTrash: () => void
+    onEmptyTrash: () => void | Promise<void>
     onCardRestored: () => void
 }
 
@@ -106,14 +107,11 @@ export function TrashPanel({
         const record: DeletedCardRecord | undefined = await db.table('deletedCards').get(id)
         if (record) {
             emitAppEvent('permanent-delete-shape', { shapeId: record.shapeId, boardId: record.boardId })
-            if (record.type === 'file' || record.type === 'image') {
-                const props = (record.shapeData as { props?: { storedName?: string } })?.props
-                if (props?.storedName) {
-                    deleteStoredFile(props.storedName)
-                }
-            }
+            // 先刪記錄、再只刪「已經沒人引用」的實體檔：複製出來的卡共用同一個檔（P0 D1）
+            await purgeTrashedCards([record])
+        } else {
+            await db.table('deletedCards').delete(id)
         }
-        await db.table('deletedCards').delete(id)
         setDeletedCards(prev => prev.filter(c => c.id !== id))
         emitAppEvent('trash-count-changed')
     }, [])
@@ -131,16 +129,15 @@ export function TrashPanel({
 
     const handleEmptyTrashLocal = useCallback(async () => {
         cancelConfirm()
+        const storedNames: string[] = []
         for (const card of deletedCards) {
             emitAppEvent('permanent-delete-shape', { shapeId: card.shapeId, boardId: card.boardId })
-            if (card.type === 'file' || card.type === 'image') {
-                const props = (card.shapeData as { props?: { storedName?: string } })?.props
-                if (props?.storedName) {
-                    deleteStoredFile(props.storedName)
-                }
-            }
+            const name = storedNameOfTrashedCard(card)
+            if (name) storedNames.push(name)
         }
         await onEmptyTrash()
+        // 垃圾桶清空（記錄都刪了）之後才判斷：白板上的複本還在用的檔不能刪（P0 D1）
+        await releaseStoredFiles(storedNames)
         setDeletedCards([])
         setDeletedBoards([])
     }, [onEmptyTrash, deletedCards, cancelConfirm])

@@ -34,6 +34,7 @@ import { collectImageNames, uploadImages, downloadMissingImages } from './imageS
 import { INITIAL_SYNC_STATUS, type SyncStatus } from './syncStatus'
 import { emitAppEvent } from '../utils/appEvents'
 import { planOrphanBoards } from './tombstoneGuard'
+import { TRASH_EXPIRE_MS } from '../constants'
 
 // ── 節奏參數 ─────────────────────────────────────────────────────────────────
 // 存檔到推送之間的等待。tldraw 存檔很密集（拖一張卡就好幾次），不去抖的話
@@ -57,6 +58,16 @@ let status: SyncStatus = INITIAL_SYNC_STATUS
 
 /** 已經提示過的「活躍板遠端較新」，避免每輪輪詢都彈同一則提示 */
 const notifiedConflicts = new Set<string>()
+/**
+ * 等著推墓碑的板（id → 名稱）。永久刪除一律先排進這裡，由 runSync 開頭統一推。
+ *
+ * 為什麼不在刪除當下直接推：啟動時的 14 天垃圾桶清理跑在引擎啟動**之前**，
+ * 舊寫法遇到 `!started` 就直接 return ⇒ 墓碑沒推 ⇒ 下一輪同步把它當「雲端才有」的板
+ * 拉回垃圾桶＝每次開機刪了又長回來（2026-11-25 實機）。另外，當下推的那條路徑會自己
+ * 另存一份同步紀錄，和正在跑的 runSync 互相覆蓋；集中在 runSync 裡推就沒有這個競態。
+ * 只放記憶體：App 關掉前沒推成，下次開機時清理會再刪一次（或被 pullPhase 的過期規則擋下）。
+ */
+const pendingTombstones = new Map<string, string>()
 
 // ── 狀態廣播 ─────────────────────────────────────────────────────────────────
 
@@ -143,8 +154,8 @@ export function notifyBoardSaved(board: BoardRecord): void {
  * 直接刪列的話，另一端還留著這塊板，下次它一同步就會以「僅本機」的身分把它整個推回來＝復活。
  */
 export function notifyBoardDeleted(board: BoardRecord): void {
-    if (!started) return
-    void pushTombstone(board).catch(err => console.error('[sync] 推送墓碑失敗', err))
+    pendingTombstones.set(board.id, board.name)
+    if (started) scheduleSync(0)
 }
 
 /** 手動觸發一次完整同步（雲端同步面板的「立即同步」）*/
@@ -215,6 +226,12 @@ async function runSync(reason: string): Promise<void> {
         } catch (e) {
             listError = e instanceof Error ? e.message : String(e)
         }
+
+        // 先把排隊中的墓碑推掉，再從雲端清單裡拿掉它們：清單是推之前取的，留著的話
+        // 拉取階段會把剛推墓碑的板當成孤兒再判一次（還可能被算進「本機資料被重置」）。
+        const flushed = await flushPendingTombstones(state, localBoards)
+        state = flushed.state
+        if (flushed.ids.size > 0) remoteList = remoteList.filter(r => !flushed.ids.has(r.id))
 
         const push = await pushPhase(localBoards, state, remoteList)
         state = push.state
@@ -459,16 +476,18 @@ async function pullPhase(
 
         if (orphanIds.has(remote.id)) {
             if (tombstoneIds.has(remote.id)) {
-                await pushTombstone({
-                    id: remote.id, name: remote.name, snapshot: null, thumbnail: null,
-                    updatedAt: remote.updatedAt,
-                })
+                next = markPushed(next, remote.id, await pushTombstone(remote.id, remote.name))
                 continue
             }
             // 雲端本來就是墓碑 ⇒ 兩邊都已經是「沒了」，不必再推、也不拉一塊空殼回垃圾桶
             if (remote.deletedAt) continue
             // 其餘＝可疑重置，往下走正常的拉取流程把它救回來
         }
+
+        // 本機沒有、雲端在垃圾桶裡已超過 14 天：拉回來也會在下次開機被清掉，
+        // 然後又被拉回來——不拉（2026-11-25「刪了又長回來」）。未滿 14 天的照拉，
+        // 本機資料庫被重置時垃圾桶裡的東西才救得回來。
+        if (!local && remote.deletedAt && remote.deletedAt < Date.now() - TRASH_EXPIRE_MS) continue
 
         // 正在開著的板：不覆蓋，只提示（第 4 項需求）。
         // 使用者可能正在這塊板上打字，一聲不響換掉畫布內容會直接毀掉他手上的工作。
@@ -480,6 +499,9 @@ async function pullPhase(
         const got = await pullBoard(remote.id)
         if (!got.ok) throw new Error(got.error ?? '拉取失敗')
         if (!got.data) continue
+        // 墓碑（已刪除＋沒有內容）：本機沒有就維持沒有，不拉一塊空殼進垃圾桶。
+        // 推過墓碑的紀錄會被 pruneState 修剪（本機已沒有那塊板），所以下一輪它看起來像「雲端才有」。
+        if (!local && got.data.deletedAt && got.data.snapshot == null) continue
 
         // ⚠️ 直接寫 db，不走 saveBoard——後者會通知引擎，把剛拉回來的東西再推一次
         await db.table('boards').put(got.data)
@@ -568,24 +590,37 @@ export async function applyRemoteBoard(boardId: string): Promise<void> {
 
 // ── 墓碑（第 5 項：永久刪除也要讓另一端知道）─────────────────────────────────
 
-async function pushTombstone(board: Pick<BoardRecord, 'id' | 'name'> & Partial<BoardRecord>): Promise<void> {
+/** 推一列墓碑，回傳它的 updatedAt。同步紀錄由呼叫端記進自己手上那份 state（不另存，避免與 runSync 互蓋）。*/
+async function pushTombstone(id: string, name: string): Promise<number> {
     const now = Date.now()
     // snapshot/thumbnail 清空：墓碑只需要「這個 id 已經沒了」這個事實，
     // 留著整包內容只是讓每塊刪掉的板永遠佔著雲端空間
-    const tombstone: BoardRecord = {
-        ...board,
-        id: board.id,
-        name: board.name,
-        snapshot: null,
-        thumbnail: null,
-        deletedAt: now,
-        updatedAt: now,
-    }
+    const tombstone: BoardRecord = { id, name, snapshot: null, thumbnail: null, deletedAt: now, updatedAt: now }
     const res = await pushBoard(tombstone)
     if (!res.ok) throw new Error(res.error ?? '推送墓碑失敗')
+    return now
+}
 
-    const userId = await getCurrentUserId()
-    saveSyncState(markPushed(loadSyncState(userId), tombstone.id, tombstone.updatedAt))
+/** 推掉排隊中的墓碑。本機又有同 id 的板（例如從備份還原回來）就作罷；推失敗的留著下一輪再試。*/
+async function flushPendingTombstones(
+    state: SyncState,
+    localBoards: BoardRecord[],
+): Promise<{ state: SyncState; ids: Set<string> }> {
+    const ids = new Set<string>()
+    if (pendingTombstones.size === 0) return { state, ids }
+    const localIds = new Set(localBoards.map(b => b.id))
+    let next = state
+    for (const [id, name] of [...pendingTombstones]) {
+        if (localIds.has(id)) { pendingTombstones.delete(id); continue }
+        try {
+            next = markPushed(next, id, await pushTombstone(id, name))
+            pendingTombstones.delete(id)
+            ids.add(id)
+        } catch (err) {
+            console.error('[sync] 推送墓碑失敗', err)
+        }
+    }
+    return { state: next, ids }
 }
 
 // ── 測試用 ───────────────────────────────────────────────────────────────────
@@ -600,4 +635,5 @@ export function __resetSyncEngineForTest(): void {
     failureCount = 0
     status = INITIAL_SYNC_STATUS
     notifiedConflicts.clear()
+    pendingTombstones.clear()
 }

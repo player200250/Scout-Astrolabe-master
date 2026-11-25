@@ -4,6 +4,9 @@ export const SIDEBAR_WIDTH = 220
 export const SIDEBAR_COLLAPSED_WIDTH = 40
 export const BACKUP_THROTTLE_MS = 5 * 60 * 1000
 
+// 垃圾桶保留天數：超過就在開機時永久刪除（同步引擎也據此不把過期的垃圾桶板拉回來）
+export const TRASH_EXPIRE_MS = 14 * 86400000
+
 // 等待編輯器完成渲染後再執行跳轉（jump-to-card / jump-to-shape）
 export const JUMP_DELAY_MS = 400
 

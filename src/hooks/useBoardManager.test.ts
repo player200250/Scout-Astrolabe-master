@@ -36,6 +36,8 @@ const mocks = vi.hoisted(() => {
         saveAutoBackup: vi.fn(async () => undefined),
         trimBackups: vi.fn(async () => 0),
         clearSyncState: vi.fn(),
+        purgeTrashedCards: vi.fn(async () => undefined),
+        replaceAllBoards: vi.fn(async (_boards: BoardRecord[]) => undefined),
     }
 })
 
@@ -47,6 +49,7 @@ vi.mock('../utils/boardDb', async (importOriginal) => ({
     saveBoard: mocks.saveBoard,
     deleteBoard: mocks.deleteBoard,
     generateId: mocks.generateId,
+    replaceAllBoards: mocks.replaceAllBoards,
 }))
 vi.mock('../db', () => ({
     db: mocks.db,
@@ -54,6 +57,10 @@ vi.mock('../db', () => ({
     trimBackups: mocks.trimBackups,
 }))
 vi.mock('../sync/syncState', () => ({ clearSyncState: mocks.clearSyncState }))
+vi.mock('../utils/trashUtils', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('../utils/trashUtils')>()),
+    purgeTrashedCards: mocks.purgeTrashedCards,
+}))
 
 // 替身設定完才能 import hook（import 時 hook 內部就會抓到替身版的 boardDb/db）
 import { useBoardManager } from './useBoardManager'
@@ -688,13 +695,13 @@ describe('useBoardManager — 跳轉', () => {
 describe('useBoardManager — 全量還原（備份重灌）', () => {
     it('handleRestore 清空 DB、灌入備份白板、active 落到第一塊', async () => {
         const { result } = await setup()
-        const tbl = mocks.db.table('boards')
         const backup = [board({ id: 'r1', name: '備份一' }), board({ id: 'r2', name: '備份二' })]
 
         await act(async () => { await result.current.handleRestore(backup) })
 
-        expect(tbl.clear).toHaveBeenCalled()
-        expect(tbl.put).toHaveBeenCalledTimes(2)
+        // 清空＋寫入改在 replaceAllBoards 的單一交易裡（P0 修復 3，真 DB 行為見 boardDb.restore.test.ts）
+        expect(mocks.replaceAllBoards).toHaveBeenCalledTimes(1)
+        expect(mocks.replaceAllBoards.mock.calls[0][0].map(b => b.id)).toEqual(['r1', 'r2'])
         expect(result.current.boards.map(b => b.id)).toEqual(['r1', 'r2'])
         expect(result.current.activeBoardId).toBe('r1')
         expect(result.current.navigationStack).toEqual(['r1'])
@@ -716,21 +723,17 @@ describe('useBoardManager — 全量還原（備份重灌）', () => {
     // RC27：沿用備份裡的舊 updatedAt ⇒ 雲端那份比較新 ⇒ 同步把剛還原的內容蓋回去
     it('還原的白板 updatedAt 一律推進到現在', async () => {
         const { result } = await setup()
-        const tbl = mocks.db.table('boards')
-        tbl.put.mockClear()
         const before = Date.now()
 
         await act(async () => { await result.current.handleRestore([board({ id: 'r1', name: '備份一', updatedAt: 100 })]) })
 
-        const written = (tbl.put.mock.calls as unknown as [BoardRecord][])[0][0]
+        const written = mocks.replaceAllBoards.mock.calls[0][0][0]
         expect(written.updatedAt).toBeGreaterThanOrEqual(before)
     })
 
     // RC26 之後備份含垃圾桶：寫回資料庫，但不能出現在側欄、也不能被選成目前白板
     it('垃圾桶的板寫回資料庫、但不進側欄清單', async () => {
         const { result } = await setup()
-        const tbl = mocks.db.table('boards')
-        tbl.put.mockClear()
 
         await act(async () => {
             await result.current.handleRestore([
@@ -739,7 +742,7 @@ describe('useBoardManager — 全量還原（備份重灌）', () => {
             ])
         })
 
-        expect((tbl.put.mock.calls as unknown as [BoardRecord][]).map(c => c[0].id).sort()).toEqual(['gone', 'r1'])
+        expect(mocks.replaceAllBoards.mock.calls[0][0].map(b => b.id).sort()).toEqual(['gone', 'r1'])
         expect(result.current.boards.map(b => b.id)).toEqual(['r1'])
         expect(result.current.activeBoardId).toBe('r1')
     })
@@ -836,4 +839,115 @@ describe('useBoardManager — 軟刪並搬卡進 Inbox', () => {
 afterEach(() => {
     vi.useRealTimers()
     vi.unstubAllGlobals()
+})
+
+describe('useBoardManager — 垃圾桶 14 天過期清理（P0 D1）', () => {
+    it('過期單卡交給 purgeTrashedCards（先刪記錄、只刪沒人引用的檔），不再直接刪實體檔', async () => {
+        const expired = {
+            id: 'dc1', shapeId: 'shape:c', boardId: 'b1', boardName: 'b1', type: 'image', preview: '',
+            deletedAt: 1, shapeData: { props: { type: 'image', storedName: 'shared.png' } },
+        }
+        const tbl = mocks.db.table('deletedCards')
+        tbl.toArray.mockResolvedValueOnce([expired] as never)
+
+        await setup()
+
+        await waitFor(() => expect(mocks.purgeTrashedCards).toHaveBeenCalledWith([expired]))
+        expect(tbl.delete).not.toHaveBeenCalled()
+    })
+})
+
+describe('useBoardManager — handleSaveBoard 帶 boardId（P0 修復 2）', () => {
+    const snap = (content: string) => ({ content }) as unknown as BoardRecord['snapshot'] & object
+
+    it('卸載補存帶的是原白板 id ⇒ 寫進原白板，不寫進目前 active 的那塊', async () => {
+        mocks.loadAllBoards.mockResolvedValue([board({ id: 'A', name: 'A' }), board({ id: 'B', name: 'B' })])
+        const { result } = await setup()
+        act(() => { result.current.handleSwitch('B') })
+        mocks.saveBoard.mockClear()
+
+        act(() => { result.current.handleSaveBoard(snap('A 的最後修改'), undefined, 'A') })
+
+        expect(mocks.saveBoard).toHaveBeenCalledTimes(1)
+        expect(mocks.saveBoard).toHaveBeenCalledWith(expect.objectContaining({ id: 'A', snapshot: snap('A 的最後修改') }))
+        expect(result.current.boards.find(b => b.id === 'B')?.snapshot).toBeNull()
+    })
+
+    it('剛被軟刪的白板，卸載補存不會把它寫回來（不從垃圾桶復活）', async () => {
+        mocks.loadAllBoards.mockResolvedValue([board({ id: 'A', name: 'A' }), board({ id: 'B', name: 'B' })])
+        const { result } = await setup()
+        await act(async () => { await result.current.handleSoftDeleteBoard('A') })
+        mocks.saveBoard.mockClear()
+
+        act(() => { result.current.handleSaveBoard(snap('刪除前的編輯'), undefined, 'A') })
+
+        expect(mocks.saveBoard).not.toHaveBeenCalled()
+    })
+
+    it('舊 closure（已卸載的白板拿著）呼叫時，也是用最新的白板資料合併', async () => {
+        mocks.loadAllBoards.mockResolvedValue([board({ id: 'A', name: '舊名' })])
+        const { result } = await setup()
+        const staleSave = result.current.handleSaveBoard   // 模擬卸載中的白板手上那份
+        act(() => { result.current.handleRename('A', '新名') })
+        mocks.saveBoard.mockClear()
+
+        act(() => { staleSave(snap('x'), undefined, 'A') })
+
+        expect(mocks.saveBoard).toHaveBeenCalledWith(expect.objectContaining({ id: 'A', name: '新名' }))
+    })
+
+    it('DB 寫入失敗 ⇒ 顯示錯誤提示，不是只印 console', async () => {
+        mocks.loadAllBoards.mockResolvedValue([board({ id: 'A', name: 'A' })])
+        const { result } = await setup()
+        const toasts = captureEvent('ui-toast')
+        const err = vi.spyOn(console, 'error').mockImplementation(() => {})
+        mocks.saveBoard.mockRejectedValueOnce(new Error('QuotaExceededError'))
+
+        act(() => { result.current.handleSaveBoard(snap('x'), undefined, 'A') })
+
+        await waitFor(() => expect(toasts.calls.length).toBe(1))
+        expect(toasts.calls[0]).toEqual(expect.objectContaining({ kind: 'error' }))
+        toasts.off(); err.mockRestore()
+    })
+})
+
+describe('useBoardManager — 還原失敗不可假裝成功（P0 修復 3）', () => {
+    it('寫入失敗 ⇒ handleRestore 丟錯；畫面上的白板、active、syncState 都不動', async () => {
+        mocks.loadAllBoards.mockResolvedValue([board({ id: 'cur', name: '現在的' })])
+        const { result } = await setup()
+        mocks.clearSyncState.mockClear()
+        mocks.replaceAllBoards.mockRejectedValueOnce(new Error('QuotaExceededError'))
+
+        await act(async () => {
+            await expect(result.current.handleRestore([board({ id: 'r1', name: '備份一' })])).rejects.toThrow('QuotaExceededError')
+        })
+
+        expect(result.current.boards.map(b => b.id)).toEqual(['cur'])
+        expect(result.current.activeBoardId).toBe('cur')
+        expect(mocks.clearSyncState).not.toHaveBeenCalled()
+    })
+
+    it('無效備份 ⇒ 完全不碰資料庫，直接丟出說明', async () => {
+        mocks.loadAllBoards.mockResolvedValue([board({ id: 'cur', name: '現在的' })])
+        const { result } = await setup()
+
+        await act(async () => {
+            await expect(result.current.handleRestore([{ name: '沒有 id' } as unknown as BoardRecord])).rejects.toThrow('id')
+        })
+
+        expect(mocks.replaceAllBoards).not.toHaveBeenCalled()
+        expect(result.current.boards.map(b => b.id)).toEqual(['cur'])
+    })
+
+    it('寫入前先通知白板寫掉 debounce 中的編輯（避免卸載補存蓋回還原內容）', async () => {
+        const { result } = await setup()
+        const order: string[] = []
+        const cap = onAppEvent('flush-pending-board-save', () => order.push('flush'))
+        mocks.replaceAllBoards.mockImplementationOnce(async () => { order.push('replace') })
+
+        await act(async () => { await result.current.handleRestore([board({ id: 'r1', name: '備份一' })]) })
+
+        expect(order).toEqual(['flush', 'replace'])
+        cap()
+    })
 })

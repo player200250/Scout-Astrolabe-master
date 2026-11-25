@@ -1,14 +1,14 @@
 import { useState, useEffect, useCallback } from 'react'
 import { db, trimBackups, type BoardRecord } from '../db'
 import type { DeletedCardRecord, BoardTemplateRecord } from '../db'
-import { loadAllBoards, saveBoard, deleteBoard, generateId, uniqueName } from '../utils/boardDb'
+import { loadAllBoards, saveBoard, deleteBoard, generateId, uniqueName, replaceAllBoards, validateRestoreBoards } from '../utils/boardDb'
 import { emitAppEvent } from '../utils/appEvents'
-import { deleteStoredFile } from '../platform/fileStore'
+import { TRASH_EXPIRE_MS } from '../constants'
 import { clearSyncState } from '../sync/syncState'
 import {
     getSnapshotStore, withUpdatedStore, toMutableSnapshot, toTLEditorSnapshot,
 } from '../utils/snapshot'
-import { saveCardToTrash, getCardPreview } from '../utils/trashUtils'
+import { saveCardToTrash, getCardPreview, purgeTrashedCards } from '../utils/trashUtils'
 import { cleanupOrphanBoardCards, sanitizeBoards } from '../utils/boardSanitize'
 import { ensurePageScaffold, nextAppendX, lastShapeIndex } from '../utils/snapshotCards'
 import { useAutoBackup } from './useAutoBackup'
@@ -25,7 +25,6 @@ import { useTodoEdits } from './useTodoEdits'
 import { useCloudSync } from './useCloudSync'
 import { showToast } from '../utils/toast'
 
-const TRASH_EXPIRE_MS = 14 * 86400000
 
 export function useBoardManager() {
     const [boards, setBoards] = useState<BoardRecord[]>([])
@@ -78,13 +77,8 @@ export function useBoardManager() {
             for (const b of expiredBoards) await deleteBoard(b.id)
             try {
                 const expiredCards: DeletedCardRecord[] = await db.table('deletedCards').where('deletedAt').below(cutoff).toArray()
-                for (const c of expiredCards) {
-                    if (c.type === 'file' || c.type === 'image') {
-                        const props = (c.shapeData as { props?: { storedName?: string } })?.props
-                        if (props?.storedName) deleteStoredFile(props.storedName)
-                    }
-                    await db.table('deletedCards').delete(c.id)
-                }
+                // 先刪記錄、再只刪沒人引用的實體檔（P0 D1：複製出來的卡共用同一個檔）
+                await purgeTrashedCards(expiredCards)
             } catch { /* table may not exist on first run before migration */ }
 
             const active = loaded.filter(b => !b.deletedAt)
@@ -311,10 +305,16 @@ export function useBoardManager() {
     const handleRestore = useCallback(async (restoredBoards: BoardRecord[]) => {
         // RC27：updatedAt 一律推進到現在。沿用備份裡的時間的話，雲端那份比較新 ⇒
         // 同步引擎把剛還原的內容拉回去蓋掉；雲端資料壞掉時（2026-10-05 事故）就等於白還原。
+        // P0 修復 3：先驗證、再在單一交易裡整批取代；失敗就丟錯給 UI（不讓使用者以為還原成功），
+        // 資料庫維持原樣，後面的 clearSyncState／切換 state 都不會執行。
+        const checked = validateRestoreBoards(restoredBoards)
+        if (!checked.ok) throw new Error(checked.error)
         const now = Date.now()
-        const boards = restoredBoards.map(b => ({ ...b, updatedAt: now }))
-        await db.table('boards').clear()
-        await Promise.all(boards.map(b => db.table('boards').put(b)))
+        const boards = checked.boards.map(b => ({ ...b, updatedAt: now }))
+        // 白板上 debounce 中的編輯先寫掉：那次寫入排在還原交易之前，
+        // 還原成功後不會被白板卸載時的補存蓋回去；還原失敗時那段編輯也已經存好。
+        emitAppEvent('flush-pending-board-save')
+        await replaceAllBoards(boards)
         clearSyncState()
         // 備份含垃圾桶（RC26）：垃圾桶的板寫回資料庫，但不能出現在側欄
         const live = boards.filter(b => !b.deletedAt)

@@ -40,6 +40,12 @@ export interface AppEventPayloads {
     /** 垃圾桶計數變更，通知 UI 更新 badge（無 payload）*/
     'trash-count-changed': undefined
 
+    /**
+     * 還原備份前發出：白板立刻寫掉 debounce 中的編輯（同步發出 put）。
+     * 這樣還原交易一定排在它後面，還原成功不會被卸載時的補存蓋回去；還原失敗時編輯也沒丟（P0 修復 2／3）。
+     */
+    'flush-pending-board-save': undefined
+
     /** 從垃圾桶永久刪除一個 shape，通知白板清除 undo 歷史 */
     'permanent-delete-shape': { shapeId: string; boardId: string }
 
