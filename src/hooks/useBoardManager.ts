@@ -3,6 +3,7 @@ import { db, trimBackups, type BoardRecord } from '../db'
 import type { DeletedCardRecord, BoardTemplateRecord } from '../db'
 import { loadAllBoards, saveBoard, deleteBoard, generateId, uniqueName, replaceAllBoards, validateRestoreBoards } from '../utils/boardDb'
 import { emitAppEvent } from '../utils/appEvents'
+import { TRASH_EXPIRE_MS } from '../constants'
 import { clearSyncState } from '../sync/syncState'
 import {
     getSnapshotStore, withUpdatedStore, toMutableSnapshot, toTLEditorSnapshot,
@@ -24,7 +25,6 @@ import { useTodoEdits } from './useTodoEdits'
 import { useCloudSync } from './useCloudSync'
 import { showToast } from '../utils/toast'
 
-const TRASH_EXPIRE_MS = 14 * 86400000
 
 export function useBoardManager() {
     const [boards, setBoards] = useState<BoardRecord[]>([])

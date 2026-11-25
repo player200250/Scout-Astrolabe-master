@@ -59,7 +59,7 @@ vi.mock('./imageSync', () => ({
 const { boardsTable, pushBoard, pullBoard, listRemoteBoards, collectImageNames, uploadImages, downloadMissingImages } = h
 
 import {
-    startSyncEngine, setActiveBoardForSync, notifyBoardSaved, syncNow,
+    startSyncEngine, setActiveBoardForSync, notifyBoardSaved, notifyBoardDeleted, syncNow,
     getSyncStatus, __resetSyncEngineForTest,
 } from './syncEngine'
 import { loadSyncState, saveSyncState } from './syncState'
@@ -404,6 +404,71 @@ describe('syncEngine — 刪除不會復活', () => {
 
         expect(pushBoard).not.toHaveBeenCalled()
         expect(pullBoard).not.toHaveBeenCalled()
+    })
+
+    // 2026-11-25 實機：啟動時的 14 天垃圾桶清理跑在引擎啟動之前 ⇒ notifyBoardDeleted 直接 return、
+    // 墓碑沒推 ⇒ 第一輪同步把它們當成「雲端才有」的板拉回垃圾桶＝每次開機刪了又長回來。
+    it('引擎啟動前被永久刪除的板：啟動後補推墓碑，不拉回來', async () => {
+        setLocal([])
+        listRemoteBoards.mockImplementation(async () => ({ ok: true, data: [remote('old', 100, 100)] }))
+        pullBoard.mockImplementation(async () => ({ ok: true, data: board('old', 100, { deletedAt: 100, snapshot: {} as never }) }))
+
+        notifyBoardDeleted(board('old', 100, { deletedAt: 100 }))   // 引擎還沒啟動
+        startSyncEngine()
+        await settle(); await settle()
+
+        expect(pullBoard).not.toHaveBeenCalled()
+        expect(pushBoard).toHaveBeenCalledTimes(1)
+        const t = pushBoard.mock.calls[0][0]
+        expect(t.id).toBe('old')
+        expect(t.snapshot).toBeNull()
+        expect(t.deletedAt).toBeGreaterThan(100)
+    })
+
+    it('補推墓碑前發現本機又有這塊板（例如從備份還原）⇒ 不推墓碑', async () => {
+        setLocal([board('b1', 100)])
+        saveSyncState({ userId: 'user-1', pushed: { b1: 100 }, thumbHash: {}, uploadedImages: [], shapeHashes: {}, lastPulledAt: null })
+        listRemoteBoards.mockImplementation(async () => ({ ok: true, data: [remote('b1', 100)] }))
+
+        notifyBoardDeleted(board('b1', 100))
+        await syncNow()
+
+        expect(pushBoard).not.toHaveBeenCalled()
+    })
+
+    // 墓碑推過之後，同步紀錄會在 pruneState 被修剪掉（本機沒這塊板）⇒ 下一輪它變成「雲端才有」
+    it('墓碑推過、紀錄被修剪後，下一輪也不會把空殼拉回垃圾桶', async () => {
+        setLocal([])
+        listRemoteBoards.mockImplementation(async () => ({ ok: true, data: [remote('gone', 500, 500)] }))
+        pullBoard.mockImplementation(async () => ({ ok: true, data: board('gone', 500, { deletedAt: 500, snapshot: null }) }))
+
+        await syncNow()
+
+        expect(boardsTable.put).not.toHaveBeenCalled()
+        expect(boardsTable.rows).toEqual([])
+    })
+
+    it('雲端在垃圾桶裡已超過 14 天、本機沒有的板：不拉回來（拉回來也會馬上被清掉）', async () => {
+        setLocal([])
+        const old = Date.now() - 20 * 86400000
+        listRemoteBoards.mockImplementation(async () => ({ ok: true, data: [remote('expired', old, old)] }))
+        pullBoard.mockImplementation(async () => ({ ok: true, data: board('expired', old, { deletedAt: old, snapshot: {} as never }) }))
+
+        await syncNow()
+
+        expect(pullBoard).not.toHaveBeenCalled()
+        expect(boardsTable.put).not.toHaveBeenCalled()
+    })
+
+    it('雲端在垃圾桶裡未滿 14 天、本機沒有的板：照常拉回垃圾桶（本機資料被重置時救得回來）', async () => {
+        setLocal([])
+        const recent = Date.now() - 3 * 86400000
+        listRemoteBoards.mockImplementation(async () => ({ ok: true, data: [remote('recent', recent, recent)] }))
+        pullBoard.mockImplementation(async () => ({ ok: true, data: board('recent', recent, { deletedAt: recent, snapshot: {} as never }) }))
+
+        await syncNow()
+
+        expect(boardsTable.put).toHaveBeenCalledWith(expect.objectContaining({ id: 'recent', deletedAt: recent }))
     })
 
     it('另一端軟刪除的板會被套用到本機（帶著 deletedAt 進垃圾桶）', async () => {
