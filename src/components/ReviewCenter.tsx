@@ -16,6 +16,8 @@ interface ReviewCenterProps {
     onClose: () => void
     onJumpToBoard: (boardId: string) => void
     onSaveJournal: (boardId: string, dateStr: string, html: string, shapeId: string | null) => void
+    /** 還沒有日誌白板時，日記／週回顧的空白畫面可以一鍵建立（P2-6） */
+    onCreateJournalBoard?: () => void
     /** 週回顧的「下週目標 → 待辦」 */
     onAddTodoToInbox?: (text: string, title: string, dueDate: string | null) => string | null
     /** 月曆日／週檢視拖曳排時段（null＝取消） */
@@ -40,7 +42,7 @@ const TABS: { key: ReviewTab; label: string; icon: IconName }[] = [
     { key: 'weekly',   label: '週回顧',   icon: 'stats' },
 ]
 
-export function ReviewCenter({ boards, onClose, onJumpToBoard, onSaveJournal, onAddTodoToInbox, onScheduleTodo, initialTab = 'calendar', initialDate }: ReviewCenterProps) {
+export function ReviewCenter({ boards, onClose, onJumpToBoard, onSaveJournal, onCreateJournalBoard, onAddTodoToInbox, onScheduleTodo, initialTab = 'calendar', initialDate }: ReviewCenterProps) {
     const [tab, setTab] = useState<ReviewTab>(initialTab)
     const [journalDate, setJournalDate] = useState<Date>(() => initialDate ?? new Date())
 
@@ -106,6 +108,7 @@ export function ReviewCenter({ boards, onClose, onJumpToBoard, onSaveJournal, on
                     <JournalDayContent
                         date={journalDate} boards={boards}
                         onSaveJournal={onSaveJournal} onDateChange={setJournalDate}
+                        onCreateJournalBoard={onCreateJournalBoard}
                     />
                 )}
                 {/* RC2：原本包了一層 maxWidth:440 的居中窄欄，1920 寬的視窗下兩側全是空白，
@@ -114,6 +117,7 @@ export function ReviewCenter({ boards, onClose, onJumpToBoard, onSaveJournal, on
                     <WeeklyReviewContent
                         boards={boards}
                         onSaveJournal={onSaveJournal}
+                        onCreateJournalBoard={onCreateJournalBoard}
                         onAddTodoToInbox={onAddTodoToInbox}
                         initialAnchor={initialDate}
                     />

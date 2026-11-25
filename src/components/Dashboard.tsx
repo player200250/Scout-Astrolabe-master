@@ -3,6 +3,7 @@ import type { BoardRecord } from '../db'
 import { getCardShapes } from '../utils/snapshot'
 import { getTodayStr, formatRelativeDate, toDateStr, getISOWeekNumber } from '../utils/date'
 import { stripHtml } from '../utils/stringUtils'
+import { inboxLineText } from '../utils/inboxTriage'
 import { EmptyState } from './ui/EmptyState'
 import { T } from '../theme/tokens'
 import { Icon } from './ui/icons'
@@ -375,7 +376,7 @@ export function Dashboard({
                                         flex: 1, fontSize: 13, color: textPrimary,
                                         overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                                     }}>
-                                        {stripHtml(shape.props.text ?? '').slice(0, 80) || '（無內容）'}
+                                        {inboxLineText(shape.props).slice(0, 80)}
                                     </span>
                                 </div>
                             ))}

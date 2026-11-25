@@ -50,7 +50,7 @@ export function useBoardManager() {
     const {
         handleCreateFolder, handleSetFolder, handleDeleteFolder,
     } = useFolder({ boards, setBoards })
-    const { handleSetJournal, handleSaveJournal } = useJournal({ boards, setBoards })
+    const { handleSetJournal, handleSaveJournal, handleCreateJournalBoard } = useJournal({ boards, setBoards })
     const {
         handleAddCardToInbox, handleAddTodoToInbox, handleMoveCardToBoard, handleMoveCardsToBoard,
         handleUpdateInboxCardProps,
@@ -351,6 +351,7 @@ export function useBoardManager() {
         handleCardTrashed,
         handleJump,
         handleSetJournal,
+        handleCreateJournalBoard,
         handleSetStatus,
         handleRestore,
         handleSaveJournal,

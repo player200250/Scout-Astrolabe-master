@@ -52,6 +52,22 @@ export function triagePreview(props: Record<string, unknown>): { title: string |
 }
 
 /**
+ * 首頁「收件匣預覽」一行要顯示的字（v1.8.4 報告 P3）。
+ * 以前一律 stripHtml(text)：待辦卡的 text 是卡片標題，週回顧轉出來的待辦沒有標題，就顯示成「（無內容）」。
+ * 待辦卡改成：有標題用標題，沒有就用第一個項目。
+ */
+export function inboxLineText(props: Record<string, unknown>): string {
+    if (props.type === 'todo') {
+        const title = stripHtml(String(props.text ?? ''))
+        if (title) return title
+        const first = ((props.todos ?? []) as { text?: string }[]).find(t => (t.text ?? '').trim())
+        return first?.text?.trim() || '（空白待辦）'
+    }
+    const { title, preview } = triagePreview(props)
+    return title || preview || '（無內容）'
+}
+
+/**
  * 由 inbox snapshot 建出 triage 佇列。
  *
  * 以 tldraw 的 fractional index 排序（＝建立順序），最舊的先處理——收件匣裡待最久的
