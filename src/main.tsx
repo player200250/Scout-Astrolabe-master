@@ -25,6 +25,13 @@ function showGlobalError(title: string, detail: string) {
         document.body.appendChild(box)
     }
     box.textContent = `⚠️ ${title}\n\n${detail}\n\n（請把這段訊息回報給開發者）`
+    // 很多非同步錯誤並不致命（例如斷網時某個資源抓不到），App 其實還能用。
+    // 給一顆「關閉」讓使用者回到 App，而不是只能重開（v1.8.4 測試報告 P1-1）。
+    const close = document.createElement('button')
+    close.textContent = '關閉，繼續使用'
+    close.style.cssText = 'position:fixed;top:16px;right:24px;padding:8px 16px;font-size:14px;cursor:pointer'
+    close.onclick = () => box!.remove()
+    box.appendChild(close)
 }
 
 window.addEventListener('error', (e) => {
