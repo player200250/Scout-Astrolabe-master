@@ -197,12 +197,30 @@ describe('待辦排時段（執行閉環 ④）', () => {
         ] },
     ]) })
 
-    it('排了時段的待辦進時間軸，帶得回原本的位置；到期日照樣在全天列', () => {
+    it('排了時段的待辦進時間軸，帶得回原本的位置；當天排了時段就不在全天列重複（P2-7）', () => {
         const t = buildDayTimeline([b], new Date('2026-11-25T00:00:00'))
         expect(t.scheduled.map(s => s.todoId)).toEqual(['d', 'a'])   // 依開始時間排序
         expect(t.scheduled[1]).toMatchObject({ boardId: 'b1', shapeId: 'shape:c0', todoId: 'a', startMin: 840, endMin: 930 })
-        expect(t.todos.map(x => x.todoId)).toEqual(['a', 'b'])
+        expect(t.todos.map(x => x.todoId)).toEqual(['b'])
         expect(t.todos[0]).toMatchObject({ boardId: 'b1', shapeId: 'shape:c0' })
+    })
+
+    it('時段排在別天的待辦，到期那天照樣在全天列', () => {
+        const moved = board({ id: 'b2', updatedAt: at('2026-01-01T00:00:00'), snapshot: withCards([
+            { type: 'todo', todos: [{ id: 'x', text: '提早做', checked: false, dueDate: '2026-11-27', scheduledStart: '2026-11-25T10:00', scheduledEnd: '2026-11-25T11:00' }] },
+        ]) })
+        expect(buildDayTimeline([moved], new Date('2026-11-27T00:00:00')).todos.map(x => x.todoId)).toEqual(['x'])
+        expect(buildDayTimeline([moved], new Date('2026-11-25T00:00:00')).scheduled.map(x => x.todoId)).toEqual(['x'])
+    })
+
+    it('收件匣裡的待辦也要出現（週回顧轉出來的待辦就在收件匣，P1-4）', () => {
+        const inbox = board({ id: 'inbox_board', isInbox: true, updatedAt: at('2026-11-25T09:00:00'), snapshot: withCards([
+            { type: 'todo', todos: [{ id: 'g', text: '下週目標', checked: false, dueDate: '2026-11-25' }] },
+        ]) })
+        const t = buildDayTimeline([inbox], new Date('2026-11-25T00:00:00'))
+        expect(t.todos.map(x => x.todoId)).toEqual(['g'])
+        expect(t.timed).toEqual([])   // 白板活動仍不算收件匣
+        expect(buildYearDensity([inbox], 2026).get('2026-11-25')).toBe(1)
     })
 
     it('結束時間壞掉就當一小時', () => {

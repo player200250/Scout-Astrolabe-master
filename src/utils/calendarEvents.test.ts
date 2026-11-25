@@ -1,7 +1,8 @@
 // buildAgenda：月曆右欄（AgendaPanel）的資料。
 // RC12：日誌板只當日記的倉庫，「白板活動」不能列它——那裡的「前往 →」會把人帶進隱藏的畫布。
 import { describe, it, expect } from 'vitest'
-import { buildAgenda } from './calendarEvents'
+import { buildAgenda, buildMonthEvents } from './calendarEvents'
+import { toDateStr as dateStr } from './date'
 import type { BoardRecord } from '../db'
 
 const at = (s: string) => new Date(s).getTime()
@@ -34,6 +35,17 @@ describe('buildAgenda', () => {
         ], day)
         expect(a.activeBoards.map(b => b.boardId)).toEqual(['b'])
         expect(a.journalCard?.shapeId).toBe('shape:j')
+    })
+
+    it('收件匣的待辦會出現在月曆格子，但收件匣不算白板活動（P1-4）', () => {
+        const inbox = board({ id: 'i', isInbox: true, updatedAt: day.getTime(), snapshot: {
+            document: { store: { 'shape:t': { typeName: 'shape', id: 'shape:t', type: 'card', x: 0, y: 0, index: 'a1',
+                props: { type: 'todo', todos: [{ id: 'g', text: '下週目標', checked: false, dueDate: dateStr(day) }] } } },
+                schema: { schemaVersion: 2, sequences: {} } },
+            session: {},
+        } as never })
+        const m = buildMonthEvents([inbox], day.getFullYear(), day.getMonth())
+        expect(m.get(dateStr(day))).toMatchObject({ todos: [{ text: '下週目標', checked: false }], boardActivity: 0 })
     })
 
     it('主頁與收件匣也不列', () => {
